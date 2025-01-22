@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.nosqlbench</groupId>
+  <artifactId>nbdatatools</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <description>A collection of test data tools</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-enforcer-plugin</artifactId>
+      <version>3.5.0</version>
+    </dependency>
+  </dependencies>
+  <modules>
+    <module>nbvectors</module>
+  </modules>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.2.1</version>
+        <executions>
+          <execution>
+            <id>enforce-java</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+<!--                The GraalVM vendor version is only enforced in the native profile -->
+<!--                <requireProperty>-->
+<!--                  <property>java.vendor.version</property>-->
+<!--                  <regex>.*GraalVM.*</regex>-->
+<!--                  <message>-->
+<!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
+<!--                  </message>-->
+<!--                </requireProperty>-->
+                <requireJavaVersion>
+                  <version>[23,)</version>
+                </requireJavaVersion>
+                <dependencyConvergence/>
+                <requireProfileIdsExist/>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

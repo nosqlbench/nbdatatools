@@ -1,17 +1,27 @@
-target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.versionsBackup
-pom.xml.next
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-# https://github.com/takari/maven-wrapper#usage-without-binary-jar
-.mvn/wrapper/maven-wrapper.jar
+**/cache/**
+.nosqlbench/**
+workspaces/**
+workshop/**
+local*
+local/**
+metrics/**
+bin/**
+**/.idea
+!.idea/scopes
+!.idea/scopes/**
+**/*.iml
+**/target
+**/.classpath
+**/.project
+**/.settings
+**/*.log
+**/logs
+**/*.*log
+**/gen/**
+**/generated
+**/.DS_Store
+**/generated/**
+**/.flattened-pom.xml
+**/stargate-token.txt
+**/*.hdf5
 
-# Eclipse m2e generated files
-# Eclipse Core
-.project
-# JDT-specific (Eclipse Java Development Tools)
-.classpath
