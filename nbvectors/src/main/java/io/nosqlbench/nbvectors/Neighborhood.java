@@ -10,4 +10,8 @@ public class Neighborhood extends ArrayList<NeighborIndex> {
   public Neighborhood() {
     super();
   }
+
+  public long[] getIndices() {
+    return this.stream().mapToLong(NeighborIndex::index).toArray();
+  }
 }

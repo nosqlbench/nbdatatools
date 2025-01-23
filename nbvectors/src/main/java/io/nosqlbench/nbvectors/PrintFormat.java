@@ -8,14 +8,13 @@ public enum PrintFormat {
 
   public static StringBuilder format(
       String description,
-      long index,
-      float[] queryV,
-      List<NeighborIndex> neighbors
+      IndexedFloatVector testVector,
+      Neighborhood neighbors
   )
   {
     StringBuilder sb = new StringBuilder(description).append(":\n");
-    sb.append("query index: ").append(index).append("\n");
-    sb.append("query vector: ").append(Arrays.toString(queryV)).append("\n");
+    sb.append("query index: ").append(testVector.index()).append("\n");
+    sb.append("query vector: ").append(Arrays.toString(testVector.vector())).append("\n");
     sb.append("neighbors:\n").append(neighbors).append("\n\n");
 
     long[] indices =

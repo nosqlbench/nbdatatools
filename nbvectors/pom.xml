@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.datastax</groupId>
+  <groupId>io.nosqlbench</groupId>
   <artifactId>nbvectors</artifactId>
   <version>1.0-SNAPSHOT</version>
 
@@ -12,8 +12,8 @@
     <maven.compiler.source>23</maven.compiler.source>
     <maven.compiler.target>23</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <mainClass>com.datastax.VerifyVectorHDF5</mainClass>
-    <imageName>verifyVectorHdf5</imageName>
+    <mainClass>io.nosqlbench.nbvectors.NBVectors</mainClass>
+    <imageName>nbvectors</imageName>
     <jline.version>3.28.0</jline.version>
     <native.maven.plugin.version>0.10.4</native.maven.plugin.version>
   </properties>

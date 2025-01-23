@@ -1,5 +1,7 @@
 package io.nosqlbench.nbvectors;
 
+import com.googlecode.lanterna.screen.Screen;
+import com.googlecode.lanterna.screen.TerminalScreen;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
 
@@ -9,9 +11,11 @@ import java.nio.charset.StandardCharsets;
 public class StatusView implements AutoCloseable {
 
   private final Terminal terminal;
+  private final TerminalScreen screen;
 
-  public StatusView(Terminal terminal) {
+  public StatusView() {
     try {
+      this.screen = new DefaultTerminalFactory().createScreen();
       this.terminal = new DefaultTerminalFactory(
           System.out,
           System.in,
@@ -30,6 +34,9 @@ public class StatusView implements AutoCloseable {
 
   @Override
   public void close() throws Exception {
+
+    screen.stopScreen(true);
+    screen.close();
     terminal.exitPrivateMode();
   }
 }

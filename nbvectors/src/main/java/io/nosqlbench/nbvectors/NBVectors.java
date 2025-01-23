@@ -58,98 +58,160 @@ public class NBVectors implements Callable<Integer> {
 
   @Override
   public Integer call() throws Exception {
-    try (HdfFile hdfFile = new HdfFile(hdfpath)) {
-      Dataset queryVectors = hdfFile.getDatasetByPath("/test");
-      Dataset trainVectors = hdfFile.getDatasetByPath("/train");
-      Dataset neighbors = hdfFile.getDatasetByPath("/neighbors");
-      Dataset distances = hdfFile.getDatasetByPath("/distances");
-
-      int[] queryDims = queryVectors.getDimensions();
-      System.out.println("test shape:" + Arrays.toString(queryDims));
-
-      long[] querySliceOffset = new long[queryDims.length];
-      queryDims[0] = 1;
-
-      int[] trainDims = trainVectors.getDimensions();
-      System.out.println("training shape:" + Arrays.toString(trainDims));
-
-      int totalTrainingVectors = trainDims[0];
-      trainDims[0] = 1;
-      long[] trainAt = new long[trainDims.length];
-
+    List<NeighborhoodComparison> results = new ArrayList<>();
+    try (StatusView view = new StatusView(); KNNData data = new KNNData(new HdfFile(hdfpath))) {
       for (long index = interval.start(); index < interval.end(); index++) {
-        querySliceOffset[0] = index;
-        float[][] queryVs = (float[][]) queryVectors.getData(querySliceOffset, queryDims);
-        float[] queryV = queryVs[0];
-
-        NeighborIndex[] lastResults = new NeighborIndex[0];
-        System.out.println(
-            "query index " + index + ": " + totalTrainingVectors + " at " + trainDims[1] + " "
-            + "dimensions, " + buffer_limit + " at a time.");
-        for (int chunk = 0; chunk < totalTrainingVectors; chunk += buffer_limit) {
-          System.out.print(".");
-          System.out.flush();
-
-          int current_buffer_size = Math.min(chunk + buffer_limit, totalTrainingVectors) - chunk;
-
-          NeighborIndex[] buffer = new NeighborIndex[current_buffer_size + lastResults.length];
-          System.arraycopy(lastResults, 0, buffer, current_buffer_size, lastResults.length);
-
-          for (int i = 0; i < current_buffer_size; i++) {
-            trainAt[0] = chunk + i;
-            float[][] trainVs = (float[][]) trainVectors.getData(trainAt, trainDims);
-            float[] trainV = trainVs[0];
-            double distance = distanceFunction.distance(queryV, trainV);
-            buffer[i] = new NeighborIndex(chunk + i, distance);
-          }
-          Arrays.sort(buffer, Comparator.comparing(NeighborIndex::distance));
-          lastResults = new NeighborIndex[K];
-          System.arraycopy(buffer, 0, lastResults, 0, lastResults.length);
-        }
-
-        Neighborhood precomputedNeighbors = deriveNeighbors(index, neighbors, distances);
-        Neighborhood calculatedNeighbors = new Neighborhood(lastResults);
-
-        System.out.println(PrintFormat.format("fromhdf5", index, queryV, precomputedNeighbors));
-        System.out.println(PrintFormat.format("computed", index, queryV, calculatedNeighbors));
-
-        Set<Long> calculatedIndices =
-            calculatedNeighbors.stream().map(NeighborIndex::index).collect(Collectors.toSet());
-        Set<Long> precomputedIndices =
-            precomputedNeighbors.stream().map(NeighborIndex::index).collect(Collectors.toSet());
-        if (calculatedIndices.size() != precomputedIndices.size()) {
-          throw new RuntimeException(String.format(
-              "the indices have different sizes: " + "calculated=%d, precomputed=%d",
-              calculatedIndices.size(),
-              precomputedIndices.size()
-          ));
-        }
-        calculatedIndices.removeAll(precomputedIndices);
-
-        if (!calculatedIndices.isEmpty()) {
-          throw new RuntimeException("unequal vectors! " + calculatedIndices.size() + " extra "
-                                     + "indices which were not found in the "
-                                     + "pre-computed answer key: \n"
-                                     + calculatedIndices.toString());
-        }
-
+        IndexedFloatVector providedTestVector = readHdf5TestVector(index, data);
+        // This neighborhood is the one provided by the test data file
+        // (we are checking this one for errors)
+        Neighborhood providedNeighborhood = readHdf5Neighborhood(providedTestVector, data);
+        // This neighborhood is the one we calculate from the test and train vectors.
+        Neighborhood expectedNeighborhood = computeNeighborhood(providedTestVector, data);
+        // Compute the ordered intersection view of these relative to each other
+        NeighborhoodComparison result =
+            compareResults(providedTestVector, providedNeighborhood, expectedNeighborhood, view);
+        results.add(result);
       }
-
     }
+    results.forEach(System.out::println);
 
     return 0;
   }
 
-  private Neighborhood deriveNeighbors(long index, Dataset neighbors, Dataset distances) {
+  private NeighborhoodComparison compareResults(
+      IndexedFloatVector testVector,
+      Neighborhood providedNeighborhood,
+      Neighborhood expectedNeighborhood,
+      StatusView view
+  )
+  {
+    long[] provided = providedNeighborhood.getIndices();
+    long[] expected = expectedNeighborhood.getIndices();
+    if (provided.length != expected.length) {
+      throw new RuntimeException("Provided vectors length does not match expected vectors length.");
+    }
+
+    Arrays.sort(provided);
+    Arrays.sort(expected);
+
+    int a_index = 0, b_index = 0;
+    long provided_element, expected_element;
+
+    long[] common_view = new long[provided.length + expected.length];
+    long[] provided_view = new long[provided.length + expected.length];
+    long[] expected_view = new long[provided.length + expected.length];
+
+    BitSet providedBits = new BitSet(provided.length);
+    BitSet expectedBits = new BitSet(expected.length);
+    int position = 0;
+    while (a_index < provided.length && b_index < expected.length) {
+
+      provided_element=provided[a_index];
+      expected_element=expected[b_index];
+      if (provided_element==expected_element) {
+        providedBits.set(position);
+        expectedBits.set(position);
+        common_view[position] = provided_element;
+        provided_view[position] = provided_element;
+        expected_view[position] = provided_element;
+        a_index++;
+        b_index++;
+      } else if (expected_element<provided_element) {
+        common_view[position] = expected_element;
+        expected_view[position] = expected_element;
+        expectedBits.set(position);
+        provided_view[position] = -1;
+        b_index++;
+      } else { // b_element > a_element
+        common_view[position] = provided_element;
+        expected_view[position] = -1;
+        provided_view[position] = provided_element;
+        providedBits.set(position);
+        a_index++;
+      }
+      position++;
+    }
+    common_view = Arrays.copyOf(common_view, position);
+    provided_view = Arrays.copyOf(provided_view, position);
+    expected_view = Arrays.copyOf(expected_view, position);
+
+    return new NeighborhoodComparison(
+        testVector,
+        providedNeighborhood,
+        expectedNeighborhood,
+        provided_view,
+        expected_view,
+        providedBits,
+        expectedBits
+    );
+  }
+
+  private Neighborhood computeNeighborhood(IndexedFloatVector testVector, KNNData data) {
+    float[] testVecAry = testVector.vector();
+
+    int[] trainVectorDimensions = data.train().getDimensions();
+    int totalTrainingVectors = trainVectorDimensions[0];
+    trainVectorDimensions[0] = 1;
+    long[] trainVectorOffsets = new long[trainVectorDimensions.length];
+
+    NeighborIndex[] topKResultBuffer = new NeighborIndex[0];
+    for (int chunk = 0; chunk < totalTrainingVectors; chunk += buffer_limit) {
+
+      // do a whole chunk, or a partial if that is all that remains
+      int chunkSize = Math.min(chunk + buffer_limit, totalTrainingVectors) - chunk;
+
+      // buffer topK + chunkSize neighbors with distance
+      NeighborIndex[] unsortedNeighbors = new NeighborIndex[chunkSize + topKResultBuffer.length];
+      // but include previous results at the end, so buffer addressing remains 0+...
+      System.arraycopy(topKResultBuffer, 0, unsortedNeighbors, chunkSize, topKResultBuffer.length);
+
+      // fill the unordered neighborhood with the next batch of vector ordinals and distances
+      for (int i = 0; i < chunkSize; i++) {
+        int testVectorOrdinal = chunk + i;
+        trainVectorOffsets[0] = testVectorOrdinal;
+        Object trainVectorData = data.train().getData(trainVectorOffsets, trainVectorDimensions);
+        float[] trainVector = ((float[][]) trainVectorData)[0];
+
+        double distance = distanceFunction.distance(testVecAry, trainVector);
+        unsortedNeighbors[i] = new NeighborIndex(testVectorOrdinal, distance);
+      }
+
+      // put the neighborhood in order and keep the top K results
+      Arrays.sort(unsortedNeighbors, Comparator.comparing(NeighborIndex::distance));
+      topKResultBuffer = new NeighborIndex[K];
+      System.arraycopy(unsortedNeighbors, 0, topKResultBuffer, 0, topKResultBuffer.length);
+    }
+
+    return new Neighborhood(topKResultBuffer);
+  }
+
+  private IndexedFloatVector readHdf5TestVector(long index, KNNData data) {
+    int[] testVectorDimensions = data.test().getDimensions();
+    long[] testVectorOffsets = new long[testVectorDimensions.length];
+    // get 1 test vector row at a time; we simply re-use the dim array
+    testVectorDimensions[0] = 1;
+
+    testVectorOffsets[0] = index;
+    Object testVectorData = data.test().getData(testVectorOffsets, testVectorDimensions);
+    float[] testVector = ((float[][]) testVectorData)[0];
+    return new IndexedFloatVector(index, testVector);
+  }
+
+  private Neighborhood readHdf5Neighborhood(IndexedFloatVector testVector, KNNData datas)
+  {
     Neighborhood answerKey = new Neighborhood();
+    Dataset neighbors = datas.neighbors();
+    Dataset distances = datas.distances();
 
     int[] dimensions = neighbors.getDimensions();
     long[] sliceOffset = new long[dimensions.length];
-    sliceOffset[0] = index;
+    sliceOffset[0] = testVector.index();
     dimensions[0] = 1;
 
-    Object data = neighbors.getData(sliceOffset, dimensions);
-    long[] neighborIndices = switch (data) {
+    Object neighborsData = neighbors.getData(sliceOffset, dimensions);
+
+    // normalize type to double, supporting maximum precision for both cases
+    long[] neighborIndices = switch (neighborsData) {
       case long[][] longdata -> longdata[0];
       case int[][] intdata -> {
         long[] ary = new long[intdata[0].length];
@@ -158,11 +220,11 @@ public class NBVectors implements Callable<Integer> {
         }
         yield ary;
       }
-      default -> throw new IllegalStateException("Unexpected value: " + data);
+      default -> throw new IllegalStateException("Unexpected value: " + neighborsData);
     };
 
-    float[][] neighborDistancesAry = (float[][]) distances.getData(sliceOffset, dimensions);
-    float[] neighborDistances = neighborDistancesAry[0];
+    Object distancesData = distances.getData(sliceOffset, dimensions);
+    float[] neighborDistances = ((float[][]) distancesData)[0];
 
     for (int i = 0; i < neighborDistances.length; i++) {
       answerKey.add(new NeighborIndex(neighborIndices[i], neighborDistances[i]));

@@ -1,24 +1,24 @@
 [
   {
-    "name": "com.datastax.VerifyVectorHDF5",
+    "name": "io.nosqlbench.nbvectors.NBVectors",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allDeclaredFields": true
   },
   {
-    "name": "com.datastax.Interval",
+    "name": "io.nosqlbench.nbvectors.Interval",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allDeclaredFields": true
   },
   {
-    "name": "com.datastax.Interval$Converter",
+    "name": "io.nosqlbench.nbvectors.Interval$Converter",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allDeclaredFields": true
   },
   {
-    "name": "com.datastax.PrintFormat",
+    "name": "io.nosqlbench.nbvectors.PrintFormat",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allDeclaredFields": true
