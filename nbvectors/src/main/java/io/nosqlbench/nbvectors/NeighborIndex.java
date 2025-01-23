@@ -8,4 +8,9 @@ public record NeighborIndex(
   public int compareTo(NeighborIndex o) {
     return Double.compare(distance, o.distance);
   }
+
+  @Override
+  public String toString() {
+    return "("+index+","+String.format("%.3f",distance)+")";
+  }
 }
