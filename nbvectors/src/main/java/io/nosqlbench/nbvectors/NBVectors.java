@@ -66,19 +66,26 @@ public class NBVectors implements Callable<Integer> {
     List<NeighborhoodComparison> results = new ArrayList<>();
     try (StatusView view = new StatusView(); KNNData knndata = new KNNData(new HdfFile(hdfpath))) {
       for (long index = interval.start(); index < interval.end(); index++) {
+
+        // This is the query vector from the provided test data
         IndexedFloatVector providedTestVector = knndata.readHdf5TestVector(index);
-        // This neighborhood is the one provided by the test data file
-        // (we are checking this one for errors)
+        view.onQueryVector(providedTestVector);
+
+        // This is the neighborhood from the provided test data, corresponding to the query
+        // vector (we are checking this one for errors)
         Neighborhood providedNeighborhood = knndata.neighborhood(providedTestVector.index());
+
         // This neighborhood is the one we calculate from the test and train vectors.
-        Neighborhood expectedNeighborhood = computeNeighborhood(providedTestVector, knndata);
+        Neighborhood expectedNeighborhood = computeNeighborhood(providedTestVector, knndata, view);
         // Compute the ordered intersection view of these relative to each other
-        NeighborhoodComparison result = new NeighborhoodComparison(
+
+        NeighborhoodComparison comparison = new NeighborhoodComparison(
             providedTestVector,
             providedNeighborhood,
             expectedNeighborhood
         );
-        results.add(result);
+        view.onNeighborhoodComparison(comparison);
+        results.add(comparison);
       }
     }
     results.forEach(System.out::println);
@@ -86,7 +93,12 @@ public class NBVectors implements Callable<Integer> {
     return results.stream().anyMatch(NeighborhoodComparison::isError) ? 2 : 0;
   }
 
-  private Neighborhood computeNeighborhood(IndexedFloatVector testVector, KNNData data) {
+  private Neighborhood computeNeighborhood(
+      IndexedFloatVector testVector,
+      KNNData data,
+      StatusView view
+  )
+  {
     float[] testVecAry = testVector.vector();
     int totalTrainingVectors = data.trainingVectorCount();
 

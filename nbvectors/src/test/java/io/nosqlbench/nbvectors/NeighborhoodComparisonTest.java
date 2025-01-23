@@ -2,6 +2,7 @@ package io.nosqlbench.nbvectors;
 
 import org.junit.jupiter.api.Test;
 
+import static io.nosqlbench.nbvectors.Glyphs.braille;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.BitSet;
@@ -12,12 +13,12 @@ public class NeighborhoodComparisonTest {
   @Test
   public void testGlyhps() {
     for (int i = 0; i < 256; i++) {
-      System.out.print(NeighborhoodComparison.braille(i));
+      System.out.print(braille(i));
     }
     System.out.println();
 
-    BitSet maxBits = BitSet.valueOf(new byte[]{127});
-    assertThat(NeighborhoodComparison.braille(maxBits)).isEqualTo("⣿");
+    BitSet maxBits = BitSet.valueOf(new byte[]{-1});
+    assertThat(braille(maxBits)).isEqualTo("⣿");
   }
 
   @Test

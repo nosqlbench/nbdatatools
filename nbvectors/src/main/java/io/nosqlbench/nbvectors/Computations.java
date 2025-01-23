@@ -42,6 +42,7 @@ public class Computations {
     }
     a_view = Arrays.copyOf(a_view, a_bufidx);
     b_view = Arrays.copyOf(b_view, b_bufidx);
+    common_view = Arrays.copyOf(common_view, c_bufidx);
     return new long[][] {a_view, common_view, b_view};
   }
 
@@ -51,12 +52,11 @@ public class Computations {
     int a_index = 0, b_index = 0;
     long a_element, b_element;
     BitSet aBits = new BitSet(provided_ary.length);
-    int position = 0;
     while (a_index < provided_ary.length && b_index < expected_ary.length) {
       a_element = provided_ary[a_index];
       b_element = expected_ary[b_index];
       if (a_element == b_element) {
-        aBits.set(a_index);
+        aBits.set(b_index);
         a_index++;
         b_index++;
       } else if (b_element < a_element) {
@@ -64,7 +64,6 @@ public class Computations {
       } else {
         a_index++;
       }
-      position++;
     }
     return aBits;
   }
