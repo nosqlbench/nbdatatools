@@ -12,6 +12,8 @@ public class StatusViewStdout implements StatusView {
   }
 
   private int totalQueryVectors;
+  private int currentQueryVector;
+
   private int errors = 0;
   StringBuilder sb = new StringBuilder();
   boolean flushall = false;
@@ -32,7 +34,7 @@ public class StatusViewStdout implements StatusView {
 
   @Override
   public void onQueryVector(IndexedFloatVector vector, long index, long end) {
-    sb.append(index+1).append("/").append(end).append(": ");
+    sb.append(++currentQueryVector).append("/").append(totalQueryVectors).append(": ");
     sb.append(vector);
     flushIf();
   }

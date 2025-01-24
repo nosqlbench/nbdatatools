@@ -30,6 +30,8 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
   private TextBox[] lastComparisonText;
   private BasicTextImage textimage;
   private IndexedFloatVector lastQueryVector;
+  private int totalQueryVectors;
+  private int currentQueryVector;
 
   public StatusViewLanterna(int summaries) {
     this.summaries = summaries;
@@ -127,6 +129,7 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
 
   @Override
   public void onStart(int totalQueryVectors) {
+    this.totalQueryVectors = totalQueryVectors;
   }
 
   @Override
@@ -143,11 +146,13 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
 
   @Override
   public void onQueryVector(IndexedFloatVector vector, long index, long end) {
+    currentQueryVector++;
     lastQueryVector = vector;
-    statusWindow.setTitle("Query Vector: " + vector.index() + 1 + "/" + end);
-    intervalProgress.setMax((int) end);
-    intervalProgress.setValue((int) index);
-    intervalProgress.setLabelFormat("query " + (index + 1) + "/" + end + " (%2.0f%%)");
+    intervalProgress.setMax(totalQueryVectors);
+    intervalProgress.setValue(currentQueryVector);
+    intervalProgress.setLabelFormat(
+        "query " + currentQueryVector + "/" + totalQueryVectors + " index[" + index + "]"
+        + " (%2.0f%%)");
     try {
       gui.updateScreen();
     } catch (IOException e) {
@@ -158,7 +163,7 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
   @Override
   public void onNeighborhoodComparison(NeighborhoodComparison comparison) {
     int modulo = (int) (comparison.testVector().index() % summaries);
-    lastComparisonText[modulo].setText(lastQueryVector+"\n"+comparison.toString());
+    lastComparisonText[modulo].setText(lastQueryVector + "\n" + comparison.toString());
     try {
       gui.updateScreen();
     } catch (IOException e) {
