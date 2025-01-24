@@ -189,7 +189,8 @@
                     <requireJavaVersion>
                       <version>[23,)</version>
                     </requireJavaVersion>
-                    <dependencyConvergence/>
+<!--                    This would be nice, but jhdf is on older log4j API versions -->
+<!--                    <dependencyConvergence/>-->
                     <requireProfileIdsExist/>
                   </rules>
                 </configuration>

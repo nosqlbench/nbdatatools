@@ -13,6 +13,20 @@ import picocli.CommandLine.Option;
 /// computing correct neighborhoods and comparing them to the provided ones.
 ///
 /// Internally, values may be promoted from int to long and from float to double as needed.
+@CommandLine.Command(name = "nbvectors",
+    headerHeading = "Usage:%n%n",
+    synopsisHeading = "%n",
+    descriptionHeading = "%nDescription%n%n",
+    parameterListHeading = "%nParameters:%n%",
+    optionListHeading = "%nOptions:%n",
+    header = "self-check KNN test data answer-keys",
+    description = "Reads query vectors from HDF5 data, computes KNN neighborhoods, and "
+                  + "compares them against the answer-key data given.",
+    exitCodeListHeading = "Exit Codes:%n",
+    exitCodeList = {
+        "0: all tested neighborhoods were correct",
+        "2: at least one tested neighborhood was incorrect"
+    })
 public class NBVectors implements Callable<Integer> {
 
   @Option(names = {"-i", "--interval"},
@@ -37,7 +51,7 @@ public class NBVectors implements Callable<Integer> {
       description = "The neighborhood size")
   private int K;
 
-  @Option(names = {"-l", "--buffer_limit over K"},
+  @Option(names = {"-l", "--buffer_limit"},
       defaultValue = "-1",
       description = "The buffer size to retain between sorts by distance, selected automatically "
                     + "when unset as a power of ten such that 10 chunks are needed for processing "
@@ -49,12 +63,12 @@ public class NBVectors implements Callable<Integer> {
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private StatusMode output;
 
-  @Option(names = {"-e", "-errormode"},
+  @Option(names = {"-e", "--error_mode"},
       defaultValue = "fail",
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private ErrorMode errorMode;
 
-  @Option(names = "-phi",
+  @Option(names = {"-p", "-phi"},
       defaultValue = "0.001d",
       description = "When comparing values which are not exact, due to floating point rounding "
                     + "errors, the distance within which the values are considered effectively "
