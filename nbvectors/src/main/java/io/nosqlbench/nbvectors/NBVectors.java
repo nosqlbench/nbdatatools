@@ -3,10 +3,9 @@ package io.nosqlbench.nbvectors;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
 
 import io.jhdf.HdfFile;
-import io.jhdf.api.Dataset;
+import io.nosqlbench.nbvectors.statusview.*;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
@@ -33,20 +32,27 @@ public class NBVectors implements Callable<Integer> {
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private DistanceFunction distanceFunction;
 
-  @Option(names = {"-k", "-K", "--neighborhood_size"},
+  @Option(names = {"-k", "--neighborhood_size"},
       defaultValue = "100",
       description = "The neighborhood size")
   private int K;
 
   @Option(names = {"-l", "--buffer_limit over K"},
-      defaultValue = "50000",
-      description = "The buffer size to retain between sorts by distance")
+      defaultValue = "-1",
+      description = "The buffer size to retain between sorts by distance, selected automatically "
+                    + "when unset as a power of ten such that 10 chunks are needed for processing "
+                    + "each query")
   private int buffer_limit;
 
-  @Option(names = {"-p", "--print"},
+  @Option(names = {"-s", "--status"},
       defaultValue = "all",
-      description = "The format to use when printing results")
-  private PrintFormat format;
+      description = "Valid values: ${COMPLETION-CANDIDATES}")
+  private StatusMode output;
+
+  @Option(names = {"-e", "-errormode"},
+      defaultValue = "fail",
+      description = "Valid values: ${COMPLETION-CANDIDATES}")
+  private ErrorMode errorMode;
 
   @Option(names = "-phi",
       defaultValue = "0.001d",
@@ -57,19 +63,21 @@ public class NBVectors implements Callable<Integer> {
 
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
-    int exitCode = new CommandLine(new NBVectors()).execute(args);
+    int exitCode = new CommandLine(new NBVectors()).setCaseInsensitiveEnumValuesAllowed(true)
+        .setOptionsCaseInsensitive(true).execute(args);
     System.exit(exitCode);
   }
 
   @Override
   public Integer call() throws Exception {
-    List<NeighborhoodComparison> results = new ArrayList<>();
-    try (StatusView view = new StatusView(); KNNData knndata = new KNNData(new HdfFile(hdfpath))) {
+    int errors = 0;
+    try (StatusView view = getStatusView(); KNNData knndata = new KNNData(new HdfFile(hdfpath))) {
+      view.onStart(interval.count());
       for (long index = interval.start(); index < interval.end(); index++) {
 
         // This is the query vector from the provided test data
         IndexedFloatVector providedTestVector = knndata.readHdf5TestVector(index);
-        view.onQueryVector(providedTestVector);
+        view.onQueryVector(providedTestVector, index, interval.end());
 
         // This is the neighborhood from the provided test data, corresponding to the query
         // vector (we are checking this one for errors)
@@ -85,13 +93,30 @@ public class NBVectors implements Callable<Integer> {
             expectedNeighborhood
         );
         view.onNeighborhoodComparison(comparison);
-        results.add(comparison);
+        errors += comparison.isError() ? 1 : 0;
+        if (errors > 0 && errorMode == ErrorMode.Fail)
+          break;
       }
+      view.end();
     }
-    results.forEach(System.out::println);
-
-    return results.stream().anyMatch(NeighborhoodComparison::isError) ? 2 : 0;
+    return errors > 0 ? 2 : 0;
   }
+
+  private StatusView getStatusView() {
+    StatusViewRouter view = new StatusViewRouter();
+    switch (output) {
+      case All, Progress:
+        view.add(new StatusViewLanterna(Math.min(3, interval.count())));
+      default:
+    }
+    switch (output) {
+      case All, Stdout:
+        view.add(new StatusViewStdout(view.isEmpty()));
+      default:
+    }
+    return view.isEmpty() ? new StatusViewNoOp() : view;
+  }
+
 
   private Neighborhood computeNeighborhood(
       IndexedFloatVector testVector,
@@ -99,6 +124,7 @@ public class NBVectors implements Callable<Integer> {
       StatusView view
   )
   {
+    buffer_limit = buffer_limit > 0 ? buffer_limit : computeBufferLimit(data.trainingVectorCount());
     float[] testVecAry = testVector.vector();
     int totalTrainingVectors = data.trainingVectorCount();
 
@@ -110,6 +136,7 @@ public class NBVectors implements Callable<Integer> {
       NeighborIndex[] unsortedNeighbors = new NeighborIndex[chunkSize + topKResultBuffer.length];
       // but include previous results at the end, so buffer addressing remains 0+...
       System.arraycopy(topKResultBuffer, 0, unsortedNeighbors, chunkSize, topKResultBuffer.length);
+      view.onChunk(chunk, chunkSize, totalTrainingVectors);
       // fill the unordered neighborhood with the next batch of vector ordinals and distances
       for (int i = 0; i < chunkSize; i++) {
         int testVectorOrdinal = chunk + i;
@@ -124,6 +151,14 @@ public class NBVectors implements Callable<Integer> {
       System.arraycopy(unsortedNeighbors, 0, topKResultBuffer, 0, topKResultBuffer.length);
     }
     return new Neighborhood(topKResultBuffer);
+  }
+
+  private int computeBufferLimit(int totalTrainingVectors) {
+    int limit = 10;
+    while (limit * 10 < totalTrainingVectors && limit < 100000) {
+      limit *= 10;
+    }
+    return limit;
   }
 
 

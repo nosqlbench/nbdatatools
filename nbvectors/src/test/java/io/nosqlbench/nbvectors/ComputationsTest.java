@@ -1,7 +1,7 @@
 package io.nosqlbench.nbvectors;
 import org.junit.jupiter.api.Test;
 
-import static io.nosqlbench.nbvectors.Glyphs.braille;
+import static io.nosqlbench.nbvectors.statusview.Glyphs.braille;
 import static org.assertj.core.api.Assertions.assertThat;
 import java.util.BitSet;
 

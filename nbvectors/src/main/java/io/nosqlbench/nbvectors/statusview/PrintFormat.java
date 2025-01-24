@@ -1,7 +1,10 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.statusview;
+
+import io.nosqlbench.nbvectors.IndexedFloatVector;
+import io.nosqlbench.nbvectors.NeighborIndex;
+import io.nosqlbench.nbvectors.Neighborhood;
 
 import java.util.Arrays;
-import java.util.List;
 
 public enum PrintFormat {
   all;

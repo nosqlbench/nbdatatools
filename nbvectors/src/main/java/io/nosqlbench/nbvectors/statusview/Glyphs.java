@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.statusview;
 
 import java.util.BitSet;
 

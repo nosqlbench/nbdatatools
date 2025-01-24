@@ -34,7 +34,7 @@ public record IndexedFloatVector(
   @Override
   public String toString() {
 
-    return "query("+index+"):float["+vector.length+"] " + String.format("%.3f %.3f %.3f",
+    return "query("+index+"):float["+vector.length+"] " + String.format("%+1.3f %+1.3f %+1.3f",
         vector[0], vector[1], vector[2]) + "...";
   }
 }

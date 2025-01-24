@@ -30,21 +30,22 @@
       <artifactId>picocli</artifactId>
       <version>4.7.6</version>
     </dependency>
-<!--    <dependency>-->
-<!--      <groupId>org.slf4j</groupId>-->
-<!--      <artifactId>jcl-over-slf4j</artifactId>-->
-<!--      <version>2.0.13</version>-->
-<!--    </dependency>-->
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-jdk-platform-logging</artifactId>
-      <version>2.0.12</version>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.24.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j2-impl</artifactId>
+      <version>2.24.3</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <version>2.0.16</version>
     </dependency>
+
     <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
@@ -53,10 +54,20 @@
     </dependency>
 
 
-    <!--    For console input handling, if needed -->
+    <!--        For console input handling, if needed -->
     <!--    <dependency>-->
     <!--      <groupId>org.jline</groupId>-->
     <!--      <artifactId>jline</artifactId>-->
+    <!--      <version>${jline.version}</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.jline</groupId>-->
+    <!--      <artifactId>jline-curses</artifactId>-->
+    <!--      <version>${jline.version}</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.jline</groupId>-->
+    <!--      <artifactId>jline-terminal-ffm</artifactId>-->
     <!--      <version>${jline.version}</version>-->
     <!--    </dependency>-->
 

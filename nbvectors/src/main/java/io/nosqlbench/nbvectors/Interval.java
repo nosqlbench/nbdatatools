@@ -7,6 +7,10 @@ import java.util.regex.Pattern;
 
 ///  Allow either min_included..max_excluded or simply max_excluded format
 public record Interval(long start, long end)  {
+  public int count() {
+    return (int) (end()-start());
+  }
+
   public static class Converter implements CommandLine.ITypeConverter<Interval> {
     final static Pattern format = Pattern.compile("^((?<start>\\d+)\\.\\.)?(?<end>\\d+)$");
     public Converter() {}
