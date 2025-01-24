@@ -68,7 +68,7 @@ public class NBVectors implements Callable<Integer> {
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private ErrorMode errorMode;
 
-  @Option(names = {"-p", "-phi"},
+  @Option(names = {"-p", "--phi"},
       defaultValue = "0.001d",
       description = "When comparing values which are not exact, due to floating point rounding "
                     + "errors, the distance within which the values are considered effectively "
