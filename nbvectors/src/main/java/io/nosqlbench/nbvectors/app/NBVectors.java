@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.app;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -10,6 +10,7 @@ import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
 import io.nosqlbench.nbvectors.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.datatypes.Neighborhood;
 import io.nosqlbench.nbvectors.logging.CustomConfigurationFactory;
+import io.nosqlbench.nbvectors.options.IntervalParser;
 import io.nosqlbench.nbvectors.options.DistanceFunction;
 import io.nosqlbench.nbvectors.options.ErrorMode;
 import io.nosqlbench.nbvectors.options.Interval;
@@ -62,7 +63,7 @@ public class NBVectors implements Callable<Integer> {
   //  private final static Logger logger = NBLoggerContext.context().getLogger(NBVectors.class);
 
   @Option(names = {"-i", "--interval"},
-      converter = Interval.Converter.class,
+      converter = IntervalParser.class,
       defaultValue = "1",
       description = "The index or closed..open range of indices to test")
   private Interval interval;
