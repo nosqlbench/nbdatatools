@@ -129,7 +129,7 @@ public class NBVectors implements Callable<Integer> {
   }
 
   private StatusView getStatusView() {
-    StatusViewRouter view = new StatusViewRouter();
+    @SuppressWarnings("resource") StatusViewRouter view = new StatusViewRouter();
     switch (output) {
       case All, Progress:
         view.add(new StatusViewLanterna(Math.min(3, interval.count())));
