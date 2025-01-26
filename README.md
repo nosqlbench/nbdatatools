@@ -29,7 +29,7 @@ Goals for this repo as a tooling template:
 * Use the terminal to maximum effect
   * present timely and intuitive status
   * allow for users to interrupt or customize ongoing analysis
-* provide basic results in both output and file formats
+* provide basic results in stdout, live progress view, and file formats
 * provide auto-completion where appropriate
 
 # Project Toolchain
