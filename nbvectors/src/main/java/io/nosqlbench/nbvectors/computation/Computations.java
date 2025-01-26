@@ -1,4 +1,6 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.computation;
+
+import io.nosqlbench.nbvectors.datatypes.BitImage;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -46,26 +48,51 @@ public class Computations {
     return new long[][] {a_view, common_view, b_view};
   }
 
-  public static BitSet matchingImage(long[] provided_ary, long[] expected_ary) {
-    Arrays.sort(provided_ary);
+  /// Produce a dot-by-dot picture of the indices of the expected array
+  /// which are also present in the provided array. This uses
+  /// [unicode Braille](https://en.wikipedia.org/wiki/Braille_Patterns#Block) patterns
+  /// The visual order of values goes from top to bottom, then left to right.
+  /// ---
+  /// ### examples
+  /// ```
+  /// provided[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ] expected[0 ,1, 2 ,3 ,4 ,5 ,6 ,7 ]  image[⣿]
+  /// provided[3 ,5 ,9 ,17,32,33,88,99] expected[3 ,5 ,9 ,17,32,33,88,99]  image[⣿]
+  /// provided[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ] expected[33]                       image[⠀]
+  /// provided[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ] expected[0 ,1, 2 ,3 ,4 ,5 ,6 ,7 ]  image[⡊]
+  /// provided[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ] expected[            4 ,5 ,6 ,7 ]  image[⡇]
+  /// provided[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ] expected[7 ,   5 ,   3 ,2 ,1, 0 ]  image[⣗]
+  /// provided[0..15]                   expected[0..3,5,7,9,11,12]         image[⣗⡊]
+  /// provided[0..31]                   expected[]                         image[⠀⠀⠀⠀]
+  /// ```
+  ///
+  public static BitImage matchingImage(long[] expected_ary, long[] provided_ary) {
     Arrays.sort(expected_ary);
-    int a_index = 0, b_index = 0;
-    long a_element, b_element;
-    BitSet aBits = new BitSet(provided_ary.length);
-    while (a_index < provided_ary.length && b_index < expected_ary.length) {
-      a_element = provided_ary[a_index];
-      b_element = expected_ary[b_index];
-      if (a_element == b_element) {
-        aBits.set(b_index);
-        a_index++;
-        b_index++;
-      } else if (b_element < a_element) {
-        b_index++;
+    int expected_idx = 0;
+    long expected_data;
+
+    Arrays.sort(provided_ary);
+    int provided_idx = 0;
+    long provided_data;
+
+    BitImage matching_bits = new BitImage(expected_ary.length);
+    while (provided_idx < provided_ary.length && expected_idx < expected_ary.length) {
+      provided_data = provided_ary[provided_idx];
+      expected_data = expected_ary[expected_idx];
+      if (provided_data == expected_data) {
+        matching_bits.set(expected_idx);
+        provided_idx++;
+        expected_idx++;
+      } else if (expected_data < provided_data) {
+        expected_idx++;
       } else {
-        a_index++;
+        provided_idx++;
       }
     }
-    return aBits;
+    while (expected_idx < expected_ary.length) {
+      matching_bits.setZero(expected_idx);
+      expected_idx++;
+    }
+    return matching_bits;
   }
 
   public static BitSetDelta bitmaps(long[] a, long[] b) {
