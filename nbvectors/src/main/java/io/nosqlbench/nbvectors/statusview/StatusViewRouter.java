@@ -1,7 +1,7 @@
 package io.nosqlbench.nbvectors.statusview;
 
-import io.nosqlbench.nbvectors.IndexedFloatVector;
-import io.nosqlbench.nbvectors.NeighborhoodComparison;
+import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.computation.NeighborhoodComparison;
 
 import java.util.ArrayList;
 import java.util.List;

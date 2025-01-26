@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.options;
 
 import picocli.CommandLine;
 

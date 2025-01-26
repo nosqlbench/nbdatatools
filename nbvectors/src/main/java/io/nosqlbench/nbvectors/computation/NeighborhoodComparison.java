@@ -1,4 +1,7 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.computation;
+
+import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.datatypes.Neighborhood;
 
 import static io.nosqlbench.nbvectors.statusview.Glyphs.braille;
 
@@ -30,8 +33,8 @@ public record NeighborhoodComparison(
 
     sb.append("[");
     sb.append(braille(Computations.matchingImage(
-        providedNeighborhood.getIndices(),
-        expectedNeighborhood().getIndices()
+        expectedNeighborhood().getIndices(),
+        providedNeighborhood.getIndices()
     )));
     sb.append("]");
 

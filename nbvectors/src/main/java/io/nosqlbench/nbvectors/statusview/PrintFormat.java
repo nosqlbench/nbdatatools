@@ -1,8 +1,8 @@
 package io.nosqlbench.nbvectors.statusview;
 
-import io.nosqlbench.nbvectors.IndexedFloatVector;
-import io.nosqlbench.nbvectors.NeighborIndex;
-import io.nosqlbench.nbvectors.Neighborhood;
+import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.datatypes.NeighborIndex;
+import io.nosqlbench.nbvectors.datatypes.Neighborhood;
 
 import java.util.Arrays;
 

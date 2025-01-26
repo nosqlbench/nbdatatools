@@ -1,7 +1,10 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.readers;
 
 import io.jhdf.HdfFile;
 import io.jhdf.api.Dataset;
+import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.datatypes.NeighborIndex;
+import io.nosqlbench.nbvectors.datatypes.Neighborhood;
 
 /// This record type captures the basic requirements of a standard KNN answer key format.
 ///

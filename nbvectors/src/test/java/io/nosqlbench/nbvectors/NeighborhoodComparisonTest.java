@@ -1,5 +1,8 @@
 package io.nosqlbench.nbvectors;
 
+import io.nosqlbench.nbvectors.computation.NeighborhoodComparison;
+import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.datatypes.Neighborhood;
 import org.junit.jupiter.api.Test;
 
 import static io.nosqlbench.nbvectors.statusview.Glyphs.braille;

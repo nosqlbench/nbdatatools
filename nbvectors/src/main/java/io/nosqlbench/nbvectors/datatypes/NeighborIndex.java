@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.datatypes;
 
 public record NeighborIndex(
     long index, double distance

@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.datatypes;
 
 import java.util.ArrayList;
 import java.util.Arrays;

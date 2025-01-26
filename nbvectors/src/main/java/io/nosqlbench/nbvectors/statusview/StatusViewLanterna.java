@@ -10,8 +10,8 @@ import com.googlecode.lanterna.terminal.Terminal;
 import com.googlecode.lanterna.terminal.ansi.UnixLikeTerminal;
 import com.googlecode.lanterna.terminal.ansi.UnixTerminal;
 import com.googlecode.lanterna.terminal.virtual.DefaultVirtualTerminal;
-import io.nosqlbench.nbvectors.IndexedFloatVector;
-import io.nosqlbench.nbvectors.NeighborhoodComparison;
+import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.computation.NeighborhoodComparison;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

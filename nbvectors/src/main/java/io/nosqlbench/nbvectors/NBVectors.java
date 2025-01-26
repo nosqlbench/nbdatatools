@@ -5,7 +5,19 @@ import java.util.*;
 import java.util.concurrent.Callable;
 
 import io.jhdf.HdfFile;
+import io.nosqlbench.nbvectors.computation.NeighborhoodComparison;
+import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.datatypes.NeighborIndex;
+import io.nosqlbench.nbvectors.datatypes.Neighborhood;
+import io.nosqlbench.nbvectors.logging.CustomConfigurationFactory;
+import io.nosqlbench.nbvectors.options.DistanceFunction;
+import io.nosqlbench.nbvectors.options.ErrorMode;
+import io.nosqlbench.nbvectors.options.Interval;
+import io.nosqlbench.nbvectors.readers.KNNData;
 import io.nosqlbench.nbvectors.statusview.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
