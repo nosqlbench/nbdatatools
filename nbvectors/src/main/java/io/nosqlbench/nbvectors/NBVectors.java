@@ -25,6 +25,7 @@ import picocli.CommandLine.Option;
 /// computing correct neighborhoods and comparing them to the provided ones.
 ///
 /// Internally, values may be promoted from int to long and from float to double as needed.
+/// For now, floats are used by default, since that is the precision in current test files.
 @CommandLine.Command(name = "nbvectors",
     headerHeading = "Usage:%n%n",
     synopsisHeading = "%n",
@@ -32,8 +33,25 @@ import picocli.CommandLine.Option;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "self-check KNN test data answer-keys",
-    description = "Reads query vectors from HDF5 data, computes KNN neighborhoods, and "
-                  + "compares them against the answer-key data given.",
+    description = """
+        Reads query vectors from HDF5 data, computes KNN neighborhoods, and
+        compares them against the answer-key data given. This is a pure Java
+        implementation which requires no other vector processing libraries 
+        or hardware, so it has two key trade-offs with other methods:
+        1. It is not as fast as a GPU or TPU. It is not expected to be.
+        2. It is a vastly simpler implementation, which makes it arguably easier
+           to rely on as a basic verification tool.
+        This utility is meant to be used in concert with other tools which are
+        faster, but which may benefit from the assurance of a basic coherence check.
+        In essence, if you are not sure your test data is self-correct, then use
+        this tool to double check it with some sparse sampling.
+        
+        The currently supported distance functions and file formats are indicated
+        by the available command line options.
+        
+        The pseudo-standard HDF5 KNN answer-key file format is documented here:
+        https://github.com/nosqlbench/nbdatatools/blob/main/nbvectors/src/docs/hdf5_vectors.md
+        """,
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: all tested neighborhoods were correct",
@@ -80,11 +98,11 @@ public class NBVectors implements Callable<Integer> {
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private ErrorMode errorMode;
 
-  @Option(names = {"-p", "--phi"},
-      defaultValue = "0.001d",
-      description = "When comparing values which are not exact, due to floating point rounding "
-                    + "errors, the distance within which the values are considered effectively "
-                    + "the same.")
+  @Option(names = {"-p", "--phi"}, defaultValue = "0.001d", description = """
+      When comparing values which are not exact, due to floating point rounding
+      errors, the distance within which the values are considered effectively
+      the same.
+      """)
   double phi;
 
   public static void main(String[] args) {
