@@ -21,23 +21,30 @@ public class ComputationsTest {
       set(0, 8);
     }};
     assertThat(image.getOnes()).isEqualTo(expectedBits);
+
     String glyph = braille(image);
     assertThat(glyph).isEqualTo("⣿");
   }
 
   @Test
   public void testMatchingPartial() {
-    BitImage image = Computations.matchingImage(new long[]{1, 2, 3, 4}, new long[]{1, 3, 5, 7});
+    BitImage image = Computations.matchingImage(
+        new long[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, new long[]{
+            1, 3, 5, 7
+        }
+    );
     BitSet expectedBits = new BitSet() {{
       set(0);
       set(2);
+      set(4);
+      set(6);
     }};
     assertThat(image.getOnes()).isEqualTo(expectedBits);
 
     String glyph = braille(image);
-    assertThat(glyph).isEqualTo("⠅");
+    assertThat(image.length()).isEqualTo(12);
+    assertThat(glyph).isEqualTo("⠭⠀");
 
-    assertThat(image.length()).isEqualTo(4);
   }
 
 }

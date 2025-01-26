@@ -108,7 +108,8 @@ public class NBVectors implements Callable<Integer> {
   double phi;
 
   public static void main(String[] args) {
-    System.setProperty("slf4j.internal.verbosity", "DEBUG");
+    System.setProperty("slf4j.internal.verbosity", "ERROR");
+//    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     System.setProperty(
         ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
         CustomConfigurationFactory.class.getCanonicalName()

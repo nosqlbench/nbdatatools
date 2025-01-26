@@ -41,7 +41,7 @@ public class BitImage {
     byte[] oneBits = ones.toByteArray();
     byte[] zeroBits = zeros.toByteArray();
     byte[] allBits = new byte[Math.max(oneBits.length, zeroBits.length)];
-    for (int bit = 0; bit < allBits.length; bit++) {
+    for (int bit = 0; bit < oneBits.length; bit++) {
       allBits[bit] = oneBits[bit];
     }
     return allBits;

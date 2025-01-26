@@ -153,6 +153,8 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
     intervalProgress.setLabelFormat(
         "query " + currentQueryVector + "/" + totalQueryVectors + " index[" + index + "]"
         + " (%2.0f%%)");
+    int modulo = (int) (vector.index() % summaries);
+    lastComparisonText[modulo].setText(lastQueryVector.toString());
     try {
       gui.updateScreen();
     } catch (IOException e) {
