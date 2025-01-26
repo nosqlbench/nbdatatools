@@ -58,6 +58,8 @@ import picocli.CommandLine.Option;
         "2: at least one tested neighborhood was incorrect"
     })
 public class NBVectors implements Callable<Integer> {
+  private static Logger logger = LogManager.getLogger(NBVectors.class);
+  //  private final static Logger logger = NBLoggerContext.context().getLogger(NBVectors.class);
 
   @Option(names = {"-i", "--interval"},
       converter = Interval.Converter.class,
@@ -106,9 +108,21 @@ public class NBVectors implements Callable<Integer> {
   double phi;
 
   public static void main(String[] args) {
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    int exitCode = new CommandLine(new NBVectors()).setCaseInsensitiveEnumValuesAllowed(true)
-        .setOptionsCaseInsensitive(true).execute(args);
+    System.setProperty("slf4j.internal.verbosity", "DEBUG");
+    System.setProperty(
+        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+        CustomConfigurationFactory.class.getCanonicalName()
+    );
+
+    logger.info("starting main");
+    logger.info("instancing command");
+    NBVectors command = new NBVectors();
+    logger.info("instancing commandline");
+    CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
+        .setOptionsCaseInsensitive(true);
+    logger.info("executing commandline");
+    int exitCode = commandLine.execute(args);
+    logger.info("exiting main");
     System.exit(exitCode);
   }
 

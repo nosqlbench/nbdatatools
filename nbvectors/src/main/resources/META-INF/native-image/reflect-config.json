@@ -12,22 +12,45 @@
     "allDeclaredFields": true
   },
   {
+    "name": "io.nosqlbench.nbvectors.logging.CustomConfigurationFactory",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
     "name": "io.nosqlbench.nbvectors.Interval$Converter",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allDeclaredFields": true
   },
   {
-    "name": "io.nosqlbench.nbvectors.PrintFormat",
+    "name": "org.apache.logging.log4j.core.appender.ConsoleAppender",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allDeclaredFields": true
   },
   {
-    "name": "com.datastax.DistanceFunction",
+    "name": "org.apache.logging.log4j.core.layout.PatternLayout",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.filter.MarkerFilter",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.MessagePatternConverter",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.apache.logging.log4j.core.pattern.DatePatternConverter",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true,
     "allDeclaredFields": true
   }
-
 ]
