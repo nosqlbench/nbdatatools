@@ -14,7 +14,7 @@ import java.util.BitSet;
 public class NeighborhoodComparisonTest {
 
   @Test
-  public void testGlyhps() {
+  public void testGlyphs() {
     for (int i = 0; i < 256; i++) {
       System.out.print(braille(i));
     }

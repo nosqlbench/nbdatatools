@@ -27,7 +27,7 @@ public class StatusViewStdout implements StatusView {
 
   private synchronized void flushIf() {
     if (flushall) {
-      System.out.println(sb.toString());
+      System.out.print(sb.toString());
       sb.setLength(0);
     }
   }
