@@ -1,4 +1,4 @@
-package io.nosqlbench.nbv;
+package io.nosqlbench.nbvectors;
 
 import io.nosqlbench.verifyknn.app.VerifyKNN;
 import io.nosqlbench.verifyknn.logging.CustomConfigurationFactory;

@@ -12,7 +12,7 @@
     <maven.compiler.source>23</maven.compiler.source>
     <maven.compiler.target>23</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <mainClass>io.nosqlbench.nbv.NBVectorTools</mainClass>
+    <mainClass>io.nosqlbench.nbvectors.NBVectorTools</mainClass>
     <imageName>nbvectors</imageName>
     <jline.version>3.28.0</jline.version>
     <native.maven.plugin.version>0.10.4</native.maven.plugin.version>
