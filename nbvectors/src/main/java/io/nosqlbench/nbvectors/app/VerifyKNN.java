@@ -10,10 +10,7 @@ import io.nosqlbench.nbvectors.datatypes.IndexedFloatVector;
 import io.nosqlbench.nbvectors.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.datatypes.Neighborhood;
 import io.nosqlbench.nbvectors.logging.CustomConfigurationFactory;
-import io.nosqlbench.nbvectors.options.IntervalParser;
-import io.nosqlbench.nbvectors.options.DistanceFunction;
-import io.nosqlbench.nbvectors.options.ErrorMode;
-import io.nosqlbench.nbvectors.options.Interval;
+import io.nosqlbench.nbvectors.options.*;
 import io.nosqlbench.nbvectors.readers.KNNData;
 import io.nosqlbench.nbvectors.statusview.*;
 import org.apache.logging.log4j.LogManager;
@@ -27,7 +24,7 @@ import picocli.CommandLine.Option;
 ///
 /// Internally, values may be promoted from int to long and from float to double as needed.
 /// For now, floats are used by default, since that is the precision in current test files.
-@CommandLine.Command(name = "nbvectors",
+@CommandLine.Command(name = "verifyknn",
     headerHeading = "Usage:%n%n",
     synopsisHeading = "%n",
     descriptionHeading = "%nDescription%n%n",
@@ -58,8 +55,8 @@ import picocli.CommandLine.Option;
         "0: all tested neighborhoods were correct",
         "2: at least one tested neighborhood was incorrect"
     })
-public class NBVectors implements Callable<Integer> {
-  private static Logger logger = LogManager.getLogger(NBVectors.class);
+public class VerifyKNN implements Callable<Integer> {
+  private static Logger logger = LogManager.getLogger(VerifyKNN.class);
   //  private final static Logger logger = NBLoggerContext.context().getLogger(NBVectors.class);
 
   @Option(names = {"-i", "--interval"},
@@ -108,17 +105,21 @@ public class NBVectors implements Callable<Integer> {
       """)
   double phi;
 
+  @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = """
+      Internal diagnostic level, sends content directly to the console.""", defaultValue = "ERROR")
+  ConsoleDiagnostics diaglevel;
+
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
-//    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     System.setProperty(
         ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
         CustomConfigurationFactory.class.getCanonicalName()
     );
 
+    //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     logger.info("starting main");
     logger.info("instancing command");
-    NBVectors command = new NBVectors();
+    VerifyKNN command = new VerifyKNN();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
@@ -130,6 +131,7 @@ public class NBVectors implements Callable<Integer> {
 
   @Override
   public Integer call() throws Exception {
+
     int errors = 0;
     try (StatusView view = getStatusView(); KNNData knndata = new KNNData(new HdfFile(hdfpath))) {
       view.onStart(interval.count());
