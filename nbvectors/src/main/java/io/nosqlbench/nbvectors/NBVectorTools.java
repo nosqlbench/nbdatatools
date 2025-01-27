@@ -1,5 +1,6 @@
 package io.nosqlbench.nbvectors;
 
+import io.nosqlbench.taghdf.TagHDF;
 import io.nosqlbench.verifyknn.app.VerifyKNN;
 import io.nosqlbench.verifyknn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
@@ -7,7 +8,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
-@CommandLine.Command(name = "nbv", subcommands = {VerifyKNN.class})
+@CommandLine.Command(name = "nbv", subcommands = {VerifyKNN.class, TagHDF.class})
 public class NBVectorTools {
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
@@ -22,6 +23,5 @@ public class NBVectorTools {
         .setOptionsCaseInsensitive(true);
     int exitCode = commandLine.execute(args);
     System.exit(exitCode);
-
   }
 }
