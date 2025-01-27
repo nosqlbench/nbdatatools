@@ -1,0 +1,21 @@
+package io.nosqlbench.verifyknn.datatypes;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
+public class Neighborhood extends ArrayList<NeighborIndex> {
+  public Neighborhood(NeighborIndex[] lastResults) {
+    this.addAll(Arrays.asList(lastResults));
+  }
+  public Neighborhood() {
+    super();
+  }
+  public Neighborhood add(long index, double distance) {
+    this.add(new NeighborIndex(index, distance));
+    return this;
+  }
+
+  public long[] getIndices() {
+    return this.stream().mapToLong(NeighborIndex::index).toArray();
+  }
+}

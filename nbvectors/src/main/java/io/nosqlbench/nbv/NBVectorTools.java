@@ -1,7 +1,7 @@
 package io.nosqlbench.nbv;
 
-import io.nosqlbench.nbvectors.app.VerifyKNN;
-import io.nosqlbench.nbvectors.logging.CustomConfigurationFactory;
+import io.nosqlbench.verifyknn.app.VerifyKNN;
+import io.nosqlbench.verifyknn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
