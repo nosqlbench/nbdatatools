@@ -1,11 +1,11 @@
 package io.nosqlbench.verifyknn;
 
-import io.nosqlbench.verifyknn.computation.NeighborhoodComparison;
-import io.nosqlbench.verifyknn.datatypes.IndexedFloatVector;
-import io.nosqlbench.verifyknn.datatypes.Neighborhood;
+import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 import org.junit.jupiter.api.Test;
 
-import static io.nosqlbench.verifyknn.statusview.Glyphs.braille;
+import static io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs.braille;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.BitSet;

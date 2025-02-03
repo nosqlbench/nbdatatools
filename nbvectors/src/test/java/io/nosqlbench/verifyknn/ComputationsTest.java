@@ -1,10 +1,10 @@
 package io.nosqlbench.verifyknn;
 
-import io.nosqlbench.verifyknn.computation.Computations;
-import io.nosqlbench.verifyknn.datatypes.BitImage;
+import io.nosqlbench.nbvectors.verifyknn.computation.Computations;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.BitImage;
 import org.junit.jupiter.api.Test;
 
-import static io.nosqlbench.verifyknn.statusview.Glyphs.braille;
+import static io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs.braille;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.BitSet;

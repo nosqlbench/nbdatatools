@@ -22,7 +22,18 @@
     <dependency>
       <groupId>io.jhdf</groupId>
       <artifactId>jhdf</artifactId>
-      <version>0.8.2</version>
+      <version>0.8.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>net.thisptr</groupId>
+      <artifactId>jackson-jq</artifactId>
+      <version>1.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>net.thisptr</groupId>
+      <artifactId>jackson-jq-extra</artifactId>
+      <version>1.2.0</version>
     </dependency>
 
     <dependency>

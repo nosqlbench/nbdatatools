@@ -111,8 +111,8 @@ Fully-compatible writers MUST provide this attribute.
 #### component_encoding
 
 This is an optional attribute of the root group or of a specific dataset. The value is taken from,
-in order of precedence, 1) the underlying datatype on the dataset, 2) the attribute on the dataset,
-and 3) the attribute of the root group.
+in order of precedence, 1) the attribute on the dataset, 2) the attribute of the root group,
+and 3) the underlying datatype on the dataset.
 
 This is a named encoding which encapsulates the low-level data type of each component as well as how
 it should be encoded/decoded to the underlying hdf5 data type.
@@ -127,7 +127,7 @@ embeddings. A canonically correct HDF5 data type for this would be a bit field, 
 disambiguate it from the 8-bit integer embeddings from the same model. Without the benefit of the
 HDF5 datatypes, however, the same 8-bit type is used for both integer and binary embeddings. Thus,
 the underlying HDF5 data type may not be used to infer both the decoding and the correct distance
-function.
+function implementation (type-specific).
 
 Further, HDF5 does not actually support all the data types used with TPU/GPU libraries, such as
 bfloat16. For these types, a cross-encoding scheme is required, such as packing four bfloat-16
