@@ -1,5 +1,6 @@
-package io.nosqlbench.nbvectors.jsonalyze;
+package io.nosqlbench.nbvectors.jjq;
 
+import io.nosqlbench.nbvectors.jjq.bulkio.LineChunker;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;

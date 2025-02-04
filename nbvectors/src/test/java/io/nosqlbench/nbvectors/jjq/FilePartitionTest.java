@@ -1,5 +1,6 @@
-package io.nosqlbench.nbvectors.jsonalyze;
+package io.nosqlbench.nbvectors.jjq;
 
+import io.nosqlbench.nbvectors.jjq.bulkio.FilePartition;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -23,7 +24,7 @@ public class FilePartitionTest {
     List<FilePartition> p03 = p0.partition(3);
     try {
       String content = Files.readString(path);
-      String actual = p03.stream().map(FilePartition::read).map(StandardCharsets.UTF_8::decode)
+      String actual = p03.stream().map(FilePartition::mapFile).map(StandardCharsets.UTF_8::decode)
           .map(CharBuffer::toString).reduce("", String::concat);
       assertEquals(content, actual);
     } catch (IOException e) {

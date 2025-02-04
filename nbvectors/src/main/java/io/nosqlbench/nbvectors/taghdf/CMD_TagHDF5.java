@@ -17,7 +17,7 @@ import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
 @CommandLine.Command(name = "taghdf", description = "read or write hdf attributes")
-public class TagHDF5Command implements Callable<Integer> {
+public class CMD_TagHDF5 implements Callable<Integer> {
 
   private final HdfTraverser hdfTraverser =
       new HdfTraverser(new BaseHdfVisitorFilter(), new BaseHdfVisitorInjector());
@@ -39,7 +39,7 @@ public class TagHDF5Command implements Callable<Integer> {
 
 
   public static void main(String[] args) {
-    TagHDF5Command command = new TagHDF5Command();
+    CMD_TagHDF5 command = new CMD_TagHDF5();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
     int exitCode = commandLine.execute(args);

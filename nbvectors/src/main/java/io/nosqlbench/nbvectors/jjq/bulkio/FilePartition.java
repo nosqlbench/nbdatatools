@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.jsonalyze;
+package io.nosqlbench.nbvectors.jjq.bulkio;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -6,8 +6,6 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedList;
-import java.util.List;
 
 public record FilePartition(Path path, long start, long end) {
 
@@ -26,13 +24,13 @@ public record FilePartition(Path path, long start, long end) {
   /// Break a file up into partitions on newline boundaries
   /// while ensuring that each boundary is less than the size
   /// you can mmap with Java's 2
-  public List<FilePartition> partition(int minPartitions) {
+  public FilePartitions partition(int minPartitions) {
     long len = this.end - this.start;
     long minP = len / 2000000000;
     long partitions = Math.max(minPartitions, (Math.max(1, len / 2000000000)));
     long psize = len / partitions;
 
-    LinkedList<FilePartition> extents = new LinkedList<>();
+    FilePartitions extents = new FilePartitions();
     try {
       FileChannel channel = FileChannel.open(path);
       ByteBuffer buf = ByteBuffer.allocate(1024);
@@ -62,7 +60,7 @@ public record FilePartition(Path path, long start, long end) {
     }
   }
 
-  public ByteBuffer read() {
+  public ByteBuffer mapFile() {
     long size = this.end - this.start;
     if (size > Integer.MAX_VALUE) {
       throw new RuntimeException("File partition is too large to read into a ByteBuffer");

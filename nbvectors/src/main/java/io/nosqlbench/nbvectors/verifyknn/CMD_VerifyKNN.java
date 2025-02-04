@@ -55,8 +55,8 @@ import picocli.CommandLine.Option;
         "0: all tested neighborhoods were correct",
         "2: at least one tested neighborhood was incorrect"
     })
-public class VerifyKNNCommand implements Callable<Integer> {
-  private static Logger logger = LogManager.getLogger(VerifyKNNCommand.class);
+public class CMD_VerifyKNN implements Callable<Integer> {
+  private static Logger logger = LogManager.getLogger(CMD_VerifyKNN.class);
   //  private final static Logger logger = NBLoggerContext.context().getLogger(NBVectors.class);
 
   @Option(names = {"-i", "--interval"},
@@ -119,7 +119,7 @@ public class VerifyKNNCommand implements Callable<Integer> {
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     logger.info("starting main");
     logger.info("instancing command");
-    VerifyKNNCommand command = new VerifyKNNCommand();
+    CMD_VerifyKNN command = new CMD_VerifyKNN();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);

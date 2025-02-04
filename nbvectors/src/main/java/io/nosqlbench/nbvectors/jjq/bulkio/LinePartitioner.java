@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.jsonalyze;
+package io.nosqlbench.nbvectors.jjq.bulkio;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
