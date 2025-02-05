@@ -1,0 +1,83 @@
+# d2 --scale 0.5 fileparts.d2 fileparts.svg
+direction: down
+grid-columns: 4
+vertical-gap: 1
+label:""
+
+file1 {
+  height: 700
+}
+
+partitions {
+  grid-columns: 1
+  grid-gap: 0
+  label:""
+
+  partition11 {
+    height: 300
+  }
+  partition12 {
+    height: 300
+  }
+  partition_more {
+    height: 100
+    label:'...'
+  }
+}
+
+chunks {
+  grid-columns: 1
+  grid-gap: 0
+  label:""
+
+  chunk111 { height: 200 }
+  chunk112 { height: 100 }
+  chunk121 { height: 100 }
+  chunk122 { height: 100 }
+  chunk123 { height: 100 }
+  chunk_more { height: 100; label:"..."}
+}
+
+lines {
+  label:""
+  grid-columns: 1
+  grid-gap: 10
+
+  forchunk111 {
+    grid-columns: 1
+    grid-gap:0
+    label: ""
+    line1111 { height: 25; label:"line 1" }
+    line1112 { height: 25; label:"line 2" }
+    line1113 { height: 25; label:"line 3" }
+    line1114 { height: 25; label:"line 4" }
+    line1115 { height: 25; label:"line 5" }
+    line1116 { height: 25; label:"line 6" }
+    line1117 { height: 25; label:"line 7" }
+    line1118 { height: 25; label:"line 8" }
+  }
+  forchunk112 {
+    grid-columns: 1
+    grid-gap:0
+    label: ""
+    line1121 { height: 25; label:"line 9" }
+    line1122 { height: 25; label:"line 10" }
+    line1123 { height: 25; label:"line 11" }
+    line1124 { height: 25; label:"line 12" }
+  }
+  forchunk121 {
+    grid-columns: 1
+    grid-gap:0
+    label: ""
+    line1121 { height: 25; label:"line 13" }
+    line1122 { height: 25; label:"line 14" }
+    line1123 { height: 25; label:"..." }
+  }
+}
+
+file1 -> partitions.partition1*
+partitions.partition11 -> chunks.chunk11*
+partitions.partition12 -> chunks.chunk12*
+chunks.chunk111 -> lines.forchunk111
+chunks.chunk112 -> lines.forchunk112
+chunks.chunk121 -> lines.forchunk121

@@ -13,9 +13,13 @@ public class JsonNodeMapper implements Function<String, JsonNode> {
   @Override
   public JsonNode apply(String s) {
     try {
-      return MAPPER.readTree(s);
+      JsonNode jsonNode = MAPPER.readTree(s);
+      if (jsonNode.isEmpty()) {
+        System.out.println("EMPTY NODE from '" + s + "'");
+      }
+      return jsonNode;
     } catch (JsonProcessingException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Error parsing JSON:" + e);
     }
   }
 }

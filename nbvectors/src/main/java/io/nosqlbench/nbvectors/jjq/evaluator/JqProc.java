@@ -8,15 +8,17 @@ import net.thisptr.jackson.jq.Scope;
 
 import java.util.function.Function;
 
-public class JqFunctionLoop implements Runnable {
+public class JqProc implements Runnable {
 
   private final Scope scope;
   private final Iterable<String> jsonlSource;
   private final Function<String, JsonNode> mapper;
   private final JsonQuery query;
   private final Output output;
+  private final String id;
 
-  public JqFunctionLoop(
+  public JqProc(
+      String id,
       Scope scope,
       Iterable<String> jsonlSource,
       Function<String, JsonNode> mapper,
@@ -24,6 +26,7 @@ public class JqFunctionLoop implements Runnable {
       Output output
   )
   {
+    this.id = id;
     this.scope = scope;
     this.jsonlSource = jsonlSource;
     this.mapper = mapper;
@@ -33,14 +36,30 @@ public class JqFunctionLoop implements Runnable {
 
   @Override
   public void run() {
-    for (String inputJson : jsonlSource) {
-      JsonNode node = mapper.apply(inputJson);
-      try {
-        query.apply(scope, node, output);
-      } catch (JsonProcessingException e) {
-        throw new RuntimeException(e);
+    JsonNode node;
+    try {
+      int count = 0;
+      for (String inputJson : jsonlSource) {
+        count++;
+        if ((count%100)==0) {
+          System.out.println("id:" + id + " count:" + count);
+          System.out.flush();
+        }
+        try {
+          node = mapper.apply(inputJson);
+        } catch (Exception e) {
+          throw new RuntimeException("error parsing input:\n"+inputJson);
+        }
+        try {
+          query.apply(scope, node, output);
+        } catch (JsonProcessingException e) {
+          throw new RuntimeException(e);
+        }
       }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
 
   }
+
 }

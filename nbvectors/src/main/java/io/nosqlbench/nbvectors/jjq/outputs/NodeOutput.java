@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.jjq.evaluator;
+package io.nosqlbench.nbvectors.jjq.outputs;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import net.thisptr.jackson.jq.Output;

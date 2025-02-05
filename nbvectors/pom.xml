@@ -30,10 +30,21 @@
       <artifactId>jackson-jq</artifactId>
       <version>1.2.0</version>
     </dependency>
+<!--    <dependency>-->
+<!--      <groupId>net.thisptr</groupId>-->
+<!--      <artifactId>jackson-jq-extra</artifactId>-->
+<!--      <version>1.2.0</version>-->
+<!--    </dependency>-->
+
     <dependency>
-      <groupId>net.thisptr</groupId>
-      <artifactId>jackson-jq-extra</artifactId>
-      <version>1.2.0</version>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service-annotations</artifactId>
+      <version>1.1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service</artifactId>
+      <version>1.1.1</version>
     </dependency>
 
     <dependency>
@@ -120,7 +131,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <proc>full</proc>
+          <proc>only</proc>
           <release>23</release>
         </configuration>
         <executions>
@@ -131,7 +142,19 @@
             </goals>
             <phase>process-classes</phase>
             <configuration>
-              <proc>only</proc>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>com.google.auto.service</groupId>
+                  <artifactId>auto-service</artifactId>
+                  <version>1.1.1</version>
+                </path>
+                <path>
+                  <groupId>org.apache.logging.log4j</groupId>
+                  <artifactId>log4j-core</artifactId>
+                  <version>2.24.3</version>
+                </path>
+              </annotationProcessorPaths>
+              <proc>full</proc>
               <annotationProcessors>
                 <annotationProcessor>
                   org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor
@@ -193,9 +216,10 @@
               <mainClass>${mainClass}</mainClass>
             </manifest>
           </archive>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
+          <descriptors>
+            <ref>assembly.xml</ref>
+<!--            <descriptorRef>assembly</descriptorRef>-->
+          </descriptors>
         </configuration>
       </plugin>
     </plugins>

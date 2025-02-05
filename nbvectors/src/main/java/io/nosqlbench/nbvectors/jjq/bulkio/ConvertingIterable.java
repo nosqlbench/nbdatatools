@@ -35,7 +35,9 @@ public class ConvertingIterable<I,O> implements Iterable<O> {
 
     @Override
     public O next() {
-      return converter.apply(innerIter.next());
+      I next = innerIter.next();
+      O converted = converter.apply(next);
+      return converted;
     }
   }
 }

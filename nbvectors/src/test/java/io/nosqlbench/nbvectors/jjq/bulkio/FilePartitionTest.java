@@ -1,6 +1,5 @@
-package io.nosqlbench.nbvectors.jjq;
+package io.nosqlbench.nbvectors.jjq.bulkio;
 
-import io.nosqlbench.nbvectors.jjq.bulkio.FilePartition;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

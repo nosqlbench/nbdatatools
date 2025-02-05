@@ -1,6 +1,5 @@
-package io.nosqlbench.nbvectors.jjq;
+package io.nosqlbench.nbvectors.jjq.bulkio;
 
-import io.nosqlbench.nbvectors.jjq.bulkio.CharbufChunker;
 import org.junit.jupiter.api.Test;
 
 import java.nio.CharBuffer;
