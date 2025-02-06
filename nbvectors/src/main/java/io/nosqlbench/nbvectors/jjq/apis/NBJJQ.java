@@ -1,7 +1,5 @@
-package io.nosqlbench.nbvectors.jjq;
+package io.nosqlbench.nbvectors.jjq.apis;
 
-import io.nosqlbench.nbvectors.jjq.functions.NBJQFunction;
-import io.nosqlbench.nbvectors.jjq.functions.NBStateFunction;
 import net.thisptr.jackson.jq.Function;
 import net.thisptr.jackson.jq.Scope;
 
