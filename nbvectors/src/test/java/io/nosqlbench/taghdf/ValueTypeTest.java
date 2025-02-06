@@ -8,12 +8,12 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ValueTypeTest {
   @Test
   public void testBasicTypes() {
-    assertEquals(ValueType.INT,ValueType.fromLiteral("123"));
+    assertEquals(ValueType.INT,ValueType.fromLiteral("-123"));
     assertEquals(ValueType.FLOAT,ValueType.fromLiteral("123.456"));
     assertEquals(ValueType.DOUBLE,ValueType.fromLiteral("123.45678901234567890"));
     assertEquals(ValueType.LONG,ValueType.fromLiteral("12345678901234567890"));
     assertEquals(ValueType.FLOAT,ValueType.fromLiteral("123.456"));
-    assertEquals(ValueType.DOUBLE,ValueType.fromLiteral("123.456d"));
+    assertEquals(ValueType.DOUBLE,ValueType.fromLiteral("+123.456d"));
     assertEquals(ValueType.SHORT,ValueType.fromLiteral("123s"));
     assertEquals(ValueType.LONG,ValueType.fromLiteral("123l"));
     assertEquals(ValueType.LONG,ValueType.fromLiteral("123L"));

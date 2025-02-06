@@ -1,102 +1,53 @@
-# HDF5 KNN Answer Key Format
+# Metadata Writers v1
+_A standard for writing vector testing metadata to HDF5 files._
+_version_: 1
 
-This documents serves as a basic specification for storing KNN answer keys in HDF5 files.
-
-## Compatibility
-
-The words `MUST` and `SHOULD` are used to indicate a level of compatibility with the format. When
-referencing this standard, systems which implement all the requirements may be described
-***fully compatible***. Others which implement all of the the `MUST` requirements may only be
-described ***partially compatible*** with the format. Further, the users of this format are broken
-apart into two roles, _readers_ and _writers_, thus it is possible for a piece of software that
-reads and writes this format to be a fully-compatible reader, and a partially-compatible writer.
-
-## Endianness
-
-All encodings in this standard `MUST` be little-endian. If big-endian systems need support for
-native encodings, then the specification can be extended. Unless/Until this happens, endianness is
-out of scope. Big-endian systems are expected to translate on their own behalf.
-
-## Basics
-
-Each contains the following four datasets within the hdf5 file:
-
-### /train
-
-This dataset contains the vectors used to train the vector database implementation. These vectors
-must be loaded into the database prior to testing performance and accuracy of vector queries. The
-format of the data is a multidimensional array, with x number of y-dimensional vectors where x=the
-number of individual vectors and y=the number of dimensions in each vector.
-
-By default, the data is stored as a float array. However, other formats are supported. For
-non-floating point representations, some systems have their own prescribed encoding and decoding of
-vector components.
-
-### /test
-
-This dataset contains the vectors used to test the performance and accuracy of the vector database
-implementation. The format of the data is a multi-dimensional float array, with x number of
-y-dimensional vectors where x=the number of individual vectors and y=the number of dimensions in
-each vector.
-
-### /distances
-
-This dataset contains the ground truth distances for each vector in the test dataset. The format of
-the data is a multi-dimensional float array, with x number of y-dimensional vectors where x=the
-number of individual vectors and y=the number of nearest neighbors to each vector.
-
-### /neighbors
-
-This dataset contains the ground truth nearest neighbors for each vector in the test dataset. The
-format of the data is a multi-dimensional integer array, with x number of y-dimensional vectors
-where x=the number of individual vectors and y=the number of nearest neighbors to each vector.
-
-Additionally, metadata and mixed predicates will be added to this format when they have been proven
-out.
-
-## Metadata
 
 For the sake of configuring tests and systems with the proper defaults, it is useful to have some
-metadata available. Reasons for having this metadata for managing and cataloging testing assets,
-cross-checking internal consistency, and auto-configuration.
+metadata available. Reasons for having this metadata include:
 
-When provided, these properties `MUST` be stored in hdf5 attributes on the root group.
+- managing and cataloging testing assets
+- cross-checking internal consistency
+- test system auto-configuration
 
-#### neighbors
+When provided, these properties `MUST` be stored in hdf5 attributes on the root group by default
+except where specific attributes pertain to specific datasets or groups.
+
+## neighbors
 
 The maximum number of neighbors provided for each test vector, AKA the first dimension of the
 `/neighbors` dataset.
 
-Fully-compatible writers MUST provide this attribute.
+Writers MUST provide this attribute.
 
-#### dimensions
+## dimensions
 
 The number of dimensions in each vector, AKA the second dimension of the `/test` and `/train`
 datasets.
 
-Fully-compatible writers MUST provide this attribute.
+Writers MUST provide this attribute.
 
-#### training_vectors
+## training_vectors
 
 The number of vectors in the `/train` dataset, AKA the first dimension of the `/train` dataset.
 
-Fully-compatible writers MUST provide this attribute.
+Writers MUST provide this attribute.
 
-#### test_vectors
+## test_vectors
 
 The number of vectors in the `/test` dataset, aka the first dimension of the `/test` dataset.
 
-Fully-compatible writers MUST provide this attribute.
+Writers MUST provide this attribute.
 
-#### model
+## model
 
 The name of the model used to generate the data, if any. This should be a descriptive and canonical
 name for the model. The name should be the same as what customers may use to select a specific
 variant or version of a model in their systems.
 
-Fully-compatible writers MUST provide this attribute.
+Writers MUST provide this attribute.
 
-#### distance_function
+## distance_function
 
 The case-insensitive name of the distance function used to compute distance between vectors. The
 format of this function should be the shortest unambiguous name for the distance function as
@@ -108,11 +59,11 @@ Example values: `cosine` | `euclidean` | `manhattan` | `hamming` | `jaccard` (ca
 
 Fully-compatible writers MUST provide this attribute.
 
-#### component_encoding
+## component_encoding
 
 This is an optional attribute of the root group or of a specific dataset. The value is taken from,
-in order of precedence, 1) the attribute on the dataset, 2) the attribute of the root group,
-and 3) the underlying datatype on the dataset.
+in order of precedence, 1) the attribute on the dataset, 2) the attribute of the root group, and 3)
+the underlying datatype on the dataset.
 
 This is a named encoding which encapsulates the low-level data type of each component as well as how
 it should be encoded/decoded to the underlying hdf5 data type.
@@ -156,7 +107,8 @@ Other types which need to be converted from HDF5-native types to the runtime typ
 
 __future support available in nbvectors__
 
-* `binary_int8` - single-bit component encoding, with values stored in chunks of 8 as signed 8-bit integers.
+* `binary_int8` - single-bit component encoding, with values stored in chunks of 8 as signed 8-bit
+  integers.
 * `float16_int16` - 16-bit signed floating-point values, stored as int16. The bitwise representation
   of int16 is used to hold the IEEE 754 “half” image.
 * `bfloat16_int16` - [brain float](https://en.wikipedia.org/wiki/Bfloat16_floating-point_format)
@@ -167,4 +119,3 @@ types (signed 8,16,32,64). In these cases, an explicit `component_encoding` MUST
 the naming convention as shown above.
 
 Data providers _SHOULD_ provide this value.
-

@@ -26,9 +26,9 @@ public record AttrSpec(
   @SuppressWarnings({"RegExpRepeatedSpace", "RegExpUnexpectedAnchor"})
   public static final Pattern SPEC_PATTERN = Pattern.compile(
       """
-          (?<path>/|(?:/[^:/.]+)+)? # Optional HDF5 path (e.g., /, /group, /group1/group2)
+          (?<path>/|(?:/[^:/.]+)+)?          # Optional HDF5 path (e.g., /, /group, /group1/group2)
           [:.]?                              # Optional : or . separating path from attribute
-          (?<attr>[a-zA-Z_][a-zA-Z0-9_]*) # Variable name (required, follows identifier rules)
+          (?<attr>[a-zA-Z_][a-zA-Z0-9_]*)    # Variable name (required, follows identifier rules)
           """, Pattern.COMMENTS
   );
 

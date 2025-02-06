@@ -110,7 +110,7 @@ public enum ValueType {
     } else if (value.matches("[+-]?\\d+(\\.\\d+)?[fF]"))
     {
       return FLOAT;
-    } else if (value.matches("\\d+(\\.\\d+)?[dD]")) {
+    } else if (value.matches("[+-]?\\d+(\\.\\d+)?[dD]")) {
       return DOUBLE;
     } else {
       return STRING;

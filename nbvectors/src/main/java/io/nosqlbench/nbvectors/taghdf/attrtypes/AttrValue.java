@@ -26,8 +26,8 @@ public record AttrValue<T>(
   @SuppressWarnings({"RegExpRepeatedSpace", "RegExpUnexpectedAnchor", "EscapedSpace"})
   public static final Pattern SPEC_PATTERN = Pattern.compile(
       """
-          (?:\\((?<typename>[a-zA-Z0-9_]+)\\))?  # Optional type hint (e.g., (String), (int))
-          (?<literal>.+)                       # Value (required, captures everything after type hint or =)
+          (?:\\((?<typename>[a-zA-Z0-9_]+)\\))?    # Optional type hint (e.g., (String), (int))
+          (?<literal>.+)                           # Value (required, captures everything after type hint or =)
           """, Pattern.COMMENTS
   );
 
