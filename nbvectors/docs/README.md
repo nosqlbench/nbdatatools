@@ -6,11 +6,11 @@ of the sections listed below is canonically part of the specification.
 ## version_1
 
 - [HDF5 Dataset Writers v1](dataset_writers_v1.md) - The HDF5 format elements for writers.
-- [Metadata Writers v1](metadata_writers_v1.md) - HDF5 supplemental and required attributes for
+- [HDF5 Metadata Writers v1](metadata_writers_v1.md) - HDF5 supplemental and required attributes for
   writers.
 - [HDF5 Dataset Readers v1](dataset_readers_v1.md) - The HDF5 format elements for readers.
 - [HDF5 Metadata Readers v1](metadata_readers_v1.md) - HDF5 test data attributes for readers.
-- [Attribute Syntax spec v1](attribute_syntax_v1.md) - Canonical path specifier for managing
+- [HDF5 Attribute Syntax spec v1](attribute_syntax_v1.md) - Canonical path specifier for managing
   attributes.
 - [Optional Annex 1 - Ordinal Predicates Writers v1](ordinal_predicate_writers_v1.md) - Data format for
   encoding predicates for filtering vector subspaces.
