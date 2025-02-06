@@ -30,14 +30,6 @@ specifications above, including both `MUST` and `SHOULD` elements, may be descri
 ***COMPATIBLE with Vector Data Format v1***. Further, systems may implement only the reader or
 writer portions and still remain fully compatible as long as the distinction is made for users.
 
-Software which
-
 Software which implements only a reader or writer portion of the spec may also be described as
-***COMPATIBLE with Vector Data Format v1***, although they are required to indicate to the user  
-Others which implement all of the `MUST` requirements may only be described
-***minimally compatible*** with the format.
-
-Further, the users of this format are broken apart into two roles, _readers_ and _writers_, thus it
-is possible for a piece of software that reads and writes this format to be a fully-compatible
-reader, and a minimally-compatible writer.
-
+***COMPATIBLE with Vector Data Format v1***,
+although they are required to indicate to the user which of the components implemented.  
