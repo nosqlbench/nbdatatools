@@ -12,9 +12,10 @@ of the sections listed below is canonically part of the specification.
 - [HDF5 Metadata Readers v1](metadata_readers_v1.md) - HDF5 test data attributes for readers.
 - [HDF5 Attribute Syntax spec v1](attribute_syntax_v1.md) - Canonical path specifier for managing
   attributes.
-- [Optional Annex 1 - Ordinal Predicates Writers v1](ordinal_predicate_writers_v1.md) - Data format for
-  encoding predicates for filtering vector subspaces.
-- [Optional Annex 2 - Variable Length Predicate Writers v1](variable_length_predicates_v1.md) - Data format for encoding raw predicate structure 
+- [Optional Annex 1 - Ordinal Predicates Writers v1](ordinal_predicate_writers_v1.md) - Data format
+  for encoding predicates for filtering vector subspaces.
+- [Optional Annex 2 - Variable Length Predicate Writers v1](variable_length_predicates_v1.md) - Data
+  format for encoding raw predicate structure
 
 ## Versioning
 
@@ -27,9 +28,6 @@ shall be tied to a specific overall version, such as with [version_1](#version_1
 The words `MUST` and `SHOULD` are used to indicate a level of compatibility with the format. When
 referencing this standard, systems which implement all the requirements for one of the versioned
 specifications above, including both `MUST` and `SHOULD` elements, may be described as
-***COMPATIBLE with Vector Data Format v1***. Further, systems may implement only the reader or
-writer portions and still remain fully compatible as long as the distinction is made for users.
+***COMPATIBLE with _________ v1***. Implementations which cover only the reader or writer portions
+may still remain fully compatible as long as the distinction is made for users.
 
-Software which implements only a reader or writer portion of the spec may also be described as
-***COMPATIBLE with Vector Data Format v1***,
-although they are required to indicate to the user which of the components implemented.  
