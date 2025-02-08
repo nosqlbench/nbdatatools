@@ -44,6 +44,10 @@ public class CMD_jjq implements Callable<Integer> {
   @Option(names = {"-p", "--parts"}, required = false, defaultValue = "0")
   private int parts;
 
+  @Option(names = {"-d", "--diag"}, required = false, defaultValue = "false", description = """
+      A debugging mode that provides a simpler execution path, more data, and cleaner stack traces.""")
+  private boolean diagnose;
+
   public static void main(String[] args) {
     CMD_jjq command = new CMD_jjq();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
@@ -60,45 +64,59 @@ public class CMD_jjq implements Callable<Integer> {
 
     Scope rootScope = rootScope();
 
-    try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
-      System.out.println("partitioning");
-      int partitionCount = threads != 0 ? threads : Runtime.getRuntime().availableProcessors() - 1;
-      FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
-      System.out.println(partitions);
-      Output output = null;
-      if (outPath != null) {
-        output = new JsonlFileOutput(outPath);
-      } else {
-        output = new PrettyConsoleOutput();
+    JsonQuery query = JsonQuery.compile(this.jq, Versions.JQ_1_6);
+
+    Output output = null;
+    if (outPath != null) {
+      output = new JsonlFileOutput(outPath);
+    } else {
+      output = new PrettyConsoleOutput();
+    }
+
+    Scope scope = Scope.newChildScope(rootScope);
+
+    System.out.println("partitioning");
+    int partitionCount = threads != 0 ? threads : Runtime.getRuntime().availableProcessors() - 1;
+    FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
+    System.out.println(partitions);
+
+    if (diagnose) {
+      try {
+        Iterable<String> lines = partitions.getFirst().asStringIterable();
+        JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
+        f.run();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
       }
+    } else {
+      try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
+        futures = new LinkedList<>();
 
-      JsonQuery query = JsonQuery.compile(this.jq, Versions.JQ_1_6);
-
-      futures = new LinkedList<>();
-
-      int count = 0;
-      for (FilePartition partition : partitions) {
-        count++;
-        Scope scope = Scope.newChildScope(rootScope);
-        Iterable<String> lines = partition.asStringIterable();
-        JqProc f = new JqProc(partition.toString(), scope, lines, mapper, query, output);
-        Future<?> future = exec.submit(f);
-        futures.addLast(future);
-      }
-
-      while (!futures.isEmpty()) {
-        try {
-          Future<?> f = futures.removeLast();
-          Object result = f.get();
-          System.out.println("result:" + (result != null ? result : "NULL"));
-        } catch (Exception e) {
-          throw new RuntimeException(e);
+        int count = 0;
+        for (FilePartition partition : partitions) {
+          count++;
+          Iterable<String> lines = partition.asStringIterable();
+          JqProc f = new JqProc(partition.toString(), scope, lines, mapper, query, output);
+          Future<?> future = exec.submit(f);
+          futures.addLast(future);
         }
 
-        //        exec.shutdownNow();
+        while (!futures.isEmpty()) {
+          try {
+            Future<?> f = futures.removeLast();
+            Object result = f.get();
+            System.out.println("result:" + (result != null ? result : "NULL"));
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+
+          //        exec.shutdownNow();
+        }
+
       }
 
     }
+
 
     List<NBJQFunction> registeredFunctions = NBJJQ.getRegisteredFunctions(rootScope);
     for (NBJQFunction registeredFunction : registeredFunctions) {
@@ -106,8 +124,8 @@ public class CMD_jjq implements Callable<Integer> {
       registeredFunction.finish();
     }
     System.out.println("STATE:");
-    NBJJQ.getState(rootScope).forEach((k,v) -> {
-      System.out.println("k:"+k+", v:" + v);
+    NBJJQ.getState(rootScope).forEach((k, v) -> {
+      System.out.println("k:" + k + ", v:" + v);
     });
 
     return 0;
@@ -127,8 +145,8 @@ public class CMD_jjq implements Callable<Integer> {
   private Scope rootScope() throws URISyntaxException {
     Scope scope = Scope.newEmptyScope();
     BuiltinFunctionLoader.getInstance().loadFunctions(Version.LATEST, scope);
-//    BuiltinFunctionLoader.getInstance().listFunctions(Versions.JQ_1_6, scope)
-//        .forEach((k, v) -> System.out.println("function: " + k));
+    //    BuiltinFunctionLoader.getInstance().listFunctions(Versions.JQ_1_6, scope)
+    //        .forEach((k, v) -> System.out.println("function: " + k));
 
     //    scope.addFunction("env", 0, new EnvFunction());
 
@@ -141,7 +159,7 @@ public class CMD_jjq implements Callable<Integer> {
         }));
 
     NBStateFunction nbsf = new NBStateFunction();
-    scope.addFunction("nbstate",nbsf);
+    scope.addFunction("nbstate", nbsf);
 
     return scope;
 

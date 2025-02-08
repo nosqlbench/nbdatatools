@@ -25,7 +25,7 @@ public abstract class NBJQFunction implements Function {
       synchronized(this) {
         NBJJQ.register(this,scope);
         this.state = NBJJQ.getState(scope);
-        start();
+        start(scope, args, in);
         this.registered=true;
       }
     }
@@ -40,7 +40,8 @@ public abstract class NBJQFunction implements Function {
     return state;
   }
 
-  public abstract void start();
+  public abstract void start(Scope scope, List<Expression> args, JsonNode in)
+      throws JsonQueryException;
   public abstract void doApply (
       Scope scope,
       List<Expression> args,

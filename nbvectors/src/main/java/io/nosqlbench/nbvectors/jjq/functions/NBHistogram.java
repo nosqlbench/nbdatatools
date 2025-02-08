@@ -1,7 +1,6 @@
 package io.nosqlbench.nbvectors.jjq.functions;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.jjq.apis.NBJQFunction;
 import net.thisptr.jackson.jq.*;
@@ -39,11 +38,11 @@ public class NBHistogram extends NBJQFunction {
           along.incrementAndGet();
         }
     );
-
+    output.emit(in,path);
   }
 
   @Override
-  public void start() {
+  public void start(Scope scope, List<Expression> args, JsonNode in) {
     Map<String, Object> state = getState();
     this.counts =
         (ConcurrentHashMap<String, AtomicLong>) state.computeIfAbsent(

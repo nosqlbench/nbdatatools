@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 @AutoService(Function.class)
-@BuiltinFunction({"nbcount/1","nbcount/0"})
+@BuiltinFunction({"nbcount/0"})
 public class NBCount extends NBJQFunction {
   private AtomicLong counter;
   @Override
@@ -28,10 +28,11 @@ public class NBCount extends NBJQFunction {
     if (!in.isNull()) {
       counter.incrementAndGet();
     }
+    output.emit(in,path);
   }
 
   @Override
-  public void start() {
+  public void start(Scope scope, List<Expression> args, JsonNode in) {
     Map<String, Object> state = getState();
     this.counter = (AtomicLong) state.computeIfAbsent("nbcount_count",k -> new AtomicLong());
   }
