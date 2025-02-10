@@ -3,12 +3,14 @@ package io.nosqlbench.nbvectors.jjq.bulkio;
 import java.util.Iterator;
 import java.util.function.Function;
 
+/// An [Iterable] of [O], wrapping the given [Iterable] of [I]
+/// and function to convert an [I] -> [Iterable] of [O]
 public class FlatteningIterable<I, O> implements Iterable<O> {
   private final Iterable<I> inner;
   private final Function<I, Iterable<O>> function;
 
   public FlatteningIterable(Iterable<I> inner) {
-    this.function = (I i) -> (Iterable<O>)i;
+    this.function = (I i) -> (Iterable<O>) i;
     this.inner = inner;
   }
 
@@ -23,7 +25,7 @@ public class FlatteningIterable<I, O> implements Iterable<O> {
   }
 
   public static class FlatteningIterator<I, O> implements Iterator<O>, DiagToString {
-    private long inners,outers,totals;
+    private long inners, outers, totals;
 
     private final Function<I, Iterable<O>> function;
     private final Iterator<I> inputIter;
@@ -36,15 +38,15 @@ public class FlatteningIterable<I, O> implements Iterable<O> {
 
     @Override
     public boolean hasNext() {
-      return (outputIter!=null && outputIter.hasNext()) || inputIter.hasNext();
+      return (outputIter != null && outputIter.hasNext()) || inputIter.hasNext();
     }
 
     @Override
     public O next() {
-      while (outputIter ==null || (!outputIter.hasNext() && inputIter.hasNext())) {
+      while (outputIter == null || (!outputIter.hasNext() && inputIter.hasNext())) {
         I nextInner = inputIter.next();
         inners++;
-        outers=0;
+        outers = 0;
         outputIter = function.apply(nextInner).iterator();
       }
       outers++;
@@ -55,7 +57,7 @@ public class FlatteningIterable<I, O> implements Iterable<O> {
 
     @Override
     public String toDiagString() {
-      return "inners:" + inners +", outers:" + outers + ", totals:" + totals;
+      return "inners:" + inners + ", outers:" + outers + ", totals:" + totals;
     }
   }
 }

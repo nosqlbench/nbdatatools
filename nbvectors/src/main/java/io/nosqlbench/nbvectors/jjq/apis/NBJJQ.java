@@ -7,31 +7,25 @@ import java.util.List;
 import java.util.Map;
 
 public class NBJJQ {
+  public static synchronized NBStateContext getContext(Scope scope) {
+    Function nbs = scope.getFunction("nbstate", 0);
+    if (nbs instanceof NBStateContextHolderHack nbsf) {
+      return nbsf;
+    } else {
+      throw new RuntimeException("Missing state holder function");
+    }
+
+  }
   public static Map<String, Object> getState(Scope scope) {
-    Function nbs = scope.getFunction("nbstate", 0);
-    if (nbs instanceof NBStateFunction nbsf) {
-      return (Map<String, Object>) nbsf.getState();
-    } else {
-      throw new RuntimeException("error loading function named nbstate for state map");
-    }
+    return getContext(scope).getState();
   }
 
-  public static void register(NBJQFunction f, Scope scope) {
-    Function nbs = scope.getFunction("nbstate", 0);
-    if (nbs instanceof NBStateFunction nbsf) {
-      nbsf.register(f);
-    } else {
-      throw new RuntimeException("error loading function named nbstate for function registration");
-    }
+  public synchronized static void register(NBBaseJQFunction f, Scope scope) {
+    getContext(scope).register(f);
   }
 
-  public static List<NBJQFunction> getRegisteredFunctions(Scope scope) {
-    Function nbs = scope.getFunction("nbstate", 0);
-    if (nbs instanceof NBStateFunction nbsf) {
-      return nbsf.getRegisteredFunctions();
-    }
-    throw new RuntimeException("error loading function named nbstate for function registration");
-
+  public static List<NBBaseJQFunction> getRegisteredFunctions(Scope scope) {
+    return getContext(scope).getRegisteredFunctions();
   }
 
 }

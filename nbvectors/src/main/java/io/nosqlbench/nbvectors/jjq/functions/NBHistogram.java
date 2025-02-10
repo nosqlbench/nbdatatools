@@ -2,7 +2,8 @@ package io.nosqlbench.nbvectors.jjq.functions;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.auto.service.AutoService;
-import io.nosqlbench.nbvectors.jjq.apis.NBJQFunction;
+import io.nosqlbench.nbvectors.jjq.apis.NBBaseJQFunction;
+import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;
@@ -14,7 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @AutoService(Function.class)
 @BuiltinFunction({"nbhistogram/1"})
-public class NBHistogram extends NBJQFunction {
+public class NBHistogram extends NBBaseJQFunction {
   private ConcurrentHashMap<String, AtomicLong> counts;
   private AtomicLong counter;
 
@@ -38,21 +39,21 @@ public class NBHistogram extends NBJQFunction {
           along.incrementAndGet();
         }
     );
-    output.emit(in,path);
+    output.emit(in, path);
   }
 
   @Override
-  public void start(Scope scope, List<Expression> args, JsonNode in) {
+  public void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx) {
     Map<String, Object> state = getState();
     this.counts =
         (ConcurrentHashMap<String, AtomicLong>) state.computeIfAbsent(
             "nbhistogram_counts",
-            k -> new ConcurrentHashMap<String, AtomicLong>()
+            k -> new NBHistogramContext()
         );
   }
 
   @Override
-  public void finish() {
+  public void shutdown() {
     System.out.println(counts);
   }
 }

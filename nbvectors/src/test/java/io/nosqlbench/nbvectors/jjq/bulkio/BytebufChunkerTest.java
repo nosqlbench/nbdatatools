@@ -16,7 +16,7 @@ public class BytebufChunkerTest {
     ///                                   0         10        20        30        40        50
     ///                                   0123456789012345678901234567890123456789012345678901234
     ByteBuffer buf =
-        ByteBuffer.wrap("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten".getBytes(
+        ByteBuffer.wrap("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n".getBytes(
             StandardCharsets.UTF_8));
     BytebufChunker chunker = new BytebufChunker("test",buf, 10);
     Iterator<CharBuffer> iter = chunker.iterator();
@@ -40,7 +40,8 @@ public class BytebufChunkerTest {
     assertThat(iter.hasNext()).isTrue();
     assertThat(iter.next().toString()).isEqualTo("""
         nine
-        ten""");
+        ten
+        """);
     assertThat(iter.hasNext()).isFalse();
   }
 

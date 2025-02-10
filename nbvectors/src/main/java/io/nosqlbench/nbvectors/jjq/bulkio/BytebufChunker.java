@@ -34,20 +34,36 @@ public class BytebufChunker implements Iterable<CharBuffer> {
     }
 
     @Override
-    public boolean hasNext() {
-      return (buf.remaining()>0);
+    public synchronized boolean hasNext() {
+      return (buf.remaining() > 0);
     }
 
+    ///  Take the next slice which starts at the current buffer position,
+    /// with length at least chunkSize, but ending at the next newline or limit().
+    /// This should leave the position on the next valid position to read the
+    /// next byte which wasn't returned in the last slice.
     @Override
-    public CharBuffer next() {
-      int at = Math.min(buf.position() + chunkSize, buf.limit());
-      if (at<buf.limit()) {
-        for (; buf.get(at)!='\n' && at < buf.limit(); at++);
-        at++; /// incl newline
+    public synchronized CharBuffer next() {
+      int was = 0;
+      int at = 0;
+      try {
+        at = Math.min(buf.position() + chunkSize, buf.limit());
+        was = at;
+        while (at < buf.limit() && buf.get(at) != '\n')
+          at++;
+
+        if (at < buf.limit()) {
+          at++;
+        }
+        int len = at - buf.position();
+        ByteBuffer slice = buf.slice(buf.position(), len);
+        buf.position(at);
+        return StandardCharsets.UTF_8.decode(slice);
+      } catch (Exception e) {
+        System.out.println(
+            "chunksize:" + this.chunkSize + "; was:" + was + "; at:" + at + "; " + "buf=" + buf);
+        throw new RuntimeException(e);
       }
-      ByteBuffer slice = buf.slice(buf.position(), at - buf.position());
-      buf.position(at);
-      return StandardCharsets.UTF_8.decode(slice);
     }
 
     @Override

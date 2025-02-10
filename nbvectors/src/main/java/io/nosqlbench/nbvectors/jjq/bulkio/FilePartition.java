@@ -46,7 +46,7 @@ public record FilePartition(Path path, long start, long end, String id) {
       extents.add(this);
     } else {
       long partitions = Math.max(minPartitions, (Math.max(1, (len / 2000000000) + 1)));
-      System.out.println("partitions:" + partitions);
+//      System.out.println("partitions:" + partitions);
       long psize = len / partitions;
 
       try {
@@ -120,7 +120,7 @@ public record FilePartition(Path path, long start, long end, String id) {
     return sb.toString();
   }
 
-  public Iterable<String> asStringIterable() {
+  private Iterable<String> asStringIterable() {
     ByteBuffer byteBuffer = mapFile();
     ConvertingIterable<CharBuffer, String> ci =
         new ConvertingIterable<>(
@@ -130,5 +130,13 @@ public record FilePartition(Path path, long start, long end, String id) {
     FlatteningIterable<String, String> linesIter =
         new FlatteningIterable<>(ci, (String s) -> Arrays.asList(s.split("\n")));
     return linesIter;
+  }
+
+  public ConcurrentSupplier<String> asConcurrentSupplier() {
+    return new ConcurrentSupplier<>(
+        asStringIterable(), Runtime.getRuntime().availableProcessors() * 2, (e) -> {
+      throw e;
+    }
+    );
   }
 }

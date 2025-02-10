@@ -27,12 +27,12 @@ public class CharbufChunker implements Iterable<CharBuffer> {
     }
 
     @Override
-    public boolean hasNext() {
+    public synchronized boolean hasNext() {
       return (buf.position() < buf.limit());
     }
 
     @Override
-    public CharBuffer next() {
+    public synchronized CharBuffer next() {
       int at = Math.min(chunkSize,buf.remaining()-1);
       char c = c = buf.charAt(at);
       while (c != '\n' && at < buf.remaining())

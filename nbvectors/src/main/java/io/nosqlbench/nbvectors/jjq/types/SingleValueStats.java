@@ -3,6 +3,7 @@ package io.nosqlbench.nbvectors.jjq.types;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 
+///  Contains stats for a specific value of a specific field
 public class SingleValueStats {
 
   @JsonProperty

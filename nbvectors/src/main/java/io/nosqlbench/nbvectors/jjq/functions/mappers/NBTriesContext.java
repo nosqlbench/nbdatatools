@@ -1,6 +1,7 @@
 package io.nosqlbench.nbvectors.jjq.functions.mappers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
 import io.nosqlbench.nbvectors.jjq.types.AllFieldStats;
 import io.nosqlbench.nbvectors.jjq.types.SingleValueStats;
 import io.nosqlbench.nbvectors.jjq.types.SingleFieldStats;
@@ -12,7 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-public class NBTriesContext implements NBIdMapper {
+public class NBTriesContext implements NBIdMapper, StatefulShutdown {
 
   private final String filepath;
   private final AllFieldStats stats;
@@ -46,19 +47,23 @@ public class NBTriesContext implements NBIdMapper {
   @Override
   public synchronized void addInstance(String fieldName, String value) {
     SingleFieldStats singleFieldStats =
-        stats.getStatsForField().computeIfAbsent(fieldName, k -> new SingleFieldStats());
+        stats.getStatsForField().computeIfAbsent(fieldName, SingleFieldStats::new);
     int size = singleFieldStats.getStatsForValues().size();
     singleFieldStats.getStatsForValues().computeIfAbsent(value, v -> new SingleValueStats(size, 0))
         .increment();
   }
 
   @Override
-  public synchronized void finish() {
+  public synchronized void shutdown() {
     ObjectMapper objectMapper = new ObjectMapper();
     try {
+      if (!this.filepath.toLowerCase().endsWith(".json")) {
+        throw new RuntimeException("The output file must end in .json");
+      }
+
       OutputStream outputStream = Files.newOutputStream(
           Path.of(this.filepath),
-          StandardOpenOption.CREATE_NEW,
+          StandardOpenOption.WRITE,
           StandardOpenOption.TRUNCATE_EXISTING,
           StandardOpenOption.CREATE
       );
@@ -67,5 +72,16 @@ public class NBTriesContext implements NBIdMapper {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public String toString() {
+    return "path:" + this.filepath + "\n"
+        + stats.summary();
+  }
+
+  public NBTriesContext register(NBStateContext nbctx) {
+    nbctx.registerShutdownHook(this);
+    return this;
   }
 }

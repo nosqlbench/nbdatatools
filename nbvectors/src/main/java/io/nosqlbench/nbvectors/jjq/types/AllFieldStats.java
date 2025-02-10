@@ -6,7 +6,9 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+/// Contains stats for all fields of an object stream, independently for each field
 public class AllFieldStats {
 
   @JsonProperty()
@@ -14,6 +16,7 @@ public class AllFieldStats {
 
   public AllFieldStats() {
   }
+
 
   @JsonGetter("stats")
   public Map<String, SingleFieldStats> getStatsForField() {
@@ -24,4 +27,9 @@ public class AllFieldStats {
   public void setStats(Map<String, SingleFieldStats> stats) {
     this.stats = stats;
   }
+
+  public String summary() {
+    return stats.values().stream().map(SingleFieldStats::toString).collect(Collectors.joining("\n"));
+  }
+
 }

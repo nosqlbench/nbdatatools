@@ -7,8 +7,8 @@ import io.nosqlbench.nbvectors.jjq.apis.NBJJQ;
 import io.nosqlbench.nbvectors.jjq.bulkio.*;
 import io.nosqlbench.nbvectors.jjq.evaluator.JqProc;
 import io.nosqlbench.nbvectors.jjq.evaluator.JsonNodeMapper;
-import io.nosqlbench.nbvectors.jjq.apis.NBJQFunction;
-import io.nosqlbench.nbvectors.jjq.apis.NBStateFunction;
+import io.nosqlbench.nbvectors.jjq.apis.NBBaseJQFunction;
+import io.nosqlbench.nbvectors.jjq.apis.NBStateContextHolderHack;
 import io.nosqlbench.nbvectors.jjq.outputs.JsonlFileOutput;
 import io.nosqlbench.nbvectors.jjq.outputs.PrettyConsoleOutput;
 import net.thisptr.jackson.jq.*;
@@ -58,96 +58,87 @@ public class CMD_jjq implements Callable<Integer> {
 
   @Override
   public Integer call() throws Exception {
-    long result_count = 0;
-    Function<String, JsonNode> mapper = new JsonNodeMapper();
-    LinkedList<Future<?>> futures;
+    try (NBStateContextHolderHack nbContext = new NBStateContextHolderHack()) {
+      Scope rootScope = rootScope(nbContext);
 
-    Scope rootScope = rootScope();
+      Function<String, JsonNode> mapper = new JsonNodeMapper();
+      LinkedList<Future<?>> futures;
 
-    JsonQuery query = JsonQuery.compile(this.jq, Versions.JQ_1_6);
+      JsonQuery query = JsonQuery.compile(this.jq, Versions.JQ_1_6);
 
-    Output output = null;
-    if (outPath != null) {
-      output = new JsonlFileOutput(outPath);
-    } else {
-      output = new PrettyConsoleOutput();
-    }
-
-    Scope scope = Scope.newChildScope(rootScope);
-
-    System.out.println("partitioning");
-    int partitionCount = threads != 0 ? threads : Runtime.getRuntime().availableProcessors() - 1;
-    FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
-    System.out.println(partitions);
-
-    if (diagnose) {
-      try {
-        Iterable<String> lines = partitions.getFirst().asStringIterable();
-        JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
-        f.run();
-      } catch (Exception e) {
-        throw new RuntimeException(e);
+      Output output = null;
+      if (outPath != null) {
+        output = new JsonlFileOutput(outPath);
+      } else {
+        output = new PrettyConsoleOutput();
       }
-    } else {
-      try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
-        futures = new LinkedList<>();
 
-        int count = 0;
-        for (FilePartition partition : partitions) {
-          count++;
-          Iterable<String> lines = partition.asStringIterable();
-          JqProc f = new JqProc(partition.toString(), scope, lines, mapper, query, output);
-          Future<?> future = exec.submit(f);
-          futures.addLast(future);
+      Scope scope = Scope.newChildScope(rootScope);
+
+      //    System.out.println("partitioning");
+      int partitionCount =
+          threads != 0 ? threads : (int) (Runtime.getRuntime().availableProcessors() * 0.9);
+      FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
+      System.err.println(partitions);
+
+      if (diagnose) {
+        try {
+          for (FilePartition partition : partitions) {
+            try (ConcurrentSupplier<String> lines = partitions.getFirst().asConcurrentSupplier();) {
+              JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
+              f.run();
+            }
+          }
+        } catch (Exception e) {
+          throw new RuntimeException(e);
         }
+      } else {
+        try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
+          futures = new LinkedList<>();
 
-        while (!futures.isEmpty()) {
-          try {
-            Future<?> f = futures.removeLast();
-            Object result = f.get();
-            System.out.println("result:" + (result != null ? result : "NULL"));
-          } catch (Exception e) {
-            throw new RuntimeException(e);
+          int count = 0;
+          for (FilePartition partition : partitions) {
+            count++;
+            ConcurrentSupplier<String> supplier = partition.asConcurrentSupplier();
+            JqProc f = new JqProc(partition.toString(), scope, supplier, mapper, query, output);
+            Future<?> future = exec.submit(f);
+            futures.addLast(future);
           }
 
-          //        exec.shutdownNow();
+          while (!futures.isEmpty()) {
+            try {
+              Future<?> f = futures.removeLast();
+              Object result = f.get();
+              if (result != null) {
+                System.out.println("result:" + result);
+              }
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          }
         }
-
       }
 
+
+//      List<NBBaseJQFunction> registeredFunctions = NBJJQ.getRegisteredFunctions(rootScope);
+//      for (NBBaseJQFunction registeredFunction : registeredFunctions) {
+//        System.out.println("registered function after:" + registeredFunction);
+//        registeredFunction.shutdown();
+//      }
+
+      System.out.println("NbState:");
+      NBJJQ.getState(rootScope).forEach((k, v) -> {
+        System.out.println(" k:" + k + ", v:" + v);
+      });
+
+      return 0;
+
     }
-
-
-    List<NBJQFunction> registeredFunctions = NBJJQ.getRegisteredFunctions(rootScope);
-    for (NBJQFunction registeredFunction : registeredFunctions) {
-      System.out.println("registered function after:" + registeredFunction);
-      registeredFunction.finish();
-    }
-    System.out.println("STATE:");
-    NBJJQ.getState(rootScope).forEach((k, v) -> {
-      System.out.println("k:" + k + ", v:" + v);
-    });
-
-    return 0;
-
-    //    while (true) {
-    //      while (!output.isEmpty()) {
-    //        JsonNode result = output.take();
-    //        result_count++;
-    //        if ((result_count % 100)==0) {
-    //          System.out.println("result_count:" + result_count);
-    //        }
-    //      }
-    //      Thread.sleep(1000);
-    //    }
   }
 
-  private Scope rootScope() throws URISyntaxException {
+  private Scope rootScope(NBStateContextHolderHack context) throws URISyntaxException {
     Scope scope = Scope.newEmptyScope();
     BuiltinFunctionLoader.getInstance().loadFunctions(Version.LATEST, scope);
-    //    BuiltinFunctionLoader.getInstance().listFunctions(Versions.JQ_1_6, scope)
-    //        .forEach((k, v) -> System.out.println("function: " + k));
-
     //    scope.addFunction("env", 0, new EnvFunction());
 
     scope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
@@ -158,8 +149,7 @@ public class CMD_jjq implements Callable<Integer> {
     ),
         }));
 
-    NBStateFunction nbsf = new NBStateFunction();
-    scope.addFunction("nbstate", nbsf);
+    scope.addFunction("nbstate", context);
 
     return scope;
 

@@ -3,7 +3,8 @@ package io.nosqlbench.nbvectors.jjq.functions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.google.auto.service.AutoService;
-import io.nosqlbench.nbvectors.jjq.apis.NBJQFunction;
+import io.nosqlbench.nbvectors.jjq.apis.NBBaseJQFunction;
+import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
 import io.nosqlbench.nbvectors.jjq.functions.mappers.NBIdMapper;
 import io.nosqlbench.nbvectors.jjq.functions.mappers.NBTriesContext;
 import net.thisptr.jackson.jq.*;
@@ -16,7 +17,7 @@ import java.util.Map;
 
 @AutoService(Function.class)
 @BuiltinFunction({"nbindex/2"})
-public class NBIndexingFunction extends NBJQFunction {
+public class NBIndexingFunction extends NBBaseJQFunction {
   private NBIdMapper mapper;
   private String filepath;
   private String fieldName;
@@ -42,7 +43,7 @@ public class NBIndexingFunction extends NBJQFunction {
   }
 
   @Override
-  public void start(Scope scope, List<Expression> args, JsonNode in) throws JsonQueryException {
+  public void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx) throws JsonQueryException {
     args.get(1).apply(
         scope,in, (path) -> {
           Preconditions.checkArgumentType("nbindex/2", 1, path, JsonNodeType.STRING);
@@ -66,12 +67,7 @@ public class NBIndexingFunction extends NBJQFunction {
     Map<String, Object> state = getState();
     this.mapper =
         (NBIdMapper) state.computeIfAbsent("mapper_context",
-            k -> new NBTriesContext(this.filepath));
+            k -> new NBTriesContext(this.filepath).register(nbctx));
   }
 
-  @Override
-  public void finish() {
-    System.out.println("insert indexing summary here");
-    mapper.finish();
-  }
 }

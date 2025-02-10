@@ -1,6 +1,7 @@
 package io.nosqlbench.nbvectors.jjq.apis;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.nosqlbench.nbvectors.jjq.functions.mappers.StatefulShutdown;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;
@@ -8,9 +9,10 @@ import net.thisptr.jackson.jq.path.Path;
 import java.util.List;
 import java.util.Map;
 
-public abstract class NBJQFunction implements Function {
+public abstract class NBBaseJQFunction implements Function, StatefulShutdown {
   private boolean registered = false;
-  private Map<String,Object> state;
+  private Map<String, Object> state;
+
   @Override
   public final void apply(
       Scope scope,
@@ -22,27 +24,31 @@ public abstract class NBJQFunction implements Function {
   ) throws JsonQueryException
   {
     if (!registered) {
-      synchronized(this) {
-        NBJJQ.register(this,scope);
+      synchronized (this) {
+        NBStateContext nbctx = NBJJQ.getContext(scope);
+        nbctx.register(this);
         this.state = NBJJQ.getState(scope);
-        start(scope, args, in);
-        this.registered=true;
+        start(scope, args, in, nbctx);
+        this.registered = true;
       }
     }
-    doApply(scope,args,in,path,output,version);
+    doApply(scope, args, in, path, output, version);
 
   }
 
-  public void finish() {
+  @Override
+  public void shutdown() {
+    System.out.println("shutting down this " + this);
+  }
 
-  };
   public Map<String, Object> getState() {
     return state;
   }
 
-  public abstract void start(Scope scope, List<Expression> args, JsonNode in)
+  public abstract void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx)
       throws JsonQueryException;
-  public abstract void doApply (
+
+  public abstract void doApply(
       Scope scope,
       List<Expression> args,
       JsonNode in,
