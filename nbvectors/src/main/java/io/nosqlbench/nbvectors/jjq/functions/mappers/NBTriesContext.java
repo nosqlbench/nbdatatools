@@ -80,7 +80,7 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
         + stats.summary();
   }
 
-  public NBTriesContext register(NBStateContext nbctx) {
+  public NBTriesContext registerShutdownHook(NBStateContext nbctx) {
     nbctx.registerShutdownHook(this);
     return this;
   }

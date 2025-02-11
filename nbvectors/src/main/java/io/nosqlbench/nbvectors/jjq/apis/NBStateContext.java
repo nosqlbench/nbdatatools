@@ -1,12 +1,11 @@
 package io.nosqlbench.nbvectors.jjq.apis;
 
-import io.nosqlbench.nbvectors.jjq.functions.NBHistogramContext;
 import io.nosqlbench.nbvectors.jjq.functions.mappers.StatefulShutdown;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-public interface NBStateContext {
+public interface NBStateContext extends AutoCloseable {
   void register(NBBaseJQFunction f);
 
   List<NBBaseJQFunction> getRegisteredFunctions();

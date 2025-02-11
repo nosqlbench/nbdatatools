@@ -67,7 +67,7 @@ public class NBIndexingFunction extends NBBaseJQFunction {
     Map<String, Object> state = getState();
     this.mapper =
         (NBIdMapper) state.computeIfAbsent("mapper_context",
-            k -> new NBTriesContext(this.filepath).register(nbctx));
+            k -> new NBTriesContext(this.filepath).registerShutdownHook(nbctx));
   }
 
 }

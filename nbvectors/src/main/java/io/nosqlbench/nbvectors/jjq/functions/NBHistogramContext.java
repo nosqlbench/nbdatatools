@@ -13,7 +13,7 @@ public class NBHistogramContext extends ConcurrentHashMap<String, AtomicLong>
   public void shutdown() {
     System.out.println("histogram shutting down: " + this);
   }
-  public NBHistogramContext register(NBStateContext ctx) {
+  public NBHistogramContext registerShutdownHook(NBStateContext ctx) {
     ctx.registerShutdownHook(this);
     return this;
   }

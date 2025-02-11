@@ -48,7 +48,7 @@ public class NBHistogram extends NBBaseJQFunction {
     this.counts =
         (ConcurrentHashMap<String, AtomicLong>) state.computeIfAbsent(
             "nbhistogram_counts",
-            k -> new NBHistogramContext()
+            k -> new NBHistogramContext().registerShutdownHook(nbctx)
         );
   }
 

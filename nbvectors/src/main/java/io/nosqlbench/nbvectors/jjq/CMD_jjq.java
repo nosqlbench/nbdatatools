@@ -7,9 +7,9 @@ import io.nosqlbench.nbvectors.jjq.apis.NBJJQ;
 import io.nosqlbench.nbvectors.jjq.bulkio.*;
 import io.nosqlbench.nbvectors.jjq.evaluator.JqProc;
 import io.nosqlbench.nbvectors.jjq.evaluator.JsonNodeMapper;
-import io.nosqlbench.nbvectors.jjq.apis.NBBaseJQFunction;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContextHolderHack;
 import io.nosqlbench.nbvectors.jjq.outputs.JsonlFileOutput;
+import io.nosqlbench.nbvectors.jjq.outputs.NullOutput;
 import io.nosqlbench.nbvectors.jjq.outputs.PrettyConsoleOutput;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.module.ModuleLoader;
@@ -22,7 +22,6 @@ import java.net.URISyntaxException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Function;
 
@@ -32,8 +31,10 @@ public class CMD_jjq implements Callable<Integer> {
   @Option(names = {"-i", "--in"}, required = true)
   private Path inFile;
 
-  @Option(names = {"-o", "--out"}, required = false)
-  private Path outPath;
+  @Option(names = {"-o", "--out"},
+      required = false,
+      description = "The output path for processed" + " JSON")
+  private String outPath;
 
   @Option(names = {"-q", "--jq", "--query"}, required = false, defaultValue = ".")
   private String jq;
@@ -67,10 +68,13 @@ public class CMD_jjq implements Callable<Integer> {
       JsonQuery query = JsonQuery.compile(this.jq, Versions.JQ_1_6);
 
       Output output = null;
-      if (outPath != null) {
-        output = new JsonlFileOutput(outPath);
-      } else {
+      if (outPath == null) {
+        System.err.println("no output specified, discarding output");
+        output = new NullOutput();
+      } else if (outPath.toLowerCase().equals("stdout")) {
         output = new PrettyConsoleOutput();
+      } else {
+        output = new JsonlFileOutput(Path.of(outPath));
       }
 
       Scope scope = Scope.newChildScope(rootScope);
@@ -118,13 +122,6 @@ public class CMD_jjq implements Callable<Integer> {
           }
         }
       }
-
-
-//      List<NBBaseJQFunction> registeredFunctions = NBJJQ.getRegisteredFunctions(rootScope);
-//      for (NBBaseJQFunction registeredFunction : registeredFunctions) {
-//        System.out.println("registered function after:" + registeredFunction);
-//        registeredFunction.shutdown();
-//      }
 
       System.out.println("NbState:");
       NBJJQ.getState(rootScope).forEach((k, v) -> {
