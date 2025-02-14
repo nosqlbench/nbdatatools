@@ -92,6 +92,12 @@
     </dependency>
 
     <dependency>
+      <groupId>org.snakeyaml</groupId>
+      <artifactId>snakeyaml-engine</artifactId>
+      <version>2.7</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-core</artifactId>
       <version>10.1.0</version>
