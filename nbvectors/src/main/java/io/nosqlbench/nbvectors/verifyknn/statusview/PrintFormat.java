@@ -1,6 +1,6 @@
 package io.nosqlbench.nbvectors.verifyknn.statusview;
 
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 
@@ -11,7 +11,7 @@ public enum PrintFormat {
 
   public static StringBuilder format(
       String description,
-      IndexedFloatVector testVector,
+      LongIndexedFloatVector testVector,
       Neighborhood neighbors
   )
   {

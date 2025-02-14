@@ -4,19 +4,19 @@ import java.util.Comparator;
 
 /// IndexedVector global ordering is based on index, not vector shape
 /// If you want to compare by vector value ordering, use [#BY_VECTOR_SHAPE]
-public record IndexedFloatVector(
+public record LongIndexedFloatVector(
     long index, float[] vector
-) implements Comparable<IndexedFloatVector>
+) implements Comparable<LongIndexedFloatVector>
 {
   @Override
-  public int compareTo(IndexedFloatVector o) {
+  public int compareTo(LongIndexedFloatVector o) {
     return Long.compare(index, o.index);
   }
 
-  public static Comparator<IndexedFloatVector> BY_VECTOR_SHAPE = new Comparator<IndexedFloatVector>() {
+  public static Comparator<LongIndexedFloatVector> BY_VECTOR_SHAPE = new Comparator<LongIndexedFloatVector>() {
 
     @Override
-    public int compare(IndexedFloatVector o1, IndexedFloatVector o2) {
+    public int compare(LongIndexedFloatVector o1, LongIndexedFloatVector o2) {
       int range = Math.min(o1.vector.length, o2.vector.length);
       for (int i = 0; i < range; i++) {
         int diff = Double.compare(o1.vector[i], o2.vector[i]);

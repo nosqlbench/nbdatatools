@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.jjq.functions;
+package io.nosqlbench.nbvectors.jjq.nbfunctions;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.auto.service.AutoService;
@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @AutoService(Function.class)
 @BuiltinFunction({"nbcount/0"})
-public class NBCount extends NBBaseJQFunction {
+public class nbcount extends NBBaseJQFunction {
   private AtomicLong counter;
   @Override
   public void doApply(

@@ -1,6 +1,6 @@
 package io.nosqlbench.nbvectors.verifyknn.statusview;
 
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 
 public class StatusViewNoOp implements StatusView {
@@ -14,7 +14,7 @@ public class StatusViewNoOp implements StatusView {
   }
 
   @Override
-  public void onQueryVector(IndexedFloatVector vector, long index, long end) {
+  public void onQueryVector(LongIndexedFloatVector vector, long index, long end) {
   }
 
   @Override

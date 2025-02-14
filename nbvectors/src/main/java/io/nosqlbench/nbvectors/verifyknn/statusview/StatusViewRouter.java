@@ -1,6 +1,6 @@
 package io.nosqlbench.nbvectors.verifyknn.statusview;
 
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 
 import java.util.ArrayList;
@@ -29,7 +29,7 @@ public class StatusViewRouter implements StatusView {
   }
 
   @Override
-  public void onQueryVector(IndexedFloatVector vector, long index, long end) {
+  public void onQueryVector(LongIndexedFloatVector vector, long index, long end) {
     for (StatusView view : statusViewList) {
       view.onQueryVector(vector, index, end);
     }

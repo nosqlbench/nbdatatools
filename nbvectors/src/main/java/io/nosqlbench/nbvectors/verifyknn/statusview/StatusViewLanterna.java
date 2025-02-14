@@ -10,7 +10,7 @@ import com.googlecode.lanterna.terminal.Terminal;
 import com.googlecode.lanterna.terminal.ansi.UnixLikeTerminal;
 import com.googlecode.lanterna.terminal.ansi.UnixTerminal;
 import com.googlecode.lanterna.terminal.virtual.DefaultVirtualTerminal;
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 
 import java.io.IOException;
@@ -29,7 +29,7 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
   private ProgressBar chunkProgress;
   private TextBox[] lastComparisonText;
   private BasicTextImage textimage;
-  private IndexedFloatVector lastQueryVector;
+  private LongIndexedFloatVector lastQueryVector;
   private int totalQueryVectors;
   private int currentQueryVector;
 
@@ -145,7 +145,7 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
   }
 
   @Override
-  public void onQueryVector(IndexedFloatVector vector, long index, long end) {
+  public void onQueryVector(LongIndexedFloatVector vector, long index, long end) {
     currentQueryVector++;
     lastQueryVector = vector;
     intervalProgress.setMax(totalQueryVectors);

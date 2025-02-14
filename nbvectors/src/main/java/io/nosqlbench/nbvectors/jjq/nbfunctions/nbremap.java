@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.jjq.functions;
+package io.nosqlbench.nbvectors.jjq.nbfunctions;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
@@ -7,8 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.jjq.apis.NBBaseJQFunction;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
-import io.nosqlbench.nbvectors.jjq.functions.mappers.NBIdMapper;
-import io.nosqlbench.nbvectors.jjq.functions.mappers.NBTriesContext;
+import io.nosqlbench.nbvectors.jjq.contexts.NBIdMapper;
+import io.nosqlbench.nbvectors.jjq.contexts.NBTriesContext;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.internal.misc.Preconditions;
@@ -19,7 +19,7 @@ import java.util.Map;
 
 @AutoService(Function.class)
 @BuiltinFunction({"nbremap/2"})
-public class NBRemappingFunction extends NBBaseJQFunction {
+public class nbremap extends NBBaseJQFunction {
   private NBIdMapper mapper;
   private String file;
   private String dirpath;
@@ -38,19 +38,12 @@ public class NBRemappingFunction extends NBBaseJQFunction {
     if (in.isNull()) {
       return;
     }
-    JsonNode fnode = in.get(fieldName);
-    if (!fnode.isTextual()) {
-      throw new RuntimeException("field value must be textual");
+    if (!in.isTextual()) {
+      throw new RuntimeException("field value must be textual, but it is " + in.toPrettyString());
     }
-    long value = mapper.lookupId(fieldName, fnode.asText());
-    JsonNode out = in;
-    if (out instanceof ObjectNode onode) {
-      onode.set(fieldName,new LongNode(value));
-    } else {
-      throw new RuntimeException("Unable to modify node of type '" + out.getClass().getCanonicalName());
-    }
-
-    output.emit(out, path);
+    long value = mapper.lookupId(fieldName, in.asText());
+    LongNode out = LongNode.valueOf(value);
+    output.emit(out,path);
   }
 
   @Override

@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.jjq.functions.mappers;
+package io.nosqlbench.nbvectors.jjq.apis;
 
 public interface StatefulShutdown {
   void shutdown();

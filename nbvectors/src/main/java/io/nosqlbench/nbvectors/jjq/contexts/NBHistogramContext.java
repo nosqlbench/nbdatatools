@@ -1,7 +1,7 @@
-package io.nosqlbench.nbvectors.jjq.functions;
+package io.nosqlbench.nbvectors.jjq.contexts;
 
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
-import io.nosqlbench.nbvectors.jjq.functions.mappers.StatefulShutdown;
+import io.nosqlbench.nbvectors.jjq.apis.StatefulShutdown;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;

@@ -1,12 +1,12 @@
 package io.nosqlbench.nbvectors.verifyknn.computation;
 
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 
 import static io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs.braille;
 
 public record NeighborhoodComparison(
-    IndexedFloatVector testVector,
+    LongIndexedFloatVector testVector,
     Neighborhood providedNeighborhood,
     Neighborhood expectedNeighborhood
 )

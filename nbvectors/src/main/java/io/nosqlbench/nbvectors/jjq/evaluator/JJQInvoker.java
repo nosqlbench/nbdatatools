@@ -1,0 +1,143 @@
+package io.nosqlbench.nbvectors.jjq.evaluator;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import io.nosqlbench.nbvectors.jjq.apis.NBJJQ;
+import io.nosqlbench.nbvectors.jjq.apis.NBStateContextHolderHack;
+import net.thisptr.jackson.jq.*;
+import net.thisptr.jackson.jq.exception.JsonQueryException;
+import net.thisptr.jackson.jq.module.ModuleLoader;
+import net.thisptr.jackson.jq.module.loaders.BuiltinModuleLoader;
+import net.thisptr.jackson.jq.module.loaders.ChainedModuleLoader;
+import net.thisptr.jackson.jq.module.loaders.FileSystemModuleLoader;
+
+import java.net.URISyntaxException;
+import java.nio.file.FileSystems;
+import java.util.LinkedList;
+import java.util.concurrent.Future;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+public class JJQInvoker implements Runnable {
+
+  private final String expr;
+  private final Output output;
+  private final Supplier<String> lines;
+
+  public JJQInvoker(Supplier<String> lines, String expr, Output output) {
+    this.lines = lines;
+    this.expr = expr;
+    this.output = output;
+  }
+
+  @Override
+  public void run() {
+    try (NBStateContextHolderHack nbContext = new NBStateContextHolderHack()) {
+      Scope rootScope = rootScope(nbContext);
+
+      Function<String, JsonNode> mapper = new JsonNodeMapper();
+      LinkedList<Future<?>> futures;
+
+      JsonQuery query = JsonQuery.compile(expr, Versions.JQ_1_6);
+
+      Scope scope = Scope.newChildScope(rootScope);
+
+      JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
+      f.run();
+
+//      if (diagnose) {
+//        try {
+//          for (FilePartition partition : partitions) {
+//            try (ConcurrentSupplier<String> lines = partitions.getFirst().asConcurrentSupplier();) {
+//              JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
+//              f.run();
+//            }
+//          }
+//        } catch (Exception e) {
+//          throw new RuntimeException(e);
+//        }
+//      } else {
+//        try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
+//          futures = new LinkedList<>();
+//
+//          int count = 0;
+//          for (FilePartition partition : partitions) {
+//            count++;
+//            ConcurrentSupplier<String> supplier = partition.asConcurrentSupplier();
+//            JqProc f = new JqProc(partition.toString(), scope, supplier, mapper, query, output);
+//            Future<?> future = exec.submit(f);
+//            futures.addLast(future);
+//          }
+//
+//          while (!futures.isEmpty()) {
+//            try {
+//              Future<?> f = futures.removeLast();
+//              Object result = f.get();
+//              if (result != null) {
+//                System.out.println("result:" + result);
+//              }
+//            } catch (Exception e) {
+//              throw new RuntimeException(e);
+//            }
+//          }
+//        }
+//      }
+
+      System.out.println("NbState:");
+      NBJJQ.getState(rootScope).forEach((k, v) -> {
+        System.out.println(" k:" + k + ", v:" + v);
+      });
+    } catch (JsonQueryException e) {
+      throw new RuntimeException(e);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private Scope rootScope(NBStateContextHolderHack context) throws URISyntaxException {
+    Scope scope = Scope.newEmptyScope();
+    BuiltinFunctionLoader.getInstance().loadFunctions(Version.LATEST, scope);
+    //    scope.addFunction("env", 0, new EnvFunction());
+
+    scope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
+        BuiltinModuleLoader.getInstance(), new FileSystemModuleLoader(
+        scope,
+        Version.LATEST,
+        FileSystems.getDefault().getPath("").toAbsolutePath()
+    ),
+        }));
+
+    scope.addFunction("nbstate", context);
+
+    return scope;
+
+
+    //
+    //    Scope rootScope = Scope.newEmptyScope();
+    //    BuiltinFunctionLoader bifl = BuiltinFunctionLoader.getInstance();
+    //
+    //    bifl.listFunctions(Versions.JQ_1_6, rootScope)
+    //        .forEach((k, v) -> System.out.println("function: " + k));
+    //
+    //    FileSystemModuleLoader fsml = new FileSystemModuleLoader(
+    //        rootScope,
+    //        Versions.JQ_1_6,
+    //        FileSystems.getDefault().getPath("").toAbsolutePath(),
+    //        Paths.get(Scope.class.getClassLoader().getResource("").toURI())
+    //    );
+    //
+    //    rootScope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
+    //        BuiltinModuleLoader.getInstance(), fsml
+    //    }));
+    //
+    //
+    //    BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, rootScope);
+    //
+    //
+    //    return rootScope;
+    //    //    Scope workScope = Scope.newChildScope(rootScope);
+    //    //    return workScope;
+  }
+
+}

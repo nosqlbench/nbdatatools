@@ -1,7 +1,8 @@
-package io.nosqlbench.nbvectors.jjq.functions.mappers;
+package io.nosqlbench.nbvectors.jjq.contexts;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
+import io.nosqlbench.nbvectors.jjq.apis.StatefulShutdown;
 import io.nosqlbench.nbvectors.jjq.types.AllFieldStats;
 import io.nosqlbench.nbvectors.jjq.types.SingleValueStats;
 import io.nosqlbench.nbvectors.jjq.types.SingleFieldStats;
@@ -26,7 +27,10 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
         ObjectMapper objectMapper = new ObjectMapper();
         InputStream is = null;
         is = Files.newInputStream(path);
+        System.out.println("loading path:" + path);
         this.stats = objectMapper.readValue(is, AllFieldStats.class);
+        System.out.println("loaded path:" + path);
+
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -41,25 +45,35 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
 
   @Override
   public synchronized long lookupId(String fieldName, String fieldValue) {
-    return stats.getStatsForField().get(fieldName).getStatsForValues().get(fieldValue).getIdx();
+    SingleValueStats stats = getOrCreateFor(fieldName, fieldValue);
+    return this.stats.getStatsForField().get(fieldName).getStatsForValues().get(fieldValue)
+        .getIdx();
+  }
+
+  private SingleValueStats getOrCreateFor(String name, String value) {
+    SingleFieldStats singleFieldStats =
+        stats.getStatsForField().computeIfAbsent(name, SingleFieldStats::new);
+    return singleFieldStats.getStatsForValues().computeIfAbsent(
+        value,
+        v -> new SingleValueStats(singleFieldStats.getStatsForValues().size(), 0)
+    );
   }
 
   @Override
   public synchronized void addInstance(String fieldName, String value) {
-    SingleFieldStats singleFieldStats =
-        stats.getStatsForField().computeIfAbsent(fieldName, SingleFieldStats::new);
-    int size = singleFieldStats.getStatsForValues().size();
-    singleFieldStats.getStatsForValues().computeIfAbsent(value, v -> new SingleValueStats(size, 0))
-        .increment();
+    getOrCreateFor(fieldName, value).increment();
   }
 
   @Override
   public synchronized void shutdown() {
     ObjectMapper objectMapper = new ObjectMapper();
     try {
-      if (!this.filepath.toLowerCase().endsWith(".json")) {
+      String fname = this.filepath.toLowerCase();
+      if (!fname.endsWith(".json") && !fname.endsWith(".jsonl")) {
         throw new RuntimeException("The output file must end in .json");
       }
+
+      System.out.println("saving path:" + this.filepath);
 
       OutputStream outputStream = Files.newOutputStream(
           Path.of(this.filepath),
@@ -69,6 +83,9 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
       );
 
       objectMapper.writerWithDefaultPrettyPrinter().writeValue(outputStream, this.stats);
+
+      System.out.println("saved path:" + this.filepath);
+
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -76,8 +93,7 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
 
   @Override
   public String toString() {
-    return "path:" + this.filepath + "\n"
-        + stats.summary();
+    return "path:" + this.filepath + "\n" + stats.summary();
   }
 
   public NBTriesContext registerShutdownHook(NBStateContext nbctx) {

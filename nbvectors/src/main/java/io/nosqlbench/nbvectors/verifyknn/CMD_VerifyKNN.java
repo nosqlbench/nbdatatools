@@ -6,7 +6,7 @@ import java.util.concurrent.Callable;
 
 import io.jhdf.HdfFile;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
@@ -138,7 +138,7 @@ public class CMD_VerifyKNN implements Callable<Integer> {
       for (long index = interval.start(); index < interval.end(); index++) {
 
         // This is the query vector from the provided test data
-        IndexedFloatVector providedTestVector = knndata.readHdf5TestVector(index);
+        LongIndexedFloatVector providedTestVector = knndata.readHdf5TestVector(index);
         view.onQueryVector(providedTestVector, index, interval.end());
 
         // This is the neighborhood from the provided test data, corresponding to the query
@@ -181,7 +181,7 @@ public class CMD_VerifyKNN implements Callable<Integer> {
 
 
   private Neighborhood computeNeighborhood(
-      IndexedFloatVector testVector,
+      LongIndexedFloatVector testVector,
       KNNData data,
       StatusView view
   )

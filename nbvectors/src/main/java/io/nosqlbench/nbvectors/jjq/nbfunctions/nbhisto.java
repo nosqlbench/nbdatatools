@@ -1,9 +1,10 @@
-package io.nosqlbench.nbvectors.jjq.functions;
+package io.nosqlbench.nbvectors.jjq.nbfunctions;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.jjq.apis.NBBaseJQFunction;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
+import io.nosqlbench.nbvectors.jjq.contexts.NBHistogramContext;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;
@@ -15,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @AutoService(Function.class)
 @BuiltinFunction({"nbhistogram/1"})
-public class NBHistogram extends NBBaseJQFunction {
+public class nbhisto extends NBBaseJQFunction {
   private ConcurrentHashMap<String, AtomicLong> counts;
   private AtomicLong counter;
 

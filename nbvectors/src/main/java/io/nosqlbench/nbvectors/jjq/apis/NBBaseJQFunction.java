@@ -1,7 +1,6 @@
 package io.nosqlbench.nbvectors.jjq.apis;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.nosqlbench.nbvectors.jjq.functions.mappers.StatefulShutdown;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;
@@ -12,6 +11,7 @@ import java.util.Map;
 public abstract class NBBaseJQFunction implements Function, StatefulShutdown {
   private boolean registered = false;
   private Map<String, Object> state;
+  protected NBStateContext context;
 
   @Override
   public final void apply(
@@ -25,10 +25,10 @@ public abstract class NBBaseJQFunction implements Function, StatefulShutdown {
   {
     if (!registered) {
       synchronized (this) {
-        NBStateContext nbctx = NBJJQ.getContext(scope);
-        nbctx.register(this);
+        this.context = NBJJQ.getContext(scope);
+        context.register(this);
         this.state = NBJJQ.getState(scope);
-        start(scope, args, in, nbctx);
+        start(scope, args, in, context);
         this.registered = true;
       }
     }

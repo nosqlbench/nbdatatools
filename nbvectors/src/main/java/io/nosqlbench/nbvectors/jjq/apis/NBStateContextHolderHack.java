@@ -1,8 +1,6 @@
 package io.nosqlbench.nbvectors.jjq.apis;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.auto.service.AutoService;
-import io.nosqlbench.nbvectors.jjq.functions.mappers.StatefulShutdown;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;

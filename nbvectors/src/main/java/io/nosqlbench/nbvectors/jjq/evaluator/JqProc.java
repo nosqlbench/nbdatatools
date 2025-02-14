@@ -8,11 +8,12 @@ import net.thisptr.jackson.jq.Output;
 import net.thisptr.jackson.jq.Scope;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class JqProc implements Runnable {
 
   private final Scope scope;
-  private final ConcurrentSupplier<String> jsonlSource;
+  private final Supplier<String> jsonlSource;
   private final Function<String, JsonNode> mapper;
   private final JsonQuery query;
   private final Output output;
@@ -21,7 +22,7 @@ public class JqProc implements Runnable {
   public JqProc(
       String id,
       Scope scope,
-      ConcurrentSupplier<String> jsonlSource,
+      Supplier<String> jsonlSource,
       Function<String, JsonNode> mapper,
       JsonQuery query,
       Output output
@@ -54,7 +55,7 @@ public class JqProc implements Runnable {
         try {
           node = mapper.apply(inputJson);
         } catch (Exception e) {
-          throw new RuntimeException("error parsing input:\n" + inputJson);
+          throw new RuntimeException("error parsing input:\n>>" + inputJson + "\n>>\n");
         }
         try {
           query.apply(scope, node, output);

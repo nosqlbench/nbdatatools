@@ -1,7 +1,7 @@
 package io.nosqlbench.verifyknn;
 
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 import org.junit.jupiter.api.Test;
 
@@ -27,21 +27,21 @@ public class NeighborhoodComparisonTest {
   @Test
   public void testErrorDetection() {
     NeighborhoodComparison c1 = new NeighborhoodComparison(
-        new IndexedFloatVector(0, new float[]{1, 2, 3}),
+        new LongIndexedFloatVector(0, new float[]{1, 2, 3}),
         new Neighborhood().add(1, 0.1).add(2, 0.2).add(3, 0.3),
         new Neighborhood().add(1, 0.1).add(2, 0.2).add(3, 0.3)
     );
     assertThat(c1.isError()).isFalse();
 
     NeighborhoodComparison c2 = new NeighborhoodComparison(
-        new IndexedFloatVector(0, new float[]{1, 2, 3}),
+        new LongIndexedFloatVector(0, new float[]{1, 2, 3}),
         new Neighborhood().add(1, 0.1).add(2, 0.2).add(4, 0.4),
         new Neighborhood().add(1, 0.1).add(2, 0.2).add(3, 0.3)
     );
     assertThat(c2.isError()).isTrue();
 
     NeighborhoodComparison c3 = new NeighborhoodComparison(
-        new IndexedFloatVector(0, new float[]{1, 2, 3}),
+        new LongIndexedFloatVector(0, new float[]{1, 2, 3}),
         new Neighborhood().add(1, 0.1).add(2, 0.2).add(3, 0.3),
         new Neighborhood().add(1, 0.1).add(2, 0.2).add(4, 0.4)
     );

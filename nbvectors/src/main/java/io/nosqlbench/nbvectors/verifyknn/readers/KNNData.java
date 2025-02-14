@@ -2,7 +2,7 @@ package io.nosqlbench.nbvectors.verifyknn.readers;
 
 import io.jhdf.HdfFile;
 import io.jhdf.api.Dataset;
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 
@@ -34,7 +34,7 @@ public record KNNData(
     hdfFile.close();
   }
 
-  public IndexedFloatVector readHdf5TestVector(long index) {
+  public LongIndexedFloatVector readHdf5TestVector(long index) {
     int[] testVectorDimensions = test().getDimensions();
     long[] testVectorOffsets = new long[testVectorDimensions.length];
     // get 1 test vector row at a time; we simply re-use the dim array
@@ -43,7 +43,7 @@ public record KNNData(
     testVectorOffsets[0] = index;
     Object testVectorData = test().getData(testVectorOffsets, testVectorDimensions);
     float[] testVector = ((float[][]) testVectorData)[0];
-    return new IndexedFloatVector(index, testVector);
+    return new LongIndexedFloatVector(index, testVector);
   }
 
   public Neighborhood[] neighborhoods(long minIncluded, long maxExcluded) {

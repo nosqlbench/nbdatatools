@@ -1,6 +1,6 @@
 package io.nosqlbench.nbvectors.verifyknn.statusview;
 
-import io.nosqlbench.nbvectors.verifyknn.datatypes.IndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 
 /// Print status events to stdout, buffering until the end if needed,
@@ -33,7 +33,7 @@ public class StatusViewStdout implements StatusView {
   }
 
   @Override
-  public void onQueryVector(IndexedFloatVector vector, long index, long end) {
+  public void onQueryVector(LongIndexedFloatVector vector, long index, long end) {
     sb.append(++currentQueryVector).append("/").append(totalQueryVectors).append(": ");
     sb.append(vector);
     flushIf();

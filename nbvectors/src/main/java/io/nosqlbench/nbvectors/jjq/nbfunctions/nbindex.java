@@ -1,12 +1,12 @@
-package io.nosqlbench.nbvectors.jjq.functions;
+package io.nosqlbench.nbvectors.jjq.nbfunctions;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.jjq.apis.NBBaseJQFunction;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
-import io.nosqlbench.nbvectors.jjq.functions.mappers.NBIdMapper;
-import io.nosqlbench.nbvectors.jjq.functions.mappers.NBTriesContext;
+import io.nosqlbench.nbvectors.jjq.contexts.NBTriesContext;
+import io.nosqlbench.nbvectors.jjq.contexts.NBIdMapper;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.internal.misc.Preconditions;
@@ -17,7 +17,7 @@ import java.util.Map;
 
 @AutoService(Function.class)
 @BuiltinFunction({"nbindex/2"})
-public class NBIndexingFunction extends NBBaseJQFunction {
+public class nbindex extends NBBaseJQFunction {
   private NBIdMapper mapper;
   private String filepath;
   private String fieldName;
@@ -32,25 +32,29 @@ public class NBIndexingFunction extends NBBaseJQFunction {
       Version version
   ) throws JsonQueryException
   {
-    if (in.isNull()) {
+    if (in.isNull()||in.isEmpty()) {
       return;
     }
     if (in.has(fieldName)) {
       JsonNode node = in.get(fieldName);
-      mapper.addInstance(fieldName,node.asText());
+      mapper.addInstance(fieldName, node.asText());
     }
     output.emit(in, path);
   }
 
   @Override
-  public void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx) throws JsonQueryException {
+  public void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx)
+      throws JsonQueryException
+  {
     args.get(1).apply(
-        scope,in, (path) -> {
+        scope, in, (path) -> {
           Preconditions.checkArgumentType("nbindex/2", 1, path, JsonNodeType.STRING);
-          args.get(0).apply(scope, in, (expr) -> {
-            Preconditions.checkArgumentType("nbindex/2", 2, path, JsonNodeType.STRING);
-            this.fieldName = expr.asText();
-          });
+          args.get(0).apply(
+              scope, in, (expr) -> {
+                Preconditions.checkArgumentType("nbindex/2", 2, path, JsonNodeType.STRING);
+                this.fieldName = expr.asText();
+              }
+          );
         }
     );
     Expression fileExpr = args.get(1);
@@ -65,9 +69,10 @@ public class NBIndexingFunction extends NBBaseJQFunction {
     );
 
     Map<String, Object> state = getState();
-    this.mapper =
-        (NBIdMapper) state.computeIfAbsent("mapper_context",
-            k -> new NBTriesContext(this.filepath).registerShutdownHook(nbctx));
+    this.mapper = (NBIdMapper) state.computeIfAbsent(
+        "mapper_context",
+        k -> new NBTriesContext(this.filepath).registerShutdownHook(nbctx)
+    );
   }
 
 }

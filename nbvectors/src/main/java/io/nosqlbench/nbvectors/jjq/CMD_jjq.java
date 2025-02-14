@@ -49,6 +49,16 @@ public class CMD_jjq implements Callable<Integer> {
       A debugging mode that provides a simpler execution path, more data, and cleaner stack traces.""")
   private boolean diagnose;
 
+  @Option(names = {"-m", "--filemode"},
+      defaultValue = "checkpoint",
+      description = "Valid values: ${COMPLETION-CANDIDATES}")
+  private Filemode filemode;
+
+  @Option(names = {"--skipdone"},
+      required = false,
+      description = "If this file exists, silently " + "skip invocation of this " + "command")
+  private Path skipFile;
+
   public static void main(String[] args) {
     CMD_jjq command = new CMD_jjq();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
@@ -59,122 +69,106 @@ public class CMD_jjq implements Callable<Integer> {
 
   @Override
   public Integer call() throws Exception {
-    try (NBStateContextHolderHack nbContext = new NBStateContextHolderHack()) {
-      Scope rootScope = rootScope(nbContext);
-
-      Function<String, JsonNode> mapper = new JsonNodeMapper();
-      LinkedList<Future<?>> futures;
-
-      JsonQuery query = JsonQuery.compile(this.jq, Versions.JQ_1_6);
-
-      Output output = null;
-      if (outPath == null) {
-        System.err.println("no output specified, discarding output");
-        output = new NullOutput();
-      } else if (outPath.toLowerCase().equals("stdout")) {
-        output = new PrettyConsoleOutput();
-      } else {
-        output = new JsonlFileOutput(Path.of(outPath));
-      }
-
-      Scope scope = Scope.newChildScope(rootScope);
-
-      //    System.out.println("partitioning");
-      int partitionCount =
-          threads != 0 ? threads : (int) (Runtime.getRuntime().availableProcessors() * 0.9);
-      FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
-      System.err.println(partitions);
-
-      if (diagnose) {
-        try {
-          for (FilePartition partition : partitions) {
-            try (ConcurrentSupplier<String> lines = partitions.getFirst().asConcurrentSupplier();) {
-              JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
-              f.run();
-            }
-          }
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
-      } else {
-        try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
-          futures = new LinkedList<>();
-
-          int count = 0;
-          for (FilePartition partition : partitions) {
-            count++;
-            ConcurrentSupplier<String> supplier = partition.asConcurrentSupplier();
-            JqProc f = new JqProc(partition.toString(), scope, supplier, mapper, query, output);
-            Future<?> future = exec.submit(f);
-            futures.addLast(future);
-          }
-
-          while (!futures.isEmpty()) {
-            try {
-              Future<?> f = futures.removeLast();
-              Object result = f.get();
-              if (result != null) {
-                System.out.println("result:" + result);
-              }
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-          }
-        }
-      }
-
-      System.out.println("NbState:");
-      NBJJQ.getState(rootScope).forEach((k, v) -> {
-        System.out.println(" k:" + k + ", v:" + v);
-      });
-
+    if (skipFile != null && Filemode.checkpoint.isSkip(skipFile)) {
+      System.err.println("skipping command, since '" + skipFile + "' is already present");
       return 0;
-
     }
-  }
 
-  private Scope rootScope(NBStateContextHolderHack context) throws URISyntaxException {
-    Scope scope = Scope.newEmptyScope();
-    BuiltinFunctionLoader.getInstance().loadFunctions(Version.LATEST, scope);
-    //    scope.addFunction("env", 0, new EnvFunction());
+    Output output = null;
+    if (outPath == null) {
+      System.err.println("no output specified, discarding output");
+      output = new NullOutput();
+    } else if (outPath.toLowerCase().equals("stdout")) {
+      output = new PrettyConsoleOutput();
+    } else {
+      output = new JsonlFileOutput(Path.of(outPath));
+    }
 
-    scope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
-        BuiltinModuleLoader.getInstance(), new FileSystemModuleLoader(
-        scope,
-        Version.LATEST,
-        FileSystems.getDefault().getPath("").toAbsolutePath()
-    ),
-        }));
+    // Determine how many suppliers to use
 
-    scope.addFunction("nbstate", context);
-
-    return scope;
-
+    //    System.out.println("partitioning");
+    int partitionCount =
+        threads != 0 ? threads : (int) (Runtime.getRuntime().availableProcessors() * 0.9);
+    FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
+    System.err.println(partitions);
 
     //
-    //    Scope rootScope = Scope.newEmptyScope();
-    //    BuiltinFunctionLoader bifl = BuiltinFunctionLoader.getInstance();
     //
-    //    bifl.listFunctions(Versions.JQ_1_6, rootScope)
-    //        .forEach((k, v) -> System.out.println("function: " + k));
+    //    JJQInvoker invoker = new JJQInvoker(this.jq,output);
+    //    invoker.run();
     //
-    //    FileSystemModuleLoader fsml = new FileSystemModuleLoader(
-    //        rootScope,
-    //        Versions.JQ_1_6,
-    //        FileSystems.getDefault().getPath("").toAbsolutePath(),
-    //        Paths.get(Scope.class.getClassLoader().getResource("").toURI())
-    //    );
+    //    try (NBStateContextHolderHack nbContext = new NBStateContextHolderHack(filemode)) {
+    //      Scope rootScope = rootScope(nbContext);
     //
-    //    rootScope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
-    //        BuiltinModuleLoader.getInstance(), fsml
-    //    }));
+    //      Function<String, JsonNode> mapper = new JsonNodeMapper();
+    //      LinkedList<Future<?>> futures;
     //
+    //      JsonQuery query = JsonQuery.compile(this.jq, Versions.JQ_1_6);
     //
-    //    BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, rootScope);
+    //      Output output = null;
+    //      if (outPath == null) {
+    //        System.err.println("no output specified, discarding output");
+    //        output = new NullOutput();
+    //      } else if (outPath.toLowerCase().equals("stdout")) {
+    //        output = new PrettyConsoleOutput();
+    //      } else {
+    //        output = new JsonlFileOutput(Path.of(outPath));
+    //      }
     //
+    //      Scope scope = Scope.newChildScope(rootScope);
     //
-    //    return rootScope;
-    //    //    Scope workScope = Scope.newChildScope(rootScope);
-    //    //    return workScope;
+    //      //    System.out.println("partitioning");
+    //      int partitionCount =
+    //          threads != 0 ? threads : (int) (Runtime.getRuntime().availableProcessors() * 0.9);
+    //      FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
+    //      System.err.println(partitions);
+    //
+    //      if (diagnose) {
+    //        try {
+    //          for (FilePartition partition : partitions) {
+    //            try (ConcurrentSupplier<String> lines = partitions.getFirst().asConcurrentSupplier();) {
+    //              JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
+    //              f.run();
+    //            }
+    //          }
+    //        } catch (Exception e) {
+    //          throw new RuntimeException(e);
+    //        }
+    //      } else {
+    //        try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
+    //          futures = new LinkedList<>();
+    //
+    //          int count = 0;
+    //          for (FilePartition partition : partitions) {
+    //            count++;
+    //            ConcurrentSupplier<String> supplier = partition.asConcurrentSupplier();
+    //            JqProc f = new JqProc(partition.toString(), scope, supplier, mapper, query, output);
+    //            Future<?> future = exec.submit(f);
+    //            futures.addLast(future);
+    //          }
+    //
+    //          while (!futures.isEmpty()) {
+    //            try {
+    //              Future<?> f = futures.removeLast();
+    //              Object result = f.get();
+    //              if (result != null) {
+    //                System.out.println("result:" + result);
+    //              }
+    //            } catch (Exception e) {
+    //              throw new RuntimeException(e);
+    //            }
+    //          }
+    //        }
+    //      }
+    //
+    //      System.out.println("NbState:");
+    //      NBJJQ.getState(rootScope).forEach((k, v) -> {
+    //        System.out.println(" k:" + k + ", v:" + v);
+    //      });
+
+    return 0;
+
   }
 }
+
+

@@ -1,7 +1,5 @@
 package io.nosqlbench.nbvectors.jjq.apis;
 
-import io.nosqlbench.nbvectors.jjq.functions.mappers.StatefulShutdown;
-
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
