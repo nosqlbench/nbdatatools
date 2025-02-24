@@ -32,6 +32,7 @@ public record PredicateNode(
 
   @Override
   public ByteBuffer encode(ByteBuffer out) {
+    out.put((byte) ConjugateType.PRED.ordinal());
     out.put((byte) field).put((byte) op.ordinal());
     out.putShort((short) v.length);
     for (long l : v) {
