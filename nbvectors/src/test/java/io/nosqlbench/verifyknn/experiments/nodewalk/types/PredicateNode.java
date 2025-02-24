@@ -13,8 +13,12 @@ public record PredicateNode(
     long... v
 ) implements BBWriter<PredicateNode>, Node<PredicateNode>
 {
+  public PredicateNode(byte type, int field, OpType op, long... v) {
+    this(field, op, v);
+  }
   public PredicateNode(ByteBuffer b) {
     this(
+        b.get(),
         b.get(),
         OpType.values()[b.get()],
         readValues(b)
