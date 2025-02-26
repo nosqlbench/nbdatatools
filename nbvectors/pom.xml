@@ -30,6 +30,12 @@
       <artifactId>jackson-jq</artifactId>
       <version>1.2.0</version>
     </dependency>
+
+    <dependency>
+      <groupId>com.github.haifengl</groupId>
+      <artifactId>smile-core</artifactId>
+      <version>4.2.0</version>
+    </dependency>
 <!--    <dependency>-->
 <!--      <groupId>net.thisptr</groupId>-->
 <!--      <artifactId>jackson-jq-extra</artifactId>-->

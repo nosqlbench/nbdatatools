@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @AutoService(Function.class)
-@BuiltinFunction({"nbhistogram/1"})
+@BuiltinFunction({"nbhisto/1"})
 public class nbhisto extends NBBaseJQFunction {
   private ConcurrentHashMap<String, AtomicLong> counts;
   private AtomicLong counter;

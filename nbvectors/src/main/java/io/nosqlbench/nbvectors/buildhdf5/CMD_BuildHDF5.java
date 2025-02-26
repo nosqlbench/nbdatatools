@@ -2,6 +2,9 @@ package io.nosqlbench.nbvectors.buildhdf5;
 
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
+import io.jhdf.api.Node;
+import io.nosqlbench.nbvectors.jjq.evaluator.JJQInvoker;
+import io.nosqlbench.nbvectors.jjq.outputs.BufferOutput;
 import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
 import io.nosqlbench.nbvectors.verifyknn.options.*;
 import org.apache.logging.log4j.LogManager;
@@ -13,6 +16,7 @@ import picocli.CommandLine.Option;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 @CommandLine.Command(name = "buildhdf5",
     headerHeading = "Usage:%n%n",
@@ -71,25 +75,38 @@ public class CMD_BuildHDF5 implements Callable<Integer> {
   public Integer call() throws Exception {
 
     MapperConfig config = MapperConfig.file(layoutPath);
-    WritableHdfFile writable = HdfFile.write(hdfOutPath);
-    JsonLoader jloader = new JsonLoader();
+
+    for (MapperConfig.RemapConfig rmapper : config.getMappers()) {
+      System.err.println("running premapping phase " + rmapper.name());
+      Supplier<String> input = JJQSupplier.path(rmapper.file());
+      String expr = rmapper.expr();
+      BufferOutput output = new BufferOutput(5000000);
+      try (JJQInvoker invoker = new JJQInvoker(input, expr, output)) {
+        invoker.run();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+
     try (KnnDataWriter kwriter = new KnnDataWriter(hdfOutPath)) {
 
-      System.out.println("writing neighbors stream...");
-      kwriter.writeNeighborsStream(JsonLoader.readNeighborsStream(config));
-
-      System.out.println("writing training stream...");
+      System.err.println("writing training stream...");
       kwriter.writeTrainingStream(JsonLoader.readTrainingStream(config));
 
-      System.out.println("writing test stream...");
+      System.err.println("writing test stream...");
       kwriter.writeTestStream(JsonLoader.readTestStream(config));
 
-      System.out.println("writing distances stream...");
+      if (config.getFiltersExpr().isPresent()) {
+        System.err.println("writing filters stream...");
+        kwriter.writeFiltersStream(JsonLoader.readFiltersStream(config));
+      }
+
+      System.err.println("writing neighbors stream...");
+      kwriter.writeNeighborsStream(JsonLoader.readNeighborsStream(config));
+
+      System.err.println("writing distances stream...");
       kwriter.writeDistancesStream(JsonLoader.readDistancesStream(config));
     }
-    ;
-    //    KnnDataWriter.writeTraining(trainingStream,writable);
-
     return 0;
   }
 

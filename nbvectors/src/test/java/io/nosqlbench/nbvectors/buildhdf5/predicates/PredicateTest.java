@@ -1,11 +1,11 @@
-package io.nosqlbench.verifyknn.experiments.nodewalk;
+package io.nosqlbench.nbvectors.buildhdf5.predicates;
 
-import io.nosqlbench.verifyknn.experiments.nodewalk.repr.CqlNodeRenderer;
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.ConjugateNode;
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.PredicateNode;
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.ConjugateType;
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.Node;
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.OpType;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.repr.CqlNodeRenderer;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PredicateNode;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateType;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.OpType;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;

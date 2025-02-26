@@ -2,6 +2,7 @@ package io.nosqlbench.nbvectors.jjq.evaluator;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.nosqlbench.nbvectors.jjq.apis.NBJJQ;
+import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContextHolderHack;
 import net.thisptr.jackson.jq.*;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
@@ -17,11 +18,15 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class JJQInvoker implements Runnable {
+/// Because the invoker does stateful work, including saving results at the end
+/// you should really run it in a try-with-resources block.
+public class JJQInvoker implements Runnable, AutoCloseable {
 
   private final String expr;
   private final Output output;
   private final Supplier<String> lines;
+  private Scope rootScope;
+  private NBStateContextHolderHack nbContext;
 
   public JJQInvoker(Supplier<String> lines, String expr, Output output) {
     this.lines = lines;
@@ -31,56 +36,53 @@ public class JJQInvoker implements Runnable {
 
   @Override
   public void run() {
-    try (NBStateContextHolderHack nbContext = new NBStateContextHolderHack()) {
-      Scope rootScope = rootScope(nbContext);
-
+    try {
+      this.nbContext = new NBStateContextHolderHack();
+      this.rootScope = rootScope(nbContext);
       Function<String, JsonNode> mapper = new JsonNodeMapper();
       LinkedList<Future<?>> futures;
-
       JsonQuery query = JsonQuery.compile(expr, Versions.JQ_1_6);
-
       Scope scope = Scope.newChildScope(rootScope);
-
       JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
       f.run();
 
-//      if (diagnose) {
-//        try {
-//          for (FilePartition partition : partitions) {
-//            try (ConcurrentSupplier<String> lines = partitions.getFirst().asConcurrentSupplier();) {
-//              JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
-//              f.run();
-//            }
-//          }
-//        } catch (Exception e) {
-//          throw new RuntimeException(e);
-//        }
-//      } else {
-//        try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
-//          futures = new LinkedList<>();
-//
-//          int count = 0;
-//          for (FilePartition partition : partitions) {
-//            count++;
-//            ConcurrentSupplier<String> supplier = partition.asConcurrentSupplier();
-//            JqProc f = new JqProc(partition.toString(), scope, supplier, mapper, query, output);
-//            Future<?> future = exec.submit(f);
-//            futures.addLast(future);
-//          }
-//
-//          while (!futures.isEmpty()) {
-//            try {
-//              Future<?> f = futures.removeLast();
-//              Object result = f.get();
-//              if (result != null) {
-//                System.out.println("result:" + result);
-//              }
-//            } catch (Exception e) {
-//              throw new RuntimeException(e);
-//            }
-//          }
-//        }
-//      }
+      //      if (diagnose) {
+      //        try {
+      //          for (FilePartition partition : partitions) {
+      //            try (ConcurrentSupplier<String> lines = partitions.getFirst().asConcurrentSupplier();) {
+      //              JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
+      //              f.run();
+      //            }
+      //          }
+      //        } catch (Exception e) {
+      //          throw new RuntimeException(e);
+      //        }
+      //      } else {
+      //        try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
+      //          futures = new LinkedList<>();
+      //
+      //          int count = 0;
+      //          for (FilePartition partition : partitions) {
+      //            count++;
+      //            ConcurrentSupplier<String> supplier = partition.asConcurrentSupplier();
+      //            JqProc f = new JqProc(partition.toString(), scope, supplier, mapper, query, output);
+      //            Future<?> future = exec.submit(f);
+      //            futures.addLast(future);
+      //          }
+      //
+      //          while (!futures.isEmpty()) {
+      //            try {
+      //              Future<?> f = futures.removeLast();
+      //              Object result = f.get();
+      //              if (result != null) {
+      //                System.out.println("result:" + result);
+      //              }
+      //            } catch (Exception e) {
+      //              throw new RuntimeException(e);
+      //            }
+      //          }
+      //        }
+      //      }
 
       System.out.println("NbState:");
       NBJJQ.getState(rootScope).forEach((k, v) -> {
@@ -95,22 +97,35 @@ public class JJQInvoker implements Runnable {
     }
   }
 
+  public Scope getScope() {
+    return this.rootScope;
+  }
+
+  public NBStateContext getContext() {
+    return this.nbContext;
+  }
+
   private Scope rootScope(NBStateContextHolderHack context) throws URISyntaxException {
-    Scope scope = Scope.newEmptyScope();
-    BuiltinFunctionLoader.getInstance().loadFunctions(Version.LATEST, scope);
-    //    scope.addFunction("env", 0, new EnvFunction());
+    try {
+      Scope scope = Scope.newEmptyScope();
+      BuiltinFunctionLoader.getInstance().loadFunctions(Version.LATEST, scope);
+      //    scope.addFunction("env", 0, new EnvFunction());
 
-    scope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
-        BuiltinModuleLoader.getInstance(), new FileSystemModuleLoader(
-        scope,
-        Version.LATEST,
-        FileSystems.getDefault().getPath("").toAbsolutePath()
-    ),
-        }));
+      scope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
+          BuiltinModuleLoader.getInstance(), new FileSystemModuleLoader(
+          scope,
+          Version.LATEST,
+          FileSystems.getDefault().getPath("").toAbsolutePath()
+      ),
+          }));
 
-    scope.addFunction("nbstate", context);
+      scope.addFunction("nbstate", context);
 
-    return scope;
+      return scope;
+
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
 
 
     //
@@ -140,4 +155,8 @@ public class JJQInvoker implements Runnable {
     //    //    return workScope;
   }
 
+  @Override
+  public void close() throws Exception {
+    this.nbContext.close();
+  }
 }

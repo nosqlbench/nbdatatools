@@ -1,4 +1,4 @@
-package io.nosqlbench.verifyknn.experiments.nodewalk.types;
+package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -15,17 +15,9 @@ public record ConjugateNode(ConjugateType type, Node<?>[] values)
     byte count = b.get();
     Node<?>[] elements = new Node[count];
     for (int i = 0; i < elements.length; i++) {
-      elements[i] = readValue(b);
+      elements[i] = new ConjugateNode(b);
     }
     return elements;
-  }
-
-  private static Node readValue(ByteBuffer b) {
-    ConjugateType eType = ConjugateType.values()[b.get()];
-    return switch (eType) {
-      case PRED -> new PredicateNode(b);
-      default -> new ConjugateNode(b);
-    };
   }
 
   @Override

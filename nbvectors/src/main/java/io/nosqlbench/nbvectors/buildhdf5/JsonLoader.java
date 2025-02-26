@@ -1,14 +1,19 @@
 package io.nosqlbench.nbvectors.buildhdf5;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
 import io.nosqlbench.nbvectors.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.jjq.bulkio.ConvertingIterable;
 import io.nosqlbench.nbvectors.jjq.outputs.BufferOutput;
+import io.nosqlbench.nbvectors.predicates.PredicateParser;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -118,5 +123,24 @@ public class JsonLoader {
         }
         return new LongIndexedFloatVector(n.get("id").asLong(), floats);
       };
+
+  public static Iterator<Node<?>> readFiltersStream(MapperConfig config) {
+    Optional<Path> filtersFile = config.getFiltersFile();
+    Optional<String> filtersExpr = config.getFiltersExpr();
+    if (filtersExpr.isEmpty() || filtersFile.isEmpty()) {
+      throw new RuntimeException(
+          "filters expr and filters file must both be defined in the config");
+    }
+    Supplier<String> input = JJQSupplier.path(filtersFile.get());
+    String expr = filtersExpr.get();
+    BufferOutput output = new BufferOutput(5000000);
+
+    JJQInvoker invoker = new JJQInvoker(input, expr, output);
+    invoker.run();
+    ConvertingIterable<JsonNode, Node<?>> converter =
+        new ConvertingIterable<>(output.getResultStream(), PredicateParser::parse);
+    return converter.iterator();
+  }
+
 
 }

@@ -1,30 +1,24 @@
 package io.nosqlbench.nbvectors.jjq;
 
-import static picocli.CommandLine.*;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import io.nosqlbench.nbvectors.jjq.apis.NBJJQ;
-import io.nosqlbench.nbvectors.jjq.bulkio.*;
-import io.nosqlbench.nbvectors.jjq.evaluator.JqProc;
-import io.nosqlbench.nbvectors.jjq.evaluator.JsonNodeMapper;
-import io.nosqlbench.nbvectors.jjq.apis.NBStateContextHolderHack;
+import io.nosqlbench.nbvectors.buildhdf5.JJQSupplier;
+import io.nosqlbench.nbvectors.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.jjq.outputs.JsonlFileOutput;
 import io.nosqlbench.nbvectors.jjq.outputs.NullOutput;
 import io.nosqlbench.nbvectors.jjq.outputs.PrettyConsoleOutput;
-import net.thisptr.jackson.jq.*;
-import net.thisptr.jackson.jq.module.ModuleLoader;
-import net.thisptr.jackson.jq.module.loaders.BuiltinModuleLoader;
-import net.thisptr.jackson.jq.module.loaders.ChainedModuleLoader;
-import net.thisptr.jackson.jq.module.loaders.FileSystemModuleLoader;
+import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
+import net.thisptr.jackson.jq.Output;
+import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
-import java.net.URISyntaxException;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.util.LinkedList;
-import java.util.concurrent.*;
-import java.util.function.Function;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
+import static picocli.CommandLine.Command;
+import static picocli.CommandLine.Option;
+
+///  TODO: Re-enable multi-threading mode
 @Command(name = "jjq")
 public class CMD_jjq implements Callable<Integer> {
 
@@ -32,11 +26,12 @@ public class CMD_jjq implements Callable<Integer> {
   private Path inFile;
 
   @Option(names = {"-o", "--out"},
-      required = false,
-      description = "The output path for processed" + " JSON")
+      description = "The output path for processed JSON, 'null' means discard",
+      defaultValue = "stdout")
   private String outPath;
 
-  @Option(names = {"-q", "--jq", "--query"}, required = false, defaultValue = ".")
+  @CommandLine.Parameters(defaultValue = ".", description = "The jq expression to apply")
+  //  @Option(names = {"-q", "--jq", "--query"}, required = false, defaultValue = ".")
   private String jq;
 
   @Option(names = {"-t", "--threads"}, required = false, defaultValue = "0")
@@ -60,6 +55,12 @@ public class CMD_jjq implements Callable<Integer> {
   private Path skipFile;
 
   public static void main(String[] args) {
+    System.setProperty("slf4j.internal.verbosity", "ERROR");
+    System.setProperty(
+        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+        CustomConfigurationFactory.class.getCanonicalName()
+    );
+
     CMD_jjq command = new CMD_jjq();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
@@ -75,28 +76,34 @@ public class CMD_jjq implements Callable<Integer> {
     }
 
     Output output = null;
-    if (outPath == null) {
-      System.err.println("no output specified, discarding output");
-      output = new NullOutput();
-    } else if (outPath.toLowerCase().equals("stdout")) {
+    if (outPath == null || outPath.equals("stdout")) {
       output = new PrettyConsoleOutput();
+    } else if (outPath.equalsIgnoreCase("null")) {
+      output = new NullOutput();
     } else {
       output = new JsonlFileOutput(Path.of(outPath));
     }
 
     // Determine how many suppliers to use
 
-    //    System.out.println("partitioning");
-    int partitionCount =
-        threads != 0 ? threads : (int) (Runtime.getRuntime().availableProcessors() * 0.9);
-    FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
-    System.err.println(partitions);
+    //    //    System.out.println("partitioning");
+    //    int partitionCount =
+    //        threads != 0 ? threads : (int) (Runtime.getRuntime().availableProcessors() * 0.9);
+    //    FilePartitions partitions = FilePartition.of(inFile).partition(partitionCount);
+    //    System.err.println(partitions);
 
-    //
-    //
-    //    JJQInvoker invoker = new JJQInvoker(this.jq,output);
-    //    invoker.run();
-    //
+    Supplier<String> input = JJQSupplier.path(this.inFile);
+    //      BufferOutput output = new BufferOutput(5000000);
+    //      JJQInvoker invoker = new JJQInvoker(input, expr, output);
+    //      invoker.run();
+    //      ConvertingIterable<JsonNode, long[]> converter =
+    //          new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoLongNeighborIndices);
+
+    try (JJQInvoker invoker = new JJQInvoker(input, this.jq, output)) {
+      invoker.run();
+    }
+
+
     //    try (NBStateContextHolderHack nbContext = new NBStateContextHolderHack(filemode)) {
     //      Scope rootScope = rootScope(nbContext);
     //

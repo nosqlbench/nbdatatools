@@ -2,8 +2,10 @@ package io.nosqlbench.nbvectors.buildhdf5;
 
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -25,8 +27,8 @@ public class KnnDataWriter implements AutoCloseable {
     for (LongIndexedFloatVector vector : vectors) {
       ary[(int) vector.index()] = vector.vector();
     }
-//    WritableDataset ds = new WritableDatasetImpl(ary,"/training",writable);
-    this.writable.putDataset("train",ary);
+    //    WritableDataset ds = new WritableDatasetImpl(ary,"/train",writable);
+    this.writable.putDataset("train", ary);
   }
 
   public void writeTestStream(Iterator<LongIndexedFloatVector> iterator) {
@@ -36,8 +38,8 @@ public class KnnDataWriter implements AutoCloseable {
     for (LongIndexedFloatVector vector : vectors) {
       ary[(int) vector.index()] = vector.vector();
     }
-    //    WritableDataset ds = new WritableDatasetImpl(ary,"/training",writable);
-    this.writable.putDataset("test",ary);
+    //    WritableDataset ds = new WritableDatasetImpl(ary,"/train",writable);
+    this.writable.putDataset("test", ary);
   }
 
   public void writeNeighborsStream(Iterator<long[]> iterator) {
@@ -45,9 +47,9 @@ public class KnnDataWriter implements AutoCloseable {
     iterator.forEachRemaining(vectors::add);
     long[][] ary = new long[vectors.size()][vectors.getFirst().length];
     for (int i = 0; i < ary.length; i++) {
-      ary[i]=vectors.get(i);
+      ary[i] = vectors.get(i);
     }
-    this.writable.putDataset("neighbors",ary);
+    this.writable.putDataset("neighbors", ary);
   }
 
   public void writeDistancesStream(Iterator<float[]> iterator) {
@@ -55,9 +57,9 @@ public class KnnDataWriter implements AutoCloseable {
     iterator.forEachRemaining(distances::add);
     float[][] ary = new float[distances.size()][distances.getFirst().length];
     for (int i = 0; i < ary.length; i++) {
-      ary[i]=distances.get(i);
+      ary[i] = distances.get(i);
     }
-    this.writable.putDataset("distances",ary);
+    this.writable.putDataset("distances", ary);
 
   }
 
@@ -66,4 +68,29 @@ public class KnnDataWriter implements AutoCloseable {
     this.writable.close();
   }
 
+  public void writeFiltersStream(Iterator<Node<?>> nodeIterator) {
+    List<byte[]> predicateEncodings = new ArrayList<>();
+    ByteBuffer workingBuffer = ByteBuffer.allocate(5_000_000);
+
+    int maxlen = 0;
+    int minlen = Integer.MAX_VALUE;
+    while (nodeIterator.hasNext()) {
+      Node<?> node = nodeIterator.next();
+      workingBuffer.clear();
+      node.encode(workingBuffer);
+      workingBuffer.flip();
+      byte[] bytes = new byte[workingBuffer.remaining()];
+      workingBuffer.get(bytes);
+      predicateEncodings.add(bytes);
+      maxlen = Math.max(maxlen,bytes.length);
+      minlen = Math.min(minlen,bytes.length);
+//      predicateEncodings.add(ByteBuffer.wrap(workingBuffer.array()));
+    }
+    byte[][] encoded = new byte[predicateEncodings.size()][maxlen];
+    for (int i = 0; i < encoded.length; i++) {
+      encoded[i]=predicateEncodings.get(i);
+    }
+    this.writable.putDataset("filters", encoded);
+
+  }
 }

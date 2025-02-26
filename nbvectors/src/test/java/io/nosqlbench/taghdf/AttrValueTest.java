@@ -11,17 +11,17 @@ public class AttrValueTest {
 
   @Test
   public void testStringValues() {
-    assertThat(AttrValue.parse("value")).isEqualTo(new AttrValue<String>(
+    assertThat(AttrValue.parse("values")).isEqualTo(new AttrValue<String>(
         ValueType.STRING,
-        "value",
-        "value"
+        "values",
+        "values"
     ));
-    assertThat(AttrValue.parse("(String)value")).isEqualTo(new AttrValue<String>(
+    assertThat(AttrValue.parse("(String)values")).isEqualTo(new AttrValue<String>(
         ValueType.STRING,
-        "value",
-        "value"
+        "values",
+        "values"
     ));
-    assertThrows(NumberFormatException.class, () -> AttrValue.parse("(int)value"));
+    assertThrows(NumberFormatException.class, () -> AttrValue.parse("(int)values"));
   }
 
   @Test

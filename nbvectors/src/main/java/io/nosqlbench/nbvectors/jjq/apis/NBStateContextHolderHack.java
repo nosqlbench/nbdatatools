@@ -42,7 +42,7 @@ public class NBStateContextHolderHack implements NBStateContext, Function, AutoC
 
 
   public NBStateContextHolderHack() {
-    System.out.println("initializing!");
+    System.err.println("initializing new state cache for NB Functions");
   }
 
   @Override

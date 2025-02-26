@@ -1,4 +1,4 @@
-package io.nosqlbench.verifyknn.experiments.nodewalk.types;
+package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
 
 public enum OpType {
   GT(">"),
