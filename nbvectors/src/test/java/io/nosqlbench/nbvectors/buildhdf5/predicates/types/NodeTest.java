@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import java.nio.ByteBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 
 public class NodeTest {
 
@@ -18,15 +17,15 @@ public class NodeTest {
     ByteBuffer bb = ByteBuffer.allocate(100);
 
     pn1.encode(bb.clear()).flip();
-    var rn1 = Node.fromBuffer(bb);
+    var rn1 = PNode.fromBuffer(bb);
     assertThat(rn1).isEqualTo(pn1);
 
     pn2.encode(bb.clear()).flip();
-    var rn2 = Node.fromBuffer(bb);
+    var rn2 = PNode.fromBuffer(bb);
     assertThat(rn2).isEqualTo(pn2);
 
     pn3.encode(bb.clear()).flip();
-    var rn3 = Node.fromBuffer(bb);
+    var rn3 = PNode.fromBuffer(bb);
     assertThat(rn3).isEqualTo(pn3);
 
 

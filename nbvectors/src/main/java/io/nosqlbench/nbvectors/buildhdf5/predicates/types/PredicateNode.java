@@ -11,7 +11,7 @@ public record PredicateNode(
     OpType op,
     /* encoded as short len, and then longs */
     long... v
-) implements BBWriter<PredicateNode>, Node<PredicateNode>
+) implements BBWriter<PredicateNode>, PNode<PredicateNode>
 {
   public PredicateNode(byte type, int field, OpType op, long... v) {
     this(field, op, v);

@@ -3,11 +3,11 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.repr;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.NodeRepresenter;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PredicateNode;
-import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 
 public class CqlNodeRenderer implements NodeRepresenter {
   @Override
-  public String apply(Node<?> node) {
+  public String apply(PNode<?> node) {
     return switch (node) {
       case ConjugateNode n -> reprConjugate(n);
       case PredicateNode p -> reprPredicate(p);
@@ -48,11 +48,11 @@ public class CqlNodeRenderer implements NodeRepresenter {
     };
   }
 
-  private String concatenate(String name, Node<?>[] values) {
+  private String concatenate(String name, PNode<?>[] values) {
     StringBuilder sb = new StringBuilder();
 
     for (int i = 0; i < values.length; i++) {
-      Node<?> value = values[i];
+      PNode<?> value = values[i];
       String nodeRep = apply(value);
       if (!sb.isEmpty()) {
         sb.append(" ").append(name).append(" ");

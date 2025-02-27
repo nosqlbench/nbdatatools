@@ -22,7 +22,7 @@ class PredicateParserTest {
             """;
         
         JsonNode jsonNode = MAPPER.readTree(json);
-        Node<?> node = PredicateParser.parse(jsonNode);
+        PNode<?> node = PredicateParser.parse(jsonNode);
         
         assertThat(node).isInstanceOf(PredicateNode.class);
         PredicateNode predicate = (PredicateNode) node;
@@ -42,7 +42,7 @@ class PredicateParserTest {
             """;
         
         JsonNode jsonNode = MAPPER.readTree(json);
-        Node<?> node = PredicateParser.parse(jsonNode);
+        PNode<?> node = PredicateParser.parse(jsonNode);
         
         assertThat(node).isInstanceOf(PredicateNode.class);
         PredicateNode predicate = (PredicateNode) node;
@@ -72,7 +72,7 @@ class PredicateParserTest {
             """;
         
         JsonNode jsonNode = MAPPER.readTree(json);
-        Node<?> node = PredicateParser.parse(jsonNode);
+        PNode<?> node = PredicateParser.parse(jsonNode);
         
         assertThat(node).isInstanceOf(ConjugateNode.class);
         ConjugateNode conjugate = (ConjugateNode) node;
@@ -149,7 +149,7 @@ class PredicateParserTest {
             """;
         
         JsonNode jsonNode = MAPPER.readTree(json);
-        Node<?> node = PredicateParser.parse(jsonNode);
+        PNode<?> node = PredicateParser.parse(jsonNode);
         
         assertThat(node).isInstanceOf(PredicateNode.class);
         PredicateNode predicate = (PredicateNode) node;

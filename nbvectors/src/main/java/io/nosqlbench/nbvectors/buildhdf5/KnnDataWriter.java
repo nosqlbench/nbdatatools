@@ -2,7 +2,7 @@ package io.nosqlbench.nbvectors.buildhdf5;
 
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
-import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs;
 
@@ -69,25 +69,22 @@ public class KnnDataWriter implements AutoCloseable {
     this.writable.close();
   }
 
-  public void writeFiltersStream(Iterator<Node<?>> nodeIterator) {
+  public void writeFiltersStream(Iterator<PNode<?>> nodeIterator) {
     List<byte[]> predicateEncodings = new ArrayList<>();
     ByteBuffer workingBuffer = ByteBuffer.allocate(5_000_000);
 
     int maxlen = 0;
     int minlen = Integer.MAX_VALUE;
     while (nodeIterator.hasNext()) {
-      Node<?> node = nodeIterator.next();
+      PNode<?> node = nodeIterator.next();
       workingBuffer.clear();
       node.encode(workingBuffer);
       workingBuffer.flip();
       byte[] bytes = new byte[workingBuffer.remaining()];
       workingBuffer.get(bytes);
-      System.out.println("hex %s\n" + Glyphs.hex(bytes));
-      System.out.println("br  %s\n" + Glyphs.braille(bytes));
       predicateEncodings.add(bytes);
       maxlen = Math.max(maxlen,bytes.length);
       minlen = Math.min(minlen,bytes.length);
-//      predicateEncodings.add(ByteBuffer.wrap(workingBuffer.array()));
     }
     byte[][] encoded = new byte[predicateEncodings.size()][maxlen];
     for (int i = 0; i < encoded.length; i++) {

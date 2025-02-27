@@ -4,7 +4,7 @@ import io.jhdf.HdfFile;
 import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
-import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
 import io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs;
 import org.apache.logging.log4j.LogManager;
@@ -95,16 +95,15 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
   /// ⠀⠀⠆⠀⡂⠀⠀⠀⠀⠀⠃⢏⠬⠀⠀⠀⠀⠀⠃⢏⠭|⠀⠀⠀⠀⠀⠃⢏⠮⠀⠀⠀⠀⠀⠃⢏⠯⠀⠀⠀⠀⠀⠃⢏⡨⠀⠀⠀⠀⠀⠃⢏⡩⠀⠀⠀⠀⠀⠃⢏⡪⠀⠀⠀⠀⠀⠃⢏⡫⠀⠀⠀⠀⠀⠃⢏⡬⠀⠀⠀⠀⠀⠃⢏⡭
   /// ```
   private void decodeFilters(StringBuilder sb, Dataset ds) {
+    System.out.println("# predicates from filters dataset:");
     int[] dimensions = ds.getDimensions();
     for (int i = 0; i < dimensions[0]; i++) {
       Object datao = ds.getData(new long[]{i, 0}, new int[]{1, dimensions[1]});
       byte[][] data = (byte[][]) datao;
       byte[] datum = data[0];
-      System.out.printf("hex %s\n",Glyphs.hex(datum));
-      System.out.printf("br  %s\n", Glyphs.braille(datum));
-      ConjugateNode node = new ConjugateNode(ByteBuffer.wrap(datum));
-      System.out.println("node:"+ node+"\n");
-      System.out.println("data:"+Arrays.toString(data));
+      PNode node =
+          PNode.fromBuffer(ByteBuffer.wrap(datum));
+      System.out.println("pnode: "+ node);
     }
 
   }

@@ -3,19 +3,19 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-public record ConjugateNode(ConjugateType type, Node<?>... values)
-    implements BBWriter<ConjugateNode>, Node<ConjugateNode>
+public record ConjugateNode(ConjugateType type, PNode<?>... values)
+    implements BBWriter<ConjugateNode>, PNode<ConjugateNode>
 {
 
   public ConjugateNode(ByteBuffer b) {
     this(ConjugateType.values()[b.get()], readValues(b));
   }
 
-  private static Node<?>[] readValues(ByteBuffer b) {
+  private static PNode<?>[] readValues(ByteBuffer b) {
     byte count = b.get();
-    Node<?>[] elements = new Node[count];
+    PNode<?>[] elements = new PNode[count];
     for (int i = 0; i < elements.length; i++) {
-      elements[i] = Node.fromBuffer(b);
+      elements[i] = PNode.fromBuffer(b);
     }
     return elements;
   }
@@ -23,7 +23,7 @@ public record ConjugateNode(ConjugateType type, Node<?>... values)
   @Override
   public ByteBuffer encode(ByteBuffer out) {
     out.put((byte) this.type.ordinal()).put((byte) this.values.length);
-    for (Node<?> element : values) {
+    for (PNode<?> element : values) {
       element.encode(out);
     }
     return out;
@@ -40,7 +40,7 @@ public record ConjugateNode(ConjugateType type, Node<?>... values)
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof ConjugateNode(ConjugateType type1, Node<?>[] values1)))
+    if (!(o instanceof ConjugateNode(ConjugateType type1, PNode<?>[] values1)))
       return false;
 
     return Arrays.equals(values, values1) && type == type1;

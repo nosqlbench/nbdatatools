@@ -3,7 +3,7 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateType;
-import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.OpType;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PredicateNode;
 
@@ -14,7 +14,7 @@ import java.util.Set;
 public class PredicateParser {
     private static final Set<String> CONJUGATE_OPS = Set.of("AND", "OR");
     
-    public static Node<?> parse(JsonNode root) {
+    public static PNode<?> parse(JsonNode root) {
         validateRequiredField(root, "op");
         String operator = root.get("op").asText().toUpperCase();
         
@@ -50,7 +50,7 @@ public class PredicateParser {
             throw new IllegalArgumentException("nodes must be an array");
         }
         
-        List<Node<?>> nodes = new ArrayList<>();
+        List<PNode<?>> nodes = new ArrayList<>();
         for (JsonNode childNode : nodesArray) {
             nodes.add(parse(childNode));
         }
@@ -59,7 +59,7 @@ public class PredicateParser {
             throw new IllegalArgumentException("Conjugate node must have at least one child node");
         }
         
-        return new ConjugateNode(type, nodes.toArray(new Node<?>[0]));
+        return new ConjugateNode(type, nodes.toArray(new PNode<?>[0]));
     }
     
     private static OpType parseOperator(String op) {

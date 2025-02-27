@@ -1,7 +1,7 @@
 package io.nosqlbench.nbvectors.buildhdf5;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.jjq.bulkio.ConvertingIterable;
 import io.nosqlbench.nbvectors.jjq.outputs.BufferOutput;
@@ -123,7 +123,7 @@ public class JsonLoader {
         return new LongIndexedFloatVector(n.get("id").asLong(), floats);
       };
 
-  public static Iterator<Node<?>> readFiltersStream(MapperConfig config) {
+  public static Iterator<PNode<?>> readFiltersStream(MapperConfig config) {
     Optional<Path> filtersFile = config.getFiltersFile();
     Optional<String> filtersExpr = config.getFiltersExpr();
     if (filtersExpr.isEmpty() || filtersFile.isEmpty()) {
@@ -136,7 +136,7 @@ public class JsonLoader {
 
     JJQInvoker invoker = new JJQInvoker(input, expr, output);
     invoker.run();
-    ConvertingIterable<JsonNode, Node<?>> converter =
+    ConvertingIterable<JsonNode, PNode<?>> converter =
         new ConvertingIterable<>(output.getResultStream(), PredicateParser::parse);
     return converter.iterator();
   }
