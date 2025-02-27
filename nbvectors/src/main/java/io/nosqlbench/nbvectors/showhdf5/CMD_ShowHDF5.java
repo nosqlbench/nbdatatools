@@ -85,15 +85,6 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
     return 0;
   }
 
-  ///
-  /// ```
-  ///  out
-  ///  00.00.06.00 0A.00.00.00 00.00.03.97 54.00.00.00 00.00.03.97 55.00.00.00 00.00.03.97 56.00.00.00 00.00.03.97 57.00.00.00 00.00.03.97 58.00.00.00 00.00.03.97 59.00.00.00 00.00.03.97 5A.00.00.00 00.00.03.97 5B.00.00.00 00.00.03.97 5C.00.00.00 00.00.03.97 5D
-  /// ⠀⠀⠆⠀⡂⠀⠀⠀⠀⠀⠃⢏⠬⠀⠀⠀⠀⠀⠃⢏⠭⠀⠀⠀⠀⠀⠃⢏⠮⠀⠀⠀⠀⠀⠃⢏⠯⠀⠀⠀⠀⠀⠃⢏⡨⠀⠀⠀⠀⠀⠃⢏⡩⠀⠀⠀⠀⠀⠃⢏⡪⠀⠀⠀⠀⠀⠃⢏⡫⠀⠀⠀⠀⠀⠃⢏⡬⠀⠀⠀⠀⠀⠃⢏⡭
-  ///  in
-  ///  00.00.06.00 0A.00.00.00 00.00.03.97 54.00.00.00 00.00.03.97 55.00.00.00 00.00.03.97 56.00.00.00 00.00.03.97 57.00.00.00 00.00.03.97 58.00.00.00 00.00.03.97 59.00.00.00 00.00.03.97 5A.00.00.00 00.00.03.97 5B.00.00.00 00.00.03.97 5C.00.00.00 00.00.03.97 5D
-  /// ⠀⠀⠆⠀⡂⠀⠀⠀⠀⠀⠃⢏⠬⠀⠀⠀⠀⠀⠃⢏⠭|⠀⠀⠀⠀⠀⠃⢏⠮⠀⠀⠀⠀⠀⠃⢏⠯⠀⠀⠀⠀⠀⠃⢏⡨⠀⠀⠀⠀⠀⠃⢏⡩⠀⠀⠀⠀⠀⠃⢏⡪⠀⠀⠀⠀⠀⠃⢏⡫⠀⠀⠀⠀⠀⠃⢏⡬⠀⠀⠀⠀⠀⠃⢏⡭
-  /// ```
   private void decodeFilters(StringBuilder sb, Dataset ds) {
     System.out.println("# predicates from filters dataset:");
     int[] dimensions = ds.getDimensions();
@@ -103,7 +94,7 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
       byte[] datum = data[0];
       PNode node =
           PNode.fromBuffer(ByteBuffer.wrap(datum));
-      System.out.println("pnode: "+ node);
+      System.out.printf("predicate[%d]: %s%n",i, node);
     }
 
   }
