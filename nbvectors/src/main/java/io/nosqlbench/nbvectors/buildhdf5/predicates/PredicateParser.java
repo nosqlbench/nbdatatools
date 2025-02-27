@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.predicates;
+package io.nosqlbench.nbvectors.buildhdf5.predicates;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;

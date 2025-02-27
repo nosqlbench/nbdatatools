@@ -4,6 +4,7 @@ import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -81,6 +82,8 @@ public class KnnDataWriter implements AutoCloseable {
       workingBuffer.flip();
       byte[] bytes = new byte[workingBuffer.remaining()];
       workingBuffer.get(bytes);
+      System.out.println("hex %s\n" + Glyphs.hex(bytes));
+      System.out.println("br  %s\n" + Glyphs.braille(bytes));
       predicateEncodings.add(bytes);
       maxlen = Math.max(maxlen,bytes.length);
       minlen = Math.min(minlen,bytes.length);

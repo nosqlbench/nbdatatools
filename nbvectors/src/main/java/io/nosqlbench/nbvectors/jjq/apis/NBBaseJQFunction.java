@@ -38,7 +38,7 @@ public abstract class NBBaseJQFunction implements Function, StatefulShutdown {
 
   @Override
   public void shutdown() {
-    System.out.println("shutting down this " + this);
+    System.err.println("shutting down this " + this);
   }
 
   public Map<String, Object> getState() {

@@ -1,0 +1,57 @@
+stmt: {
+  grid-columns:1;
+  grid-gap:0;
+  *: {
+    grid-columns:1;
+    grid-gap:0;
+    label:""
+   }
+
+  select: {
+   md:|
+    ```
+    SELECT * FROM table.keyspace WHERE {shard}
+    ```
+   |
+  }
+  in: {
+   md:|
+    ```
+    in {shards}
+    ```
+   |
+  }
+  order_by: {
+   md:|
+    ```
+    ORDER BY {vector_field}
+    ```
+   |
+  }
+  ann_of: {
+   md:|
+    ```
+    ANN OF {query_vector}
+    ```
+   |
+  }
+  limit: {
+   md:|
+    ```
+    LIMIT {k};
+    ```
+   |
+  }
+}
+
+shards: {
+  grid-columns:5;
+  grid-gap:0;
+  *: {
+    grid-columns:6;
+    grid-gap:0;
+    label:""
+  }
+  s1: { "s[0]";"v[0]"; "v[1]"; "v[2]"; "v[3]"; "..." }
+
+}

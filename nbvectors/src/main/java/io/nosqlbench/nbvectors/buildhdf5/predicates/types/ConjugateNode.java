@@ -3,7 +3,7 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-public record ConjugateNode(ConjugateType type, Node<?>[] values)
+public record ConjugateNode(ConjugateType type, Node<?>... values)
     implements BBWriter<ConjugateNode>, Node<ConjugateNode>
 {
 
@@ -15,7 +15,7 @@ public record ConjugateNode(ConjugateType type, Node<?>[] values)
     byte count = b.get();
     Node<?>[] elements = new Node[count];
     for (int i = 0; i < elements.length; i++) {
-      elements[i] = new ConjugateNode(b);
+      elements[i] = Node.fromBuffer(b);
     }
     return elements;
   }
@@ -36,5 +36,20 @@ public record ConjugateNode(ConjugateType type, Node<?>[] values)
     sb.append(", v=").append(values == null ? "null" : Arrays.asList(values).toString());
     sb.append('}');
     return sb.toString();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof ConjugateNode(ConjugateType type1, Node<?>[] values1)))
+      return false;
+
+    return Arrays.equals(values, values1) && type == type1;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = type.hashCode();
+    result = 31 * result + Arrays.hashCode(values);
+    return result;
   }
 }

@@ -12,7 +12,7 @@ import java.nio.ByteBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class PredicateTest {
+public class PredicateNodeTest {
   @Test
   public void testPred() {
     ByteBuffer b = ByteBuffer.allocate(100);
@@ -30,7 +30,7 @@ public class PredicateTest {
     ByteBuffer b = ByteBuffer.allocate(100);
     tn.encode(b);
     b.flip();
-    Node<?> node = new ConjugateNode(b);
+    Node<?> node = Node.fromBuffer(b);
     System.out.println(node);
   }
 

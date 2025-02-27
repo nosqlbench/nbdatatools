@@ -3,7 +3,6 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.*;
-import io.nosqlbench.nbvectors.predicates.PredicateParser;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,7 +16,7 @@ class PredicateParserTest {
         String json = """
             {
               "field": 0,
-              "operator": "EQ",
+              "op": "EQ",
               "values": [123]
             }
             """;
@@ -37,7 +36,7 @@ class PredicateParserTest {
         String json = """
             {
               "field": 1,
-              "operator": "IN",
+              "op": "IN",
               "values": [3, 4, 5]
             }
             """;
@@ -56,16 +55,16 @@ class PredicateParserTest {
     void testConjugateNode() throws Exception {
         String json = """
             {
-              "operator": "AND",
+              "op": "AND",
               "nodes": [
                 {
                   "field": 0,
-                  "operator": "GE",
+                  "op": "GE",
                   "values": [100]
                 },
                 {
                   "field": 0,
-                  "operator": "LE",
+                  "op": "LE",
                   "values": [200]
                 }
               ]
@@ -97,7 +96,7 @@ class PredicateParserTest {
         String missingField = """
             {
               "type": "predicate",
-              "operator": "EQ",
+              "op": "EQ",
               "values": [123]
             }
             """;
@@ -112,7 +111,7 @@ class PredicateParserTest {
             {
               "type": "predicate",
               "field": 0,
-              "operator": "INVALID",
+              "op": "INVALID",
               "values": [123]
             }
             """;
@@ -127,7 +126,7 @@ class PredicateParserTest {
             {
               "type": "predicate",
               "field": 0,
-              "operator": "EQ",
+              "op": "EQ",
               "values": [1, 2]
             }
             """;
@@ -144,7 +143,7 @@ class PredicateParserTest {
             {
               "type": "predicate",
               "field": 0,
-              "operator": ">=",
+              "op": ">=",
               "values": [100]
             }
             """;
@@ -161,7 +160,7 @@ class PredicateParserTest {
             {
               "type": "predicate",
               "field": 0,
-              "operator": "<",
+              "op": "<",
               "values": [100]
             }
             """;

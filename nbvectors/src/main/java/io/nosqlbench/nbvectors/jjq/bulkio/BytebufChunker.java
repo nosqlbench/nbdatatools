@@ -60,7 +60,7 @@ public class BytebufChunker implements Iterable<CharBuffer> {
         buf.position(at);
         return StandardCharsets.UTF_8.decode(slice);
       } catch (Exception e) {
-        System.out.println(
+        System.err.println(
             "chunksize:" + this.chunkSize + "; was:" + was + "; at:" + at + "; " + "buf=" + buf);
         throw new RuntimeException(e);
       }

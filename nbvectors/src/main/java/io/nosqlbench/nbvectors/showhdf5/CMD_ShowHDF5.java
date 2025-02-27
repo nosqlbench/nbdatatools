@@ -1,0 +1,172 @@
+package io.nosqlbench.nbvectors.showhdf5;
+
+import io.jhdf.HdfFile;
+import io.jhdf.api.Dataset;
+import io.jhdf.api.Group;
+import io.jhdf.api.Node;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;
+import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
+import io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.ConfigurationFactory;
+import picocli.CommandLine;
+
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.Callable;
+
+@CommandLine.Command(name = "showhdf5",
+    headerHeading = "Usage:%n%n",
+    synopsisHeading = "%n",
+    descriptionHeading = "%nDescription%n%n",
+    parameterListHeading = "%nParameters:%n%",
+    optionListHeading = "%nOptions:%n",
+    header = "Show details of HDF5 KNN answer-keys",
+    description = """
+        TBD
+        """,
+    exitCodeListHeading = "Exit Codes:%n",
+    exitCodeList = {
+        "0: no errors",
+    })
+public class CMD_ShowHDF5 implements Callable<Integer> {
+
+  private static Logger logger = LogManager.getLogger(CMD_ShowHDF5.class);
+
+  @CommandLine.Parameters(description = "The HDF5 file to view")
+  private Path file;
+
+  @CommandLine.Option(names = {"--datasets", "-d"},
+      description = "Valid values: ${COMPLETION-CANDIDATES}")
+  private List<DatasetNames> decode;
+
+  public static void main(String[] args) {
+
+    System.setProperty("slf4j.internal.verbosity", "ERROR");
+    System.setProperty(
+        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+        CustomConfigurationFactory.class.getCanonicalName()
+    );
+
+    //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
+    CMD_ShowHDF5 command = new CMD_ShowHDF5();
+    logger.info("instancing commandline");
+    CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
+        .setOptionsCaseInsensitive(true);
+    logger.info("executing commandline");
+    int exitCode = commandLine.execute(args);
+    logger.info("exiting main");
+    System.exit(exitCode);
+  }
+
+  @Override
+  public Integer call() throws Exception {
+    StringBuilder sb = new StringBuilder();
+
+    try (HdfFile file = new HdfFile(this.file)) {
+      if (decode==null || decode.isEmpty()) {
+        walkHdf(file, sb, 0);
+      } else {
+        for (DatasetNames dsname : decode) {
+          switch (dsname) {
+            case filters -> decodeFilters(sb,file.getDatasetByPath(DatasetNames.filters.name()));
+            default -> throw new RuntimeException("unable to show decoded dataset " + dsname.name());
+          }
+        }
+      }
+
+    }
+
+
+    System.out.println(sb);
+    return 0;
+  }
+
+  ///
+  /// ```
+  ///  out
+  ///  00.00.06.00 0A.00.00.00 00.00.03.97 54.00.00.00 00.00.03.97 55.00.00.00 00.00.03.97 56.00.00.00 00.00.03.97 57.00.00.00 00.00.03.97 58.00.00.00 00.00.03.97 59.00.00.00 00.00.03.97 5A.00.00.00 00.00.03.97 5B.00.00.00 00.00.03.97 5C.00.00.00 00.00.03.97 5D
+  /// ⠀⠀⠆⠀⡂⠀⠀⠀⠀⠀⠃⢏⠬⠀⠀⠀⠀⠀⠃⢏⠭⠀⠀⠀⠀⠀⠃⢏⠮⠀⠀⠀⠀⠀⠃⢏⠯⠀⠀⠀⠀⠀⠃⢏⡨⠀⠀⠀⠀⠀⠃⢏⡩⠀⠀⠀⠀⠀⠃⢏⡪⠀⠀⠀⠀⠀⠃⢏⡫⠀⠀⠀⠀⠀⠃⢏⡬⠀⠀⠀⠀⠀⠃⢏⡭
+  ///  in
+  ///  00.00.06.00 0A.00.00.00 00.00.03.97 54.00.00.00 00.00.03.97 55.00.00.00 00.00.03.97 56.00.00.00 00.00.03.97 57.00.00.00 00.00.03.97 58.00.00.00 00.00.03.97 59.00.00.00 00.00.03.97 5A.00.00.00 00.00.03.97 5B.00.00.00 00.00.03.97 5C.00.00.00 00.00.03.97 5D
+  /// ⠀⠀⠆⠀⡂⠀⠀⠀⠀⠀⠃⢏⠬⠀⠀⠀⠀⠀⠃⢏⠭|⠀⠀⠀⠀⠀⠃⢏⠮⠀⠀⠀⠀⠀⠃⢏⠯⠀⠀⠀⠀⠀⠃⢏⡨⠀⠀⠀⠀⠀⠃⢏⡩⠀⠀⠀⠀⠀⠃⢏⡪⠀⠀⠀⠀⠀⠃⢏⡫⠀⠀⠀⠀⠀⠃⢏⡬⠀⠀⠀⠀⠀⠃⢏⡭
+  /// ```
+  private void decodeFilters(StringBuilder sb, Dataset ds) {
+    int[] dimensions = ds.getDimensions();
+    for (int i = 0; i < dimensions[0]; i++) {
+      Object datao = ds.getData(new long[]{i, 0}, new int[]{1, dimensions[1]});
+      byte[][] data = (byte[][]) datao;
+      byte[] datum = data[0];
+      System.out.printf("hex %s\n",Glyphs.hex(datum));
+      System.out.printf("br  %s\n", Glyphs.braille(datum));
+      ConjugateNode node = new ConjugateNode(ByteBuffer.wrap(datum));
+      System.out.println("node:"+ node+"\n");
+      System.out.println("data:"+Arrays.toString(data));
+    }
+
+  }
+
+  private void walkHdf(Node node, StringBuilder sb, int level) {
+    sb.append(" ".repeat(level)).append(node.getName()).append(" (")
+        .append(node.getClass().getSimpleName()).append(")\n");
+    switch (node) {
+      case Dataset dataset:
+        describeDataset(dataset, sb, level + 1);
+        break;
+      case Group group:
+        describeGroup(group, sb, level);
+        for (Node childNode : group.getChildren().values()) {
+          walkHdf(childNode, sb, level + 1);
+        }
+        break;
+      default:
+        throw new RuntimeException(
+            "unknown type to represent: " + node.getClass().getCanonicalName());
+    }
+
+  }
+
+  private void describeGroup(Group group, StringBuilder sb, int level) {
+    //    sb.append(" ".repeat(level)).append("group ").append(group.getName()).append("\n");
+  }
+
+  private void describeDataset(Dataset dataset, StringBuilder sb, int level) {
+    //    sb.append(" ".repeat(level)).append("name ");
+    //    sb.append(dataset.getName());
+    //    sb.append("\n");
+
+    sb.append(" ".repeat(level));
+    sb.append("dimensions: ");
+    sb.append(Arrays.toString(dataset.getDimensions()));
+    sb.append("\n");
+
+    sb.append(" ".repeat(level));
+    sb.append("layout: ");
+    sb.append(dataset.getDataLayout());
+    sb.append("\n");
+
+    sb.append(" ".repeat(level));
+    sb.append("java type: ");
+    sb.append(dataset.getJavaType().getCanonicalName());
+    sb.append("\n");
+
+    sb.append(" ".repeat(level));
+    sb.append("data class: ");
+    sb.append(dataset.getDataType().getDataClass());
+    sb.append("\n");
+
+    sb.append(" ".repeat(level));
+    sb.append("data size: ");
+    sb.append(dataset.getDataType().getSize());
+    sb.append("\n");
+
+    sb.append(" ".repeat(level));
+    sb.append("data version: ");
+    sb.append(dataset.getDataType().getVersion());
+    sb.append("\n");
+  }
+
+}

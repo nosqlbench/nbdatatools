@@ -27,9 +27,9 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
         ObjectMapper objectMapper = new ObjectMapper();
         InputStream is = null;
         is = Files.newInputStream(path);
-        System.out.println("loading path:" + path);
+        System.err.println("loading path:" + path);
         this.stats = objectMapper.readValue(is, AllFieldStats.class);
-        System.out.println("loaded path:" + path);
+        System.err.println("loaded path:" + path);
 
       } catch (IOException e) {
         throw new RuntimeException(e);
@@ -84,7 +84,7 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
 
       objectMapper.writerWithDefaultPrettyPrinter().writeValue(outputStream, this.stats);
 
-      System.out.println("saved path:" + this.filepath);
+      System.err.println("saved path:" + this.filepath);
 
     } catch (IOException e) {
       throw new RuntimeException(e);

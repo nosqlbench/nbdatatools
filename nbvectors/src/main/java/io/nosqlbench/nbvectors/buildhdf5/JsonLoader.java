@@ -5,10 +5,9 @@ import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
 import io.nosqlbench.nbvectors.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.jjq.bulkio.ConvertingIterable;
 import io.nosqlbench.nbvectors.jjq.outputs.BufferOutput;
-import io.nosqlbench.nbvectors.predicates.PredicateParser;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.PredicateParser;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;

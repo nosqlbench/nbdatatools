@@ -62,4 +62,16 @@ public class Glyphs {
 
   final static int BRAILLE_BASE = 0x2800;
 
+  public static String hex(byte[] bytes) {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < bytes.length; i++) {
+      if ((i%4)==0) {
+        sb.append(" ");
+      } else {
+        sb.append(".");
+      }
+      sb.append(String.format("%02X",bytes[i]));
+    }
+    return sb.toString();
+  }
 }
