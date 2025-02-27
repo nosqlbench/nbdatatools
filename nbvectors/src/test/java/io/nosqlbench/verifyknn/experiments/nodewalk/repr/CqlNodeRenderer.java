@@ -1,9 +1,9 @@
 package io.nosqlbench.verifyknn.experiments.nodewalk.repr;
 
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.ConjugateNode;
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.NodeRepresenter;
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.PredicateNode;
-import io.nosqlbench.verifyknn.experiments.nodewalk.types.Node;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.Node;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.NodeRepresenter;
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PredicateNode;
 
 public class CqlNodeRenderer implements NodeRepresenter {
   @Override

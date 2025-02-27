@@ -1,6 +1,6 @@
 package io.nosqlbench.nbvectors.buildhdf5.predicates;
 
-import io.nosqlbench.nbvectors.buildhdf5.predicates.repr.CqlNodeRenderer;
+import io.nosqlbench.verifyknn.experiments.nodewalk.repr.CqlNodeRenderer;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PredicateNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateType;
