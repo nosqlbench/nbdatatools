@@ -6,9 +6,12 @@
 
   <groupId>io.nosqlbench</groupId>
   <artifactId>nbdatatools</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>${revision}</version>
   <packaging>pom</packaging>
   <description>A collection of test data tools</description>
+  <properties>
+    <revision>1.0.0-SNAPSHOT</revision>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -17,9 +20,17 @@
       <version>3.5.0</version>
     </dependency>
   </dependencies>
+
   <modules>
     <module>nbvectors</module>
   </modules>
+
+  <scm>
+    <connection>scm:git:git://github.com/nosqlbench/nbdatatools.git</connection>
+    <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git</developerConnection>
+    <url>http://github.com/nosqlbench/nbdatatools/tree/main</url>
+  </scm>
+
   <build>
     <plugins>
       <plugin>
@@ -34,14 +45,14 @@
             </goals>
             <configuration>
               <rules>
-<!--                The GraalVM vendor version is only enforced in the native profile -->
-<!--                <requireProperty>-->
-<!--                  <property>java.vendor.version</property>-->
-<!--                  <regex>.*GraalVM.*</regex>-->
-<!--                  <message>-->
-<!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
-<!--                  </message>-->
-<!--                </requireProperty>-->
+                <!--                The GraalVM vendor version is only enforced in the native profile -->
+                <!--                <requireProperty>-->
+                <!--                  <property>java.vendor.version</property>-->
+                <!--                  <regex>.*GraalVM.*</regex>-->
+                <!--                  <message>-->
+                <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
+                <!--                  </message>-->
+                <!--                </requireProperty>-->
                 <requireJavaVersion>
                   <version>[23,)</version>
                 </requireJavaVersion>
@@ -52,16 +63,44 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>0.15</version>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <includes>
+            <include>**/*.java</include>
+          </includes>
+          <excludes>
+            <exclude>**/gen/**</exclude>
+            <exclude>**/generated/**</exclude>
+            <exclude>**/jmh_generated/**</exclude>
+            <exclude>**/generated-sources/**</exclude>
+          </excludes>
+          <addLicenseHeaders>true</addLicenseHeaders>
+          <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
+        </configuration>
+      </plugin>
+
     </plugins>
+
     <resources>
       <resource>
         <directory>src/main/resources</directory>
         <includes>
           <include>META_INF/services/**</include>
-<!--          <include>META-INF/functions</include>-->
-<!--          <include>data/**</include>-->
-<!--          <include>docs-for-virtdata/**</include>-->
-<!--          <include>docs/**</include>-->
+          <!--          <include>META-INF/functions</include>-->
+          <!--          <include>data/**</include>-->
+          <!--          <include>docs-for-virtdata/**</include>-->
+          <!--          <include>docs/**</include>-->
         </includes>
       </resource>
     </resources>
