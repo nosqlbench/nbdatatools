@@ -29,13 +29,13 @@ import java.util.function.Supplier;
 public class CqlPredScanner {
   Supplier<PNode<?>> nodeSource;
 
-  public Set<String> scan(Supplier<PNode<?>> nodeSource, CqlTemplateRepresenter repr) {
-    Set<String> forms = new HashSet<>();
-
-    PNode<?> pn;
-    while ((pn = nodeSource.get()) != null) {
-      forms.add(repr.apply(pn));
-    }
-    return forms;
-  }
+//  public Set<String> scan(Supplier<PNode<?>> nodeSource, CqlTemplateRepresenter repr) {
+//    Set<String> forms = new HashSet<>();
+//
+//    PNode<?> pn;
+//    while ((pn = nodeSource.get()) != null) {
+//      forms.add(repr.apply(pn));
+//    }
+//    return forms;
+//  }
 }
