@@ -124,6 +124,6 @@ public class KnnDataWriter implements AutoCloseable {
     // The name of the model used to generate the data, if any
     this.writable.putAttribute("model", config.getModel());
     // The name of the distance function used to compute distance between vectors
-    this.writable.putAttribute("distance", config.getDistanceFunction());
+    this.writable.putAttribute("distance_function", config.getDistanceFunction());
   }
 }
