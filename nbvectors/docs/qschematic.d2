@@ -1,0 +1,84 @@
+direction: right;
+
+datasets {
+ grid-columns: 1;
+ grid-gap: 10;
+
+train:"/train" {
+  grid-columns:1;
+  grid-gap:1;
+  *: {
+    grid-columns:6;
+    grid-gap:0;
+    label:""
+  }
+  0: { "[0]"; "0.123"; "0.213"; "0.312"; "0.231"; "..." }
+  1: { "[1]"; "0.456"; "0.546"; "0.645"; "0.564"; "..." }
+  2: { "..." }
+}
+
+test:"/test" {
+  grid-columns:1;
+  grid-gap:1;
+  *: {
+    grid-columns:6;
+    grid-gap:0;
+    label:""
+  }
+  0: { "[0]";"0.123"; "-0.022"; "-0.231"; "0.333"; "..." }
+  1: { "[1]";"0.011"; "-0.227"; "0.194"; "-0.171"; "..." }
+  2: { "..." }
+}
+
+metadata;
+
+}
+insert: {
+  grid-rows:3;
+  width: 400;
+  grid-gap:0;
+  label:""
+  tooltip:|md
+    `vector_field` values come from /train
+    `query_vector` values come from /test
+    `k` comes from metadata
+  |
+
+INSERT INTO TEMPLATE(keyspace,baselines).TEMPLATE(table,vectors)
+        (key, value) VALUES ({id},{train_floatlist});
+  insert: |md "INSERT INTO k.t (key,value,...)" |
+  ann_of: |md "ANN of {query_vector}" |
+  limit: |md "LIMIT {k}" |
+}
+
+select: {
+  grid-rows:3;
+  width: 400;
+  grid-gap:0;
+  label:""
+  tooltip:|md
+    `vector_field` values come from /train
+    `query_vector` values come from /test
+    `k` comes from metadata
+  |
+
+  select: |md "SELECT * FROM t.k ORDER BY {vector_field}" |
+  ann_of: |md "ANN of {query_vector}" |
+  limit: |md "LIMIT {k}" |
+}
+
+datasets -> select: "composed\ninto";
+select -> results;
+
+results {
+ grid-rows:4
+ grid-gap: 0;
+ width:550;
+  *:{
+   width:50;
+  }
+  "neighbors" { width: 550; }
+  "[0]";"0";"324";"22";"123";"33";"2442";"234";"4444";"2323";"2343434"
+  "distances" { width: 550; }
+  "[0]";"0.134";"1.346";"0.225";"0.234";"1.232";"0.235";"-0.344";"1.111";"1.222";"0.020"
+ }
