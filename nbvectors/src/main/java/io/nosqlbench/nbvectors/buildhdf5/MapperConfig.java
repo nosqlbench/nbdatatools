@@ -93,6 +93,14 @@ public class MapperConfig {
     return Optional.ofNullable((String) cfgmap.get("filters_file")).map(Path::of);
   }
 
+  public String getModel() {
+    return cfgmap.getOrDefault("model", "random").toString();
+  }
+
+  public String getDistanceFunction() {
+    return cfgmap.getOrDefault("distance_function", "cosine").toString();
+  }
+
   public Optional<String> getFiltersExpr() {
     return Optional.ofNullable((String) cfgmap.get("filters_expr"));
   }

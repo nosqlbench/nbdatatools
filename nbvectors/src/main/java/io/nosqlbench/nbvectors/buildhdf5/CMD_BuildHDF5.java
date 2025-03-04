@@ -124,6 +124,9 @@ public class CMD_BuildHDF5 implements Callable<Integer> {
 
       System.err.println("writing distances stream...");
       kwriter.writeDistancesStream(JsonLoader.readDistancesStream(config));
+
+      System.err.println("writing metadata...");
+      kwriter.writeMetadata(config);
     }
     return 0;
   }

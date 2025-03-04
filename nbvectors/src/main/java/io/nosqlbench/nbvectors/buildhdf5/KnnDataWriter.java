@@ -48,6 +48,10 @@ public class KnnDataWriter implements AutoCloseable {
     }
     //    WritableDataset ds = new WritableDatasetImpl(ary,"/train",writable);
     this.writable.putDataset("train", ary);
+    // Record number of records in train dataset as an attribute
+    this.writable.putAttribute("train_vectors", ary.length);
+    // Record vector dimensionality (this will be the same for both train and test) as an attribute
+    this.writable.putAttribute("dimensions", ary[0].length);
   }
 
   public void writeTestStream(Iterator<LongIndexedFloatVector> iterator) {
@@ -59,6 +63,8 @@ public class KnnDataWriter implements AutoCloseable {
     }
     //    WritableDataset ds = new WritableDatasetImpl(ary,"/train",writable);
     this.writable.putDataset("test", ary);
+    // Record number of records in test dataset as an attribute
+    this.writable.putAttribute("test_vectors", ary.length);
   }
 
   public void writeNeighborsStream(Iterator<long[]> iterator) {
@@ -69,6 +75,8 @@ public class KnnDataWriter implements AutoCloseable {
       ary[i] = vectors.get(i);
     }
     this.writable.putDataset("neighbors", ary);
+    // Record many neighbors were computed for each vector as an attribute
+    this.writable.putAttribute("neighbors", ary[0].length);
   }
 
   public void writeDistancesStream(Iterator<float[]> iterator) {
@@ -110,5 +118,12 @@ public class KnnDataWriter implements AutoCloseable {
     }
     this.writable.putDataset("filters", encoded);
 
+  }
+
+  public void writeMetadata(MapperConfig config) {
+    // The name of the model used to generate the data, if any
+    this.writable.putAttribute("model", config.getModel());
+    // The name of the distance function used to compute distance between vectors
+    this.writable.putAttribute("distance", config.getDistanceFunction());
   }
 }
