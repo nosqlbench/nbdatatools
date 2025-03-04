@@ -4,16 +4,20 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.nosqlbench</groupId>
   <artifactId>nbvectors</artifactId>
   <version>${revision}</version>
   <name>${project.groupId}:${project.artifactId}</name>
   <description>test data management for nosqblench vector workloads</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
+  <parent>
+    <artifactId>nbdatatools</artifactId>
+    <groupId>io.nosqlbench</groupId>
+    <version>${revision}</version>
+  </parent>
 
   <properties>
-    <revision>1.0.0-SNAPSHOT</revision>
+    <!--    <revision>1.0.0-SNAPSHOT</revision>-->
     <maven.compiler.source>23</maven.compiler.source>
     <maven.compiler.target>23</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -155,81 +159,10 @@
       <version>5.10.2</version>
       <scope>test</scope>
     </dependency>
-
   </dependencies>
-
-  <licenses>
-    <license>
-      <name>The Apache License, Version 2.0</name>
-      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
-    </license>
-  </licenses>
-
-  <repositories>
-    <repository>
-      <name>Central Portal Snapshots</name>
-      <id>central-portal-snapshots</id>
-      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
-  </repositories>
-  <scm>
-    <connection>scm:git:git://github.com/nosqlbench/nbdatatools.git</connection>
-    <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git</developerConnection>
-    <url>http://github.com/nosqlbench/nbdatatools/tree/main</url>
-  </scm>
-
-
-  <developers>
-    <developer>
-      <name>Jonathan Shook</name>
-      <email>jshook@gmail.com</email>
-      <organization>nosqlbench.io</organization>
-      <organizationUrl>https://nosqlbench.io/</organizationUrl>
-    </developer>
-    <developer>
-      <name>Mark Wolters</name>
-      <email>mwolters138@gmail.com</email>
-      <organization>nosqlbench.io</organization>
-      <organizationUrl>https://nosqlbench.io/</organizationUrl>
-    </developer>
-  </developers>
-
-  <distributionManagement>
-    <snapshotRepository>
-      <id>portal-snapshots</id>
-      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-    </snapshotRepository>
-    <repository>
-      <id>portal-central</id>
-      <url>https://central.sonatype.com/</url>
-    </repository>
-  </distributionManagement>
 
   <build>
     <plugins>
-      <plugin>
-        <groupId>org.sonatype.central</groupId>
-        <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.7.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <publishingServerId>portal-snapshots</publishingServerId>
-          <autoPublish>true</autoPublish>
-          <waitUntil>uploaded</waitUntil>
-
-          <publishingServerId>central</publishingServerId>
-          <autoPublish>true</autoPublish>
-          <waitUntil>uploaded</waitUntil>
-          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>
-
-        </configuration>
-      </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -288,34 +221,6 @@
       </plugin>
 
       <plugin>
-        <groupId>org.apache.rat</groupId>
-        <artifactId>apache-rat-plugin</artifactId>
-        <version>0.15</version>
-        <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <includes>
-            <include>**/*.java</include>
-          </includes>
-          <excludes>
-            <exclude>**/gen/**</exclude>
-            <exclude>**/generated/**</exclude>
-            <exclude>**/jmh_generated/**</exclude>
-            <exclude>**/generated-sources/**</exclude>
-          </excludes>
-          <addLicenseHeaders>true</addLicenseHeaders>
-          <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
-        </configuration>
-      </plugin>
-
-
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.3.0</version>
@@ -354,7 +259,6 @@
           </descriptors>
         </configuration>
       </plugin>
-
 
     </plugins>
   </build>
