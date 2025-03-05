@@ -169,6 +169,9 @@
               <goal>sign</goal>
             </goals>
             <configuration>
+              <keyname>nosqlbenchdroid@gmail.com</keyname>
+              <passphraseServerId>gpg.passphrase</passphraseServerId>
+<!--              <useAgent>true</useAgent>-->
               <gpgArguments>
                 <cmdParam>--pinentry-mode</cmdParam>
                 <cmdParam>loopback</cmdParam>
@@ -204,7 +207,6 @@
           <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
         </configuration>
       </plugin>
-
 
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
