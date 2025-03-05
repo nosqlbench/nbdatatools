@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.function.Function;
 
+/// A function to convert a string to a JSON node
 public class JsonNodeMapper implements Function<String, JsonNode> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();

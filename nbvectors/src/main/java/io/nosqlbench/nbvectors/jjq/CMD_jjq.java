@@ -29,14 +29,13 @@ import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
-///  TODO: Re-enable multi-threading mode
+/// Run jjq commands
 @Command(name = "jjq")
 public class CMD_jjq implements Callable<Integer> {
 
@@ -72,6 +71,12 @@ public class CMD_jjq implements Callable<Integer> {
       description = "If this file exists, silently " + "skip invocation of this " + "command")
   private Path skipFile;
 
+  /// create a jjq command
+  public CMD_jjq() {
+  }
+
+  /// run jjq command
+  /// @param args command line args
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
     System.setProperty(

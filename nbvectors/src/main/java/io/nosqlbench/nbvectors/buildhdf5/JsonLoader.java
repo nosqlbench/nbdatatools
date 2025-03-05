@@ -34,11 +34,17 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/// A data loader for JSON data which uses the jjq syntax to load data from JSON files.
 public class JsonLoader {
+
+  /// get an iterator for training vectors
+  /// @param config the configuration to use for loading the data
+  /// @return an iterator for {@link LongIndexedFloatVector}
   public static Iterator<LongIndexedFloatVector> readTrainingStream(MapperConfig config) {
 
     Supplier<String> input = JJQSupplier.path(config.getTrainingJsonFile());
     String expr = config.getTrainingJqExpr();
+
     BufferOutput output = new BufferOutput(5000000);
 
     JJQInvoker invoker = new JJQInvoker(input, expr, output);
@@ -49,6 +55,9 @@ public class JsonLoader {
     return converter.iterator();
   }
 
+  /// get an iterator for test vectors
+  /// @param config the configuration to use for loading the data
+  /// @return an iterator for {@link LongIndexedFloatVector}
   public static Iterator<LongIndexedFloatVector> readTestStream(MapperConfig config) {
     Supplier<String> input = JJQSupplier.path(config.getTestJsonFile());
     String expr = config.getTestJqExpr();
@@ -61,6 +70,9 @@ public class JsonLoader {
 
   }
 
+  /// get an iterator for neighbors
+  /// @param config the configuration to use for loading the data
+  /// @return an iterator for {@link LongIndexedFloatVector}
   public static Iterator<long[]> readNeighborsStream(MapperConfig config) {
     Supplier<String> input = JJQSupplier.path(config.getNeighborhoodJsonFile());
     String expr = config.getNeighborhoodTestExpr();
@@ -72,6 +84,9 @@ public class JsonLoader {
     return converter.iterator();
   }
 
+  /// get an iterator for distances
+  /// @param config the configuration to use for loading the data
+  /// @return an iterator for {@link LongIndexedFloatVector}
   public static Iterator<float[]> readDistancesStream(MapperConfig config) {
     Supplier<String> input = JJQSupplier.path(config.getDistancesJsonFile());
     String expr = config.getDistancesExpr();
@@ -85,6 +100,14 @@ public class JsonLoader {
   }
 
 
+  /// a converter for json nodes into `long[]` indices
+  /// ---
+  /// # required node structure
+  /// ```json
+  /// {
+  ///   "ids": [0,3,9]
+  /// }
+  /// ```
   public static Function<JsonNode, long[]> JsonNodeIntoLongNeighborIndices = n -> {
     JsonNode vnode = n.get("ids");
     if (vnode == null) {
@@ -100,7 +123,25 @@ public class JsonLoader {
     return longs;
   };
 
-  public static Function<JsonNode, float[]> JsonNodeIntoFloatNeighborScoreDistances = n -> {
+  /// A converter for json nodes into `float[]` distances
+  /// ---
+  /// # required node structure (pick one)
+  /// ```json
+  /// {
+  ///   "distances": [0.23,-0.12,0.01]
+  /// }
+  ///
+  /// {
+  ///   "scores": [0.23,0.12,0.01]
+  /// }
+  /// ```
+  /// If _distances_ is provided, then the values are presumed to be cosine similarity values, as
+  ///  in _not_ converted to scalar distance values.
+  /// If _scores_ is provided, then the values are presumed to be in unit-interval scores, and
+  /// are converted to equivalent cosine similarity values.
+  /// Other conversions may be added as needed, and should each be distinguished by a specific
+  /// property name.
+    public static Function<JsonNode, float[]> JsonNodeIntoFloatNeighborScoreDistances = n -> {
     JsonNode vnode = n.get("scores");
     if (vnode != null) {
       float[] floats = new float[vnode.size()];
@@ -125,6 +166,15 @@ public class JsonLoader {
     throw new RuntimeException("scores node was null from node:\n" + n.toPrettyString());
   };
 
+  /// a converter for json nodes into {@link LongIndexedFloatVector}
+  /// ---
+  /// # required node structure
+  /// ```json
+  /// {
+  ///   "id": 0,
+  ///   "vector": [0.23,-0.12,0.01]
+  /// }
+  /// ```
   public static Function<JsonNode, LongIndexedFloatVector> JsonNodeIntoLongIndexedFloatVector =
       n -> {
         JsonNode vnode = n.get("vector");
@@ -141,6 +191,9 @@ public class JsonLoader {
         return new LongIndexedFloatVector(n.get("id").asLong(), floats);
       };
 
+  /// get an iterator for predicate filters
+  /// @param config the configuration to use for loading the data
+  /// @return an iterator for {@link PNode}
   public static Iterator<PNode<?>> readFiltersStream(MapperConfig config) {
     Optional<Path> filtersFile = config.getFiltersFile();
     Optional<String> filtersExpr = config.getFiltersExpr();

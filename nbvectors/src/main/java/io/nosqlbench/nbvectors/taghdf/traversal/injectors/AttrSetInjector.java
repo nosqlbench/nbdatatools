@@ -22,11 +22,14 @@ import io.jhdf.api.Node;
 
 import java.util.List;
 
+/// An experimental injector which sets attributes on nodes
 public class AttrSetInjector extends BaseHdfVisitorInjector {
 
+  /// Create a new attribute injector
   public AttrSetInjector() {
   }
 
+  /// @return a list of nodes to _add_ or null or an empty list to do nothing
   @Override
   public List<Node> enterNode(Node node) {
     return super.enterNode(node);

@@ -17,6 +17,6 @@ package io.nosqlbench.nbvectors.taghdf.traversalv2;
  * under the License.
  */
 
-
+/// A transformer which does nothing
 public class NullTransformer implements HdfTransformer {
 }

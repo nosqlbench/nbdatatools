@@ -30,59 +30,84 @@ import java.util.LinkedList;
 /// Extend this class if you simply want to implement the
 /// [HdfVisitor] methods you care about
 public abstract class BaseHdfVisitor implements HdfVisitor {
+
+  /// create a base visitor
+  BaseHdfVisitor() {
+  }
+
+  /// {@inheritDoc}
   @Override
   public void enterNode(Node node) {
 
   }
 
+  /// {@inheritDoc}
   @Override
   public void leaveNode(Node node) {
 
   }
 
+  /// {@inheritDoc}
   @Override
   public void dataset(Dataset dataset) {
 
   }
 
+  /// {@inheritDoc}
   @Override
   public void attribute(Node node, Attribute attribute) {
 
   }
 
+  /// {@inheritDoc}
   @Override
   public void committedDataType(CommittedDatatype cdt) {
 
   }
 
+  /// {@inheritDoc}
   @Override
   public void enterGroup(Group group) {
 
   }
 
+  /// {@inheritDoc}
   @Override
   public void enterFile(HdfFile file) {
 
   }
 
+  /// {@inheritDoc}
   @Override
   public void leaveFile(HdfFile file) {
 
   }
 
+  /// {@inheritDoc}
   @Override
   public void leaveGroup(Group group) {
 
   }
 
+  /// compute the full attr name
+  /// @param node the node to compute the name for
+  /// @param attribute the attribute to append
+  /// @return the full attribute name
   protected String fullAttrName(Node node, Attribute attribute) {
     return fullName(node)+"."+attribute.getName();
   }
 
+  /// compute the full attr name
+  /// @param node the node to compute the name for
+  /// @param attrName the attribute name to append
+  /// @return the full attribute name
   protected String fullAttrName(Node node, String attrName) {
     return fullName(node)+"."+attrName;
   }
 
+  /// compute the full name of a node
+  /// @param node the node to compute the name for
+  /// @return the full name of the node
   protected String fullName(Node node) {
     LinkedList<String> names = new LinkedList<>();
     Node thisnode = node;

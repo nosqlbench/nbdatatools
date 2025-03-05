@@ -34,13 +34,14 @@ import java.util.regex.Pattern;
 /// /group1/group2:varname
 /// /group1/group2.varname
 ///```
+/// @param path the path component to the fully qualified attribute
+/// @param attr the attribute name
 public record AttrSpec(
-    /// The path to the parent node of the attribute.
     String path,
-    /// The name of the attribute.
     String attr
 )
 {
+  /// a pattern to match attr specs
   @SuppressWarnings({"RegExpRepeatedSpace", "RegExpUnexpectedAnchor"})
   public static final Pattern SPEC_PATTERN = Pattern.compile(
       """
@@ -50,8 +51,9 @@ public record AttrSpec(
           """, Pattern.COMMENTS
   );
 
-  /// @throws IllegalArgumentException
-  ///     if the string does not match the expected format.
+  /// parse an attribute spec into an attribute spec
+  /// @param spec The textual representation of an attribute
+  /// @return an attribute spec
   public static AttrSpec parse(String spec) {
     Matcher m = SPEC_PATTERN.matcher(spec);
     if (!m.matches()) {
@@ -63,6 +65,9 @@ public record AttrSpec(
     return new AttrSpec(path, attr);
   }
 
+  /// an attribute spec
+  /// @param path the path component to the fully qualified attribute
+  /// @param attr the attribute name
   public AttrSpec {
     // Example of a simple validation:
     if (attr == null || attr.isEmpty()) {

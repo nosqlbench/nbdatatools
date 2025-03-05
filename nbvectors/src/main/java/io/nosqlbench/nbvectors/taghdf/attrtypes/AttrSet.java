@@ -34,6 +34,8 @@ import java.util.regex.Pattern;
 /// /group1/group2:varname=value
 /// /group1/group2.varname=value
 ///```
+/// @param attrname the attribute spec for the attribute to modify
+/// @param attrvalue the attribute value to set
 public record AttrSet(
     AttrSpec attrname, AttrValue<?> attrvalue
 )
@@ -44,6 +46,9 @@ public record AttrSet(
       + AttrValue.SPEC_PATTERN.pattern() + ")", Pattern.COMMENTS
   );
 
+  /// parse an attribute spec into an attribute spec
+  /// @param spec The textual representation of an attribute
+  /// @return an attribute spec
   public static AttrSet parse(String spec) {
     Matcher m = SPEC_PATTERN.matcher(spec);
     if (!m.matches()) {

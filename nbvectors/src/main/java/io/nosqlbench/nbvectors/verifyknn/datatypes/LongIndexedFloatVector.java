@@ -22,6 +22,8 @@ import java.util.Comparator;
 
 /// IndexedVector global ordering is based on index, not vector shape
 /// If you want to compare by vector value ordering, use [#BY_VECTOR_SHAPE]
+/// @param index the index of the vector from the dataset
+/// @param vector the vector component values
 public record LongIndexedFloatVector(
     long index, float[] vector
 ) implements Comparable<LongIndexedFloatVector>

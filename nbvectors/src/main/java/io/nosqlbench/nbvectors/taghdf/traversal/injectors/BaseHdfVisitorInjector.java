@@ -27,52 +27,65 @@ import io.jhdf.api.Node;
 
 import java.util.List;
 
+/// Extend this class if you simply want to implement the
+/// [HdfVisitorInjector] methods you care about
 public class BaseHdfVisitorInjector implements HdfVisitorInjector {
+
+  /// {@inheritDoc}
   @Override
   public List<Node> enterNode(Node node) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<Node> leaveNode(Node node) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<Dataset> dataset(Dataset dataset) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<Attribute> attribute(Node node, Attribute attribute) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<CommittedDatatype> committedDataType(CommittedDatatype cdt) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<Group> enterGroup(Group group) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<HdfFile> enterFile(HdfFile file) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<HdfFile> leaveFile(HdfFile file) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<Group> leaveGroup(Group group) {
     return List.of();
   }
 
+  /// {@inheritDoc}
   @Override
   public List<Node> finish() {
     return List.of();

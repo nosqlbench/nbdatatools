@@ -28,10 +28,15 @@ import io.jhdf.api.Node;
 import java.util.ArrayList;
 import java.util.List;
 
+/// An implementation of {@link HdfVisitor} which allows for multiple visitors to be configured
+/// in the same traversal
 public class HdfCompoundVisitor implements HdfVisitor {
 
   private final List<HdfVisitor> traversers = new ArrayList<>();
 
+  /// Add another visitor to be called as this visitor traverses HDF data
+  /// @param traverser a {@link HdfVisitor} to add
+  /// @return this compound visitor, for method chaining
   public HdfCompoundVisitor add(HdfVisitor traverser) {
     traversers.add(traverser);
     return this;

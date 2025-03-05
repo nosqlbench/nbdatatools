@@ -19,7 +19,11 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
 
 
 import java.nio.ByteBuffer;
-
+/// Any type implementing this interface knows how to encode itself into a byte buffer
+/// @param <T> The type of self to write to the stream
 public interface BBWriter<T> {
+  /// write a representation of this to the stream
+  /// @return the byte buffer, for method chaining
+  /// @param out the target byte buffer
   ByteBuffer encode(ByteBuffer out);
 }

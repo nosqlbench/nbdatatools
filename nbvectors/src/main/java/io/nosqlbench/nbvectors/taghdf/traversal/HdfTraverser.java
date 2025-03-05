@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.taghdf.traversal;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -32,40 +32,58 @@ import io.nosqlbench.nbvectors.taghdf.traversal.visitors.HdfVisitor;
 
 /// This walks the structure of an HDF5 file, calling the appropriate methods on the visitors.
 ///
-/// - [HdfVisitor] implementations will see all nodes. Multiple visitors can be provided via
-/// [HdfCompoundVisitor]
-/// - [HdfVisitorFilter] implementations can be used to filter which nodes are seen by the
+/// - {@link HdfVisitor} implementations will see all nodes.
+///   - Multiple visitors can be provided via {@link HdfCompoundVisitor}
+/// - {@link HdfVisitorFilter} implementations can be used to filter which nodes are seen by the
 /// visitors.
-/// - [HdfVisitorInjector] implementations can be used to inject additional nodes into the
-/// traversal.]
+/// - {@link HdfVisitorInjector} implementations can be used to inject additional nodes into the
+/// traversal.
 ///
 /// Injectors and Filters take effect before other visitors are called. As long as the changes
-/// are disjoint between filters and injectors, no conflicts should occur. However, for
+/// are disjointed between filters and injectors, no conflicts should occur. However, for
 /// injectors, if multiple injectors are used in a way that one may depend on new nodes from
 /// another, then their implementation will need to be layered accordingly, and order of layering
 /// will matter.
 public class HdfTraverser {
-  private final HdfVisitorInjector injector;
   private final HdfVisitorFilter filter;
 
   /// Default traverser which does not filtering or injecting. All [HdfVisitor]s will see all nodes.
   public HdfTraverser() {
     this(new BaseHdfVisitorFilter(), new BaseHdfVisitorInjector());
   }
-  ///  Filtering traverser. [HdfVisitor]s will only see nodes which pass the filter.
+
+  /// create a filtering traverser.
+  /// {@link HdfVisitor}s will only see nodes which pass the filter.
+  /// @param filter
+  ///     the filter to use
   public HdfTraverser(HdfVisitorFilter filter) {
     this(filter, new BaseHdfVisitorInjector());
   }
-  /// Injecting traverser. [HdfVisitor]s will see nodes which are injected by the injector.
+
+  /// create an injecting traverser.
+  /// {@link HdfVisitor}s will see nodes which are injected by the injector.
+  /// @param injector
+  ///     the injector to use
   public HdfTraverser(HdfVisitorInjector injector) {
     this(new BaseHdfVisitorFilter(), injector);
   }
 
+  /// create a filtering and injecting traverser.
+  /// {@link HdfVisitor}s will see nodes which are injected by the injector, and which pass the
+  /// filter.
+  /// @param filter
+  ///     the filter to use
+  /// @param injector
+  ///     the injector to use
   public HdfTraverser(HdfVisitorFilter filter, HdfVisitorInjector injector) {
     this.filter = filter;
-    this.injector = injector;
   }
 
+  /// traverse the HDF5 file, calling the appropriate methods on the visitor.
+  /// @param node
+  ///     the node to traverse
+  /// @param traverser
+  ///     the visitor to call
   public void traverse(Node node, HdfVisitor traverser) {
     if (filter.enterNode(node)) {
 

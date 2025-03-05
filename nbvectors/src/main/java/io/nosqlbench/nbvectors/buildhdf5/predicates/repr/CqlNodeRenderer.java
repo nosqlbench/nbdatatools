@@ -23,6 +23,7 @@ import io.nosqlbench.nbvectors.buildhdf5.predicates.types.NodeRepresenter;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PredicateNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 
+/// A renderer for cql syntax
 public class CqlNodeRenderer implements NodeRepresenter {
   @Override
   public String apply(PNode<?> node) {
@@ -69,8 +70,7 @@ public class CqlNodeRenderer implements NodeRepresenter {
   private String concatenate(String name, PNode<?>[] values) {
     StringBuilder sb = new StringBuilder();
 
-    for (int i = 0; i < values.length; i++) {
-      PNode<?> value = values[i];
+    for (PNode<?> value : values) {
       String nodeRep = apply(value);
       if (!sb.isEmpty()) {
         sb.append(" ").append(name).append(" ");

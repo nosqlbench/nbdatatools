@@ -37,11 +37,17 @@ import java.util.regex.Pattern;
 /// the way the value is parsed. If the type is not specified, then it is inferred from the value.
 /// This allows users to have easy type inference for values like "0.34", or to rely on literals
 /// like "12345678901234567890L" for longs, or "(String)12345678901234567890l" for a string version.
+/// @param type the type of attribute
+/// @param literal the textual representation of the attribute
+/// @param value the value of the attribute
+/// @param <T> the Java value type
 public record AttrValue<T>(
     ValueType type, String literal, T value
 )
 {
-  @SuppressWarnings({"RegExpRepeatedSpace", "RegExpUnexpectedAnchor", "EscapedSpace"})
+
+  /// a pattern to match attr specs
+  @SuppressWarnings({"RegExpRepeatedSpace", "RegExpUnexpectedAnchor"})
   public static final Pattern SPEC_PATTERN = Pattern.compile(
       """
           (?:\\((?<typename>[a-zA-Z0-9_]+)\\))?    # Optional type hint (e.g., (String), (int))
@@ -49,6 +55,10 @@ public record AttrValue<T>(
           """, Pattern.COMMENTS
   );
 
+  /// parse an attribute value spec into an attribute value
+  /// @param spec The textual representation of an attribute
+  /// @param <T> The type of the attribute value
+  /// @return an attribute value
   public static <T> AttrValue<T> parse(String spec) {
     Matcher m = SPEC_PATTERN.matcher(spec);
     if (!m.matches()) {
@@ -64,6 +74,10 @@ public record AttrValue<T>(
     return new AttrValue<>(type, literal, (T) value);
   }
 
+  /// an attribute value
+  /// @param type the type of attribute
+  /// @param literal the textual representation of the attribute
+  /// @param value the value of the attribute
   public AttrValue {
     // Example of a simple validation:
     if (literal == null || literal.isEmpty()) {

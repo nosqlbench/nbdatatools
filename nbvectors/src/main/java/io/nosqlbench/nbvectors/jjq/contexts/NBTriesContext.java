@@ -32,11 +32,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
+/// a stateful context for mapping string values to long values for specific field names
 public class NBTriesContext implements NBIdMapper, StatefulShutdown {
 
   private final String filepath;
   private final AllFieldStats stats;
 
+  /// create a new tries context
+  /// @param filepath the path to the file to load the state from
   public NBTriesContext(String filepath) {
     this.filepath = filepath;
     Path path = Path.of(filepath);
@@ -57,10 +60,18 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
     }
   }
 
+  /// lookup the count for a string value
+  /// @param fieldName the name of the field to lookup the count for
+  /// @param fieldValue the string value to lookup
+  /// @return the count for the string value
   public synchronized long lookupCount(String fieldName, String fieldValue) {
     return stats.getStatsForField().get(fieldName).getStatsForValues().get(fieldValue).getCount();
   }
 
+  /// lookup the id for a string value
+  /// @param fieldName the name of the field to lookup the id for
+  /// @param fieldValue the string value to lookup
+  /// @return the id for the string value
   @Override
   public synchronized long lookupId(String fieldName, String fieldValue) {
     SingleValueStats stats = getOrCreateFor(fieldName, fieldValue);
@@ -68,6 +79,10 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
         .getIdx();
   }
 
+  /// add an instance of a string value to the context
+  /// @param name the name of the field to add the instance to
+  /// @param value the string value to add
+  /// @return stats for the field name and value
   private SingleValueStats getOrCreateFor(String name, String value) {
     SingleFieldStats singleFieldStats =
         stats.getStatsForField().computeIfAbsent(name, SingleFieldStats::new);
@@ -77,18 +92,20 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
     );
   }
 
+  /// {@inheritDoc}
   @Override
   public synchronized void addInstance(String fieldName, String value) {
     getOrCreateFor(fieldName, value).increment();
   }
 
+  /// {@inheritDoc}
   @Override
   public synchronized void shutdown() {
     ObjectMapper objectMapper = new ObjectMapper();
     try {
       String fname = this.filepath.toLowerCase();
       if (!fname.endsWith(".json") && !fname.endsWith(".jsonl")) {
-        throw new RuntimeException("The output file must end in .json");
+        throw new RuntimeException("The output file must max in .json");
       }
 
       System.out.println("saving path:" + this.filepath);
@@ -114,6 +131,10 @@ public class NBTriesContext implements NBIdMapper, StatefulShutdown {
     return "path:" + this.filepath + "\n" + stats.summary();
   }
 
+  /// register a shutdown hook with the provided context, which should then be
+  /// called at shutdown time when all nodes are completely processed
+  /// @param nbctx the context to register the shutdown hook with
+  /// @return this context
   public NBTriesContext registerShutdownHook(NBStateContext nbctx) {
     nbctx.registerShutdownHook(this);
     return this;

@@ -24,9 +24,13 @@ import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 import java.util.ArrayList;
 import java.util.List;
 
+/// aggregates multiple concurrent status views of the same verification session
 public class StatusViewRouter implements StatusView {
   private final List<StatusView> statusViewList = new ArrayList<>();
 
+  /// add a status view to the router
+  /// @param statusView the status view to add
+  /// @return this router, for method chaining
   public StatusViewRouter add(StatusView statusView) {
     statusViewList.add(statusView);
     return this;
@@ -74,6 +78,8 @@ public class StatusViewRouter implements StatusView {
     }
   }
 
+  /// determine if this router has any status views
+  /// @return true if this router has no status views
   public boolean isEmpty() {
     return statusViewList.isEmpty();
   }

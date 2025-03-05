@@ -22,18 +22,28 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Objects;
 
+/// A predicate node represents a single comparison operation against zero or more values
+/// @param field the field offset
+/// @param op the operator type
+/// @param v the values to compare
 public record PredicateNode(
-    /* encoded as byte */
     int field,
-    /* encoded as byte */
     OpType op,
-    /* encoded as short len, and then longs */
     long... v
 ) implements BBWriter<PredicateNode>, PNode<PredicateNode>
 {
+  /// create a predicate node
+  /// @param type the type of {@link ConjugateType}
+  /// @param field the field offset
+  /// @param op the operator type
+  /// @param v the values to compare
   public PredicateNode(byte type, int field, OpType op, long... v) {
     this(field, op, v);
   }
+
+  /// create a predicate node
+  /// @param b the byte buffer to decode the predicate node from
+  /// @see #PredicateNode(byte, int, OpType, long...)
   public PredicateNode(ByteBuffer b) {
     this(
         b.get(),
@@ -52,6 +62,9 @@ public record PredicateNode(
     return values;
   }
 
+  /// Encode this predicate node into a byte buffer
+  /// @param out the output buffer
+  /// @return the output buffer, for method chaining
   @Override
   public ByteBuffer encode(ByteBuffer out) {
     out.put((byte) ConjugateType.PRED.ordinal());

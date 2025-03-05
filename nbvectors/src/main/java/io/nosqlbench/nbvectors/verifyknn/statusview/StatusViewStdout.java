@@ -21,10 +21,12 @@ package io.nosqlbench.nbvectors.verifyknn.statusview;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 
-/// Print status events to stdout, buffering until the end if needed,
+/// Print status events to stdout, buffering until the max if needed,
 /// but flushing intermittently if not
 public class StatusViewStdout implements StatusView {
 
+  /// create a status view with the given number of summaries
+  /// @param flushall whether to flush all output immediately, or to wait for the end
   public StatusViewStdout(boolean flushall) {
     this.flushall = flushall;
   }

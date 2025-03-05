@@ -27,6 +27,7 @@ import io.jhdf.api.Node;
 import java.util.Arrays;
 import java.util.LinkedList;
 
+/// An implementation of {@link HdfVisitor} which prints out details
 public class HdfPrintVisitor extends BaseHdfVisitor {
   LinkedList<String> names = new LinkedList<>();
 

@@ -17,15 +17,33 @@ package io.nosqlbench.nbvectors.verifyknn.statusview;
  * under the License.
  */
 
-
+import io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 
+/// status view eventing interface for [CMD_VerifyKNN]
 public interface StatusView extends AutoCloseable{
+
+  /// start of verification
+  /// @param totalQueryVectors the total number of query vectors to be tested
   void onStart(int totalQueryVectors);
 
+  /// a chunk of training vectors has been loaded
+  /// @param chunk the chunk number
+  /// @param chunkSize the number of training vectors in this chunk
+  /// @param totalTrainingVectors the total number of training vectors
   void onChunk(int chunk, int chunkSize, int totalTrainingVectors);
+
+  /// a query vector has been loaded
+  /// @param vector the query vector
+  /// @param index the index of the query vector in the test data
+  /// @param end the end index of the test data
   void onQueryVector(LongIndexedFloatVector vector, long index, long end);
+
+  /// a neighborhood comparison has been performed
+  /// @param comparison the neighborhood comparison
   void onNeighborhoodComparison(NeighborhoodComparison comparison);
+
+  /// end of verification
   void end();
 }

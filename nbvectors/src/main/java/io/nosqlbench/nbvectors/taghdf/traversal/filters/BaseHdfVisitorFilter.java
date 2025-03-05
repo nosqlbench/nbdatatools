@@ -26,52 +26,43 @@ import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 import io.nosqlbench.nbvectors.taghdf.traversal.visitors.HdfVisitor;
 
-/// This allows you to selectively expose HDF structure to
-/// an [HdfVisitor] impl.
+/// This allows you to selectively expose HDF structure to an [HdfVisitor] implementation.
 public class BaseHdfVisitorFilter implements HdfVisitorFilter {
-  
+
+  /// {@inheritDoc}
   @Override
   public boolean enterNode(Node node) {
     return true;
   }
 
-  @Override
-  public boolean leaveNode(Node node) {
-    return true;
-  }
-
+  /// {@inheritDoc}
   @Override
   public boolean dataset(Dataset dataset) {
     return true;
   }
 
+  /// {@inheritDoc}
   @Override
   public boolean attribute(Attribute attribute) {
     return true;
   }
 
+  /// {@inheritDoc}
   @Override
   public boolean committedDataType(CommittedDatatype cdt) {
     return true;
   }
 
+  /// {@inheritDoc}
   @Override
   public boolean enterGroup(Group group) {
     return true;
   }
 
+  /// {@inheritDoc}
   @Override
   public boolean enterFile(HdfFile file) {
     return true;
   }
 
-  @Override
-  public boolean leaveFile(HdfFile file) {
-    return true;
-  }
-
-  @Override
-  public boolean leaveGroup(Group group) {
-    return true;
-  }
 }

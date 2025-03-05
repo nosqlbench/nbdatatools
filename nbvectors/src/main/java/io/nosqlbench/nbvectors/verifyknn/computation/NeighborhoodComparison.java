@@ -23,12 +23,19 @@ import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 
 import static io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs.braille;
 
+/// encapsulate the result of a vector query, including both the known correct result
+/// and the actual result
+/// @param testVector the test vector
+/// @param providedNeighborhood the neighborhood provided by the system under test
+/// @param expectedNeighborhood the neighborhood expected by the test, based on KNN data
 public record NeighborhoodComparison(
     LongIndexedFloatVector testVector,
     Neighborhood providedNeighborhood,
     Neighborhood expectedNeighborhood
 )
 {
+  /// determine if the provided neighborhood is an error
+  /// @return true if the provided neighborhood is an error
   public boolean isError() {
     long[][] partitions = Computations.partitions(
         providedNeighborhood.getIndices(),
@@ -37,10 +44,9 @@ public record NeighborhoodComparison(
     return partitions[Computations.SET_A].length > 0 || partitions[Computations.SET_B].length > 0;
   }
 
-
+  /// render the comparison as a string
   public String toString() {
     StringBuilder sb = new StringBuilder();
-//    sb.append(testVector).append("\n");
 
     long[][] partitions = Computations.partitions(
         providedNeighborhood.getIndices(),

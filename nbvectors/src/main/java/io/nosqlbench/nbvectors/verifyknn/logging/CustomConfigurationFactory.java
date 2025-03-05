@@ -31,10 +31,12 @@ import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilder;
 import org.apache.logging.log4j.core.config.builder.impl.BuiltConfiguration;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 
+/// A configuration factor to programmatically configure log4j
 @Plugin(name = "CustomConfigurationFactory", category = ConfigurationFactory.CATEGORY)
 @Order(100)
 public class CustomConfigurationFactory extends ConfigurationFactory {
 
+  /// create a configuration
   static Configuration createConfiguration(final String name, ConfigurationBuilder<BuiltConfiguration> builder) {
     builder.setConfigurationName(name);
     builder.setStatusLevel(Level.ERROR);
@@ -64,19 +66,4 @@ public class CustomConfigurationFactory extends ConfigurationFactory {
     return null;
   }
 
-  //  @Override
-//  public Configuration getConfiguration(ConfigurationSource source) {
-//    return getConfiguration(source.toString(), null);
-//  }
-//
-//  @Override
-//  public Configuration getConfiguration(final String name, final URI configLocation) {
-//    ConfigurationBuilder<BuiltConfiguration> builder = newConfigurationBuilder();
-//    return createConfiguration(name, builder);
-//  }
-//
-//  @Override
-//  protected String[] getSupportedTypes() {
-//    return new String[] {"*"};
-//  }
 }

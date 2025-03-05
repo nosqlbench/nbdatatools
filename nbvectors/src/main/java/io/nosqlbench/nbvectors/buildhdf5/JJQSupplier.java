@@ -25,7 +25,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
 
+/// A supplier for JSON lines from a file
 public class JJQSupplier {
+
+  /// create a supplier for JSON lines from a file
+  /// @param trainingJsonFile the path to the file to read from
+  /// @return a supplier for JSON lines from a file
   public static Supplier<String> path(Path trainingJsonFile) {
     try {
       List<String> lines = Files.readAllLines(trainingJsonFile);
@@ -35,13 +40,14 @@ public class JJQSupplier {
     }
   }
 
+  /// A supplier for JSON lines from a file
   public static class LinesSupplier implements Supplier<String> {
 
-    private final Iterable<String> source;
     private final Iterator<String> iterator;
 
+    /// create a supplier for JSON lines from a file
+    /// @param source the source of JSON lines
     public LinesSupplier(Iterable<String> source) {
-      this.source = source;
       this.iterator = source.iterator();
     }
 

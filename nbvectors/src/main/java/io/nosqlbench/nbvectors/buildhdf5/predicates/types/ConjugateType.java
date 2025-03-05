@@ -18,8 +18,12 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
  */
 
 
+/// The conjugate type
 public enum ConjugateType {
+  /// a basic predicate in the form of _field_ _operator_ _comparands_
   PRED,
+  /// logical and
   AND,
+  /// logical or
   OR
 }

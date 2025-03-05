@@ -22,12 +22,16 @@ import java.util.AbstractQueue;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+/// A thread-safe queue adapter for an underlying iterator.
+/// @param <T> the type of elements in the queue
 public class ThreadSafeLazyIteratorQueue<T> extends AbstractQueue<T> {
   private final Iterator<T> iterator;
   private T nextElement;
   private boolean nextElementFetched = false;
   private final Object lock = new Object();
 
+  /// create a thread-safe lazy iterator queue
+  /// @param iterator the underlying iterator
   public ThreadSafeLazyIteratorQueue(Iterator<T> iterator) {
     if (iterator == null) {
       throw new NullPointerException("iterator cannot be null");
@@ -46,9 +50,7 @@ public class ThreadSafeLazyIteratorQueue<T> extends AbstractQueue<T> {
     }
   }
 
-  /**
-   * Returns the next element without removing it, or {@code null} if none remains.
-   */
+  /// {@inheritDoc}
   @Override
   public T peek() {
     synchronized (lock) {
@@ -57,9 +59,7 @@ public class ThreadSafeLazyIteratorQueue<T> extends AbstractQueue<T> {
     }
   }
 
-  /**
-   * Retrieves and removes the next element, or returns {@code null} if none remains.
-   */
+  /// {@inheritDoc}
   @Override
   public T poll() {
     synchronized (lock) {
@@ -74,25 +74,23 @@ public class ThreadSafeLazyIteratorQueue<T> extends AbstractQueue<T> {
     }
   }
 
-  /**
-   * Adding new elements is not supported in this read-only adapter.
-   */
+  /// {@inheritDoc}
   @Override
   public boolean offer(T t) {
     throw new UnsupportedOperationException("offer() is not supported in ThreadSafeLazyIteratorQueue");
   }
 
-  /**
-   * Iterator access is intentionally disabled to prevent exposing the underlying iterator.
-   */
+
+  /// Iterator access is intentionally disabled to prevent exposing the underlying iterator.
+  /// @return an iterator for this queue
   @Override
   public Iterator<T> iterator() {
     throw new UnsupportedOperationException("Iterator access is not supported for ThreadSafeLazyIteratorQueue");
   }
 
-  /**
-   * Size cannot be determined without fully buffering the underlying iterator.
-   */
+  /// Size cannot be determined without fully buffering the underlying iterator.
+  /// @return the size of this queue
+  /// @throws UnsupportedOperationException every time
   @Override
   public int size() {
     throw new UnsupportedOperationException("size() is not supported for ThreadSafeLazyIteratorQueue");

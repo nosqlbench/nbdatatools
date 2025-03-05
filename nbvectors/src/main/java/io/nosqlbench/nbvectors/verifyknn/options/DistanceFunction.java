@@ -18,15 +18,26 @@ package io.nosqlbench.nbvectors.verifyknn.options;
  */
 
 
+/// The distance function to use for computing distances between vectors
 public enum DistanceFunction {
+
+  /// The cosine distance function
   COSINE;
 
+  /// compute the distance between two vectors
+  /// @param v1 the first vector
+  /// @param v2 the second vector
+  /// @return the distance between the two vectors
   public double distance(double[] v1, double[] v2) {
     return switch (this) {
       case COSINE -> doubleCosineDistance(v1, v2);
     };
   }
 
+  /// compute the distance between two vectors
+  /// @param v1 the first vector
+  /// @param v2 the second vector
+  /// @return the distance between the two vectors
   public double distance(float[] v1, float[] v2) {
     return switch (this) {
       case COSINE -> floatCosineDistance(v1, v2);

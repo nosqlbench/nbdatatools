@@ -22,7 +22,6 @@ import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
-import io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -30,15 +29,20 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+/// A writer for KNN data in the HDF5 format
 public class KnnDataWriter implements AutoCloseable {
   private final Path hdfOutPath;
   private final WritableHdfFile writable;
 
+  /// create a new KNN data writer
+  /// @param hdfOutPath the path to the file to write to
   public KnnDataWriter(Path hdfOutPath) {
     this.hdfOutPath = hdfOutPath;
     writable = HdfFile.write(hdfOutPath);
   }
 
+  /// write the training vector data to a dataset
+  /// @param iterator an iterator for the training vectors
   public void writeTrainingStream(Iterator<LongIndexedFloatVector> iterator) {
     List<LongIndexedFloatVector> vectors = new ArrayList<>();
     iterator.forEachRemaining(vectors::add);
@@ -46,7 +50,7 @@ public class KnnDataWriter implements AutoCloseable {
     for (LongIndexedFloatVector vector : vectors) {
       ary[(int) vector.index()] = vector.vector();
     }
-    //    WritableDataset ds = new WritableDatasetImpl(ary,"/train",writable);
+    // WritableDataset ds = new WritableDatasetImpl(ary,"/train",writable);
     this.writable.putDataset("train", ary);
     // Record number of records in train dataset as an attribute
     this.writable.putAttribute("train_vectors", ary.length);
@@ -54,6 +58,8 @@ public class KnnDataWriter implements AutoCloseable {
     this.writable.putAttribute("dimensions", ary[0].length);
   }
 
+  /// write the test vector data to a dataset
+  /// @param iterator an iterator for the test vectors
   public void writeTestStream(Iterator<LongIndexedFloatVector> iterator) {
     List<LongIndexedFloatVector> vectors = new ArrayList<>();
     iterator.forEachRemaining(vectors::add);
@@ -67,6 +73,8 @@ public class KnnDataWriter implements AutoCloseable {
     this.writable.putAttribute("test_vectors", ary.length);
   }
 
+  /// write the neighbors data to a dataset
+  /// @param iterator an iterator for the neighbors
   public void writeNeighborsStream(Iterator<long[]> iterator) {
     List<long[]> vectors = new ArrayList<>();
     iterator.forEachRemaining(vectors::add);
@@ -79,6 +87,8 @@ public class KnnDataWriter implements AutoCloseable {
     this.writable.putAttribute("neighbors", ary[0].length);
   }
 
+  /// write the distances data to a dataset
+  /// @param iterator an iterator for the distances
   public void writeDistancesStream(Iterator<float[]> iterator) {
     List<float[]> distances = new ArrayList<>();
     iterator.forEachRemaining(distances::add);
@@ -95,6 +105,8 @@ public class KnnDataWriter implements AutoCloseable {
     this.writable.close();
   }
 
+  /// write the filters data to a dataset
+  /// @param nodeIterator an iterator for the filters
   public void writeFiltersStream(Iterator<PNode<?>> nodeIterator) {
     List<byte[]> predicateEncodings = new ArrayList<>();
     ByteBuffer workingBuffer = ByteBuffer.allocate(5_000_000);
@@ -117,9 +129,10 @@ public class KnnDataWriter implements AutoCloseable {
       encoded[i]=predicateEncodings.get(i);
     }
     this.writable.putDataset("filters", encoded);
-
   }
 
+  /// write the metadata to the file
+  /// @param config the config to use for writing the metadata
   public void writeMetadata(MapperConfig config) {
     // The name of the model used to generate the data, if any
     this.writable.putAttribute("model", config.getModel());

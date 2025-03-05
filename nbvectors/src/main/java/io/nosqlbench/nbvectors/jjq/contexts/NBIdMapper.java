@@ -20,7 +20,17 @@ package io.nosqlbench.nbvectors.jjq.contexts;
 
 import io.nosqlbench.nbvectors.jjq.apis.StatefulShutdown;
 
+/// A stateful context interface for mapping string values to long values for specific field names
 public interface NBIdMapper extends StatefulShutdown {
+
+  /// add an instance of a string value to the context
+  /// @param fieldName the name of the field to add the instance to
+  /// @param string the string value to add
   void addInstance(String fieldName, String string);
+
+  /// lookup the id for a string value
+  /// @param fieldName the name of the field to lookup the id for
+  /// @param text the string value to lookup
+  /// @return the id for the string value
   long lookupId(String fieldName, String text);
 }

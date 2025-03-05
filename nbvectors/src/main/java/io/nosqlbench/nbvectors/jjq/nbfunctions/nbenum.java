@@ -36,7 +36,11 @@ import net.thisptr.jackson.jq.path.Path;
 
 import java.util.List;
 import java.util.Map;
-
+/// an implementation of a jjq function `nbenum("fieldName")`
+/// This enumerates distinct values in the order of presentation
+/// in the `enumerator_context` context variable but seems to do nothing else yet.
+/// ---
+/// This does not instance its state per function, and this needs to be fixed.
 @AutoService(Function.class)
 @BuiltinFunction({"nbenum/1"})
 public class nbenum extends NBBaseJQFunction {
@@ -74,6 +78,7 @@ public class nbenum extends NBBaseJQFunction {
     output.emit(out, path);
   }
 
+  /// {@inheritDoc}
   @Override
   public void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx)
       throws JsonQueryException

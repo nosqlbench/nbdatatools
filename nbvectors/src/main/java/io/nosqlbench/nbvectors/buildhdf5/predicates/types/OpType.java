@@ -17,14 +17,21 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
  * under the License.
  */
 
-
+/// The operator type
 public enum OpType {
+  /// greater than `>`
   GT(">"),
+  /// less than `<`
   LT("<"),
+  /// equals `=`
   EQ("="),
+  /// not equals `!=`
   NE("!="),
+  /// greater than or equal `>=`
   GE(">="),
+  /// less than or equal `<=`
   LE("<="),
+  /// in set
   IN("IN");
 
   private final String symbol;
@@ -33,6 +40,9 @@ public enum OpType {
     this.symbol=symbol;
   }
 
+  /// get the symbol for this operator
+  /// @return the symbol for this operator
+  /// @see #symbol
   public String symbol() {
     return this.symbol;
   }

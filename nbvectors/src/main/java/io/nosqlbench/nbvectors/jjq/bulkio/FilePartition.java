@@ -35,12 +35,23 @@ import java.util.Arrays;
 /// When there is less than the required amount of data in the provided partition
 /// ([#partition(int, int)]) then no partitioning is done. This limit defaults to
 /// 20MB for [#partition(int)]
+/// @param path the path containing the current partition
+/// @param start the starting point of the partition as an offset within the file
+/// @param end the ending point of the partition as an offset within the file
+/// @param id a labeling identifier, for debugging purposes
+
 public record FilePartition(Path path, long start, long end, String id) {
 
+  /// create a file partition
+  /// @param path the path containing the current partition
+  /// @return a file partition
   public static FilePartition of(String path) {
     return FilePartition.of(Path.of(path));
   }
 
+  /// create a file partition
+  /// @param path the path containing the current partition
+  /// @return a file partition
   public static FilePartition of(Path path) {
     try {
       return new FilePartition(path, 0, Files.size(path), "0");
@@ -49,13 +60,19 @@ public record FilePartition(Path path, long start, long end, String id) {
     }
   }
 
+  /// Break a file up into partitions on newline boundaries
+  /// while ensuring that each boundary is less than the size
+  /// @param partitions the number of partitions to create
+  /// @return a list of file partitions
   public FilePartitions partition(int partitions) {
     return this.partition(partitions, 1 << 20);
   }
 
   /// Break a file up into partitions on newline boundaries
   /// while ensuring that each boundary is less than the size
-  /// you can mmap with Java's 2
+  /// @param minPartitions the minimum number of partitions to create
+  /// @param minSize the minimum size of each partition
+  /// @return a list of file partitions
   public FilePartitions partition(int minPartitions, int minSize) {
     FilePartitions extents = new FilePartitions();
 
@@ -64,7 +81,6 @@ public record FilePartition(Path path, long start, long end, String id) {
       extents.add(this);
     } else {
       long partitions = Math.max(minPartitions, (Math.max(1, (len / 2000000000) + 1)));
-//      System.out.println("partitions:" + partitions);
       long psize = len / partitions;
 
       try {
@@ -104,6 +120,8 @@ public record FilePartition(Path path, long start, long end, String id) {
 
   }
 
+  /// Map the file partition into a ByteBuffer
+  /// @return a ByteBuffer
   public ByteBuffer mapFile() {
     long size = this.end - this.start;
     if (size > Integer.MAX_VALUE) {
@@ -150,6 +168,8 @@ public record FilePartition(Path path, long start, long end, String id) {
     return linesIter;
   }
 
+  /// Adapt this file partition into a concurrent supplier of lines
+  /// @return a (thread-safe) concurrent supplier of lines
   public ConcurrentSupplier<String> asConcurrentSupplier() {
     return new ConcurrentSupplier<>(
         asStringIterable(), Runtime.getRuntime().availableProcessors() * 2, (e) -> {

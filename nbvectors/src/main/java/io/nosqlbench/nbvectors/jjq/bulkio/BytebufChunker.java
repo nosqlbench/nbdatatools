@@ -23,40 +23,53 @@ import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
+/// Chunk byte buffers on newline boundaries
 public class BytebufChunker implements Iterable<CharBuffer> {
   private final ByteBuffer buf;
   private final int chunkSize;
   private final String desc;
 
+  /// Create a bytebuf chunker
+  /// @param chunkSize minimum chunk size
+  /// @param buf source byte buffer
+  /// @param desc a description, for debugging
   public BytebufChunker(String desc, ByteBuffer buf, int chunkSize) {
     this.desc = desc;
     this.buf = buf;
     this.chunkSize = chunkSize;
   }
 
+  /// Create a [CharBuffer] iterator from this chunker
+  /// @return a [CharBuffer] iterator from this chunker
   @Override
   public Iterator<CharBuffer> iterator() {
     return new CBIterator(desc, buf, chunkSize);
   }
 
 
+  /// Convert to a char buf iterator
   public static class CBIterator implements Iterator<CharBuffer>, DiagToString {
     private final ByteBuffer buf;
     private final int chunkSize;
     private final String desc;
 
+    /// create a char buf iterator
+    /// @param desc a description, for debugging
+    /// @param buffer source byte buffer
+    /// @param chunkSize minimum chunk size
     public CBIterator(String desc, ByteBuffer buffer, int chunkSize) {
       this.desc = desc;
       this.buf = buffer;
       this.chunkSize = chunkSize;
     }
 
+    /// {@inheritDoc}
     @Override
     public synchronized boolean hasNext() {
       return (buf.remaining() > 0);
     }
 
-    ///  Take the next slice which starts at the current buffer position,
+    /// Take the next slice which starts at the current buffer position,
     /// with length at least chunkSize, but ending at the next newline or limit().
     /// This should leave the position on the next valid position to read the
     /// next byte which wasn't returned in the last slice.
@@ -84,6 +97,7 @@ public class BytebufChunker implements Iterable<CharBuffer> {
       }
     }
 
+    /// {@inheritDoc}
     @Override
     public String toDiagString() {
       return "desc:" + desc + ", position:" + buf.position();

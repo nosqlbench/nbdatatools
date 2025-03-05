@@ -22,8 +22,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import net.thisptr.jackson.jq.Output;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 
+/// An implementation of output which writes all nodes to the console with {@link JsonNode#toPrettyString()}
 public class PrettyConsoleOutput implements Output  {
 
+  /// {@inheritDoc}
   @Override
   public void emit(JsonNode out) throws JsonQueryException {
     System.out.println(out.toPrettyString());

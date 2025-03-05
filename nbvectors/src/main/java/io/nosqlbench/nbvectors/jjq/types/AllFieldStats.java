@@ -32,20 +32,34 @@ public class AllFieldStats {
   @JsonProperty()
   private Map<String,SingleFieldStats> stats = new HashMap<>();
 
+  /// create an empty stats entry
   public AllFieldStats() {
   }
 
 
+  /// get the stats for a specific field
+  /// @param fieldName the name of the field to get stats for
+  /// @return the stats for the field
+  public SingleFieldStats getStatsForField(String fieldName) {
+    return stats.get(fieldName);
+  }
+
+  /// get the stats for all fields
+  /// @return the stats for all fields
   @JsonGetter("stats")
   public Map<String, SingleFieldStats> getStatsForField() {
     return stats;
   }
 
+  /// set the stats for all fields
+  /// @param stats the stats for all fields
   @JsonSetter("stats")
   public void setStats(Map<String, SingleFieldStats> stats) {
     this.stats = stats;
   }
 
+  /// return a summary string that describes all fields stats
+  /// @return a descriptive readout
   public String summary() {
     return stats.values().stream().map(SingleFieldStats::toString).collect(Collectors.joining("\n"));
   }

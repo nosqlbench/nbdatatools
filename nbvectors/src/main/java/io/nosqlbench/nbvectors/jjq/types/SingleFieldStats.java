@@ -29,10 +29,14 @@ import java.util.Map;
 ///  Contains stats for a single field of an object stream for all values
 public class SingleFieldStats {
 
+  /// get the name of the field
+  /// @return the name of the field
   public String getName() {
     return name;
   }
 
+  /// set the name of the field
+  /// @param name the name of the field
   public void setName(String name) {
     this.name = name;
   }
@@ -43,21 +47,30 @@ public class SingleFieldStats {
   @JsonDeserialize(as = PatriciaTrie.class)
   private Map<String, SingleValueStats> statsForValues = new PatriciaTrie<>();
 
+  /// create an empty stats entry
   public SingleFieldStats() {}
+
+  /// create a stats entry for a specific field
+  /// @param name the name of the field
   public SingleFieldStats(String name) {
     this.name = name;
   }
 
+  /// get the stats for all values of this field
+  /// @return the stats for all values of this field
   @JsonGetter("stats")
   public Map<String, SingleValueStats> getStatsForValues() {
     return statsForValues;
   }
 
+  /// set the stats for all values of this field
+  /// @param statsForValues the stats for all values of this field
   @JsonSetter("stats")
   public void setStatsForValues(Map<String, SingleValueStats> statsForValues) {
     this.statsForValues = statsForValues;
   }
 
+  /// return a summary string that describes this field stats
   @Override
   public String toString() {
     return "  " + this.name + ": " + this.statsForValues.size() + " values";

@@ -17,11 +17,17 @@ package io.nosqlbench.nbvectors.showhdf5;
  * under the License.
  */
 
-
+/// These are the dataset names that are part of the vector test data format
 public enum DatasetNames {
+
+  /// The training dataset, containing all vectors to search, organized by index
   train,
+  /// The test dataset, containing all query vectors, organized by index
   test,
+  /// The neighbors dataset, containing all correct KNN results, organized by index
   neighbors,
+  /// The distances dataset, containing all correct distances, organized by index
   distances,
+  /// The filter dataset, containing all query predicates, organized by index
   filters
 }

@@ -17,10 +17,14 @@ package io.nosqlbench.nbvectors.verifyknn.statusview;
  * under the License.
  */
 
-
+/// Options for controlling the output of status messages during processing
 public enum StatusMode {
+  /// emit status in all configurable ways that can work together
   All,
+  /// emit status in a progress bar
   Progress,
+  /// emit status in stdout
   Stdout,
+  /// do not emit status
   None
 }

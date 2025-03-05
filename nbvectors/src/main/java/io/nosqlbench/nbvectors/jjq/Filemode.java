@@ -21,6 +21,7 @@ package io.nosqlbench.nbvectors.jjq;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/// an enum to control checkpointing behavior
 public enum Filemode {
   /// If a function has an output file option, and the file exists already, then presume that the
   /// function ran successfully before
@@ -30,6 +31,9 @@ public enum Filemode {
   /// If an output file already exists, cancel the operation and throw an error
   preserve;
 
+  /// Determine whether a file should be skipped
+  /// @return true if the file should be skipped
+  /// @param path the path to check
   public boolean isSkip(Path path) {
     if (Files.exists(path)) {
       return switch (this) {

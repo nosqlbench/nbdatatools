@@ -29,10 +29,14 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
+/// A collection of tools for working with vector test data
 @CommandLine.Command(name = "nbv", subcommands = {
     CMD_VerifyKNN.class, CMD_TagHDF5.class, CMD_jjq.class, CMD_BuildHDF5.class, CMD_ShowHDF5.class
 })
 public class NBVectorTools {
+
+  /// run a nbv command
+  /// @param args command line args
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
     System.setProperty(

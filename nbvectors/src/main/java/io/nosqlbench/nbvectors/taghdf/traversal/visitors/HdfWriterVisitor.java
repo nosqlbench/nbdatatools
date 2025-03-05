@@ -26,40 +26,49 @@ import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 
+/// a default base implementation of {@link HdfVisitor}
 public class HdfWriterVisitor extends BaseHdfVisitor {
 
   private final WritableHdfFile out;
 
+  /// create a writer visitor
+  /// @param out the file to write to
   public HdfWriterVisitor(WritableHdfFile out) {
     this.out = out;
   }
 
+  /// {@inheritDoc}
   @Override
   public void dataset(Dataset dataset) {
     out.putDataset(dataset.getName(),dataset.getData());
     out.putDataset(dataset.getName(),dataset.getData());
   }
 
+  /// {@inheritDoc}
   @Override
   public void attribute(Node node, Attribute attribute) {
     out.putAttribute(attribute.getName(),attribute.getData());
   }
 
+  /// {@inheritDoc}
   @Override
   public void committedDataType(CommittedDatatype cdt) {
     throw new RuntimeException("Not implemented yet");
   }
 
+  /// {@inheritDoc}
   @Override
   public void enterGroup(Group group) {
     out.putGroup(group.getName());
   }
 
+  /// {@inheritDoc}
   @Override
   public void leaveFile(HdfFile file) {
     out.close();
   }
 
+  /// {@inheritDoc}
   @Override
   public void finish() {
   }

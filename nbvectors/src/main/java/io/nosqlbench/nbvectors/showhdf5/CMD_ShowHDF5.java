@@ -24,7 +24,6 @@ import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
-import io.nosqlbench.nbvectors.verifyknn.statusview.Glyphs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
@@ -36,6 +35,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+/// Show details of HDF5 vector data files
 @CommandLine.Command(name = "showhdf5",
     headerHeading = "Usage:%n%n",
     synopsisHeading = "%n",
@@ -52,7 +52,7 @@ import java.util.concurrent.Callable;
     })
 public class CMD_ShowHDF5 implements Callable<Integer> {
 
-  private static Logger logger = LogManager.getLogger(CMD_ShowHDF5.class);
+  private static final Logger logger = LogManager.getLogger(CMD_ShowHDF5.class);
 
   @CommandLine.Parameters(description = "The HDF5 file to view")
   private Path file;
@@ -61,6 +61,12 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private List<DatasetNames> decode;
 
+  /// create a showhdf5 command
+  public CMD_ShowHDF5() {
+  }
+
+  /// run a showhdf5 command
+  /// @param args command line args
   public static void main(String[] args) {
 
     System.setProperty("slf4j.internal.verbosity", "ERROR");
@@ -81,7 +87,7 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
   }
 
   @Override
-  public Integer call() throws Exception {
+  public Integer call() {
     StringBuilder sb = new StringBuilder();
 
     try (HdfFile file = new HdfFile(this.file)) {
@@ -110,7 +116,7 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
       Object datao = ds.getData(new long[]{i, 0}, new int[]{1, dimensions[1]});
       byte[][] data = (byte[][]) datao;
       byte[] datum = data[0];
-      PNode node =
+      PNode<?> node =
           PNode.fromBuffer(ByteBuffer.wrap(datum));
       System.out.printf("predicate[%d]: %s%n",i, node);
     }
@@ -142,9 +148,6 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
   }
 
   private void describeDataset(Dataset dataset, StringBuilder sb, int level) {
-    //    sb.append(" ".repeat(level)).append("name ");
-    //    sb.append(dataset.getName());
-    //    sb.append("\n");
 
     sb.append(" ".repeat(level));
     sb.append("dimensions: ");

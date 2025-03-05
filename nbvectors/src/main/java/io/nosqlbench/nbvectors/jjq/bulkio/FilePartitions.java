@@ -20,6 +20,7 @@ package io.nosqlbench.nbvectors.jjq.bulkio;
 
 import java.util.ArrayList;
 
+/// A list of FilePartitions
 public class FilePartitions extends ArrayList<FilePartition> {
   @Override
   public String toString() {

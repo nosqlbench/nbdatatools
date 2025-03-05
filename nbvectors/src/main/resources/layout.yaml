@@ -15,7 +15,7 @@ test_file: "source_of_query_vectors.jsonl"
 test_expr: |-
   nbenum("id") | {id:.id,vector:.vector}  
 
-# { "neighbors": [...] }
+# { "ids": [...] }
 neighborhood_file: "source_of_neighbor_lists.jsonl"
 neighborhood_expr: |-
   {ids:.results|[.[].id]|map(nbremap("id";"id_map.json"))}

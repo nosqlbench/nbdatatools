@@ -23,20 +23,17 @@ import io.nosqlbench.nbvectors.jjq.apis.NBJJQ;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContextHolderHack;
 import net.thisptr.jackson.jq.*;
-import net.thisptr.jackson.jq.exception.JsonQueryException;
-import net.thisptr.jackson.jq.module.ModuleLoader;
 import net.thisptr.jackson.jq.module.loaders.BuiltinModuleLoader;
 import net.thisptr.jackson.jq.module.loaders.ChainedModuleLoader;
 import net.thisptr.jackson.jq.module.loaders.FileSystemModuleLoader;
 
-import java.net.URISyntaxException;
 import java.nio.file.FileSystems;
 import java.util.LinkedList;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/// Because the invoker does stateful work, including saving results at the end
+/// Because the invoker does stateful work, including saving results at the max
 /// you should really run it in a try-with-resources block.
 public class JJQInvoker implements Runnable, AutoCloseable {
 
@@ -46,12 +43,17 @@ public class JJQInvoker implements Runnable, AutoCloseable {
   private Scope rootScope;
   private NBStateContextHolderHack nbContext;
 
+  /// create a jjq invoker
+  /// @param lines the source of JSONL data to process
+  /// @param expr the jq expression to apply
+  /// @param output the output to write results to
   public JJQInvoker(Supplier<String> lines, String expr, Output output) {
     this.lines = lines;
     this.expr = expr;
     this.output = output;
   }
 
+  /// run the invoker
   @Override
   public void run() {
     try {
@@ -103,39 +105,37 @@ public class JJQInvoker implements Runnable, AutoCloseable {
       //      }
 
       System.out.println("NbState:");
-      NBJJQ.getState(rootScope).forEach((k, v) -> {
-        System.out.println(" k:" + k + ", v:" + v);
-      });
-    } catch (JsonQueryException e) {
-      throw new RuntimeException(e);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
+      NBJJQ.getState(rootScope).forEach((k, v) -> System.out.println(" k:" + k + ", v:" + v));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
+  /// get the jq scope
+  /// @return the jq scope
   public Scope getScope() {
     return this.rootScope;
   }
 
+  /// get the state context
+  /// @return the state context
   public NBStateContext getContext() {
     return this.nbContext;
   }
 
-  private Scope rootScope(NBStateContextHolderHack context) throws URISyntaxException {
+  private Scope rootScope(NBStateContextHolderHack context) {
     try {
       Scope scope = Scope.newEmptyScope();
       BuiltinFunctionLoader.getInstance().loadFunctions(Version.LATEST, scope);
       //    scope.addFunction("env", 0, new EnvFunction());
 
-      scope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
+      scope.setModuleLoader(new ChainedModuleLoader(
           BuiltinModuleLoader.getInstance(), new FileSystemModuleLoader(
           scope,
           Version.LATEST,
           FileSystems.getDefault().getPath("").toAbsolutePath()
-      ),
-          }));
+      )
+      ));
 
       scope.addFunction("nbstate", context);
 

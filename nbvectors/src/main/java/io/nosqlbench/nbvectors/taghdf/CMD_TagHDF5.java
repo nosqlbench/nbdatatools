@@ -34,6 +34,7 @@ import picocli.CommandLine;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
+/// Tag HDF5 vector test data files
 @CommandLine.Command(name = "taghdf", description = "read or write hdf attributes")
 public class CMD_TagHDF5 implements Callable<Integer> {
 
@@ -45,17 +46,20 @@ public class CMD_TagHDF5 implements Callable<Integer> {
   private Path hdfSource;
 
   @CommandLine.Option(names = {"-o", "--out", "--hdf_target"},
-      required = false,
       description = "The HDF5 file to modify")
   private Path hdfTarget;
 
   @CommandLine.Option(names = {"-s", "--set", "--set-attribute"},
-      required = false,
       description = "The HDF5 attribute to set",
       converter = AttrSetConverter.class)
   private AttrSet[] attrs;
 
+  /// create a taghdf command
+  public CMD_TagHDF5() {
+  }
 
+  /// run a taghdf command
+  /// @param args command line args
   public static void main(String[] args) {
     CMD_TagHDF5 command = new CMD_TagHDF5();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
@@ -65,7 +69,7 @@ public class CMD_TagHDF5 implements Callable<Integer> {
   }
 
   @Override
-  public Integer call() throws Exception {
+  public Integer call() {
     HdfFile in = new HdfFile(hdfSource);
 
     hdfTarget = hdfTarget == null ? Path.of("_out.hdf5") : hdfTarget;

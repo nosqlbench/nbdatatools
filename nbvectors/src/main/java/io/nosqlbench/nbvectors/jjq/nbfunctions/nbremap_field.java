@@ -35,6 +35,9 @@ import net.thisptr.jackson.jq.path.Path;
 import java.util.List;
 import java.util.Map;
 
+/// an implementation of a jjq function `nbremap_field("fieldName";"remapfile.json)`
+/// The changes the value of the provided field name in the JSON stream to
+/// the index ordinal from the provided remap file.
 @AutoService(Function.class)
 @BuiltinFunction({"nbremap_field/2"})
 public class nbremap_field extends NBBaseJQFunction {
@@ -43,6 +46,7 @@ public class nbremap_field extends NBBaseJQFunction {
   private String dirpath;
   private String fieldName;
 
+  /// {@inheritDoc}
   @Override
   public void doApply(
       Scope scope,
@@ -75,6 +79,7 @@ public class nbremap_field extends NBBaseJQFunction {
     output.emit(out, path);
   }
 
+  /// {@inheritDoc}
   @Override
   public void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx) throws JsonQueryException {
     args.get(1).apply(

@@ -20,13 +20,16 @@ package io.nosqlbench.nbvectors.jjq.contexts;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+/// A stateful context for enumerating values
 public class NBEnumContext implements NBIdEnumerator {
   private final String fieldName;
 
+  /// create a new enumeration context
+  /// @param fieldName the name of the field to enumerate
   public NBEnumContext(String fieldName) {
     this.fieldName = fieldName;
   }
-  private AtomicLong value = new AtomicLong(0L);
+  private final AtomicLong value = new AtomicLong(0L);
   @Override
   public long getAsLong() {
     return value.getAndIncrement();

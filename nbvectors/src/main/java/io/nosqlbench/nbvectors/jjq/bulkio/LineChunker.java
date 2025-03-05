@@ -28,11 +28,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 
+/// chunk a file in to [CharBuffer] chunks
 public class LineChunker implements Iterable<CharBuffer> {
   private final FileChannel channel;
-  public long lastOffset;
   private final int maxBufSize;
 
+  /// create a line chunker
+  /// @param path the path to the file to chunk
+  /// @param startAt the starting offset, inclusive
+  /// @param linesPerChunk the number of lines per chunk
   public LineChunker(Path path, long startAt, int linesPerChunk) {
     try {
       BufferedReader br = Files.newBufferedReader(path);
@@ -49,15 +53,17 @@ public class LineChunker implements Iterable<CharBuffer> {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    lastOffset = startAt;
   }
 
+  /// {@inheritDoc}
   @Override
   public Iterator<CharBuffer> iterator() {
     return new LineChunkIterator();
   }
 
   private class LineChunkIterator implements Iterator<CharBuffer> {
+
+    /// {@inheritDoc}
     @Override
     public boolean hasNext() {
       try {
@@ -67,6 +73,7 @@ public class LineChunker implements Iterable<CharBuffer> {
       }
     }
 
+    /// {@inheritDoc}
     @Override
     public CharBuffer next() {
       ByteBuffer buffer = ByteBuffer.allocate((int) maxBufSize);
@@ -92,7 +99,5 @@ public class LineChunker implements Iterable<CharBuffer> {
         throw new RuntimeException(e);
       }
     }
-
-
   }
 }

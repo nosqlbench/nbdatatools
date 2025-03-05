@@ -20,7 +20,13 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
 
 import java.nio.ByteBuffer;
 
+/// A predicate node is a node in a predicate tree
+/// @param <T> the type of self
 public sealed interface PNode<T> extends BBWriter<T> permits ConjugateNode, PredicateNode {
+
+    /// Create a predicate node from a byte buffer
+    /// @param b the byte buffer to decode the predicate node from
+    /// @return a predicate node
     public static PNode<?> fromBuffer(ByteBuffer b) {
         byte typeOrdinal = b.get(b.position());
         return switch(ConjugateType.values()[typeOrdinal]) {

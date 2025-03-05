@@ -20,19 +20,32 @@ package io.nosqlbench.nbvectors.verifyknn.options;
 
 import org.apache.logging.log4j.Level;
 
+/// Adapt standard diagnostic levels from a library-neutral type into a library-specific type,
+/// in this case log4j {@link Level}
 public enum ConsoleDiagnostics {
+  /// fatal, any error thrown at this level is presumed to be bad enough to force a shutdown
   FATAL(Level.FATAL),
+  /// normal errors that users should see, after which normal operation is not possible
   ERROR(Level.ERROR),
+  /// warnings, which are advisory but not a reason to stop running
   WARN(Level.WARN),
+  /// routine events that inform a user about what is happening
   INFO(Level.INFO),
+  /// play-by-play details which most users don't want unless they are trying to understand what
+  /// went wrong
   DEBUG(Level.DEBUG),
+  /// the finest grain of diagnostic data, use this sparingly, as it is almost never necessary
   TRACE(Level.TRACE);
 
   private final Level level;
 
+  /// create a console diagnostic level
   ConsoleDiagnostics(Level fatal) {
     this.level = fatal;
   }
+
+  /// get the log4j level for this diagnostic level
+  /// @return the log4j level
   public Level getLevel() {
     return level;
   }

@@ -29,11 +29,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 
+/// An implementation of output which writes all nodes to a file with {@link JsonNode#toString()}
 public class JsonlFileOutput implements Output {
   private final Path path;
   private final BufferedWriter writer;
 
 
+  /// create a jsonl file output
+  /// @param path the path to the file to write to
   public JsonlFileOutput(Path path) {
     this.path = path;
     if (path.getParent()!=null) {
@@ -51,6 +54,7 @@ public class JsonlFileOutput implements Output {
       throw new RuntimeException(e);
     }
   }
+
 
   @Override
   public void emit(JsonNode out) throws JsonQueryException {

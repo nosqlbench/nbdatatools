@@ -38,34 +38,60 @@ import java.util.List;
 /// way.
 public interface HdfTransformer {
 
+  /// transform a file node, or do nothing
+  /// @return a list of files to replace this one with, or null to do nothing
+  /// @param file the file to transform
   default List<HdfFile> transform(HdfFile file) {
     return null;
   }
 
+  /// transform a group node, or do nothing
+  /// @param group the group to transform
+  /// @return a list of groups to replace this one with, or null to do nothing
   default List<Group> transform(Group group) {
     return null;
   }
 
+  /// transform a dataset node, or do nothing
+  /// @param dataset the dataset to transform
+  /// @return a list of datasets to replace this one with, or null to do nothing
   default List<Dataset> transform(Dataset dataset) {
     return null;
   }
 
+  /// transform an attribute node, or do nothing
+  /// @param attribute the attribute to transform
+  /// @return a list of attributes to replace this one with, or null to do nothing
   default List<Attribute> transform(Attribute attribute) {
     return null;
   }
 
+  /// transform a committed datatype node, or do nothing
+  /// @param cdt the committed datatype to transform
+  /// @return a list of committed datatypes to replace this one with, or null to do nothing
   default List<CommittedDatatype> transform(CommittedDatatype cdt) {
     return null;
   }
 
+  /// transform a node, or do nothing
+  /// @param node the node to transform
+  /// @return a list of nodes to replace this one with, or null to do nothing
   default List<Node> transform(Node node) {
     return null;
   }
 
+  /// transform an attribute node, or do nothing
+  /// @param parent the parent node of the dataset to transform
+  /// @param attribute the attribute to transform
+  /// @return a list of attributes to replace this one with, or null to do nothing
   default List<Attribute> transformAttribute(Node parent, Attribute attribute) {
     return null;
   }
 
+  /// transform a group node, or do nothing
+  /// @param parent the parent node of the group to transform
+  /// @param group the group to transform
+  /// @return a list of groups to replace this one with, or null to do nothing
   default List<Group> transformGroup(Node parent, Group group) {
     return null;
   }

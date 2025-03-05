@@ -26,9 +26,16 @@ import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 
 /// This record type captures the basic requirements of a standard KNN answer key format.
 ///
-/// credits:
+/// Credits:
+///
 /// This starting point for this format was initially derived from the
 /// [ann-benchmark](https://github.com/erikbern/ann-benchmarks) HDF5 format.
+/// @param test the test dataset, containing query vectors, organized by index
+/// @param train the train dataset, containing all vectors to search, organized by index
+/// @param neighbors the neighbors dataset describing correct KNN results, organized by index
+/// @param distances the distances dataset describing pair-wise distances for neighbors,
+///  organized by index
+/// @param hdfFile the hdfFile containing the datasets
 public record KNNData(
     Dataset test,
     Dataset train,
@@ -37,6 +44,8 @@ public record KNNData(
     HdfFile hdfFile
 ) implements AutoCloseable
 {
+  /// create a knn data reader
+  /// @param hdfFile the hdfFile containing the datasets
   public KNNData(HdfFile hdfFile) {
     this(
         hdfFile.getDatasetByPath("/test"),
@@ -52,6 +61,9 @@ public record KNNData(
     hdfFile.close();
   }
 
+  /// Read a specific test vector from the HDF5 file based on its order in the dataset
+  /// @param index the index of the test vector to read
+  /// @return the test vector
   public LongIndexedFloatVector readHdf5TestVector(long index) {
     int[] testVectorDimensions = test().getDimensions();
     long[] testVectorOffsets = new long[testVectorDimensions.length];
@@ -64,6 +76,10 @@ public record KNNData(
     return new LongIndexedFloatVector(index, testVector);
   }
 
+  /// Read a specific range neighborhoods from the HDF5 file based on their order in the dataset
+  /// @param minIncluded the index of the neighborhood to read, inclusive
+  /// @param maxExcluded the last index of the neighborhood to read, exclusive
+  /// @return the neighborhoods
   public Neighborhood[] neighborhoods(long minIncluded, long maxExcluded) {
     Neighborhood[] neighborhoods = new Neighborhood[(int) (maxExcluded - minIncluded)];
     for (int i = 0; i < neighborhoods.length; i++) {
@@ -72,6 +88,9 @@ public record KNNData(
     return neighborhoods;
   }
 
+  /// Read a specific neighborhood from the HDF5 file based on its order in the dataset
+  /// @param ordinal the index of the neighborhood to read
+  /// @return the neighborhood
   public Neighborhood neighborhood(long ordinal)
   {
     Neighborhood answerKey = new Neighborhood();
@@ -88,10 +107,10 @@ public record KNNData(
     // normalize type to double, supporting maximum precision for both cases
     long[] neighborIndices = switch (neighborsData) {
       case long[][] longdata -> longdata[0];
-      case int[][] intdata -> {
-        long[] ary = new long[intdata[0].length];
+      case int[][] intData -> {
+        long[] ary = new long[intData[0].length];
         for (int i = 0; i < ary.length; i++) {
-          ary[i] = intdata[0][i];
+          ary[i] = intData[0][i];
         }
         yield ary;
       }
@@ -109,6 +128,9 @@ public record KNNData(
   }
 
 
+  /// Read a specific training vector from the HDF5 file based on its order in the dataset
+  /// @param testVectorOrdinal the index of the training vector to read
+  /// @return the training vector
   public float[] train(int testVectorOrdinal) {
     int[] trainVectorDimensions = train().getDimensions();
     trainVectorDimensions[0] = 1;
@@ -116,10 +138,11 @@ public record KNNData(
 
     trainVectorOffsets[0] = testVectorOrdinal;
     Object trainVectorData = train().getData(trainVectorOffsets, trainVectorDimensions);
-    float[] trainVector = ((float[][]) trainVectorData)[0];
-    return trainVector;
+    return ((float[][]) trainVectorData)[0];
   }
 
+  /// Get the number of training vectors in the HDF5 file
+  /// @return the number of training vectors
   public int trainingVectorCount() {
     return train().getDimensions()[0];
   }

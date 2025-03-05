@@ -21,10 +21,11 @@ package io.nosqlbench.nbvectors.verifyknn.statusview;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 
+/// a no-op status view
 public class StatusViewNoOp implements StatusView {
+
   @Override
   public void onStart(int totalQueryVectors) {
-
   }
 
   @Override

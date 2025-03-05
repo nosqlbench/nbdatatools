@@ -17,8 +17,11 @@ package io.nosqlbench.nbvectors.verifyknn.options;
  * under the License.
  */
 
-
+/// Determines whether a process should fail immediately on the first error, or continue until all
 public enum ErrorMode {
+
+  /// fail immediately on the first error
   Fail,
+  /// continue until all errors are found
   Tally
 }

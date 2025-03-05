@@ -39,7 +39,7 @@ package io.nosqlbench.nbvectors.taghdf.attrtypes;
 ///
 /// Everything which does not match one of the above forms is taken as a String value
 ///
-/// All types can be qualified as a literal by appending a letter to the end of the value.
+/// All types can be qualified as a literal by appending a letter to the max of the value.
 /// While it may seem too magical to auto-select the precision of numeric types for common cases,
 /// it is a robust simplification. If they try to use a value which is too large for the type,
 /// they will fail with a specific error message that explains the problem. If they try to use
@@ -47,6 +47,7 @@ package io.nosqlbench.nbvectors.taghdf.attrtypes;
 /// In all other cases, where compatible (big-enough) receiver types are provided or specified,
 /// things will simply work as expected.
 public enum ValueType {
+  /// A byte value
   BYTE(Byte.class) {
     @Override
     public Byte parse(String value) {
@@ -54,58 +55,77 @@ public enum ValueType {
           value.endsWith("B") || value.endsWith("b") ? value.substring(0, value.length() - 1) :
               value);
     }
-  }, INT(Integer.class) {
+  },
+  /// An integer value
+  INT(Integer.class) {
     @Override
     public Integer parse(String value) {
       return Integer.parseInt(
           value.endsWith("I") || value.endsWith("i") ? value.substring(0, value.length() - 1) :
               value);
     }
-  }, LONG(Long.class) {
+  },
+  /// A long value
+  LONG(Long.class) {
     @Override
     public Long parse(String value) {
       return Long.parseLong(
           value.endsWith("L") || value.endsWith("l") ? value.substring(0, value.length() - 1) :
               value);
     }
-  }, SHORT(Short.class) {
+  },
+  /// A short value
+  SHORT(Short.class) {
     @Override
     public Short parse(String value) {
       return Short.parseShort(
           value.endsWith("S") || value.endsWith("s") ? value.substring(0, value.length() - 1) :
               value);
     }
-  }, FLOAT(Float.class) {
+  },
+  /// A float value
+  FLOAT(Float.class) {
     @Override
     public Float parse(String value) {
       return Float.parseFloat(
           value.endsWith("F") || value.endsWith("f") ? value.substring(0, value.length() - 1) :
               value);
     }
-  }, DOUBLE(Double.class) {
+  },
+  /// A double value
+  DOUBLE(Double.class) {
     @Override
     public Double parse(String value) {
       return Double.parseDouble(
           value.endsWith("D") || value.endsWith("d") ? value.substring(0, value.length() - 1) :
               value);
     }
-  }, STRING(String.class) {
+  },
+  /// A string value
+  STRING(String.class) {
     @Override
     public String parse(String value) {
       return value;
     }
   };
 
+  /// the type of the value
   public final Class<?> type;
 
+  /// create a value type
   ValueType(Class<?> type) {
     this.type = type;
   }
 
-  // Abstract method for parsing the value
+  /// Abstract method for parsing the value
+  /// @param value the value to parse
+  /// @return the parsed value
+  /// @param <T> the type of the value
   public abstract <T> T parse(String value);
 
-  // Factory method to determine the enum type from the string
+  /// Factory method to determine the enum type from the string
+  /// @param value the value to parse
+  /// @return the parsed value
   public static ValueType fromLiteral(String value) {
     if (value.matches("[+-]?\\d+[bB]")) {
       return BYTE;
@@ -135,6 +155,7 @@ public enum ValueType {
     }
   }
 
+  /// count the number of digits in a string
   private int countDigits(String value) {
     return (int) value.chars().filter(Character::isDigit).count();
   }

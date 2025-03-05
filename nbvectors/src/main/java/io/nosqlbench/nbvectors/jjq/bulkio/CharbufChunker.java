@@ -21,24 +21,33 @@ package io.nosqlbench.nbvectors.jjq.bulkio;
 import java.nio.CharBuffer;
 import java.util.Iterator;
 
+/// Chunk CharBuffers on newline boundaries
 public class CharbufChunker implements Iterable<CharBuffer> {
   private final CharBuffer buf;
   private final int chunkSize;
 
+  /// Create a charbuf chunker
+  /// @param chunkSize minimum chunk size in characters
+  /// @param buf the source buffer
   public CharbufChunker(CharBuffer buf, int chunkSize) {
     this.buf = buf;
     this.chunkSize = chunkSize;
   }
 
+  /// Create a charbuf iterator from this chunker
   @Override
   public Iterator<CharBuffer> iterator() {
     return new CBIterator(buf, chunkSize);
   }
 
+  /// Implementation of char buf iterator for [CharbufChunker]
   public static class CBIterator implements Iterator<CharBuffer> {
     private final CharBuffer buf;
     private final int chunkSize;
 
+    /// create a char buf iterator
+    /// @param chunkSize minimum chunk size
+    /// @param buffer source charbuffer
     public CBIterator(CharBuffer buffer, int chunkSize) {
       this.buf = buffer;
       this.chunkSize = chunkSize;

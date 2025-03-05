@@ -20,7 +20,6 @@ package io.nosqlbench.nbvectors.jjq.evaluator;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import io.nosqlbench.nbvectors.jjq.bulkio.ConcurrentSupplier;
 import net.thisptr.jackson.jq.JsonQuery;
 import net.thisptr.jackson.jq.Output;
 import net.thisptr.jackson.jq.Scope;
@@ -28,6 +27,7 @@ import net.thisptr.jackson.jq.Scope;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/// A simple runnable implementation of a jq processor
 public class JqProc implements Runnable {
 
   private final Scope scope;
@@ -37,6 +37,13 @@ public class JqProc implements Runnable {
   private final Output output;
   private final String id;
 
+  /// create a jq processor
+  /// @param id a label for this processor, for debugging purposes
+  /// @param scope the jq scope to use for processing
+  /// @param jsonlSource the source of jsonl data to process
+  /// @param mapper a function to convert jsonl to json nodes
+  /// @param query the jq query to apply to the json nodes
+  /// @param output the output to write results to
   public JqProc(
       String id,
       Scope scope,
@@ -62,14 +69,6 @@ public class JqProc implements Runnable {
       String inputJson = null;
       while ((inputJson = jsonlSource.get()) != null) {
         count++;
-//        if ((count % 100) == 0) {
-//          System.out.print(".");
-//          //          System.out.println("id:" + id + " count:" + count);
-//          if ((count % 500) == 0) {
-//            System.out.println("\n");
-//          }
-//          System.out.flush();
-//        }
         try {
           node = mapper.apply(inputJson);
         } catch (Exception e) {

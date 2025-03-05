@@ -33,6 +33,12 @@ import net.thisptr.jackson.jq.path.Path;
 import java.util.List;
 import java.util.Map;
 
+/// an implementation of a jjq function `nbindex("fieldname";"statefile.json")`
+/// which will index the given fieldname in the JSON object stream,
+/// recording the enumerated index in the provided state file.
+/// ---
+/// The state for this should be instanced according to the user's requirements,
+/// and this needs to be made more flexible.
 @AutoService(Function.class)
 @BuiltinFunction({"nbindex/2"})
 public class nbindex extends NBBaseJQFunction {

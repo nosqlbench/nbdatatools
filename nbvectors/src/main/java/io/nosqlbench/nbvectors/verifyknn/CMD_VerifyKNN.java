@@ -52,7 +52,7 @@ import picocli.CommandLine.Option;
     description = """
         Reads query vectors from HDF5 data, computes KNN neighborhoods, and
         compares them against the answer-key data given. This is a pure Java
-        implementation which requires no other vector processing libraries 
+        implementation which requires no other vector processing libraries
         or hardware, so it has two key trade-offs with other methods:
         1. It is not as fast as a GPU or TPU. It is not expected to be.
         2. It is a vastly simpler implementation, which makes it arguably easier
@@ -74,7 +74,7 @@ import picocli.CommandLine.Option;
         "2: at least one tested neighborhood was incorrect"
     })
 public class CMD_VerifyKNN implements Callable<Integer> {
-  private static Logger logger = LogManager.getLogger(CMD_VerifyKNN.class);
+  private static final Logger logger = LogManager.getLogger(CMD_VerifyKNN.class);
   //  private final static Logger logger = NBLoggerContext.context().getLogger(NBVectors.class);
 
   @Option(names = {"-i", "--interval"},
@@ -127,6 +127,13 @@ public class CMD_VerifyKNN implements Callable<Integer> {
       Internal diagnostic level, sends content directly to the console.""", defaultValue = "ERROR")
   ConsoleDiagnostics diaglevel;
 
+  /// create a verifyknn command
+  public CMD_VerifyKNN() {
+  }
+
+
+  /// run a verifyknn command
+  /// @param args command line args
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
     System.setProperty(
@@ -153,11 +160,11 @@ public class CMD_VerifyKNN implements Callable<Integer> {
     int errors = 0;
     try (StatusView view = getStatusView(); KNNData knndata = new KNNData(new HdfFile(hdfpath))) {
       view.onStart(interval.count());
-      for (long index = interval.start(); index < interval.end(); index++) {
+      for (long index = interval.min(); index < interval.max(); index++) {
 
         // This is the query vector from the provided test data
         LongIndexedFloatVector providedTestVector = knndata.readHdf5TestVector(index);
-        view.onQueryVector(providedTestVector, index, interval.end());
+        view.onQueryVector(providedTestVector, index, interval.max());
 
         // This is the neighborhood from the provided test data, corresponding to the query
         // vector (we are checking this one for errors)
@@ -214,7 +221,7 @@ public class CMD_VerifyKNN implements Callable<Integer> {
       int chunkSize = Math.min(chunk + buffer_limit, totalTrainingVectors) - chunk;
       // buffer topK + chunkSize neighbors with distance
       NeighborIndex[] unsortedNeighbors = new NeighborIndex[chunkSize + topKResultBuffer.length];
-      // but include previous results at the end, so buffer addressing remains 0+...
+      // but include previous results at the max, so buffer addressing remains 0+...
       System.arraycopy(topKResultBuffer, 0, unsortedNeighbors, chunkSize, topKResultBuffer.length);
       view.onChunk(chunk, chunkSize, totalTrainingVectors);
       // fill the unordered neighborhood with the next batch of vector ordinals and distances

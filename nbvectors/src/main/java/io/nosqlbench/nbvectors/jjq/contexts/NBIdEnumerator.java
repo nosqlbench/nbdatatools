@@ -20,7 +20,10 @@ package io.nosqlbench.nbvectors.jjq.contexts;
 
 import java.util.function.LongSupplier;
 
+/// A stateful context interface for enumerating values
 public interface NBIdEnumerator extends LongSupplier {
+
+  /// get the next value as a long
   @Override
   long getAsLong();
 }

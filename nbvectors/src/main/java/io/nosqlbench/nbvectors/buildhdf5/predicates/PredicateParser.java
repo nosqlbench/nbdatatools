@@ -29,9 +29,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/// a converter from [JsonNode] objects to [PNode] objects.
 public class PredicateParser {
     private static final Set<String> CONJUGATE_OPS = Set.of("AND", "OR");
-    
+
+    /// Parse a JSON node into a [PNode] object
+    /// @param root the root JSON node to parse
+    /// @return a [PNode] object
     public static PNode<?> parse(JsonNode root) {
         validateRequiredField(root, "op");
         String operator = root.get("op").asText().toUpperCase();

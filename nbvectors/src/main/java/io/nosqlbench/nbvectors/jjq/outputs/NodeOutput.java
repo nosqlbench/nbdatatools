@@ -25,14 +25,18 @@ import net.thisptr.jackson.jq.exception.JsonQueryException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+/// An implementation of output which buffers results in a blocking queue.
 public class NodeOutput implements Output  {
 
   private final BlockingQueue<JsonNode> bq;
 
+  /// create a node output
+  /// @param limit the maximum number of nodes to buffer
   public NodeOutput(int limit) {
     this.bq = new ArrayBlockingQueue<>(limit);
   }
 
+  /// {@inheritDoc}
   @Override
   public void emit(JsonNode out) throws JsonQueryException {
     try {
@@ -42,6 +46,8 @@ public class NodeOutput implements Output  {
     }
   }
 
+  /// Take the next node from the queue
+  /// @return the next node
   public JsonNode take() {
     try {
       return bq.take();
@@ -49,6 +55,9 @@ public class NodeOutput implements Output  {
       throw new RuntimeException(e);
     }
   }
+
+  /// Determine whether the queue is empty
+  /// @return true if the queue is empty
   public boolean isEmpty() {
     return bq.isEmpty();
   }

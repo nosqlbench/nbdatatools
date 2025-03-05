@@ -23,14 +23,27 @@ import io.nosqlbench.nbvectors.verifyknn.datatypes.BitImage;
 import java.util.Arrays;
 import java.util.BitSet;
 
+/// Static computation methods used by various nbvectors classes
 public class Computations {
-  /// Take two arrays of unordered ints and compute the three
-  /// sets: a-only, common, b-only, AKA a-b, a∩b, b-a
-  /// with all elements in order
+  /// the first of three sets returned by {@link #partitions(long[], long[])}
   public static int SET_A = 0;
+  /// the second of three sets returned by {@link #partitions(long[], long[])}
   public static int SET_BOTH = 1;
+  /// the third of three sets returned by {@link #partitions(long[], long[])}
   public static int SET_B = 2;
 
+  /// given two sets of unordered longs, compute a-only, common, b-only, AKA a-b, a∩b, b-a
+  /// compute three sets of values and return them all
+  /// The returned arrays are enumerated as
+  /// result\[[#SET_A]\],
+  /// result\[[#SET_BOTH]\], and
+  /// result\[[#SET_B]\]:
+  /// 0. values only found in the first provided set; _A∖B_; _A-B_; _provided∖expected_
+  /// 1. values common to both sets; _A∩B_; _A intersect B_; _provided ∩ expected_
+  /// 2. values only found in the second provided set; _B∖A_; _B-A_; _expected∖provided_
+  /// @param provided The indices which were set
+  /// @param expected The indices which were expected to be set
+  /// @return the effective venn diagram members of A\B, A∩B, and B\A
   public static long[][] partitions(long[] provided, long[] expected) {
     Arrays.sort(provided);
     Arrays.sort(expected);
@@ -66,10 +79,9 @@ public class Computations {
     return new long[][] {a_view, common_view, b_view};
   }
 
-  /// Produce a dot-by-dot picture of the indices of the expected array
-  /// which are also present in the provided array. This uses
-  /// [unicode Braille](https://en.wikipedia.org/wiki/Braille_Patterns#Block) patterns
-  /// The visual order of values goes from top to bottom, then left to right.
+
+  /// Produce a bit image which represents a picture of expected array indices which are
+  /// also present in the provided array.
   /// ---
   /// ### examples
   /// ```
@@ -82,6 +94,10 @@ public class Computations {
   /// provided[0..15]                   expected[0..3,5,7,9,11,12]         image[⣗⡊]
   /// provided[0..31]                   expected[]                         image[⠀⠀⠀⠀]
   /// ```
+  ///
+  /// @param expected_ary The array of bits which are expected to be set
+  /// @param provided_ary The array of bits which were actually set
+  /// @return a bit image which
   ///
   public static BitImage matchingImage(long[] expected_ary, long[] provided_ary) {
     Arrays.sort(expected_ary);
@@ -113,6 +129,31 @@ public class Computations {
     return matching_bits;
   }
 
+  /// compute the difference between two sets of unsorted longs, covering over
+  /// only the values which are provided in either set, but with the sorted position of each of
+  /// represented solely by their rank.
+  /// ---
+  /// ### examples
+  /// ```text
+  ///   a [0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ] △ b [0 ,1, 2 ,3 ,4 ,5 ,6 ,7 ]
+  /// = a'[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ]   b'[0 ,1, 2 ,3 ,4 ,5 ,6 ,7 ]
+  ///
+  ///   a [3 ,5 ,9 ,17,32,33,88,99] △ b [3 ,5 ,9 ,17,32,33,88,99]
+  /// = a'[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ]   b'[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ]
+  ///
+  ///   a [0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ] △ b [33]
+  /// = a'[0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ]   b'[ 8]
+  ///
+  ///   a [0 ,1 ,2 ,3 ] △ b [0 ,4 ,5 ]
+  /// = a'[0 ,1 ,2 ,3, 4, 5 ], b'[0 ,4 ,5 ]
+  ///
+  ///   a [8, 6, 7, 5, 3, 0, 9 ] △ b [2 ,4, 6, 0, 1]
+  /// = a'[0 ,3 ,5 ,6 ,7 ,8 ,9 ]   b'[0, 1, 2, 4, 6]
+  /// ```
+  ///
+  /// @param a a set of long values
+  /// @param b a set of long values
+  /// @return the reduced sets of value indices
   public static BitSetDelta bitmaps(long[] a, long[] b) {
     Arrays.sort(a);
     Arrays.sort(b);
@@ -142,7 +183,11 @@ public class Computations {
     return new BitSetDelta(aBits, bBits);
   }
 
-  public static record BitSetDelta(BitSet provided, BitSet expected) {
+  /// Represents a delta △ between the provided and expected bitsets, like
+  /// {@link #bitmaps(long[], long[])}, but for bitsets instead
+  /// @param provided the actual indices, in the form of a bit mask
+  /// @param expected the expected indices, in the form of a bit mask
+  public record BitSetDelta(BitSet provided, BitSet expected) {
   }
 
 

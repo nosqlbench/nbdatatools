@@ -25,6 +25,7 @@ import net.thisptr.jackson.jq.exception.JsonQueryException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+/// An implementation of output which discards all results
 public class NullOutput implements Output  {
   @Override
   public void emit(JsonNode out) throws JsonQueryException {

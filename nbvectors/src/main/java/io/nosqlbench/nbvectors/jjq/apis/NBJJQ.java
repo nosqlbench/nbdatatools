@@ -24,7 +24,12 @@ import net.thisptr.jackson.jq.Scope;
 import java.util.List;
 import java.util.Map;
 
+/// A convenience class for accessing stateful context for CMD_jjq
 public class NBJJQ {
+
+  /// get the state context for a scope
+  /// @param scope the jq scope
+  /// @return the state context
   public static synchronized NBStateContext getContext(Scope scope) {
     Function nbs = scope.getFunction("nbstate", 0);
     if (nbs instanceof NBStateContextHolderHack nbsf) {
@@ -34,14 +39,24 @@ public class NBJJQ {
     }
 
   }
+
+  /// get the state map for a scope
+  /// @param scope the jq scope
+  /// @return the state map
   public static Map<String, Object> getState(Scope scope) {
     return getContext(scope).getState();
   }
 
+  /// register a function with a scope
+  /// @param f the function to register
+  /// @param scope the jq scope
   public synchronized static void register(NBBaseJQFunction f, Scope scope) {
     getContext(scope).register(f);
   }
 
+  /// get the list of registered functions for a scope
+  /// @param scope the jq scope
+  /// @return the list of registered functions
   public static List<NBBaseJQFunction> getRegisteredFunctions(Scope scope) {
     return getContext(scope).getRegisteredFunctions();
   }

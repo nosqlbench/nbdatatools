@@ -18,10 +18,15 @@ package io.nosqlbench.nbvectors.verifyknn.options;
  */
 
 
-///  Allow either min_included..max_excluded or simply max_excluded format
-public record Interval(long start, long end)  {
+/// Allow either `min_incl..max_excl` or simply `max_excl` format
+/// @param min the min value, inclusive
+/// @param max the max value, exclusive
+public record Interval(long min, long max)  {
+
+  /// get the number of values in the interval
+  /// @return the number of values in the interval
   public int count() {
-    return (int) (end()-start());
+    return (int) (max() - min());
   }
 
 }

@@ -21,12 +21,22 @@ package io.nosqlbench.nbvectors.jjq.apis;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+/// A state context interface for NB functions
 public interface NBStateContext extends AutoCloseable {
+
+  /// register a function with this context
+  /// @param f the function to register
   void register(NBBaseJQFunction f);
 
+  /// get the list of registered functions
+  /// @return the list of registered functions
   List<NBBaseJQFunction> getRegisteredFunctions();
 
+  /// get the state map for this context
+  /// @return the state map for this context
   ConcurrentHashMap<String, Object> getState();
 
+  /// register a shutdown hook with this context
+  /// @param statefulShutdown the shutdown hook to register
   void registerShutdownHook(StatefulShutdown statefulShutdown);
 }

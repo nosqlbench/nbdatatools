@@ -18,13 +18,9 @@ package io.nosqlbench.nbvectors.buildhdf5;
  */
 
 
-import io.jhdf.HdfFile;
-import io.jhdf.WritableHdfFile;
-import io.jhdf.api.Node;
 import io.nosqlbench.nbvectors.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.jjq.outputs.BufferOutput;
 import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
-import io.nosqlbench.nbvectors.verifyknn.options.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
@@ -32,10 +28,11 @@ import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
+/// Build HDF datafiles from the provided layout, including source files, jq recipes, analysis
+/// functions, and JSON object templates
 @CommandLine.Command(name = "buildhdf5",
     headerHeading = "Usage:%n%n",
     synopsisHeading = "%n",
@@ -52,7 +49,7 @@ import java.util.function.Supplier;
     })
 public class CMD_BuildHDF5 implements Callable<Integer> {
 
-  private static Logger logger = LogManager.getLogger(CMD_BuildHDF5.class);
+  private static final Logger logger = LogManager.getLogger(CMD_BuildHDF5.class);
 
   @Option(names = {"-o", "--outfile"},
       required = true,
@@ -66,10 +63,14 @@ public class CMD_BuildHDF5 implements Callable<Integer> {
       description = "The yaml file containing the layout " + "instructions.")
   private Path layoutPath;
 
+  /// create a buildhdf5 command
+  public CMD_BuildHDF5() {
+  }
+
+  /// run a buildhdf5 command
+  /// @param args command line args
   @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = """
       Internal diagnostic level, sends content directly to the console.""", defaultValue = "ERROR")
-  ConsoleDiagnostics diaglevel;
-
   public static void main(String[] args) {
 
     System.setProperty("slf4j.internal.verbosity", "ERROR");

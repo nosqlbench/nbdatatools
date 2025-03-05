@@ -18,6 +18,9 @@ package io.nosqlbench.nbvectors.verifyknn.datatypes;
  */
 
 
+/// a neighbor index containing both the dataset index and the associated distance
+/// @param index the index of the neighbor in the dataset
+/// @param distance the distance of the neighbor
 public record NeighborIndex(
     long index, double distance
 ) implements Comparable<NeighborIndex>

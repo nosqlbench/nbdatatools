@@ -22,7 +22,10 @@ import io.nosqlbench.nbvectors.verifyknn.datatypes.BitImage;
 
 import java.util.BitSet;
 
-/// #unicode braille
+/// Various braille formatting and conversion functions,
+/// used to crate a visual bitwise image of array values
+/// ---
+/// ## unicode braille table
 /// ```
 /// 0x00:0x20⠀  ⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⠒⠓⠔⠕⠖⠗⠘⠙⠚⠛⠜⠝⠞⠟
 /// 0x20:0x40  ⠠⠡⠢⠣⠤⠥⠦⠧⠨⠩⠪⠫⠬⠭⠮⠯⠰⠱⠲⠳⠴⠵⠶⠷⠸⠹⠺⠻⠼⠽⠾⠿
@@ -40,26 +43,31 @@ import java.util.BitSet;
 /// 3 6
 /// 7 8
 ///```
-/// ## ordinal transform
-/// lsb pos 3 -> 7
-/// lsb pos 4-6 -> 3-5
-
 public class Glyphs {
 
   /// This method will only use enough characters to represent the defined
   /// 1-bits. If you want to represent additional unset values, use [#braille(BitImage)]
+  /// @param bits the bit set to render
+  /// @return a braille string containing only the active bits
   public static String braille(BitSet bits) {
     byte[] bary = bits.toByteArray();
     return braille(bary);
   }
 
-  /// Convert bit positions to a visual representation, 4-bits per column, down and then right
+  /// Produce a dot-by-dot picture the provide bit image. This uses
+  /// [unicode Braille](https://en.wikipedia.org/wiki/Braille_Patterns#Block) patterns
+  /// The visual order of values goes from top to bottom, then left to right.
+  /// @return a braille string containing positions for all active and inactive bits, up to the
+  /// known length of the image
+  /// @param bits the source image
   public static String braille(BitImage bits) {
     byte[] bary = bits.toByteArray();
     return braille(bary);
   }
 
   /// Convert byte values to a visual representation, 4-bits per column, down and then right
+  /// @return a braille string for the given bytes
+  /// @param bytes the byte array to render
   public static String braille(byte[] bytes) {
     StringBuilder sb = new StringBuilder();
     for (byte b : bytes) {
@@ -68,9 +76,18 @@ public class Glyphs {
     return sb.toString();
   }
 
+  /// Render the given integer value as an equivalent braille character,
+  /// with the order going down first column, then down second column.
+  /// @param v the integer value to convert
+  /// @return a braille char representing the values of a int
   public static char braille(int v) {
     return braille((byte) v);
   }
+
+  /// Similar to {@link #braille(int)}, but for byte values.
+  /// Byte values here are converted to unsigned form.
+  /// @return a braille char representing the values of a byte
+  /// @param b the byte to render
   public static char braille(byte b) {
     int bits = Byte.toUnsignedInt(b);
     int image = bits & 7 | ((bits & 8) << 3) | ((bits & 112) >> 1) | bits & 128;
@@ -80,6 +97,10 @@ public class Glyphs {
 
   final static int BRAILLE_BASE = 0x2800;
 
+  /// Render the byte array in visual hex form, with spaces between
+  /// groups of 8 bytes and a visual `.` in between groups of 4 bytes
+  /// @param bytes the byte array to render
+  /// @return a hex string
   public static String hex(byte[] bytes) {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < bytes.length; i++) {

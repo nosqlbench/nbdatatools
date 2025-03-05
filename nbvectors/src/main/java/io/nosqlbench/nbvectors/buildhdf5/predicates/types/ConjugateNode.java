@@ -21,10 +21,15 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+/// A conjugate node represents a boolean conjugate like AND or OR
+/// @param type the type of {@link ConjugateType}
+/// @param values values to conjugate
 public record ConjugateNode(ConjugateType type, PNode<?>... values)
     implements BBWriter<ConjugateNode>, PNode<ConjugateNode>
 {
 
+  ///  create a conjugate node
+  /// @param b the byte buffer to decode the conjugate node from
   public ConjugateNode(ByteBuffer b) {
     this(ConjugateType.values()[b.get()], readValues(b));
   }
@@ -38,6 +43,9 @@ public record ConjugateNode(ConjugateType type, PNode<?>... values)
     return elements;
   }
 
+  /// Encode this conjugate node into a byte buffer
+  /// @param out the output buffer
+  /// @return the output buffer, for method chaining
   @Override
   public ByteBuffer encode(ByteBuffer out) {
     out.put((byte) this.type.ordinal()).put((byte) this.values.length);
@@ -49,7 +57,7 @@ public record ConjugateNode(ConjugateType type, PNode<?>... values)
 
   @Override
   public String toString() {
-    final StringBuffer sb = new StringBuffer("ConjugateNode{");
+    final StringBuilder sb = new StringBuilder("ConjugateNode{");
     sb.append("type=").append(type);
     sb.append(", v=").append(values == null ? "null" : Arrays.asList(values).toString());
     sb.append('}');

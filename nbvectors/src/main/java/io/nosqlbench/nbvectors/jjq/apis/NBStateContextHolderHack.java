@@ -58,11 +58,12 @@ public class NBStateContextHolderHack implements NBStateContext, Function, AutoC
   /// [NBBaseJQFunction#start] method is also called (just once).
   private final List<NBBaseJQFunction> registered = new ArrayList();
 
-
+  /// create a new state context
   public NBStateContextHolderHack() {
     System.err.println("initializing new state cache for NB Functions");
   }
 
+  /// {@inheritDoc}
   @Override
   public void apply(
       Scope scope,
@@ -78,26 +79,31 @@ public class NBStateContextHolderHack implements NBStateContext, Function, AutoC
                                + "function directly, which is not allowed.");
   }
 
+  /// {@inheritDoc}
   @Override
   public synchronized void register(NBBaseJQFunction f) {
     this.registered.add(f);
   }
 
+  /// {@inheritDoc}
   @Override
   public synchronized List<NBBaseJQFunction> getRegisteredFunctions() {
     return registered;
   }
 
+  /// {@inheritDoc}
   @Override
   public synchronized ConcurrentHashMap<String, Object> getState() {
     return state;
   }
 
+  /// {@inheritDoc}
   @Override
   public synchronized void registerShutdownHook(StatefulShutdown shutdownable) {
     this.statefulShutdowns.add(shutdownable);
   }
 
+  /// {@inheritDoc}
   @Override
   public synchronized void close() throws Exception {
     for (StatefulShutdown statefulShutdown : statefulShutdowns.reversed()) {

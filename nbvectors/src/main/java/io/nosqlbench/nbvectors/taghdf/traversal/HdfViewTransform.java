@@ -23,9 +23,26 @@ import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 
+/// This interface allows for transformation of the HDF5 file structure.
 public interface HdfViewTransform {
+
+    /// return the replacement node, or null to do nothing
+    /// @param node the node to transform
+    /// @return the replacement node, or null to do nothing
     Node transform(Node node);
+
+    /// return the replacement group, or null to do nothing
+    /// @param group the group to transform
+    /// @return the replacement group, or null to do nothing
     Group transform(Group group);
+
+    /// return the replacement dataset, or null to do nothing
+    /// @param dataset the dataset to transform
+    /// @return the replacement dataset, or null to do nothing
     Dataset transform(Dataset dataset);
+
+    /// return the replacement committed datatype, or null to do nothing
+    /// @param cdt the committed datatype to transform
+    /// @return the replacement committed datatype, or null to do nothing
     CommittedDatatype transform(CommittedDatatype cdt);
 }

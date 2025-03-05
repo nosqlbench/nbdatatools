@@ -22,11 +22,18 @@ import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 
 import java.util.regex.Pattern;
 
+/// test cql predicate binding - experimental
 public class CqlPredBinderTest implements Templatizer<String,String> {
+
+  /// The string to replace in the template with the predicate syntax
   public static final String PREDICATE = "{PREDICATE}";
+  /// A base template which contains {@link #PREDICATE}
   private final String baseTemplate;
+  /// The template literals in between and around {@link #PREDICATE}
   private final String[] baseparts;
 
+  /// Experimental type for binding
+  /// @param baseTemplate a base CQL template string, to be extended with predicate syntax
   public CqlPredBinderTest(String baseTemplate) {
     this.baseTemplate = baseTemplate;
     if (!baseTemplate.contains(PREDICATE)) {

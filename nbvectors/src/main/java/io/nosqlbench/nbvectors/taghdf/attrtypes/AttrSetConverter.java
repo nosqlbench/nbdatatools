@@ -20,9 +20,11 @@ package io.nosqlbench.nbvectors.taghdf.attrtypes;
 
 import picocli.CommandLine;
 
+/// A converter for the {@link AttrSet} type
+/// @see AttrSet
 public class AttrSetConverter implements CommandLine.ITypeConverter<AttrSet> {
   @Override
-  public AttrSet convert(String value) throws Exception {
+  public AttrSet convert(String value)  {
     return AttrSet.parse(value);
   }
 }

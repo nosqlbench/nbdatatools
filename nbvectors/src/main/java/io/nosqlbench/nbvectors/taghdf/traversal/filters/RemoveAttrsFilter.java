@@ -18,5 +18,6 @@ package io.nosqlbench.nbvectors.taghdf.traversal.filters;
  */
 
 
+/// an experimental filter which removes attributes, not implemented yet
 public class RemoveAttrsFilter extends BaseHdfVisitorFilter {
 }

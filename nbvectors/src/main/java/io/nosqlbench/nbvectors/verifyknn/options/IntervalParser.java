@@ -23,20 +23,24 @@ import picocli.CommandLine;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/// A parser for the {@link Interval} type
 public class IntervalParser implements CommandLine.ITypeConverter<Interval> {
-  final static Pattern format = Pattern.compile("^((?<start>\\d+)\\.\\.)?(?<end>\\d+)$");
+  final static Pattern format = Pattern.compile("^((?<minIncl>\\d+)\\.\\.)?(?<maxExcl>\\d+)$");
 
+  /// create an interval parser
   public IntervalParser() {
   }
 
+  /// convert a string to an interval, using the format {@code minIncl..maxExcl}, or {@code maxExcl}
+  /// For example, `5` means `0..5`, to include 0, 1, 2, 3, and 4.
   @Override
-  public Interval convert(String value) throws Exception {
+  public Interval convert(String value) {
     Matcher matcher = format.matcher(value);
     if (matcher.matches()) {
-      String start = matcher.group("start");
-      start = (start != null) ? start : "0";
-      String end = matcher.group("end");
-      return new Interval(Long.parseLong(start), Long.parseLong(end));
+      String minIncl = matcher.group("minIncl");
+      minIncl = (minIncl != null) ? minIncl : "0";
+      String maxExcl = matcher.group("maxExcl");
+      return new Interval(Long.parseLong(minIncl), Long.parseLong(maxExcl));
     } else {
       throw new IllegalArgumentException("Invalid interval: " + value);
     }

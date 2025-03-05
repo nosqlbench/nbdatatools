@@ -17,7 +17,8 @@ package io.nosqlbench.nbvectors.jjq.apis;
  * under the License.
  */
 
-
+/// Implementors of this interface need to be shutdown to maintain consistency with state
 public interface StatefulShutdown {
+  /// shutdown this object
   void shutdown();
 }

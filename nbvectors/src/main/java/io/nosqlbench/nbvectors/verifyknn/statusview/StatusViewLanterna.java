@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+/// a Lanterna implementation of the status view, providing full-screen interactive status
 public class StatusViewLanterna implements AutoCloseable, StatusView {
 
   private final Terminal terminal;
@@ -51,6 +52,8 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
   private int totalQueryVectors;
   private int currentQueryVector;
 
+  /// create a status view with the given number of summaries
+  /// @param summaries the number of summaries to display
   public StatusViewLanterna(int summaries) {
     this.summaries = summaries;
     this.lastComparisonText = new TextBox[summaries];

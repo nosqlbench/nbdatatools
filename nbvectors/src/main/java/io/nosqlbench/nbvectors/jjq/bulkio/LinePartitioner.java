@@ -25,10 +25,16 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+/// a partitioner of lines from a file
 public class LinePartitioner implements Iterable<LinePartitioner.Extent> {
 
   private final List<Extent> extents = new ArrayList<>();
 
+  /// create a line partitioner
+  /// @param path the path to the file to partition
+  /// @param startIncl the starting offset, inclusive
+  /// @param endExcl the ending offset, exclusive
+  /// @param partitions the number of partitions to create
   public LinePartitioner(Path path, long startIncl, long endExcl, int partitions) {
     try {
       FileChannel channel = FileChannel.open(path);
@@ -43,12 +49,20 @@ public class LinePartitioner implements Iterable<LinePartitioner.Extent> {
     }
   }
 
+  /// get the extents
   @Override
   public Iterator<Extent> iterator() {
     return extents.iterator();
   }
 
-  public static record Extent(long start, long end) {
+  /// an extent of a file
+  /// @param start the starting offset, inclusive
+  /// @param end the ending offset, exclusive
+  public record Extent(long start, long end) {
+    /// partition the extent into a list of extents
+    /// @param br the file channel to read from
+    /// @param partitions the number of partitions to create
+    /// @return a list of extents
     public List<Extent> partition(FileChannel br, int partitions) {
       return null;
     }

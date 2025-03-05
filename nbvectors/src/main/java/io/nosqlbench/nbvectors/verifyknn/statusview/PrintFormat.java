@@ -24,9 +24,16 @@ import io.nosqlbench.nbvectors.verifyknn.datatypes.Neighborhood;
 
 import java.util.Arrays;
 
+/// Provides different ways to print out vector data
 public enum PrintFormat {
+  /// print everything
   all;
 
+  /// render according to the print format
+  /// @param description a description of the data being printed
+  /// @param testVector the test vector
+  /// @param neighbors the neighbors
+  /// @return a string builder containing the rendered data
   public static StringBuilder format(
       String description,
       LongIndexedFloatVector testVector,

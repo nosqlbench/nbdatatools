@@ -32,6 +32,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+/// an implementation of a jjq function `nbhisto("")`
+/// This tallies the histogram for all values of the given field
+/// in the `nbhistogram_counts` context variable, and then
+/// prints them out at shutdown.
+/// ---
+/// This does not instance its state per call, and this needs to be fixed.
 @AutoService(Function.class)
 @BuiltinFunction({"nbhisto/1"})
 public class nbhisto extends NBBaseJQFunction {
@@ -61,6 +67,7 @@ public class nbhisto extends NBBaseJQFunction {
     output.emit(in, path);
   }
 
+  /// {@inheritDoc}
   @Override
   public void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx) {
     Map<String, Object> state = getState();
@@ -71,6 +78,7 @@ public class nbhisto extends NBBaseJQFunction {
         );
   }
 
+  /// {@inheritDoc}
   @Override
   public void shutdown() {
     System.out.println(counts);

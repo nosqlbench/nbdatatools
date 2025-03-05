@@ -18,6 +18,9 @@ package io.nosqlbench.nbvectors.jjq.bulkio;
  */
 
 
+/// Implementors of this interface allow for a richer debugging view
 public interface DiagToString {
+  /// an enhanced diagnostic string
+  /// @return an enhance diagnostic string
   String toDiagString();
 }

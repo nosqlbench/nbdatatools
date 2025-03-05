@@ -1,3 +1,4 @@
+/// This package implements ways of binding data and templates together
 package io.nosqlbench.nbvectors.buildhdf5.binders;
 
 /*
@@ -17,25 +18,3 @@ package io.nosqlbench.nbvectors.buildhdf5.binders;
  * under the License.
  */
 
-
-import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Supplier;
-
-public class CqlPredScanner {
-  Supplier<PNode<?>> nodeSource;
-
-//  public Set<String> scan(Supplier<PNode<?>> nodeSource, CqlTemplateRepresenter repr) {
-//    Set<String> forms = new HashSet<>();
-//
-//    PNode<?> pn;
-//    while ((pn = nodeSource.get()) != null) {
-//      forms.add(repr.apply(pn));
-//    }
-//    return forms;
-//  }
-}

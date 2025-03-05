@@ -26,16 +26,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/// When the node of one of the fully-qualified attributes
+/// When the node of one of the fully qualified attributes
 /// in the map is seen, it is set as an attribute on that node
 /// and removed from the map.
 ///
-/// When there are remaining attrs in the map at the end, an error should be thrown.
+/// When there are remaining attrs in the map at the max, an error should be thrown.
 public class HdfSetAttributesVisitor extends BaseHdfVisitor {
 
   private final Map<String, Map<String, AttrSet>> attrs = new HashMap<>();
   private final WritableHdfFile out;
 
+  /// create a set-attributes visitor
+  /// @param out the file to write to
+  /// @param specifiers the attributes to set
   public HdfSetAttributesVisitor(WritableHdfFile out, List<String> specifiers) {
     this.out = out;
     for (String specifier : specifiers) {
@@ -46,6 +49,8 @@ public class HdfSetAttributesVisitor extends BaseHdfVisitor {
     }
   }
 
+
+  /// {@inheritDoc}
   @Override
   public void enterNode(Node node) {
     if (attrs.containsKey(node.getName())) {
@@ -59,6 +64,7 @@ public class HdfSetAttributesVisitor extends BaseHdfVisitor {
     super.enterNode(node);
   }
 
+  /// {@inheritDoc}
   @Override
   public void finish() {
     if (!attrs.isEmpty()) {

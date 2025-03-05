@@ -21,18 +21,33 @@ package io.nosqlbench.nbvectors.verifyknn.datatypes;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+/// A neighborhood is a list of neighbors, each with an index and distance
 public class Neighborhood extends ArrayList<NeighborIndex> {
+  /// create a neighborhood from an array of neighbor indices
+  /// @param lastResults the neighbor indices
+  /// @see NeighborIndex
   public Neighborhood(NeighborIndex[] lastResults) {
     this.addAll(Arrays.asList(lastResults));
   }
+
+  /// create an empty neighborhood
   public Neighborhood() {
     super();
   }
+
+  /// add a neighbor to the neighborhood
+  /// @param index the index of the neighbor
+  /// @param distance the distance of the neighbor
+  /// @return this neighborhood, for method chaining
+  /// @see NeighborIndex
   public Neighborhood add(long index, double distance) {
     this.add(new NeighborIndex(index, distance));
     return this;
   }
 
+  /// get the indices of the neighbors in this neighborhood
+  /// @return the indices of the neighbors in this neighborhood
+  /// @see NeighborIndex
   public long[] getIndices() {
     return this.stream().mapToLong(NeighborIndex::index).toArray();
   }

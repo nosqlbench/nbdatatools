@@ -29,8 +29,6 @@ import io.jhdf.object.message.DataLayout;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,11 +40,13 @@ import java.util.Map;
 /// more complex. As long as the non-data elements fit into an in-memory model,
 /// mutation commands can be applied to it directly, and then rendered to a new file.
 ///
-/// This would been easier to implement as a derived type, although the hdfBackingStorage
+/// This would have been easier to implement as a derived type, although the hdfBackingStorage
 /// field is not accessible to use in a constructor.
 public class DatasetDataProxy implements Dataset {
   private final Dataset dataset;
 
+  /// create a dataset proxy
+  /// @param dataset the dataset to proxy
   public DatasetDataProxy(
       Dataset dataset
   )

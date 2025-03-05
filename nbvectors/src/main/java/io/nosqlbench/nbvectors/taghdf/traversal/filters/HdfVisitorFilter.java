@@ -25,23 +25,37 @@ import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 
+/// An experimental interface for filtering nodes during a node walk
 public interface HdfVisitorFilter {
 
+  /// return false to skip this node
+  /// @param node the node to skip or visit
+  /// @return false to skip this node
   boolean enterNode(Node node);
 
-  boolean leaveNode(Node node);
-
+  /// return false to skip this dataset
+  /// @param dataset the dataset to skip or visit
+  /// @return false to skip this dataset
   boolean dataset(Dataset dataset);
 
+  /// return false to skip this attribute
+  /// @param attribute the attribute to skip or visit
+  /// @return false to skip this attribute
   boolean attribute(Attribute attribute);
 
+  /// return false to skip this committed datatype
+  /// @param cdt the committed datatype to skip or visit
+  /// @return false to skip this committed datatype
   boolean committedDataType(CommittedDatatype cdt);
 
+  /// return false to skip this group
+  /// @param group the group to skip or visit
+  /// @return false to skip this group
   boolean enterGroup(Group group);
 
+  /// return false to skip this file
+  /// @param file the file to skip or visit
+  /// @return false to skip this file
   boolean enterFile(HdfFile file);
 
-  boolean leaveFile(HdfFile file);
-
-  boolean leaveGroup(Group group);
 }

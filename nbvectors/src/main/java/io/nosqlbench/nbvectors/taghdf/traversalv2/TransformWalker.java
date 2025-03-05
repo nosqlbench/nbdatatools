@@ -25,18 +25,28 @@ import io.jhdf.api.*;
 import java.util.List;
 import java.util.Map;
 
+/// experimental implementation of a transform walker
 public class TransformWalker {
   private final WritableGroup out;
   private final HdfTransformer transformer;
   private final boolean walknew;
 
+  /// create a new transform walker
+  /// @param out the file to write to
+  /// @param transformer the transformer to use
+  /// @param walknew whether to walk new elements
+  /// @see HdfTransformer
   public TransformWalker(WritableGroup out, HdfTransformer transformer, boolean walknew) {
     this.out = out;
     this.transformer = transformer;
     this.walknew = walknew;
   }
 
-  ///  TODO: Should traversal re-traverse new elements?
+  //  TODO: Should traversal re-traverse new elements?
+
+  /// traverse a node and its children, calling the appropriate methods on the visitor.
+  /// @param node the node to traverse
+  /// @param parent the parent node of the node to traverse
   public void traverseNode(Node node, Node parent) {
 
     Map<String, Attribute> attributes1 = node.getAttributes();
@@ -90,7 +100,6 @@ public class TransformWalker {
       }
       default -> throw new RuntimeException("Unrecognized node type: " + node);
     }
-//    return out;
   }
 
 }

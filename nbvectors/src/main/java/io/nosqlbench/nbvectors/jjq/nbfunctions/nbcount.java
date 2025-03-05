@@ -30,9 +30,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+/// an implementation of a jjq function `nbcount()`
+/// This counts the number of objects which are not null
 @AutoService(Function.class)
 @BuiltinFunction({"nbcount/0"})
 public class nbcount extends NBBaseJQFunction {
+
+  /// create a nbcount function
+  public nbcount() {
+  }
+
   private AtomicLong counter;
   @Override
   public void doApply(
