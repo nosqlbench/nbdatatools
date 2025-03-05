@@ -53,6 +53,7 @@ jobs:
             },
             {
                 "id": "gpg.passphrase",
+                "username": "nosqlbenchdroid@gmail.com",
                 "passphrase": "${{ secrets.GPG_PASSPHRASE }}"
             }
             ]
