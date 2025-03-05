@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
   <description>A collection of test data tools</description>
   <properties>
-    <revision>0.1.0-SNAPSHOT</revision>
+    <revision>0.1.1-SNAPSHOT</revision>
   </properties>
 
   <!-- NOTE: This reactor project uses the container project for defaults.
