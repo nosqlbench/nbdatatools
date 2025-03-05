@@ -1,0 +1,10 @@
+       0123456789012345678901234567890123456789012345678901234         len
+       |         |         |         |         |         |        |
+000 __ one two three four five                               __    23  23
+023 __ six seven eight nine ten                              __    47  24
+047 __ eleven twelve thirteen fourteen fifteen               __    86  39
+086 __ sixteen seventeen eighteen nineteen twenty            __    128 42
+128 __ twentyone twentytwo twentythree twentyfour twentyfive __    181 53
+181 __ twentysix twentyseven twentyeight twentynine thirty   __    234 51
+       |         |         |         |         |         |         |
+       0123456789012345678901234567890123456789012345678901234

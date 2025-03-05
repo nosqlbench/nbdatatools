@@ -6,9 +6,15 @@
 
   <groupId>io.nosqlbench</groupId>
   <artifactId>nbdatatools</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>${revision}</version>
   <packaging>pom</packaging>
   <description>A collection of test data tools</description>
+  <properties>
+    <revision>1.0.0-SNAPSHOT</revision>
+  </properties>
+
+  <!-- NOTE: This reactor project uses the container project for defaults.
+             If necessary, a separate defaults module should be created. -->
 
   <dependencies>
     <dependency>
@@ -17,11 +23,95 @@
       <version>3.5.0</version>
     </dependency>
   </dependencies>
+
   <modules>
     <module>nbvectors</module>
   </modules>
+
+  <developers>
+    <developer>
+      <name>Jonathan Shook</name>
+      <email>jshook@gmail.com</email>
+      <organization>nosqlbench.io</organization>
+      <organizationUrl>https://nosqlbench.io/</organizationUrl>
+    </developer>
+    <developer>
+      <name>Mark Wolters</name>
+      <email>mwolters138@gmail.com</email>
+      <organization>nosqlbench.io</organization>
+      <organizationUrl>https://nosqlbench.io/</organizationUrl>
+    </developer>
+  </developers>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>central</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+    </snapshotRepository>
+    <repository>
+      <id>central</id>
+      <url>https://central.sonatype.com/</url>
+    </repository>
+  </distributionManagement>
+
+  <repositories>
+    <repository>
+      <name>Central Portal Snapshots</name>
+      <id>central-portal-snapshots</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+  <scm>
+    <connection>scm:git:git://github.com/nosqlbench/nbdatatools.git</connection>
+    <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git</developerConnection>
+    <url>http://github.com/nosqlbench/nbdatatools/tree/main</url>
+  </scm>
+
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>3.1.3</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.7.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <excludeArtifacts>
+            <artifact>nbdatatools</artifact>
+          </excludeArtifacts>
+          <publishingServerId>portal-snapshots</publishingServerId>
+          <autoPublish>true</autoPublish>
+          <waitUntil>uploaded</waitUntil>
+
+          <publishingServerId>central</publishingServerId>
+          <autoPublish>false</autoPublish>
+          <waitUntil>uploaded</waitUntil>
+          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>
+
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
@@ -34,24 +124,128 @@
             </goals>
             <configuration>
               <rules>
-<!--                The GraalVM vendor version is only enforced in the native profile -->
-<!--                <requireProperty>-->
-<!--                  <property>java.vendor.version</property>-->
-<!--                  <regex>.*GraalVM.*</regex>-->
-<!--                  <message>-->
-<!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
-<!--                  </message>-->
-<!--                </requireProperty>-->
+                <!--                The GraalVM vendor version is only enforced in the native profile -->
+                <!--                <requireProperty>-->
+                <!--                  <property>java.vendor.version</property>-->
+                <!--                  <regex>.*GraalVM.*</regex>-->
+                <!--                  <message>-->
+                <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
+                <!--                  </message>-->
+                <!--                </requireProperty>-->
                 <requireJavaVersion>
                   <version>[23,)</version>
                 </requireJavaVersion>
-                <dependencyConvergence/>
+<!--                <dependencyConvergence>-->
+<!--                </dependencyConvergence>-->
                 <requireProfileIdsExist/>
               </rules>
             </configuration>
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.0.1</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+            <configuration>
+              <gpgArguments>
+                <cmdParam>--pinentry-mode</cmdParam>
+                <cmdParam>loopback</cmdParam>
+              </gpgArguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>0.15</version>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <includes>
+            <include>**/*.java</include>
+          </includes>
+          <excludes>
+            <exclude>**/gen/**</exclude>
+            <exclude>**/generated/**</exclude>
+            <exclude>**/jmh_generated/**</exclude>
+            <exclude>**/generated-sources/**</exclude>
+          </excludes>
+          <addLicenseHeaders>true</addLicenseHeaders>
+          <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
+        </configuration>
+      </plugin>
+
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>1.3.0</version>
+        <configuration>
+          <updatePomFile>true</updatePomFile>
+          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>flatten.clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
     </plugins>
+
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <includes>
+          <include>META_INF/services/**</include>
+          <!--          <include>META-INF/functions</include>-->
+          <!--          <include>data/**</include>-->
+          <!--          <include>docs-for-virtdata/**</include>-->
+          <!--          <include>docs/**</include>-->
+        </includes>
+      </resource>
+    </resources>
   </build>
+
 </project>

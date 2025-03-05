@@ -1,0 +1,122 @@
+direction: right
+
+**: {
+
+}
+classes: {
+  white square: {
+    label: ""
+    width: 120
+    style: {
+      fill: white
+      stroke: cornflowerblue
+      stroke-width: 10
+    }
+  }
+  block: {
+    style: {
+      text-transform: uppercase
+      font-color: white
+      fill: darkcyan
+      stroke: black
+    }
+  }
+}
+
+datasets:"query data" {
+ grid-rows: 1;
+ grid-columns: 4;
+ style.fill: white;
+# invis1:"" { style.opacity: 0; width:0; };
+
+n: {
+  grid-columns: 1;
+  grid-gap: 0;
+  0:"[0]";
+  1:"[1]";
+  2:"[2]";
+  3:"[3]";
+  4:"[4]";
+}
+
+test {
+	grid-columns: 1;
+	grid-gap: 0;
+	label: "test (query vectors)"
+	0 { label:""; grid-rows:1; grid-gap: 0; '0.1';	'0.2';	'0.3';  '0.4'; }
+	1 { label:""; grid-rows:1; grid-gap: 0; '0.1';	'0.2';	'0.3';  '0.4'; }
+	2 { label:""; grid-rows:1; grid-gap: 0; '0.1';	'0.2';	'0.3';  '0.4'; }
+	3 { label:""; grid-rows:1; grid-gap: 0; '0.1';	'0.2';	'0.3';  '0.4'; }
+	4 { label:""; grid-rows:1; grid-gap: 0; '0.1';	'0.2';	'0.3';  '0.4'; }
+}
+
+n.0 -> test.0 <-> sets.0 <-> neighbors.0;
+n.1 -> test.1 <-> sets.1 <-> neighbors.1;
+n.2 -> test.2 <-> sets.2 <-> neighbors.2;
+n.3 -> test.3 <-> sets.3 <-> neighbors.3;
+n.4 -> test.4 <-> sets.4 <-> neighbors.4;
+
+sets:"train_sets" {
+	direction: right
+	grid-rows: 4;
+  grid-columns: 1;
+  grid-gap: 0;
+  0 { label:""; grid-rows:1; grid-gap: 0; '23'}
+  1 { label:""; grid-rows:1; grid-gap: 0; '17'; '23' }
+  2 { label:""; grid-rows:1; grid-gap: 0; '10'}
+  3 { label:""; grid-rows:1; grid-gap: 0; '10'; '17';'23'; }
+  4 { label:""; grid-rows:1; grid-gap: 0; '17'; '23'; }
+}
+
+neighbors {
+	direction: right
+	grid-rows: 6;
+	grid-gap:0;
+	0 { label:""; grid-rows:1; grid-gap: 0; 3; 2; 9; 8; 1; }
+	1 { label:""; grid-rows:1; grid-gap: 0; 2; 3; 5; 8; 10; }
+	2 { label:""; grid-rows:1; grid-gap: 0; 2; 3; 5; 8; 10; }
+	3 { label:""; grid-rows:1; grid-gap: 0; 2; 3; 5; 8; 10; }
+	4 { label:""; grid-rows:1; grid-gap: 0; 2; 3; 5; 8; 10; }
+}
+
+}
+
+training:"training vectors" {
+ grid-rows: 1;
+ grid-columns: 4;
+ style.fill: white;
+
+ n {
+  	grid-rows: 10;
+  	grid-gap: 0;
+  	0:"[0]";
+  	1:"[1]";
+  	2:"[2]";
+  	3:"[3]";
+ }
+  train {
+  	direction: right
+  	grid-rows: 10;
+  	grid-gap:0;
+  	0 { label:""; grid-rows:1; grid-gap: 0; '0.1';	'0.2';	'0.3';  '0.4'; }
+  	1 { label:""; grid-rows:1; grid-gap: 0; '0.32';	'0.23';	'-0.34';  '0.404'; }
+  	2 { label:""; grid-rows:1; grid-gap: 0; '0.1';	'0.2';	'0.3';  '0.4'; }
+  	3 { label:""; grid-rows:1; grid-gap: 0; '0.1';	'0.2';	'0.3';  '0.4'; }
+  }
+
+  set {
+    grid-columns: 1;
+    grid-gap: 0;
+    0 { label:""; grid-rows:1; grid-gap: 0; '23'}
+    1 { label:""; grid-rows:1; grid-gap: 0; '23'}
+    2 { label:""; grid-rows:1; grid-gap: 0; '10'}
+    3 { label:""; grid-rows:1; grid-gap: 0; '17'}
+  }
+
+  n.0 -> train.0 <-> set.0
+  n.1 -> train.1 <-> set.1
+  n.2 -> train.2 <-> set.2
+  n.3 -> train.3 <-> set.3
+
+}
+
