@@ -47,7 +47,7 @@ jobs:
 #          echo 'default-key:0:"53B2125BD35458CCD4EE09DF462ADC08EEAA2F8E' | gpgconf --change-options gpg
 
       - name: configure maven servers
-        uses: s4u/maven-settings-action@v3.1.0F
+        uses: s4u/maven-settings-action@v3.1.0
         with:
           servers: |
             [
