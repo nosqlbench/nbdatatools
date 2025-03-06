@@ -1,4 +1,4 @@
-/// This package contains the implementation of the {@link io.nosqlbench.nbvectors.showhdf5.CMD_ShowHDF5} command
+/// the {@link io.nosqlbench.nbvectors.showhdf5.CMD_ShowHDF5} command
 package io.nosqlbench.nbvectors.showhdf5;
 
 /*

@@ -1,4 +1,4 @@
-/// This package contains the public APIs for the jjq command
+/// public APIs for the jjq command
 package io.nosqlbench.nbvectors.jjq.apis;
 
 /*

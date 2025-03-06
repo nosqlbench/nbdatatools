@@ -1,4 +1,4 @@
-/// This package contains implementations of {@link io.nosqlbench.nbvectors.buildhdf5.predicates.types.NodeRepresenter}
+/// implementations of {@link io.nosqlbench.nbvectors.buildhdf5.predicates.types.NodeRepresenter}
 package io.nosqlbench.nbvectors.buildhdf5.predicates.repr;
 
 /*

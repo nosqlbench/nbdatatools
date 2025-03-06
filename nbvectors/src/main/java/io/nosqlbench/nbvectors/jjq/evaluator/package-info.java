@@ -1,4 +1,4 @@
-/// This package contains the evaluation logic for the jjq command
+/// evaluation logic for the jjq command
 package io.nosqlbench.nbvectors.jjq.evaluator;
 
 /*

@@ -1,5 +1,4 @@
-/// This package contains node traversal visitor, implementations of
-///  {@link io.nosqlbench.nbvectors.taghdf.traversal.visitors.HdfVisitor}
+/// implementations of {@link io.nosqlbench.nbvectors.taghdf.traversal.visitors.HdfVisitor}
 package io.nosqlbench.nbvectors.taghdf.traversal.visitors;
 
 /*

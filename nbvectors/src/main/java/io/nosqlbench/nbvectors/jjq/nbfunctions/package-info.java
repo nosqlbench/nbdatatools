@@ -1,4 +1,6 @@
-///  Each function should be named as it is implemented, including case
+/// extended functions for use with the {@link io.nosqlbench.nbvectors.jjq.CMD_jjq} command
+///
+/// Each function should be named as it is implemented, including case.
 /// Those functions which need to have state which is tracked over many objects
 /// or threads should delegate such state management to a context. See the contexts
 /// package for details.

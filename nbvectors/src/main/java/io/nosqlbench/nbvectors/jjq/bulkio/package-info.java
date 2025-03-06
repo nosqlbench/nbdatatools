@@ -1,4 +1,4 @@
-/// This package contains IO methods for working with jjq
+/// IO methods for working with jjq
 package io.nosqlbench.nbvectors.jjq.bulkio;
 
 /*

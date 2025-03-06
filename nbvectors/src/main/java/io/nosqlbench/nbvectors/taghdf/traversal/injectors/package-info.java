@@ -1,4 +1,4 @@
-/// This package contains node traversal injectors, implementations of
+/// implementations of node traversal injectors
 package io.nosqlbench.nbvectors.taghdf.traversal.injectors;
 
 /*

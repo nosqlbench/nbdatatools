@@ -1,3 +1,5 @@
+/// state contexts for use with the {@link io.nosqlbench.nbvectors.jjq.CMD_jjq} command
+///
 /// This package is for cross-thread stateful interfaces
 /// These are needed, for example, when running a logical function
 /// with many threads, in which case each thread has a handle to a shared

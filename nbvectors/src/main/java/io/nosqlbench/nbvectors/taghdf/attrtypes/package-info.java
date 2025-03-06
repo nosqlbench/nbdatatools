@@ -1,4 +1,4 @@
-/// This package contains the attribute types for the {@link io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5} command
+/// attribute types for the {@link io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5} command
 package io.nosqlbench.nbvectors.taghdf.attrtypes;
 
 /*

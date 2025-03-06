@@ -1,4 +1,4 @@
-/// This package contains the implementation of the {@link io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN} command
+/// the {@link io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN} command
 package io.nosqlbench.nbvectors.verifyknn;
 
 /*

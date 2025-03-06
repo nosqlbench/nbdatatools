@@ -1,4 +1,4 @@
-/// This package contains the node traversal logic for the {@link io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5} command
+/// node traversal logic for the {@link io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5} command
 package io.nosqlbench.nbvectors.taghdf.traversal;
 
 /*

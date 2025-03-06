@@ -1,4 +1,4 @@
-/// This package contains an in-memory model of an HDF5 file structure
+/// HDF5 data type modeling and wrapper types
 package io.nosqlbench.nbvectors.taghdf.hdfmodel;
 
 /*

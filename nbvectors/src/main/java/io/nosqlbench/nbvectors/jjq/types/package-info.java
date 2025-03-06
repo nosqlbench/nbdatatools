@@ -1,4 +1,4 @@
-/// This package contains data types for use with the {@link io.nosqlbench.nbvectors.jjq.CMD_jjq} command
+/// types for use with the {@link io.nosqlbench.nbvectors.jjq.CMD_jjq} command
 package io.nosqlbench.nbvectors.jjq.types;
 
 /*

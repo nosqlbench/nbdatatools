@@ -1,4 +1,4 @@
-/// This package contains the implementation of the jjq command
+/// the {@link io.nosqlbench.nbvectors.jjq.CMD_jjq} command
 package io.nosqlbench.nbvectors.jjq;
 
 /*

@@ -1,4 +1,4 @@
-/// This package contains the logging configuration for the {@link io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN} command
+/// logging configuration for the {@link io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN} command
 package io.nosqlbench.nbvectors.verifyknn.logging;
 
 /*

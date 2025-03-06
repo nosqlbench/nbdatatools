@@ -1,4 +1,4 @@
-/// This package contains implementations of {@link net.thisptr.jackson.jq.Output}
+/// implementations of {@link net.thisptr.jackson.jq.Output}
 package io.nosqlbench.nbvectors.jjq.outputs;
 
 /*

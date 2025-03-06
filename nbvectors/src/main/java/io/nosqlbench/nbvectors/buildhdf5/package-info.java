@@ -1,4 +1,4 @@
-/// This package contains the implementation of the buildhdf5 command
+/// the {@link io.nosqlbench.nbvectors.buildhdf5.CMD_BuildHDF5} command
 package io.nosqlbench.nbvectors.buildhdf5;
 
 /*

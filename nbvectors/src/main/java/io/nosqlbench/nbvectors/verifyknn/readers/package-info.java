@@ -1,4 +1,4 @@
-///
+/// HDF5 KNN readers
 package io.nosqlbench.nbvectors.verifyknn.readers;
 
 /*

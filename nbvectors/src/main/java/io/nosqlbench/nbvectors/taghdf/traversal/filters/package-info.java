@@ -1,4 +1,4 @@
-/// This package contains node traversal filters
+/// node traversal filters
 package io.nosqlbench.nbvectors.taghdf.traversal.filters;
 
 /*

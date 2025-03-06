@@ -1,4 +1,4 @@
-/// This package contains the implementation of the {@link io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5} command
+/// the {@link io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5} command
 package io.nosqlbench.nbvectors.taghdf;
 
 /*
