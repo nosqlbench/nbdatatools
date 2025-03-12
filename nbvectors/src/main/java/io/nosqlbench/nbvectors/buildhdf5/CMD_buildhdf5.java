@@ -104,23 +104,24 @@ public class CMD_buildhdf5 implements Callable<Integer> {
     }
 
     try (KnnDataWriter kwriter = new KnnDataWriter(hdfOutPath)) {
+      JsonLoader loader = new JsonLoader(config);
 
       System.err.println("writing training stream...");
-      kwriter.writeTrainingStream(JsonLoader.readTrainingStream(config));
+      kwriter.writeBaseVectors(loader.getBaseVectors());
 
       System.err.println("writing test stream...");
-      kwriter.writeTestStream(JsonLoader.readTestStream(config));
+      kwriter.writeQueryVectors(loader.getQueryVectors());
 
       if (config.getFiltersExpr().isPresent()) {
         System.err.println("writing filters stream...");
-        kwriter.writeFiltersStream(JsonLoader.readFiltersStream(config));
+        kwriter.writeFiltersStream(loader.getFilters());
       }
 
       System.err.println("writing neighbors stream...");
-      kwriter.writeNeighborsStream(JsonLoader.readNeighborsStream(config));
+      kwriter.writeNeighborsStream(loader.getNeighborIndices());
 
       System.err.println("writing distances stream...");
-      kwriter.writeDistancesStream(JsonLoader.readDistancesStream(config));
+      kwriter.writeDistancesStream(loader.getDistances());
 
       System.err.println("writing metadata...");
       kwriter.writeMetadata(config);

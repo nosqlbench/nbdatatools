@@ -43,7 +43,7 @@ public class KnnDataWriter implements AutoCloseable {
 
   /// write the training vector data to a dataset
   /// @param iterator an iterator for the training vectors
-  public void writeTrainingStream(Iterator<LongIndexedFloatVector> iterator) {
+  public void writeBaseVectors(Iterator<LongIndexedFloatVector> iterator) {
     List<LongIndexedFloatVector> vectors = new ArrayList<>();
     iterator.forEachRemaining(vectors::add);
     float[][] ary = new float[vectors.size()][vectors.getFirst().vector().length];
@@ -60,7 +60,7 @@ public class KnnDataWriter implements AutoCloseable {
 
   /// write the test vector data to a dataset
   /// @param iterator an iterator for the test vectors
-  public void writeTestStream(Iterator<LongIndexedFloatVector> iterator) {
+  public void writeQueryVectors(Iterator<LongIndexedFloatVector> iterator) {
     List<LongIndexedFloatVector> vectors = new ArrayList<>();
     iterator.forEachRemaining(vectors::add);
     float[][] ary = new float[vectors.size()][vectors.getFirst().vector().length];

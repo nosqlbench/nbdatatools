@@ -35,12 +35,18 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /// A data loader for JSON data which uses the jjq syntax to load data from JSON files.
-public class JsonLoader {
+public class JsonLoader implements StandardTestDataSource {
 
-  /// get an iterator for training vectors
+  private final MapperConfig config;
+
   /// @param config the configuration to use for loading the data
+  public JsonLoader(MapperConfig config) {
+    this.config = config;
+  }
+  /// get an iterator for training vectors
   /// @return an iterator for {@link LongIndexedFloatVector}
-  public static Iterator<LongIndexedFloatVector> readTrainingStream(MapperConfig config) {
+  @Override
+  public Iterator<LongIndexedFloatVector> getBaseVectors() {
 
     Supplier<String> input = JJQSupplier.path(config.getTrainingJsonFile());
     String expr = config.getTrainingJqExpr();
@@ -56,9 +62,9 @@ public class JsonLoader {
   }
 
   /// get an iterator for test vectors
-  /// @param config the configuration to use for loading the data
   /// @return an iterator for {@link LongIndexedFloatVector}
-  public static Iterator<LongIndexedFloatVector> readTestStream(MapperConfig config) {
+  @Override
+  public Iterator<LongIndexedFloatVector> getQueryVectors() {
     Supplier<String> input = JJQSupplier.path(config.getTestJsonFile());
     String expr = config.getTestJqExpr();
     BufferOutput output = new BufferOutput(5000000);
@@ -71,9 +77,9 @@ public class JsonLoader {
   }
 
   /// get an iterator for neighbors
-  /// @param config the configuration to use for loading the data
   /// @return an iterator for {@link LongIndexedFloatVector}
-  public static Iterator<long[]> readNeighborsStream(MapperConfig config) {
+  @Override
+  public Iterator<long[]> getNeighborIndices() {
     Supplier<String> input = JJQSupplier.path(config.getNeighborhoodJsonFile());
     String expr = config.getNeighborhoodTestExpr();
     BufferOutput output = new BufferOutput(5000000);
@@ -85,9 +91,9 @@ public class JsonLoader {
   }
 
   /// get an iterator for distances
-  /// @param config the configuration to use for loading the data
   /// @return an iterator for {@link LongIndexedFloatVector}
-  public static Iterator<float[]> readDistancesStream(MapperConfig config) {
+  @Override
+  public Iterator<float[]> getDistances() {
     Supplier<String> input = JJQSupplier.path(config.getDistancesJsonFile());
     String expr = config.getDistancesExpr();
     BufferOutput output = new BufferOutput(5000000);
@@ -98,7 +104,6 @@ public class JsonLoader {
     return converter.iterator();
 
   }
-
 
   /// a converter for json nodes into `long[]` indices
   /// ---
@@ -192,9 +197,8 @@ public class JsonLoader {
       };
 
   /// get an iterator for predicate filters
-  /// @param config the configuration to use for loading the data
   /// @return an iterator for {@link PNode}
-  public static Iterator<PNode<?>> readFiltersStream(MapperConfig config) {
+  public Iterator<PNode<?>> getFilters() {
     Optional<Path> filtersFile = config.getFiltersFile();
     Optional<String> filtersExpr = config.getFiltersExpr();
     if (filtersExpr.isEmpty() || filtersFile.isEmpty()) {
