@@ -54,10 +54,6 @@ public class CMD_taghdf5 implements Callable<Integer> {
       converter = AttrSetConverter.class)
   private AttrSet[] attrs;
 
-  /// create a taghdf command
-  public CMD_taghdf5() {
-  }
-
   /// run a taghdf command
   /// @param args command line args
   public static void main(String[] args) {

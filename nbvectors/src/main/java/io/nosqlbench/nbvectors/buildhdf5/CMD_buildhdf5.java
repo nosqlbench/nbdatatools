@@ -63,10 +63,6 @@ public class CMD_buildhdf5 implements Callable<Integer> {
       description = "The yaml file containing the layout " + "instructions.")
   private Path layoutPath;
 
-  /// create a buildhdf5 command
-  public CMD_buildhdf5() {
-  }
-
   /// run a buildhdf5 command
   /// @param args command line args
   @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = """

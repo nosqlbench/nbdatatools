@@ -71,10 +71,6 @@ public class CMD_jjq implements Callable<Integer> {
       description = "If this file exists, silently " + "skip invocation of this " + "command")
   private Path skipFile;
 
-  /// create a jjq command
-  public CMD_jjq() {
-  }
-
   /// run jjq command
   /// @param args command line args
   public static void main(String[] args) {

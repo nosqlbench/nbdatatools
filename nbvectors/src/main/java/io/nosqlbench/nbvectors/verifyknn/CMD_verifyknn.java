@@ -127,10 +127,6 @@ public class CMD_verifyknn implements Callable<Integer> {
       Internal diagnostic level, sends content directly to the console.""", defaultValue = "ERROR")
   ConsoleDiagnostics diaglevel;
 
-  /// create a verifyknn command
-  public CMD_verifyknn() {
-  }
-
 
   /// run a verifyknn command
   /// @param args command line args
