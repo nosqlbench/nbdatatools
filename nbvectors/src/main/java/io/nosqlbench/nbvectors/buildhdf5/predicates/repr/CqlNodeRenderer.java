@@ -19,7 +19,6 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.repr;
 
 
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.ConjugateNode;
-import io.nosqlbench.nbvectors.buildhdf5.predicates.types.NodeRepresenter;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PredicateNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 

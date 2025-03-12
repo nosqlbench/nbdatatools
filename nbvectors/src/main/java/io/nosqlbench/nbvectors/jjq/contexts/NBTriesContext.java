@@ -21,9 +21,9 @@ package io.nosqlbench.nbvectors.jjq.contexts;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.nosqlbench.nbvectors.jjq.apis.NBStateContext;
 import io.nosqlbench.nbvectors.jjq.apis.StatefulShutdown;
-import io.nosqlbench.nbvectors.jjq.types.AllFieldStats;
-import io.nosqlbench.nbvectors.jjq.types.SingleValueStats;
-import io.nosqlbench.nbvectors.jjq.types.SingleFieldStats;
+import io.nosqlbench.nbvectors.jjq.tally.AllFieldStats;
+import io.nosqlbench.nbvectors.jjq.tally.SingleValueStats;
+import io.nosqlbench.nbvectors.jjq.tally.SingleFieldStats;
 
 import java.io.IOException;
 import java.io.InputStream;

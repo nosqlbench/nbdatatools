@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
+package io.nosqlbench.nbvectors.buildhdf5.predicates.repr;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,8 +18,10 @@ package io.nosqlbench.nbvectors.buildhdf5.predicates.types;
  */
 
 
+import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
+
 import java.util.function.Function;
 
 /// A function which renders a node as a string
-public interface NodeRepresenter extends Function<PNode<?>, String> {
+public interface PredicateRepresenter extends Function<PNode<?>, String> {
 }

@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.jjq.types;
+package io.nosqlbench.nbvectors.jjq.tally;
 
 /*
  * Copyright (c) nosqlbench
