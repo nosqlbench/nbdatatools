@@ -1,4 +1,5 @@
-/// implementations of {@link io.nosqlbench.nbvectors.buildhdf5.predicates.types.NodeRepresenter}
+/// predicate representation and conversions
+/// implementations of {@link io.nosqlbench.nbvectors.buildhdf5.predicates.repr.PredicateRepresenter}
 package io.nosqlbench.nbvectors.buildhdf5.predicates.repr;
 
 /*

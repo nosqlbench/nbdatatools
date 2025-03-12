@@ -1,4 +1,4 @@
-/// IO methods for working with jjq
+/// jjq bulk IO methods for large files
 package io.nosqlbench.nbvectors.jjq.bulkio;
 
 /*

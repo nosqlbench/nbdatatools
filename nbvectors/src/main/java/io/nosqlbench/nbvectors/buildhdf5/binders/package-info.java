@@ -1,4 +1,4 @@
-/// This package implements ways of binding data and templates together
+/// binding data and templates together
 package io.nosqlbench.nbvectors.buildhdf5.binders;
 
 /*

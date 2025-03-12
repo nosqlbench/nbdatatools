@@ -1,4 +1,4 @@
-/// the {@link io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5} command
+/// the {@link io.nosqlbench.nbvectors.taghdf.CMD_taghdf5} command
 package io.nosqlbench.nbvectors.taghdf;
 
 /*

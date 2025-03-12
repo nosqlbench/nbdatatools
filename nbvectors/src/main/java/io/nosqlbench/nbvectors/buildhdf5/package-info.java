@@ -1,4 +1,4 @@
-/// the {@link io.nosqlbench.nbvectors.buildhdf5.CMD_BuildHDF5} command
+/// the {@link io.nosqlbench.nbvectors.buildhdf5.CMD_buildhdf5} command
 package io.nosqlbench.nbvectors.buildhdf5;
 
 /*

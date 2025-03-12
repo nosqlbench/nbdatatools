@@ -1,5 +1,5 @@
-/// types for use with the {@link io.nosqlbench.nbvectors.jjq.CMD_jjq} command
-package io.nosqlbench.nbvectors.jjq.types;
+/// jjq ephemeral analysis types
+package io.nosqlbench.nbvectors.jjq.tally;
 
 /*
  * Copyright (c) nosqlbench

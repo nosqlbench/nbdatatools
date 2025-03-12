@@ -1,4 +1,4 @@
-/// evaluation logic for the jjq command
+/// jjq evaluation harness
 package io.nosqlbench.nbvectors.jjq.evaluator;
 
 /*

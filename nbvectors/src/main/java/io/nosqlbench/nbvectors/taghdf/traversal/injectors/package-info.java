@@ -1,4 +1,4 @@
-/// implementations of node traversal injectors
+/// HDF5 attribute injection
 package io.nosqlbench.nbvectors.taghdf.traversal.injectors;
 
 /*

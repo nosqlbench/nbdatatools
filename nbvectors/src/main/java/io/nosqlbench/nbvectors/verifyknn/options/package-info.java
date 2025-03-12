@@ -1,4 +1,4 @@
-/// command options for {@link io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN}
+/// command options for {@link io.nosqlbench.nbvectors.verifyknn.CMD_verifyknn}
 package io.nosqlbench.nbvectors.verifyknn.options;
 
 /*

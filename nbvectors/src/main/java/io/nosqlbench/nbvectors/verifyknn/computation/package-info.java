@@ -1,4 +1,4 @@
-/// vector computation for the {@link io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN} command
+/// vector computation for the {@link io.nosqlbench.nbvectors.verifyknn.CMD_verifyknn} command
 package io.nosqlbench.nbvectors.verifyknn.computation;
 
 /*

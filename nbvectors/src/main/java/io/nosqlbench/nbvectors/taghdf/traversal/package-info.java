@@ -1,4 +1,4 @@
-/// node traversal logic for the {@link io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5} command
+/// {@link io.jhdf.api.Node} traversal support
 package io.nosqlbench.nbvectors.taghdf.traversal;
 
 /*
