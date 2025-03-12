@@ -50,9 +50,9 @@ import java.util.concurrent.Callable;
     exitCodeList = {
         "0: no errors",
     })
-public class CMD_ShowHDF5 implements Callable<Integer> {
+public class CMD_showhdf5 implements Callable<Integer> {
 
-  private static final Logger logger = LogManager.getLogger(CMD_ShowHDF5.class);
+  private static final Logger logger = LogManager.getLogger(CMD_showhdf5.class);
 
   @CommandLine.Parameters(description = "The HDF5 file to view")
   private Path file;
@@ -60,10 +60,6 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
   @CommandLine.Option(names = {"--datasets", "-d"},
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private List<DatasetNames> decode;
-
-  /// create a showhdf5 command
-  public CMD_ShowHDF5() {
-  }
 
   /// run a showhdf5 command
   /// @param args command line args
@@ -76,7 +72,7 @@ public class CMD_ShowHDF5 implements Callable<Integer> {
     );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
-    CMD_ShowHDF5 command = new CMD_ShowHDF5();
+    CMD_showhdf5 command = new CMD_showhdf5();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);

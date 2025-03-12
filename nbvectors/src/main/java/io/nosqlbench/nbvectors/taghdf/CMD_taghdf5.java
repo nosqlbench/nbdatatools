@@ -36,7 +36,7 @@ import java.util.concurrent.Callable;
 
 /// Tag HDF5 vector test data files
 @CommandLine.Command(name = "taghdf", description = "read or write hdf attributes")
-public class CMD_TagHDF5 implements Callable<Integer> {
+public class CMD_taghdf5 implements Callable<Integer> {
 
   private final HdfTraverser hdfTraverser =
       new HdfTraverser(new BaseHdfVisitorFilter(), new BaseHdfVisitorInjector());
@@ -55,13 +55,13 @@ public class CMD_TagHDF5 implements Callable<Integer> {
   private AttrSet[] attrs;
 
   /// create a taghdf command
-  public CMD_TagHDF5() {
+  public CMD_taghdf5() {
   }
 
   /// run a taghdf command
   /// @param args command line args
   public static void main(String[] args) {
-    CMD_TagHDF5 command = new CMD_TagHDF5();
+    CMD_taghdf5 command = new CMD_taghdf5();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
     int exitCode = commandLine.execute(args);

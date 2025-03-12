@@ -24,7 +24,7 @@ import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PredicateNode;
 import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
 
 /// A renderer for cql syntax
-public class CqlNodeRenderer implements NodeRepresenter {
+public class CqlNodeRenderer implements PredicateRepresenter {
   @Override
   public String apply(PNode<?> node) {
     return switch (node) {

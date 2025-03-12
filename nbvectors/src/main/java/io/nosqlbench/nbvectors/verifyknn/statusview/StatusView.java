@@ -17,11 +17,11 @@ package io.nosqlbench.nbvectors.verifyknn.statusview;
  * under the License.
  */
 
-import io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN;
+import io.nosqlbench.nbvectors.verifyknn.CMD_verifyknn;
 import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.verifyknn.computation.NeighborhoodComparison;
 
-/// status view eventing interface for [CMD_VerifyKNN]
+/// status view eventing interface for [CMD_verifyknn]
 public interface StatusView extends AutoCloseable{
 
   /// start of verification

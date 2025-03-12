@@ -18,11 +18,12 @@ package io.nosqlbench.nbvectors;
  */
 
 
-import io.nosqlbench.nbvectors.buildhdf5.CMD_BuildHDF5;
+import io.nosqlbench.nbvectors.buildhdf5.CMD_buildhdf5;
+import io.nosqlbench.nbvectors.importhdf5.CMD_importhdf5;
 import io.nosqlbench.nbvectors.jjq.CMD_jjq;
-import io.nosqlbench.nbvectors.showhdf5.CMD_ShowHDF5;
-import io.nosqlbench.nbvectors.taghdf.CMD_TagHDF5;
-import io.nosqlbench.nbvectors.verifyknn.CMD_VerifyKNN;
+import io.nosqlbench.nbvectors.showhdf5.CMD_showhdf5;
+import io.nosqlbench.nbvectors.taghdf.CMD_taghdf5;
+import io.nosqlbench.nbvectors.verifyknn.CMD_verifyknn;
 import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -30,10 +31,13 @@ import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 /// A collection of tools for working with vector test data
-@CommandLine.Command(name = "nbv", subcommands = {
-    CMD_VerifyKNN.class, CMD_TagHDF5.class, CMD_jjq.class, CMD_BuildHDF5.class, CMD_ShowHDF5.class
+///
+/// This is the top level command which serves as an entry point for all sub-commands
+@CommandLine.Command(name = "nbvectors", subcommands = {
+    CMD_verifyknn.class, CMD_taghdf5.class, CMD_jjq.class, CMD_buildhdf5.class,
+    CMD_showhdf5.class, CMD_importhdf5.class
 })
-public class NBVectorTools {
+public class CMD_nbvectors {
 
   /// run a nbv command
   /// @param args command line args
@@ -43,9 +47,9 @@ public class NBVectorTools {
         ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
         CustomConfigurationFactory.class.getCanonicalName()
     );
-    Logger logger = LogManager.getLogger(NBVectorTools.class);
+    Logger logger = LogManager.getLogger(CMD_nbvectors.class);
 
-    NBVectorTools command = new NBVectorTools();
+    CMD_nbvectors command = new CMD_nbvectors();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
     int exitCode = commandLine.execute(args);

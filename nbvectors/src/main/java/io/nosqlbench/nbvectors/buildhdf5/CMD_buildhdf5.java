@@ -47,9 +47,9 @@ import java.util.function.Supplier;
     exitCodeList = {
         "0: no errors",
     })
-public class CMD_BuildHDF5 implements Callable<Integer> {
+public class CMD_buildhdf5 implements Callable<Integer> {
 
-  private static final Logger logger = LogManager.getLogger(CMD_BuildHDF5.class);
+  private static final Logger logger = LogManager.getLogger(CMD_buildhdf5.class);
 
   @Option(names = {"-o", "--outfile"},
       required = true,
@@ -64,7 +64,7 @@ public class CMD_BuildHDF5 implements Callable<Integer> {
   private Path layoutPath;
 
   /// create a buildhdf5 command
-  public CMD_BuildHDF5() {
+  public CMD_buildhdf5() {
   }
 
   /// run a buildhdf5 command
@@ -80,7 +80,7 @@ public class CMD_BuildHDF5 implements Callable<Integer> {
     );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
-    CMD_BuildHDF5 command = new CMD_BuildHDF5();
+    CMD_buildhdf5 command = new CMD_buildhdf5();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
