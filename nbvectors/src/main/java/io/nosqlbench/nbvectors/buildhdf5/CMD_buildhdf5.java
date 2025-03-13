@@ -103,28 +103,8 @@ public class CMD_buildhdf5 implements Callable<Integer> {
       }
     }
 
-    try (KnnDataWriter kwriter = new KnnDataWriter(hdfOutPath)) {
-      JsonLoader loader = new JsonLoader(config);
-
-      System.err.println("writing training stream...");
-      kwriter.writeBaseVectors(loader.getBaseVectors());
-
-      System.err.println("writing test stream...");
-      kwriter.writeQueryVectors(loader.getQueryVectors());
-
-      if (config.getFiltersExpr().isPresent()) {
-        System.err.println("writing filters stream...");
-        kwriter.writeFiltersStream(loader.getFilters());
-      }
-
-      System.err.println("writing neighbors stream...");
-      kwriter.writeNeighborsStream(loader.getNeighborIndices());
-
-      System.err.println("writing distances stream...");
-      kwriter.writeDistancesStream(loader.getDistances());
-
-      System.err.println("writing metadata...");
-      kwriter.writeMetadata(config);
+    try (KnnDataWriter kwriter = new KnnDataWriter(hdfOutPath, new JsonLoader(config))) {
+      kwriter.writeHdf5();
     }
     return 0;
   }

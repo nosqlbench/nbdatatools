@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.buildhdf5;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -18,6 +18,8 @@ package io.nosqlbench.nbvectors.buildhdf5;
  */
 
 
+import io.nosqlbench.nbvectors.spec.attributes.SpecAttributes;
+import io.nosqlbench.nbvectors.verifyknn.options.DistanceFunction;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 
@@ -36,13 +38,15 @@ public class MapperConfig {
   private final Map<String, Object> cfgmap;
 
   /// create a mapper config
-  /// @param cfgmap the config map
+  /// @param cfgmap
+  ///     the config map
   public MapperConfig(Map<String, Object> cfgmap) {
     this.cfgmap = cfgmap;
   }
 
   /// create a mapper config from a file
-  /// @param layoutPath the path to the config file
+  /// @param layoutPath
+  ///     the path to the config file
   /// @return a mapper config
   public static MapperConfig file(Path layoutPath) {
     BufferedReader reader = null;
@@ -118,6 +122,17 @@ public class MapperConfig {
     return Optional.ofNullable((String) cfgmap.get("filters_file")).map(Path::of);
   }
 
+  /// get the dataset metadata
+  ///
+  public SpecAttributes getDatasetMeta() {
+    return new SpecAttributes(
+        (String) cfgmap.get("model"),
+        (String) cfgmap.get("url"),
+        DistanceFunction.valueOf(cfgmap.get("distance_function").toString()),
+        Optional.ofNullable(cfgmap.get("notes")).map(String::valueOf)
+    );
+  }
+
   /// get the model attribute value
   /// @return the model attribute value
   public String getModel() {
@@ -129,6 +144,13 @@ public class MapperConfig {
   public String getDistanceFunction() {
     return cfgmap.getOrDefault("distance_function", "cosine").toString();
   }
+
+  /// get the url of this dataset
+  /// @return a URL of the dataset, of available
+  public String getUrl() {
+    return cfgmap.getOrDefault("url", "none provided").toString();
+  }
+
 
   /// get the filters jq expression
   /// @return the filters jq expression
@@ -144,19 +166,30 @@ public class MapperConfig {
     Map<String, Map<String, String>> remaps =
         (Map<String, Map<String, String>>) this.cfgmap.get("remappers");
     remaps = remaps == null ? Map.of() : remaps;
-    remaps.forEach((k,v)-> mapperConfigs.add(new RemapConfig(k,v)));
+    remaps.forEach((k, v) -> mapperConfigs.add(new RemapConfig(k, v)));
 
     return mapperConfigs;
   }
 
+  /// return notes associated with this dataset
+  /// @return notes, if provided
+  public Optional<String> getNotes() {
+    return Optional.ofNullable(cfgmap.get("notes")).map(String::valueOf);
+  }
+
   /// a remap configuration
-  /// @param name the name of a remapper configuration
-  /// @param file the file to remap
-  /// @param expr the jq expression to remap
-  public record RemapConfig(String name, Path file, String expr){
+  /// @param name
+  ///     the name of a remapper configuration
+  /// @param file
+  ///     the file to remap
+  /// @param expr
+  ///     the jq expression to remap
+  public record RemapConfig(String name, Path file, String expr) {
     /// create a remapper configuration
-    /// @param name the name of the remapper configuration
-    /// @param props the properties of the remapper configuration
+    /// @param name
+    ///     the name of the remapper configuration
+    /// @param props
+    ///     the properties of the remapper configuration
     public RemapConfig(String name, Map<String, String> props) {
       this(name, Path.of(props.get("input_file")), props.get("expression"));
     }

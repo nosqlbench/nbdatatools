@@ -3,11 +3,22 @@
 _A standard for writing vector search answer keys into HDF5 data files._
 _version_: 1
 
-The following four datasets are contained within the hdf5 file format:
+This specification defines the format of the HDF5 data files used to store vector search answer
+keys. The format is designed to be simple and easy to use, while still providing enough information
+to perform accurate testing of vector search implementations. The HDF5 format solves a myriad of 
+data sharing problems within a single file format, including random access, annotations and so on.
+
+Both the datasets and their required attributes are indicated here.
+
+## Endianness
+
+All encodings in this standard `MUST` be little-endian. If big-endian systems need support for
+native encodings, then the specification can be extended. Unless/Until this happens, endianness is
+out of scope. Big-endian systems are expected to translate on their own behalf.
 
 ## Base Content
 
-## /base_vectors
+### /base_vectors
 
 This dataset contains the base vectors used to train the vector database implementation. These
 vectors must be loaded into the database prior to testing performance and accuracy of vector
@@ -18,13 +29,25 @@ By default, the data is stored as a float array. However, other formats are supp
 non-floating point representations, some systems have their own prescribed encoding and decoding of
 vector components.
 
-## /base_content (optional)
+#### attributes
+
+- **dimensions**
+- **count**
+- **model**
+- **distance_function**
+
+### /base_content (optional)
 
 This is an optional dataset. The original content may be provided which corresponds to the 
 base_vectors data. If provided, the major dimension of this dataset must match the major 
 dimension of the base_vectors dataset, where the major coordinate corresponds pair-wise. In 
 other words, base_vectors[i] would be the embeddings for base_content[i] and so on, irrespective 
 of the other dimensions on either dataset.  
+
+#### attributes
+
+- **media_type**
+- **count**
 
 ## Queries
 
@@ -35,6 +58,12 @@ implementation. The format of the data is a multi-dimensional float array, with 
 y-dimensional vectors where x is the number of individual vectors and y is the number of dimensions
 in each vector.
 
+#### attributes
+
+- **model**
+- **count**
+- **dimensions**
+
 ### /query_terms (optional)
 
 This is an optional dataset. It may be used for more advanced testing scenarios where the original
@@ -44,6 +73,8 @@ needed. It is suggested that the content provided here is what users would be mo
 make troubleshooting and reproduction of issues easier. The primary dimension of this dataset must
 correspond to that of the query dataset, with each major coordinate matching pair-wise for
 associated query terms.
+
+#### (no) attributes
 
 ### /query_filters (optional)
 
@@ -69,29 +100,35 @@ Writers of this table *SHOULD* use a constant width if possible, but it is not r
 avoid some overhead of indexing structure in the HDF5 format. The encoded format supports reading
 only the valid portion of any buffer.
 
+#### (no) attributes
+
 ## Results
 
-
-### /neighbors
+### /neighbor_indices
 
 This dataset contains the ground truth nearest neighbors for each vector in the test dataset. The
 format of the data is a multi-dimensional integer array, where x is the number of individual vectors
 and y is the number of nearest neighbors to each vector.
 
-Additionally, metadata and mixed predicates will be added to this format when they have been proven
-out.
+Data in the neighbors dataset should be encoded as either a 32-bit signed integer, little-endian,
+or a 64-bit signed integer. 
 
-### /distances
+#### attributes
+
+- **count** - the total number of neighborhoods provided
+- **k** - the number of neighbors provided per query vector
+
+### /neighbor_distances
 
 This dataset contains the ground truth distances for each vector in the test dataset. The format of
 the data is a multi-dimensional float array, with x number of y-dimensional vectors where x=the
 number of individual vectors and y=the number of nearest neighbors to each vector.
 
-## Endianness
+#### attributes
 
-All encodings in this standard `MUST` be little-endian. If big-endian systems need support for
-native encodings, then the specification can be extended. Unless/Until this happens, endianness is
-out of scope. Big-endian systems are expected to translate on their own behalf.
+- **k** - the number of neighbors provided per query vector
+- **count** - the total number of neighborhoods provided
+
 
 
 
