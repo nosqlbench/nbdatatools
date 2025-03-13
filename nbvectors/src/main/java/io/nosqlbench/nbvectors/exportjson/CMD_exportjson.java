@@ -34,7 +34,9 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -63,6 +65,12 @@ public class CMD_exportjson implements Callable<Integer> {
 
   @CommandLine.Parameters(description = "The HDF5 files to export to JSON summaries")
   private List<Path> hdf5Files;
+
+  @CommandLine.Option(names = {"--save"}, description = "Save the JSON summaries to files")
+  private boolean save;
+
+  @CommandLine.Option(names = {"--force"}, description = "Force overwrite of existing JSON summaries")
+  private boolean force;
 
   /// run an exportjson command
   /// @param args
@@ -94,13 +102,24 @@ public class CMD_exportjson implements Callable<Integer> {
   }
 
   private void summarize(Path path) {
-    StringBuilder sb = new StringBuilder();
     try (HdfFile file = new HdfFile(path)) {
+      StringBuilder sb = new StringBuilder();
       Map<String, Object> groupMap = describeGroup(file, 0);
       Gson gson = new GsonBuilder().setPrettyPrinting().create();
       gson.toJson(groupMap, sb);
+      System.out.println(sb);
+      if (this.save) {
+        Path jsonPath = Path.of(path.toString().replaceFirst("\\.hdf5$", ".json"));
+        if (Files.exists(jsonPath) && !this.force) {
+          throw new RuntimeException("file already exists (use --force to override): " + jsonPath);
+        }
+        try {
+          Files.writeString(jsonPath, sb);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
     }
-    System.out.println(sb);
   }
 
   private Map<String,Object> walkHdf(Node node, Map<String, Object> parentMap, int level) {
