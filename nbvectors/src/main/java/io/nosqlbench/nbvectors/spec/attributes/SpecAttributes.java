@@ -20,7 +20,7 @@ package io.nosqlbench.nbvectors.spec.attributes;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import io.nosqlbench.nbvectors.verifyknn.options.DistanceFunction;
+import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
 
 import java.io.BufferedReader;
 import java.io.IOException;

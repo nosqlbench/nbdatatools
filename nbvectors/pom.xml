@@ -451,31 +451,32 @@
         </executions>
       </plugin>
 
-      <!--      <plugin>-->
-      <!--        <groupId>org.apache.maven.plugins</groupId>-->
-      <!--        <artifactId>maven-assembly-plugin</artifactId>-->
-      <!--        <version>3.7.1</version>-->
-      <!--        <executions>-->
-      <!--          <execution>-->
-      <!--            <phase>package</phase>-->
-      <!--            <goals>-->
-      <!--              <goal>single</goal>-->
-      <!--            </goals>-->
-      <!--          </execution>-->
-      <!--        </executions>-->
-      <!--        <configuration>-->
-      <!--          <archive>-->
-      <!--            <manifest>-->
-      <!--              <addClasspath>true</addClasspath>-->
-      <!--              <mainClass>${mainClass}</mainClass>-->
-      <!--            </manifest>-->
-      <!--          </archive>-->
-      <!--          <descriptors>-->
-      <!--            <ref>assembly.xml</ref>-->
-      <!--            &lt;!&ndash;            <descriptorRef>assembly</descriptorRef>&ndash;&gt;-->
-      <!--          </descriptors>-->
-      <!--        </configuration>-->
-      <!--      </plugin>-->
+            <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-assembly-plugin</artifactId>
+              <version>3.7.1</version>
+              <executions>
+                <execution>
+                  <phase>package</phase>
+                  <goals>
+                    <goal>single</goal>
+                  </goals>
+                </execution>
+              </executions>
+              <configuration>
+                <archive>
+                  <manifest>
+                    <addClasspath>true</addClasspath>
+                    <mainClass>${mainClass}</mainClass>
+                  </manifest>
+                </archive>
+                <descriptorRefs>
+<!--                  <ref>assembly.xml</ref>-->
+                  <descriptorRef>jar-with-dependencies</descriptorRef>
+                  <!--            <descriptorRef>assembly</descriptorRef>-->
+                </descriptorRefs>
+              </configuration>
+            </plugin>
 
       <plugin>
         <groupId>org.sonatype.central</groupId>

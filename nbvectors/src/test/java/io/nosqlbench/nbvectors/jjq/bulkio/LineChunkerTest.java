@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.jjq.bulkio;
  */
 
 
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.LineChunker;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;

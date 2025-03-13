@@ -18,10 +18,10 @@ package io.nosqlbench.nbvectors.spec.attributes;
  */
 
 
-import io.nosqlbench.nbvectors.verifyknn.options.DistanceFunction;
+import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
 
 /// This record type captures the basic metadata requirements of the vector test data spec
-/// @see io.nosqlbench.nbvectors.verifyknn.options.DistanceFunction
+/// @see DistanceFunction
 /// @param dimensions the number of dimensions in each vector
 /// @param count the number of vectors in the dataset
 /// @param model the name of the model used to generate the data

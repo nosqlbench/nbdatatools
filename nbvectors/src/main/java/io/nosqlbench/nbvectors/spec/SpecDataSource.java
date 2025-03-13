@@ -18,9 +18,9 @@ package io.nosqlbench.nbvectors.spec;
  */
 
 
-import io.nosqlbench.nbvectors.buildhdf5.predicates.types.PNode;
+import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.spec.attributes.SpecAttributes;
-import io.nosqlbench.nbvectors.verifyknn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 
 import java.util.Iterator;
 import java.util.Optional;

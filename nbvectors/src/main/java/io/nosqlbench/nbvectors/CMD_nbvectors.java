@@ -18,14 +18,14 @@ package io.nosqlbench.nbvectors;
  */
 
 
-import io.nosqlbench.nbvectors.buildhdf5.CMD_buildhdf5;
-import io.nosqlbench.nbvectors.exportjson.CMD_exportjson;
-import io.nosqlbench.nbvectors.importhdf5.CMD_importhdf5;
-import io.nosqlbench.nbvectors.jjq.CMD_jjq;
-import io.nosqlbench.nbvectors.showhdf5.CMD_showhdf5;
-import io.nosqlbench.nbvectors.taghdf.CMD_taghdf5;
-import io.nosqlbench.nbvectors.verifyknn.CMD_verifyknn;
-import io.nosqlbench.nbvectors.verifyknn.logging.CustomConfigurationFactory;
+import io.nosqlbench.nbvectors.commands.build_hdf5.CMD_build_hdf5;
+import io.nosqlbench.nbvectors.commands.export_json.CMD_export_json;
+import io.nosqlbench.nbvectors.commands.export_hdf5.CMD_export_hdf5;
+import io.nosqlbench.nbvectors.commands.jjq.CMD_jjq;
+import io.nosqlbench.nbvectors.commands.show_hdf5.CMD_show_hdf5;
+import io.nosqlbench.nbvectors.commands.tag_hdf5.CMD_tag_hdf5;
+import io.nosqlbench.nbvectors.commands.verify_knn.CMD_verify_knn;
+import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
@@ -35,8 +35,8 @@ import picocli.CommandLine;
 ///
 /// This is the top level command which serves as an entry point for all sub-commands
 @CommandLine.Command(name = "nbvectors", subcommands = {
-    CMD_verifyknn.class, CMD_taghdf5.class, CMD_jjq.class, CMD_buildhdf5.class,
-    CMD_showhdf5.class, CMD_importhdf5.class, CMD_exportjson.class
+    CMD_verify_knn.class, CMD_tag_hdf5.class, CMD_jjq.class, CMD_build_hdf5.class,
+    CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class
 })
 public class CMD_nbvectors {
 
