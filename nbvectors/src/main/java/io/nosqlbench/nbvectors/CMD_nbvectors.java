@@ -19,6 +19,7 @@ package io.nosqlbench.nbvectors;
 
 
 import io.nosqlbench.nbvectors.buildhdf5.CMD_buildhdf5;
+import io.nosqlbench.nbvectors.exportjson.CMD_exportjson;
 import io.nosqlbench.nbvectors.importhdf5.CMD_importhdf5;
 import io.nosqlbench.nbvectors.jjq.CMD_jjq;
 import io.nosqlbench.nbvectors.showhdf5.CMD_showhdf5;
@@ -35,7 +36,7 @@ import picocli.CommandLine;
 /// This is the top level command which serves as an entry point for all sub-commands
 @CommandLine.Command(name = "nbvectors", subcommands = {
     CMD_verifyknn.class, CMD_taghdf5.class, CMD_jjq.class, CMD_buildhdf5.class,
-    CMD_showhdf5.class, CMD_importhdf5.class
+    CMD_showhdf5.class, CMD_importhdf5.class, CMD_exportjson.class
 })
 public class CMD_nbvectors {
 
