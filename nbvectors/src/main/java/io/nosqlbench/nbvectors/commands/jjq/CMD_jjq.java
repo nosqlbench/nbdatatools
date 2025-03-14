@@ -36,7 +36,7 @@ import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
 /// Run jjq commands
-@Command(name = "jjq", description = "Run jjq commands with extended functions")
+@Command(name = "jjq", description = "run jjq commands with extended functions")
 public class CMD_jjq implements Callable<Integer> {
 
   @Option(names = {"-i", "--in"}, required = true)
@@ -188,8 +188,8 @@ public class CMD_jjq implements Callable<Integer> {
     //      }
     //
     //      System.out.println("NbState:");
-    //      NBJJQ.getState(rootScope).forEach((k, v) -> {
-    //        System.out.println(" k:" + k + ", v:" + v);
+    //      NBJJQ.getState(rootScope).forEach((max_k, v) -> {
+    //        System.out.println(" max_k:" + max_k + ", v:" + v);
     //      });
 
     return 0;

@@ -21,32 +21,61 @@ package io.nosqlbench.nbvectors.commands.build_hdf5;
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.api.WritableDataset;
+import io.jhdf.api.WritableNode;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.spec.attributes.*;
 import io.nosqlbench.nbvectors.spec.SpecDataSource;
 import io.nosqlbench.nbvectors.spec.SpecDatasets;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.*;
+import java.util.function.Function;
+import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static java.util.Collections.replaceAll;
 
 /// A writer for KNN data in the HDF5 format
-public class KnnDataWriter implements AutoCloseable {
-  private final WritableHdfFile writable;
+public class KnnDataWriter {
+  private final static Logger logger = LogManager.getLogger(KnnDataWriter.class);
+
+  private final Path outTemplate;
+  private WritableHdfFile writable;
   private final SpecDataSource loader;
+  private final Path tempFile;
+  private QueryVectorsAttributes queryVectorsAttributes;
+  private BaseVectorAttributes baseVectorAttributes;
+  private NeighborDistancesAttributes neighborDistancesAttributes;
+  private NeighborIndicesAttributes neighborIndicesAttributes;
+  private RootGroupAttributes rootGroupAttributes;
 
   /// create a new KNN data writer
-  /// @param hdfOutPath
+  /// @param outTemplate
   ///     the path to the file to write to
   /// @param loader
   ///     the loader for the data
-  public KnnDataWriter(Path hdfOutPath, SpecDataSource loader) {
-    writable = HdfFile.write(hdfOutPath);
+  public KnnDataWriter(Path outTemplate, SpecDataSource loader) {
+    try {
+      Path dir = Path.of(".").toAbsolutePath();
+      this.tempFile = Files.createTempFile(dir, "hdf5buffer", "hdf5", PosixFilePermissions.asFileAttribute(
+          PosixFilePermissions.fromString("rwxr-xr-x")
+      ));
+      this.outTemplate = outTemplate;
+      this.writable = HdfFile.write(tempFile);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     this.loader = loader;
   }
 
@@ -62,14 +91,13 @@ public class KnnDataWriter implements AutoCloseable {
     }
     WritableDataset writableDataset =
         this.writable.putDataset(SpecDatasets.base_vectors.name(), ary);
-    this.writeAttributes(
-        writableDataset, SpecDatasets.base_vectors, new BaseVectorAttributes(
-            ary[0].length,
-            ary.length,
-            this.loader.getMetadata().model(),
-            this.loader.getMetadata().distance_function()
-        )
+    this.baseVectorAttributes = new BaseVectorAttributes(
+        ary[0].length,
+        ary.length,
+        this.loader.getMetadata().model(),
+        this.loader.getMetadata().distance_function()
     );
+    this.writeAttributes(writableDataset, SpecDatasets.base_vectors, baseVectorAttributes);
     //
     //    // Record number of records in train dataset as an attribute
     //    this.writable.putAttribute(BaseVectorAttributes.count.name(), ary.length);
@@ -77,9 +105,9 @@ public class KnnDataWriter implements AutoCloseable {
     //    this.writable.putAttribute("dimensions", ary[0].length);
   }
 
-  private <T extends Record> void writeAttributes(WritableDataset wds, SpecDatasets dstype, T attrs)
+  private <T extends Record> void writeAttributes(WritableNode wnode, SpecDatasets dstype, T attrs)
   {
-    if (!dstype.getAttributesType().isAssignableFrom(attrs.getClass())) {
+    if (dstype != null && !dstype.getAttributesType().isAssignableFrom(attrs.getClass())) {
       throw new RuntimeException(
           "unable to assign attributes from " + attrs.getClass().getCanonicalName()
           + " to dataset for " + dstype.name());
@@ -95,7 +123,18 @@ public class KnnDataWriter implements AutoCloseable {
           if (value instanceof Enum<?> e) {
             value = e.name();
           }
-          wds.putAttribute( fieldname, value);
+          if (value instanceof Optional<?> o) {
+            if (o.isPresent()) {
+              value = o.get();
+            } else {
+              continue;
+            }
+          }
+          if (value == null) {
+            throw new RuntimeException(
+                "attribute value for requied attribute " + fieldname + " " + "was null");
+          }
+          wnode.putAttribute(fieldname, value);
         }
       }
     } catch (Exception e) {
@@ -115,11 +154,9 @@ public class KnnDataWriter implements AutoCloseable {
     }
     //    WritableDataset ds = new WritableDatasetImpl(ary,"/train",writable);
     WritableDataset wds = this.writable.putDataset(SpecDatasets.query_vectors.name(), ary);
-    writeAttributes(
-        wds,
-        SpecDatasets.query_vectors,
-        new QueryVectorsAttributes(loader.getMetadata().model(), ary.length, ary[0].length)
-    );
+    this.queryVectorsAttributes =
+        new QueryVectorsAttributes(loader.getMetadata().model(), ary.length, ary[0].length);
+    writeAttributes(wds, SpecDatasets.query_vectors, queryVectorsAttributes);
   }
 
   /// write the neighbors data to a dataset
@@ -133,11 +170,8 @@ public class KnnDataWriter implements AutoCloseable {
       ary[i] = vectors.get(i);
     }
     WritableDataset wds = this.writable.putDataset(SpecDatasets.neighbor_indices.name(), ary);
-    writeAttributes(
-        wds,
-        SpecDatasets.neighbor_indices,
-        new NeighborIndicesAttributes(ary[0].length, ary.length)
-    );
+    this.neighborIndicesAttributes = new NeighborIndicesAttributes(ary[0].length, ary.length);
+    writeAttributes(wds, SpecDatasets.neighbor_indices, neighborIndicesAttributes);
   }
 
   /// write the distances data to a dataset
@@ -151,17 +185,9 @@ public class KnnDataWriter implements AutoCloseable {
       ary[i] = distances.get(i);
     }
     WritableDataset wds = this.writable.putDataset(SpecDatasets.neighbor_distances.name(), ary);
-    writeAttributes(
-        wds,
-        SpecDatasets.neighbor_distances,
-        new NeighborDistancesAttributes(ary[0].length, ary.length)
-    );
+    this.neighborDistancesAttributes = new NeighborDistancesAttributes(ary[0].length, ary.length);
+    writeAttributes(wds, SpecDatasets.neighbor_distances, neighborDistancesAttributes);
 
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.writable.close();
   }
 
   /// write the filters data to a dataset
@@ -191,40 +217,179 @@ public class KnnDataWriter implements AutoCloseable {
     this.writable.putDataset(SpecDatasets.query_filters.name(), encoded);
   }
 
-  /// write the metadata to the file
-  /// @param metadata
-  ///     the metadata to write
-  public void writeRootMetadata(SpecAttributes metadata) {
-    this.writable.putAttribute("model", metadata.model());
-    this.writable.putAttribute("distance_function", metadata.distance_function().name());
-    this.writable.putAttribute("url", metadata.url());
-    if (metadata.notes().isPresent()) {
-      this.writable.putAttribute("notes", metadata.notes().get());
-    }
-  }
-
   /// write the data to the file
   public void writeHdf5() {
 
-    System.err.println("writing metadata...");
-    writeRootMetadata(loader.getMetadata());
+    try {
+      this.writable = HdfFile.write(tempFile);
 
-    System.err.println("writing base vectors stream...");
-    writeBaseVectors(loader.getBaseVectors());
+      System.err.println("writing base vectors...");
+      writeBaseVectors(loader.getBaseVectors());
 
-    System.err.println("writing test stream...");
-    writeQueryVectors(loader.getQueryVectors());
+      System.err.println("writing query vectors...");
+      writeQueryVectors(loader.getQueryVectors());
 
-    if (loader.getQueryFilters().isPresent()) {
-      System.err.println("writing filters stream...");
-      writeFiltersStream(loader.getQueryFilters().orElseThrow());
+      if (loader.getQueryFilters().isPresent()) {
+        System.err.println("writing query filters...");
+        writeFiltersStream(loader.getQueryFilters().orElseThrow());
+      }
+
+      System.err.println("writing neighbors indices...");
+      writeNeighborsIntStream(loader.getNeighborIndices());
+
+      System.err.println("writing neighbor distances...");
+      writeDistancesStream(loader.getNeighborDistances());
+
+      System.err.println("writing metadata...");
+      this.rootGroupAttributes = new RootGroupAttributes(
+          loader.getMetadata().model(),
+          loader.getMetadata().url(),
+          loader.getMetadata().distance_function(),
+          loader.getMetadata().notes(),
+          loader.getMetadata().license(),
+          loader.getMetadata().vendor()
+      );
+      this.writeAttributes(this.writable, null, rootGroupAttributes);
+      this.writable.close();
+
+      relinkName();
+    } catch (Exception e) {
+      if (Files.exists(tempFile)) {
+        try {
+          Files.delete(tempFile);
+        } catch (IOException ignored) {
+        }
+      }
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void relinkName() {
+    String filenameTemplate = this.outTemplate.getFileName().toString();
+
+    Pattern scanner = Pattern.compile("\\[[^\\]]+\\]");
+    Matcher matcher = scanner.matcher(filenameTemplate);
+    String newName = matcher.replaceAll(new Resolver(filenameTemplate));
+    if (newName.contains("[") || newName.contains("]")) {
+      throw new RuntimeException(
+          "unresolved tokens in outfile template '" + filenameTemplate + "'");
+    }
+    Path path = Path.of(newName);
+    Path newPath = this.outTemplate.resolveSibling(path);
+    try {
+      Files.createDirectories(
+          newPath.getParent(),
+          PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxr-x---"))
+      );
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    try {
+      Files.move(
+          tempFile,
+          newPath,
+          StandardCopyOption.REPLACE_EXISTING,
+          StandardCopyOption.ATOMIC_MOVE
+      );
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private class Resolver implements Function<MatchResult, String> {
+    private final HashMap<String, String> tokens = new HashMap<>() {{
+      putAll(Map.of(
+          "dimensions",
+          baseVectorAttributes.dimensions() + "",
+          "max_k",
+          neighborIndicesAttributes.max_k() + "",
+          "count",
+          neighborIndicesAttributes.count() + "",
+          "model",
+          baseVectorAttributes.model(),
+          "function",
+          baseVectorAttributes.distance_function().name(),
+          "base_count",
+          baseVectorAttributes.count() + "",
+          "query_count",
+          queryVectorsAttributes.count() + ""
+      ));
+      putAll(Map.of("d", get("dimensions"), "dims", get("dimensions")));
+      putAll(Map.of("k", get("max_k"), "maxk", get("max_k")));
+      putAll(Map.of("b", get("count"), "base_vectors", get("count"), "vectors", get("count")));
+      putAll(Map.of("m", get("model")));
+      putAll(Map.of("f", get("function"), "distance_function", get("function")));
+      putAll(Map.of(
+          "q",
+          get("query_count"),
+          "queries",
+          get("query_count"),
+          "query_vectors",
+          get("query_count")
+      ));
+    }};
+    private final String templateForDiagnostics;
+
+    Pattern tokenPattern = Pattern.compile(
+        """
+            (?<pre>[^}]*)
+            \\{ (?<token>.+?) \\}
+            (?<post>[^]]*)
+            """, Pattern.COMMENTS
+    );
+    Pattern barePattern = Pattern.compile(
+        """
+            (?<pre>[^a-zA-Z0-9_]*)
+            (?<token>[a-zA-Z0-_]+)
+            (?<post>[^]]*)
+            """, Pattern.COMMENTS
+    );
+
+    public Resolver(String templateForDiagnostics) {
+      this.templateForDiagnostics = templateForDiagnostics;
     }
 
-    System.err.println("writing neighbors...");
-    writeNeighborsIntStream(loader.getNeighborIndices());
+    @Override
+    public String apply(MatchResult mr) {
+      String section = mr.group();
+      section = section.substring(1, section.length() - 1);
 
-    System.err.println("writing distances stream...");
-    writeDistancesStream(loader.getNeighborDistances());
+      Matcher matcher1 = tokenPattern.matcher(section);
+      Matcher matcher2 = barePattern.matcher(section);
+      MatchResult inner = matcher1.matches() ? matcher1 : matcher2.matches() ? matcher2 : null;
+      if (inner == null) {
+        throw new RuntimeException(
+            "unresolved token in outfile template '" + templateForDiagnostics + "': for '" + section
+            + "'");
+      }
+      String token = inner.group("token");
+      String before = inner.group("pre");
+      String after = inner.group("post");
 
+      boolean optional = token.endsWith("*");
+      token = optional ? token.substring(0, token.length() - 1) : token;
+      String replacement = tokens.get(token);
+      if (replacement == null) {
+        if (optional) {
+          return "";
+        } else {
+          throw new RuntimeException(
+              "WARNING: no replacement for token '" + token + "' in outfile template '"
+              + templateForDiagnostics + "'");
+        }
+      }
+      String sanitized = replacement.replaceAll("[^a-zA-Z0-9_-]", "");
+      if (!sanitized.equals(replacement)) {
+        logger.info(
+            "sanitized replacement for token '{}' from '{}' to '{}' in outfile template " + "'{}'",
+            token,
+            replacement,
+            sanitized,
+            templateForDiagnostics
+        );
+      }
+
+      return before + sanitized + after;
+    }
   }
 }

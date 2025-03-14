@@ -19,21 +19,22 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
 
 
 import io.nosqlbench.nbvectors.commands.build_hdf5.BasicTestDataSource;
-import io.nosqlbench.nbvectors.spec.attributes.SpecAttributes;
 import io.nosqlbench.nbvectors.commands.build_hdf5.KnnDataWriter;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
+import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
 /// Run jjq commands
-@Command(name = "export_hdf5", description = "import HDF5 KNN answer-keys from other formats")
+@Command(name = "export_hdf5", description = "export HDF5 KNN answer-keys from other formats")
 public class CMD_export_hdf5 implements Callable<Integer> {
 
   @Option(names = {"-o", "--outfile"},
@@ -105,31 +106,23 @@ public class CMD_export_hdf5 implements Callable<Integer> {
   @Override
   public Integer call() throws Exception {
 
-    BasicTestDataSource source = new BasicTestDataSource();
-    if (this.base_vectors!=null) {
-      source.setBaseVectorsIterator(new FvecToIndexedFloatVector(this.base_vectors).iterator());
-    }
-    if (this.query_vectors!=null) {
-      source.setQueryVectorsIter(new FvecToIndexedFloatVector(this.query_vectors).iterator());
-    }
-    if (this.neighbors!=null) {
-      source.setNeighborIndicesIter(new IvecToIntArray(this.neighbors).iterator());
-    }
-    if (this.distances!=null) {
-      source.setNeighborDistancesIter(new FvecToFloatArray(this.distances).iterator());
-    }
-    if (this.metadataFile != null) {
-      source.setMetadata(SpecAttributes.fromFile(metadataFile));
-    } else {
-      throw new RuntimeException("metadata file is required");
-    }
+    RootGroupAttributes rga = RootGroupAttributes.fromFile(metadataFile);
 
-    try (KnnDataWriter writer = new KnnDataWriter(this.hdfOutPath, source)) {
-      writer.writeHdf5();
-    }
+    VectorFilesConfig cfg = new VectorFilesConfig(
+        this.base_vectors,
+        this.query_vectors,
+        this.neighbors,
+        this.distances,
+        Optional.ofNullable(this.base_content),
+        Optional.ofNullable(this.query_terms),
+        Optional.ofNullable(this.query_filters),
+        rga
+    );
 
+    BasicTestDataSource source = new BasicTestDataSource(cfg);
+    KnnDataWriter writer = new KnnDataWriter(this.hdfOutPath, source);
+    writer.writeHdf5();
     return 0;
-
   }
 }
 

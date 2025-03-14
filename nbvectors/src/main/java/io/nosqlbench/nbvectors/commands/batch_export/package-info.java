@@ -1,4 +1,5 @@
-package io.nosqlbench.nbvectors.spec.attributes;
+/// the {@link io.nosqlbench.nbvectors.commands.batch_export.CMD_batch_export} command
+package io.nosqlbench.nbvectors.commands.batch_export;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,12 +18,3 @@ package io.nosqlbench.nbvectors.spec.attributes;
  * under the License.
  */
 
-
-/// This record type captures attribute requirements for the neighbor distances dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborDistancesAttributes(
-    long max_k,
-    long count
-) {
-}

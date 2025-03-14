@@ -24,7 +24,7 @@ import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.ConvertingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.outputs.BufferOutput;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.PredicateParser;
-import io.nosqlbench.nbvectors.spec.attributes.SpecAttributes;
+import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.nbvectors.spec.SpecDataSource;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
@@ -40,7 +40,7 @@ public class JsonLoader implements SpecDataSource {
   private final MapperConfig config;
 
   /// create a new JSON loader
-  ///  @param config
+  /// @param config
   ///     the configuration to use for loading the data
   public JsonLoader(MapperConfig config) {
     this.config = config;
@@ -128,12 +128,14 @@ public class JsonLoader implements SpecDataSource {
   }
 
   @Override
-  public SpecAttributes getMetadata() {
-    return new SpecAttributes(
+  public RootGroupAttributes getMetadata() {
+    return new RootGroupAttributes(
         config.getModel(),
         config.getUrl(),
         DistanceFunction.valueOf(config.getDistanceFunction()),
-        config.getNotes()
+        config.getNotes(),
+        config.getDatasetMeta().license(),
+        config.getDatasetMeta().vendor()
     );
   }
 

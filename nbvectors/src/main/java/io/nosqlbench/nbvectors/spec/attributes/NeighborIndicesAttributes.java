@@ -19,10 +19,10 @@ package io.nosqlbench.nbvectors.spec.attributes;
 
 
 /// This record type captures attribute requirements for the neighbor indices dataset
-/// @param k the number of neighbors provided for each query vector
+/// @param max_k the number of neighbors provided for each query vector
 /// @param count the number of query vectors
 public record NeighborIndicesAttributes(
-    long k,
+    long max_k,
     long count
 ) {
 }

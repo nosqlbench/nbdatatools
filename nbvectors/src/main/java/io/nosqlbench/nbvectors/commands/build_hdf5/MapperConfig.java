@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5;
  */
 
 
-import io.nosqlbench.nbvectors.spec.attributes.SpecAttributes;
+import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
@@ -123,13 +123,14 @@ public class MapperConfig {
   }
 
   /// get the dataset metadata
-  ///
-  public SpecAttributes getDatasetMeta() {
-    return new SpecAttributes(
+  public RootGroupAttributes getDatasetMeta() {
+    return new RootGroupAttributes(
         (String) cfgmap.get("model"),
         (String) cfgmap.get("url"),
         DistanceFunction.valueOf(cfgmap.get("distance_function").toString()),
-        Optional.ofNullable(cfgmap.get("notes")).map(String::valueOf)
+        Optional.ofNullable(cfgmap.get("notes")).map(String::valueOf),
+        cfgmap.get("license").toString(),
+        cfgmap.get("vendor").toString()
     );
   }
 

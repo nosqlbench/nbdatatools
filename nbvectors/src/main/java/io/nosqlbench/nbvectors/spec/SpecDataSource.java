@@ -19,7 +19,7 @@ package io.nosqlbench.nbvectors.spec;
 
 
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
-import io.nosqlbench.nbvectors.spec.attributes.SpecAttributes;
+import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 
 import java.util.Iterator;
@@ -64,5 +64,5 @@ public interface SpecDataSource {
 
   /// get metadata
   /// @return the metadata for the test data
-  public SpecAttributes getMetadata();
+  public RootGroupAttributes getMetadata();
 }

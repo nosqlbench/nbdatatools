@@ -105,7 +105,7 @@ public class JJQInvoker implements Runnable, AutoCloseable {
       //      }
 
       System.out.println("NbState:");
-      NBJJQ.getState(rootScope).forEach((k, v) -> System.out.println(" k:" + k + ", v:" + v));
+      NBJJQ.getState(rootScope).forEach((k, v) -> System.out.println(" max_k:" + k + ", v:" + v));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -151,7 +151,7 @@ public class JJQInvoker implements Runnable, AutoCloseable {
     //    BuiltinFunctionLoader bifl = BuiltinFunctionLoader.getInstance();
     //
     //    bifl.listFunctions(Versions.JQ_1_6, rootScope)
-    //        .forEach((k, v) -> System.out.println("function: " + k));
+    //        .forEach((max_k, v) -> System.out.println("function: " + max_k));
     //
     //    FileSystemModuleLoader fsml = new FileSystemModuleLoader(
     //        rootScope,

@@ -40,15 +40,20 @@ import java.util.Optional;
 ///     Any notes about the data, if any
 /// @param distance_function
 ///     The distance function used to compute distance between vectors
-public record SpecAttributes(
-    String model, String url, DistanceFunction distance_function, Optional<String> notes
+public record RootGroupAttributes(
+    String model,
+    String url,
+    DistanceFunction distance_function,
+    Optional<String> notes,
+    String license,
+    String vendor
 )
 {
   /// read the metadata from a file
   /// @param metadataFile
   ///     the path to the metadata file
   /// @return the metadata for this file
-  public static SpecAttributes fromFile(Path metadataFile) {
+  public static RootGroupAttributes fromFile(Path metadataFile) {
     try {
 
       if (metadataFile.toString().toLowerCase().endsWith(".json")) {
@@ -56,7 +61,7 @@ public record SpecAttributes(
         try {
           BufferedReader reader = Files.newBufferedReader(metadataFile);
           Map<String, String> data = gson.fromJson(reader, Map.class);
-          return SpecAttributes.fromMap(data);
+          return RootGroupAttributes.fromMap(data);
         } catch (IOException e) {
           throw new RuntimeException(e);
         }
@@ -66,15 +71,17 @@ public record SpecAttributes(
     } catch (Exception e) {
       throw new RuntimeException("While reading from " + metadataFile + ": " + e.getMessage(), e);
     }
-
   }
 
-  private static SpecAttributes fromMap(Map<String, String> data) {
-    return new SpecAttributes(
+  public static RootGroupAttributes fromMap(Map<String, String> data) {
+    return new RootGroupAttributes(
         data.get("model"),
         data.get("url"),
-        DistanceFunction.valueOf(data.get("distance_function")),
-        Optional.ofNullable(data.get("notes"))
+        DistanceFunction.valueOf(
+            data.get("distance_function") != null ? data.get("distance_function") : "COSINE"),
+        Optional.ofNullable(data.get("notes")),
+        data.get("license"),
+        data.get("vendor")
     );
   }
 }

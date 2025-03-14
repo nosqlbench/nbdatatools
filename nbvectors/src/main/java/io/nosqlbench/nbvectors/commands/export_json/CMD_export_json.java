@@ -47,7 +47,7 @@ import java.util.concurrent.Callable;
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
-    header = "Export HDF5 KNN answer-keys to JSON summary files",
+    header = "export HDF5 KNN answer-keys to JSON summary files",
     description = """
         TBD
         """,
@@ -153,10 +153,10 @@ public class CMD_export_json implements Callable<Integer> {
 
   //  private void describeAttrs(Node node, StringBuilder sb, int level) {
 //    Map<String, Attribute> attributes = node.getAttributes();
-//    attributes.forEach((k, v) -> {
+//    attributes.forEach((max_k, v) -> {
 //      sb.append(" ".repeat(level));
 //      sb.append("ATTR ");
-//      sb.append(k).append(": ").append(v).append("\n");
+//      sb.append(max_k).append(": ").append(v).append("\n");
 //    });
 //  }
 

@@ -42,10 +42,7 @@ import java.util.concurrent.Callable;
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
-    header = "Show details of HDF5 KNN answer-keys",
-    description = """
-        TBD
-        """,
+    description = "show details of HDF5 KNN answer-keys",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",

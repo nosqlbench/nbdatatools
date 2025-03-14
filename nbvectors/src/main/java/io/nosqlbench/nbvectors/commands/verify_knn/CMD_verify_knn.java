@@ -94,7 +94,7 @@ public class CMD_verify_knn implements Callable<Integer> {
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private DistanceFunction distanceFunction;
 
-  @Option(names = {"-k", "--neighborhood_size"},
+  @Option(names = {"-max_k", "--neighborhood_size"},
       defaultValue = "100",
       description = "The neighborhood size")
   private int K;
