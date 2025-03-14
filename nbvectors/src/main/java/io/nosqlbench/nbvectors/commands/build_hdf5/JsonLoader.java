@@ -1,0 +1,268 @@
+package io.nosqlbench.nbvectors.commands.build_hdf5;
+
+/*
+ * Copyright (c) nosqlbench
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+
+import com.fasterxml.jackson.databind.JsonNode;
+import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.ConvertingIterable;
+import io.nosqlbench.nbvectors.commands.jjq.outputs.BufferOutput;
+import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.PredicateParser;
+import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
+import io.nosqlbench.nbvectors.spec.SpecDataSource;
+import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
+
+import java.nio.file.Path;
+import java.util.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+/// A data loader for JSON data which uses the jjq syntax to load data from JSON files.
+public class JsonLoader implements SpecDataSource {
+
+  private final MapperConfig config;
+
+  /// create a new JSON loader
+  /// @param config
+  ///     the configuration to use for loading the data
+  public JsonLoader(MapperConfig config) {
+    this.config = config;
+  }
+
+  /// get an iterator for training vectors
+  /// @return an iterator for {@link LongIndexedFloatVector}
+  @Override
+  public Iterator<LongIndexedFloatVector> getBaseVectors() {
+
+    Supplier<String> input = JJQSupplier.path(config.getTrainingJsonFile());
+    String expr = config.getTrainingJqExpr();
+
+    BufferOutput output = new BufferOutput(5000000);
+
+    JJQInvoker invoker = new JJQInvoker(input, expr, output);
+
+    invoker.run();
+    ConvertingIterable<JsonNode, LongIndexedFloatVector> converter =
+        new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoLongIndexedFloatVector);
+    return converter.iterator();
+  }
+
+  @Override
+  public Optional<Iterator<?>> getBaseContent() {
+    return Optional.empty();
+  }
+
+  /// get an iterator for test vectors
+  /// @return an iterator for {@link LongIndexedFloatVector}
+  @Override
+  public Iterator<LongIndexedFloatVector> getQueryVectors() {
+    Supplier<String> input = JJQSupplier.path(config.getTestJsonFile());
+    String expr = config.getTestJqExpr();
+    BufferOutput output = new BufferOutput(5000000);
+    try (JJQInvoker invoker = new JJQInvoker(input, expr, output)) {
+      invoker.run();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    ConvertingIterable<JsonNode, LongIndexedFloatVector> converter =
+        new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoLongIndexedFloatVector);
+    return converter.iterator();
+
+  }
+
+  @Override
+  public Optional<Iterator<?>> getQueryTerms() {
+    return Optional.empty();
+  }
+
+  /// get an iterator for neighbors
+  /// @return an iterator for {@link LongIndexedFloatVector}
+  @Override
+  public Iterator<int[]> getNeighborIndices() {
+    Supplier<String> input = JJQSupplier.path(config.getNeighborhoodJsonFile());
+    String expr = config.getNeighborhoodTestExpr();
+    BufferOutput output = new BufferOutput(5000000);
+    try (JJQInvoker invoker = new JJQInvoker(input, expr, output)) {
+      invoker.run();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    ConvertingIterable<JsonNode, int[]> converter =
+        new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoIntegerNeighborIndices);
+    return converter.iterator();
+  }
+
+  /// get an iterator for distances
+  /// @return an iterator for {@link LongIndexedFloatVector}
+  @Override
+  public Iterator<float[]> getNeighborDistances() {
+    Supplier<String> input = JJQSupplier.path(config.getDistancesJsonFile());
+    String expr = config.getDistancesExpr();
+    BufferOutput output = new BufferOutput(5000000);
+    try (JJQInvoker invoker = new JJQInvoker(input, expr, output)) {
+      invoker.run();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    ConvertingIterable<JsonNode, float[]> converter =
+        new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoFloatNeighborScoreDistances);
+    return converter.iterator();
+
+  }
+
+  @Override
+  public RootGroupAttributes getMetadata() {
+    return new RootGroupAttributes(
+        config.getModel(),
+        config.getUrl(),
+        DistanceFunction.valueOf(config.getDistanceFunction()),
+        config.getNotes(),
+        config.getDatasetMeta().license(),
+        config.getDatasetMeta().vendor()
+    );
+  }
+
+  /// a converter for json nodes into `long[]` indices
+  /// ---
+  /// # required node structure
+  /// ```json
+  ///{
+  ///   "ids": [0,3,9]
+  ///}
+  ///```
+  public static Function<JsonNode, long[]> JsonNodeIntoLongNeighborIndices = n -> {
+    JsonNode vnode = n.get("ids");
+    if (vnode == null) {
+      List<String> names = new ArrayList<>();
+      n.fieldNames().forEachRemaining(names::add);
+      throw new RuntimeException("ids node was null from node:\n" + n.toPrettyString());
+    }
+    long[] longs = new long[vnode.size()];
+    int i = 0;
+    for (JsonNode node : vnode) {
+      longs[i++] = node.longValue();
+    }
+    return longs;
+  };
+
+  public static Function<JsonNode, int[]> JsonNodeIntoIntegerNeighborIndices = n -> {
+    JsonNode vnode = n.get("ids");
+    if (vnode == null) {
+      List<String> names = new ArrayList<>();
+      n.fieldNames().forEachRemaining(names::add);
+      throw new RuntimeException("ids node was null from node:\n" + n.toPrettyString());
+    }
+    int[] ints = new int[vnode.size()];
+    int i = 0;
+    for (JsonNode node : vnode) {
+      ints[i++] = node.intValue();
+    }
+    return ints;
+  };
+
+  /// A converter for json nodes into `float[]` distances
+  /// ---
+  /// # required node structure (pick one)
+  /// ```json
+  ///{
+  ///   "distances": [0.23,-0.12,0.01]
+  ///}
+  ///
+  ///{
+  ///   "scores": [0.23,0.12,0.01]
+  ///}
+  ///```
+  /// If _distances_ is provided, then the values are presumed to be cosine similarity values, as
+  ///  in _not_ converted to scalar distance values.
+  /// If _scores_ is provided, then the values are presumed to be in unit-interval scores, and
+  /// are converted to equivalent cosine similarity values.
+  /// Other conversions may be added as needed, and should each be distinguished by a specific
+  /// property name.
+  public static Function<JsonNode, float[]> JsonNodeIntoFloatNeighborScoreDistances = n -> {
+    JsonNode vnode = n.get("scores");
+    if (vnode != null) {
+      float[] floats = new float[vnode.size()];
+      for (int i = 0; i < floats.length; i++) {
+        // scores are presumed to be on the unit interval and need to be converted back to
+        // cosine similarity
+        floats[i] = (vnode.get(i).floatValue() * 2) - 1;
+      }
+      return floats;
+    }
+
+    vnode = n.get("distances");
+    if (vnode != null) {
+      float[] floats = new float[vnode.size()];
+      for (int i = 0; i < floats.length; i++) {
+        floats[i] = vnode.get(i).floatValue();
+      }
+      return floats;
+    }
+    List<String> names = new ArrayList<>();
+    n.fieldNames().forEachRemaining(names::add);
+    throw new RuntimeException("scores node was null from node:\n" + n.toPrettyString());
+  };
+
+  /// a converter for json nodes into {@link LongIndexedFloatVector}
+  /// ---
+  /// # required node structure
+  /// ```json
+  ///{
+  ///   "id": 0,
+  ///   "vector": [0.23,-0.12,0.01]
+  ///}
+  ///```
+  public static Function<JsonNode, LongIndexedFloatVector> JsonNodeIntoLongIndexedFloatVector =
+      n -> {
+        JsonNode vnode = n.get("vector");
+        if (vnode == null) {
+          List<String> names = new ArrayList<>();
+          n.fieldNames().forEachRemaining(names::add);
+          throw new RuntimeException("vector node was null, keys:" + names);
+        }
+        float[] floats = new float[vnode.size()];
+        int i = 0;
+        for (JsonNode node : vnode) {
+          floats[i++] = node.floatValue();
+        }
+        return new LongIndexedFloatVector(n.get("id").asLong(), floats);
+      };
+
+  /// get an iterator for predicate filters
+  /// @return an iterator for {@link PNode}
+  public Optional<Iterator<PNode<?>>> getQueryFilters() {
+    Optional<Path> filtersFile = config.getFiltersFile();
+    Optional<String> filtersExpr = config.getFiltersExpr();
+    if (filtersExpr.isEmpty() || filtersFile.isEmpty()) {
+      throw new RuntimeException("filters expr and filters file must both be defined in the config");
+    }
+    Supplier<String> input = JJQSupplier.path(filtersFile.get());
+    String expr = filtersExpr.get();
+    BufferOutput output = new BufferOutput(5000000);
+
+    JJQInvoker invoker = new JJQInvoker(input, expr, output);
+    invoker.run();
+    ConvertingIterable<JsonNode, PNode<?>> converter =
+        new ConvertingIterable<>(output.getResultStream(), PredicateParser::parse);
+    return Optional.of(converter.iterator());
+  }
+
+
+}

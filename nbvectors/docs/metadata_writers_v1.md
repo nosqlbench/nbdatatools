@@ -13,21 +13,31 @@ metadata available. Reasons for having this metadata include:
 When provided, these properties `MUST` be stored in hdf5 attributes on the root group by default
 except where specific attributes pertain to specific datasets or groups.
 
-## neighbors
+When a path is provided, the qualified name of the attribute is attached to the indicated parent.
+
+### for neighbor datasets
+
+- **neighbor_indices/neighborhood_size**
+- **neighbor_distances/neighborhood_size**
 
 The maximum number of neighbors provided for each test vector, AKA the first dimension of the
-`/neighbors` dataset.
+`/neighbor_indices` and `/neighbor_distances` datasets.
 
-Writers MUST provide this attribute.
+Writers MUST provide this attribute for the provided datasets.
 
-## dimensions
+### for vector datasets
 
-The number of dimensions in each vector, AKA the second dimension of the `/test` and `/train`
-datasets.
+- **base_vectors/dimensions**
+- **query_vectors/dimensions**
 
-Writers MUST provide this attribute.
+The number of dimensions in each vector, AKA the second dimension of the `/base_vectors` and 
+`/query_vectors` datasets.
 
-## training_vectors
+Writers MUST provide this attribute for the provided datasets.
+
+### for base vectors
+
+training_vectors
 
 The number of vectors in the `/train` dataset, AKA the first dimension of the `/train` dataset.
 

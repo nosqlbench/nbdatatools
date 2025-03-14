@@ -18,11 +18,10 @@ package io.nosqlbench.nbvectors.jjq.bulkio;
  */
 
 
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.FlatteningIterable;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
