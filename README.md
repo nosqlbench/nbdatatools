@@ -1,4 +1,20 @@
-This project serves two purposes:
+
+# nbdatatools
+
+This is a module is a part of the NoSQLBench project, focusing on test data management. So far, 
+it only contains one tool, but it is expected to grow.
+
+## nbvectors
+
+This is a collection of utilities for working with vector test data, hosted under a single 
+command line tool. It is packaged as an executable jar with several sub-commands. 
+
+```sh
+# see all the options
+java -jar nbvectors.jar --help
+```
+
+
 
 ## Test Data Diagnostics
 
