@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.export_json;
+package io.nosqlbench.nbvectors.commands.catalog_hdf5;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,22 +17,21 @@ package io.nosqlbench.nbvectors.commands.export_json;
  * under the License.
  */
 
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import io.jhdf.HdfFile;
-import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
+import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.nbvectors.commands.export_json.CMD_export_json;
+import io.nosqlbench.nbvectors.commands.export_json.Hdf5JsonSummarizer;
+import io.nosqlbench.nbvectors.commands.show_hdf5.DatasetNames;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
-import java.io.IOException;
-import java.nio.file.Files;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -41,37 +40,42 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 /// Show details of HDF5 vector data files
-@CommandLine.Command(name = "export_json",
+@CommandLine.Command(name = "catalog_hdf5",
     headerHeading = "Usage:%n%n",
     synopsisHeading = "%n",
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
-    header = "export HDF5 KNN answer-keys to JSON summary files",
-    description = """
-        TBD
-        """,
+    description = "Create catalog views of HDF5 files",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
     })
-public class CMD_export_json implements Callable<Integer> {
+public class CMD_catalog_hdf5 implements Callable<Integer> {
 
-  private static final Logger logger = LogManager.getLogger(CMD_export_json.class);
+  private static final Logger logger = LogManager.getLogger(CMD_catalog_hdf5.class);
 
-  @CommandLine.Parameters(description = "The HDF5 files to export to JSON summaries")
+  @CommandLine.Parameters(description = "Files and/or directories to catalog; All files in the "
+                                        + "specified directories and paths are added to the "
+                                        + "catalog files", defaultValue = ".")
   private List<Path> hdf5Files;
 
-  @CommandLine.Option(names = {"--save"}, description = "Save the JSON summaries to files")
-  private boolean save;
+  @CommandLine.Option(names = {"--basename"},
+      description = "The basename to use for the catalog",
+      defaultValue = "catalog")
+  private String basename;
 
-  @CommandLine.Option(names = {"--force"}, description = "Force overwrite of existing JSON summaries")
-  private boolean force;
+  @CommandLine.Option(names = {"--mode"},
+      description = "The mode to use for the catalog ; Valid values: ${COMPLETION-CANDIDATES}",
+      defaultValue = "create")
 
-  /// run an export_json command
+  private CatalogMode mode;
+
+  /// run a catalog_hdf5 command
   /// @param args
   ///     command line args
   public static void main(String[] args) {
+
     System.setProperty("slf4j.internal.verbosity", "ERROR");
     System.setProperty(
         ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
@@ -79,7 +83,7 @@ public class CMD_export_json implements Callable<Integer> {
     );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
-    CMD_export_json command = new CMD_export_json();
+    CMD_catalog_hdf5 command = new CMD_catalog_hdf5();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
@@ -91,23 +95,14 @@ public class CMD_export_json implements Callable<Integer> {
 
   @Override
   public Integer call() {
-    Hdf5JsonSummarizer summarizer = new Hdf5JsonSummarizer();
-
-    for (Path path : this.hdf5Files) {
-      String summary = summarizer.apply(path);
-      System.out.println(summary);
-      if (this.save) {
-        Path jsonPath = Path.of(path.toString().replaceFirst("\\.hdf5$", ".json"));
-        if (Files.exists(jsonPath) && !this.force) {
-          throw new RuntimeException("file already exists (use --force to override): " + jsonPath);
-        }
-        try {
-          Files.writeString(jsonPath, summary);
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }
+    if (basename.contains(".")) {
+      throw new RuntimeException("basename must not contain extension (or dot character)");
     }
+
+    Catalog catalog = new Catalog(Path.of(basename + ".json"), mode);
+    catalog.loadAll(hdf5Files);
+    System.out.println(catalog);
+
     return 0;
   }
 }

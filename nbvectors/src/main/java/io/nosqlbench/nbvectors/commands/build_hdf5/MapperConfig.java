@@ -106,8 +106,8 @@ public class MapperConfig {
 
   /// get the distances JSON file
   /// @return the distances JSON file
-  public Path getDistancesJsonFile() {
-    return Path.of((String) this.cfgmap.get("distances_file"));
+  public Optional<Path> getDistancesJsonFile() {
+    return Optional.ofNullable((String) cfgmap.get("distances_file")).map(Path::of);
   }
 
   /// get the distances jq expression
@@ -123,6 +123,7 @@ public class MapperConfig {
   }
 
   /// get the dataset metadata
+  /// @return the dataset metadata
   public RootGroupAttributes getDatasetMeta() {
     return new RootGroupAttributes(
         (String) cfgmap.get("model"),

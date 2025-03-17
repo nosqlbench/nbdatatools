@@ -60,7 +60,7 @@ public interface SpecDataSource {
 
   /// /distances
   /// @return an iterator of neighbor distances
-  public Iterator<float[]> getNeighborDistances();
+  public Optional<Iterator<float[]>> getNeighborDistances();
 
   /// get metadata
   /// @return the metadata for the test data
