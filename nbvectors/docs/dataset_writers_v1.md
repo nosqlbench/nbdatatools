@@ -18,7 +18,7 @@ out of scope. Big-endian systems are expected to translate on their own behalf.
 
 ## Base Content
 
-### /base_vectors
+### /base_vectors (required)
 
 This dataset contains the base vectors used to train the vector database implementation. These
 vectors must be loaded into the database prior to testing performance and accuracy of vector
@@ -29,12 +29,17 @@ By default, the data is stored as a float array. However, other formats are supp
 non-floating point representations, some systems have their own prescribed encoding and decoding of
 vector components.
 
-#### attributes
+#### required attributes
 
-- **dimensions**
-- **count**
-- **model**
-- **distance_function**
+- **dimensions** The number of dimensions in each vector, AKA the second dimension of the 
+  `/base_vectors` dataset.
+- **count** The number of vectors in the `/base_vectors` dataset, AKA the first dimension of the 
+  `/base_vectors` dataset. 
+- **model** The name of the model used to generate the data, if any. This should be a descriptive and
+  canonical name for the model. The name should be the same as what customers may use to select a
+  specific variant or version of a model in their systems.
+- **distance_function** The case-insensitive name of the distance function used to compute distance
+  between vectors. 
 
 ### /base_content (optional)
 
@@ -44,25 +49,29 @@ dimension of the base_vectors dataset, where the major coordinate corresponds pa
 other words, base_vectors[i] would be the embeddings for base_content[i] and so on, irrespective 
 of the other dimensions on either dataset.  
 
-#### attributes
+#### required attributes
 
-- **media_type**
-- **count**
+- **media_type** the media type of the content, such as "text/plain" or "image/jpeg"
+- **count** the number of content items, AKA the first dimension of the `/base_content` dataset.
 
 ## Queries
 
-### /query_vectors
+### /query_vectors (required)
 
 This dataset contains the vectors used to test the performance and accuracy of the vector database
 implementation. The format of the data is a multi-dimensional float array, with x number of
 y-dimensional vectors where x is the number of individual vectors and y is the number of dimensions
 in each vector.
 
-#### attributes
+#### required attributes
 
-- **model**
-- **count**
-- **dimensions**
+- **model** The name of the model used to generate the data, if any. This should be a descriptive and
+  canonical name for the model. The name should be the same as what customers may use to select a
+  specific variant or version of a model in their systems.
+- **count** The number of vectors in the `/query_vectors` dataset, AKA the first dimension of the 
+  `/query_vectors` dataset.
+- **dimensions** The number of dimensions in each vector, AKA the second dimension of the 
+  `/query_vectors` dataset.
 
 ### /query_terms (optional)
 
@@ -74,7 +83,9 @@ make troubleshooting and reproduction of issues easier. The primary dimension of
 correspond to that of the query dataset, with each major coordinate matching pair-wise for
 associated query terms.
 
-#### (no) attributes
+#### required attributes
+
+(none)
 
 ### /query_filters (optional)
 
@@ -100,11 +111,13 @@ Writers of this table *SHOULD* use a constant width if possible, but it is not r
 avoid some overhead of indexing structure in the HDF5 format. The encoded format supports reading
 only the valid portion of any buffer.
 
-#### (no) attributes
+#### required attributes
+
+(none)
 
 ## Results
 
-### /neighbor_indices
+### /neighbor_indices (required)
 
 This dataset contains the ground truth nearest neighbors for each vector in the test dataset. The
 format of the data is a multi-dimensional integer array, where x is the number of individual vectors
@@ -113,18 +126,22 @@ and y is the number of nearest neighbors to each vector.
 Data in the neighbors dataset should be encoded as either a 32-bit signed integer, little-endian,
 or a 64-bit signed integer. 
 
-#### attributes
+#### required attributes
 
 - **count** - the total number of neighborhoods provided
 - **k** - the number of neighbors provided per query vector
 
-### /neighbor_distances
+### /neighbor_distances (optional)
 
 This dataset contains the ground truth distances for each vector in the test dataset. The format of
 the data is a multi-dimensional float array, with x number of y-dimensional vectors where x=the
 number of individual vectors and y=the number of nearest neighbors to each vector.
 
-#### attributes
+Although, these can be computed dynamically when needed for correctness testing, they may be provided
+to avoid the need to compute them. This can be beneficial to make testing harnesses more 
+efficient, so that performance and accuracy can be tested in a single pass.
+
+#### required attributes
 
 - **k** - the number of neighbors provided per query vector
 - **count** - the total number of neighborhoods provided

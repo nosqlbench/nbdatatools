@@ -25,7 +25,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/// @param base_vectors
+/// Config for a single hdf5 file, with some required and some optional components from other files
+///  @param base_vectors
 ///     the base_vectors file to read
 /// @param query_vectors
 ///     the query_vectors file to read
@@ -39,6 +40,8 @@ import java.util.Optional;
 ///     the query_filters file to read
 /// @param base_content
 ///     the base_content file to read
+/// @param metadata
+///     the metadata associated with the overall hdf5 file
 
 public record VectorFilesConfig(
     Path base_vectors,
