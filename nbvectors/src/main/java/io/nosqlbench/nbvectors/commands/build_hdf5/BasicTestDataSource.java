@@ -30,6 +30,8 @@ import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVec
 import java.util.Iterator;
 import java.util.Optional;
 
+/// A basic test data source which provides iterators for all the required data,
+/// and allows for setting the iterators for each component as needed.
 public class BasicTestDataSource implements SpecDataSource {
 
   private Iterator<LongIndexedFloatVector> baseVectorsIterator;
@@ -42,9 +44,13 @@ public class BasicTestDataSource implements SpecDataSource {
   private Iterator<float[]> neighborDistancesIter;
 
 
+  /// create a new basic test data source
   public BasicTestDataSource() {
   }
 
+  /// create a new basic test data source from a file config
+  /// @param cfg
+  ///     the file config
   public BasicTestDataSource(VectorFilesConfig cfg) {
     setBaseVectorsIterator(new FvecToIndexedFloatVector(cfg.base_vectors()).iterator());
     setQueryVectorsIter(new FvecToIndexedFloatVector(cfg.query_vectors()).iterator());
@@ -84,8 +90,8 @@ public class BasicTestDataSource implements SpecDataSource {
   }
 
   @Override
-  public Iterator<float[]> getNeighborDistances() {
-    return this.neighborDistancesIter;
+  public Optional<Iterator<float[]>> getNeighborDistances() {
+    return Optional.ofNullable(this.neighborDistancesIter);
   }
 
   @Override
@@ -93,6 +99,9 @@ public class BasicTestDataSource implements SpecDataSource {
     return this.metadata;
   }
 
+  /// Set the iterator for the base vectors
+  /// @param baseVectorsIterator
+  ///     the iterator for the base vectors
   public void setBaseVectorsIterator(Iterator<LongIndexedFloatVector> baseVectorsIterator) {
     this.baseVectorsIterator = baseVectorsIterator;
   }

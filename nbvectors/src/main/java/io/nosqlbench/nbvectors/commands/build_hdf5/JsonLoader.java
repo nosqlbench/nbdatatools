@@ -112,8 +112,12 @@ public class JsonLoader implements SpecDataSource {
   /// get an iterator for distances
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Iterator<float[]> getNeighborDistances() {
-    Supplier<String> input = JJQSupplier.path(config.getDistancesJsonFile());
+  public Optional<Iterator<float[]>> getNeighborDistances() {
+    Optional<Path> optionalDistancesJsonFile = config.getDistancesJsonFile();
+    if (optionalDistancesJsonFile.isEmpty()) {
+      return Optional.empty();
+    }
+    Supplier<String> input = JJQSupplier.path(optionalDistancesJsonFile.get());
     String expr = config.getDistancesExpr();
     BufferOutput output = new BufferOutput(5000000);
     try (JJQInvoker invoker = new JJQInvoker(input, expr, output)) {
@@ -123,7 +127,7 @@ public class JsonLoader implements SpecDataSource {
     }
     ConvertingIterable<JsonNode, float[]> converter =
         new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoFloatNeighborScoreDistances);
-    return converter.iterator();
+    return Optional.of(converter.iterator());
 
   }
 

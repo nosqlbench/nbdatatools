@@ -40,6 +40,10 @@ import java.util.Optional;
 ///     Any notes about the data, if any
 /// @param distance_function
 ///     The distance function used to compute distance between vectors
+/// @param license
+///     The license for the data
+/// @param vendor
+///     The vendor of the data
 public record RootGroupAttributes(
     String model,
     String url,

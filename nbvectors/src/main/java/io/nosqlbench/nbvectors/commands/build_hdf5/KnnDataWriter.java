@@ -237,8 +237,10 @@ public class KnnDataWriter {
       System.err.println("writing neighbors indices...");
       writeNeighborsIntStream(loader.getNeighborIndices());
 
-      System.err.println("writing neighbor distances...");
-      writeDistancesStream(loader.getNeighborDistances());
+      if (loader.getNeighborDistances().isPresent()) {
+        System.err.println("writing neighbor distances...");
+        writeDistancesStream(loader.getNeighborDistances().orElseThrow());
+      }
 
       System.err.println("writing metadata...");
       this.rootGroupAttributes = new RootGroupAttributes(
