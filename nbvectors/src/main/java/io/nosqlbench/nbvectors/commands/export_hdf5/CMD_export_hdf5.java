@@ -37,11 +37,30 @@ import static picocli.CommandLine.Option;
 @Command(name = "export_hdf5", description = "export HDF5 KNN answer-keys from other formats")
 public class CMD_export_hdf5 implements Callable<Integer> {
 
+  private static String DEFAULT_TEMPLATE =
+      "[model][_{variant*}][_d{dims}][_b{vectors}][_q{queries" + "}][_mk{max_k}].hdf5";
+
+//  @CommandLine.ArgGroup(exclusive = true)
+//  Outfile outfile;
+
   @Option(names = {"-o", "--outfile"},
       required = true,
       defaultValue = "out.hdf5",
       description = "The " + "HDF5" + " file to " + "write")
-  private Path hdfOutPath;
+  private String outfile;
+
+//  static class Outfile {
+//    @Option(names = {"-t", "--outfile-template"},
+//        required = true,
+//        defaultValue = "[model][_{variant*}][_d{dims}][_b{vectors}][_q{queries}][_mk{max_k}].hdf5",
+//        description = "The HDF5 file template to write to")
+//    private Path template;
+//  }
+//
+  @Option(names = {"-m", "--mapping-file"},
+      required = true,
+      description = "The mapping file to read")
+  private Path mappingFile;
 
   @CommandLine.Option(names = {"--query_vectors"},
       required = false,
@@ -58,12 +77,12 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       description = "The query_filters file to read")
   private Path query_filters;
 
-  @CommandLine.Option(names = {"--neighbors"},
+  @CommandLine.Option(names = {"--neighbor_indices"},
       required = false,
       description = "The query_neighbors file to read")
   private Path neighbors;
 
-  @CommandLine.Option(names = {"--distances"},
+  @CommandLine.Option(names = {"--neighbor_distances"},
       required = false,
       description = "The query_distances file to read")
   private Path distances;
@@ -105,24 +124,45 @@ public class CMD_export_hdf5 implements Callable<Integer> {
 
   @Override
   public Integer call() throws Exception {
+    if (this.mappingFile != null) {
+      BatchConfig cfg = BatchConfig.file(this.mappingFile);
 
-    RootGroupAttributes rga = RootGroupAttributes.fromFile(metadataFile);
+      String template = this.outfile;
+      if (outfile.contains("TEMPLATE")) {
+        outfile = outfile.replace("TEMPLATE", DEFAULT_TEMPLATE);
+      }
 
-    VectorFilesConfig cfg = new VectorFilesConfig(
-        this.base_vectors,
-        this.query_vectors,
-        this.neighbors,
-        this.distances,
-        Optional.ofNullable(this.base_content),
-        Optional.ofNullable(this.query_terms),
-        Optional.ofNullable(this.query_filters),
-        rga
-    );
+      for (String entry : cfg.files().keySet()) {
+        System.err.println("exporting " + entry);
+        VectorFilesConfig vectorFilesConfig = cfg.files().get(entry);
+        BasicTestDataSource source = new BasicTestDataSource(vectorFilesConfig);
+        KnnDataWriter writer = new KnnDataWriter(this.outfile, source);
+        writer.writeHdf5();
+      }
 
-    BasicTestDataSource source = new BasicTestDataSource(cfg);
-    KnnDataWriter writer = new KnnDataWriter(this.hdfOutPath, source);
-    writer.writeHdf5();
-    return 0;
+      return 0;
+    } else {
+      RootGroupAttributes rga = RootGroupAttributes.fromFile(metadataFile);
+
+      VectorFilesConfig cfg = new VectorFilesConfig(
+          this.base_vectors,
+          this.query_vectors,
+          this.neighbors,
+          Optional.ofNullable(this.distances),
+          Optional.ofNullable(this.base_content),
+          Optional.ofNullable(this.query_terms),
+          Optional.ofNullable(this.query_filters),
+          rga
+      );
+
+      BasicTestDataSource source = new BasicTestDataSource(cfg);
+      KnnDataWriter writer = new KnnDataWriter(this.outfile, source);
+      writer.writeHdf5();
+      return 0;
+
+    }
+
+
   }
 }
 

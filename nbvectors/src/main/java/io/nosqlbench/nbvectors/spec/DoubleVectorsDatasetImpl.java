@@ -1,5 +1,4 @@
-/// the {@link io.nosqlbench.nbvectors.commands.batch_export.CMD_batch_export} command
-package io.nosqlbench.nbvectors.commands.batch_export;
+package io.nosqlbench.nbvectors.spec;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,3 +17,24 @@ package io.nosqlbench.nbvectors.commands.batch_export;
  * under the License.
  */
 
+
+import io.jhdf.api.Dataset;
+
+/// a dataset consisting of arrays of float values
+public class DoubleVectorsDatasetImpl extends BaseVectorsDataset<Double> implements DoubleVectorsDataset  {
+
+  /// create a float vectors dataset
+  /// @param dataset the dataset
+  public DoubleVectorsDatasetImpl(Dataset dataset) {
+    super(dataset);
+  }
+
+  /// get a vector by its ordinal
+  /// @param ordinal the ordinal of the vector to get
+  /// @return the vector
+  @Override
+  public double[] getVector(int ordinal) {
+    return new double[0];
+  }
+
+}

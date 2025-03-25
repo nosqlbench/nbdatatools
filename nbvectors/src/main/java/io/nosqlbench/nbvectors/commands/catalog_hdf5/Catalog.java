@@ -31,11 +31,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/// Catalog of data for HDF5 files
 public class Catalog extends LinkedHashMap<String,String> {
   private final static Logger logger = LogManager.getLogger(Catalog.class);
   private final static Gson gson = new GsonBuilder().create();
   private final static Hdf5JsonSummarizer jsonSummarizer = new Hdf5JsonSummarizer();
 
+  /// create a catalog
+  /// @param path the path to the catalog file
+  /// @param mode the mode to use for the catalog
+  /// @see CatalogMode
   public Catalog(Path path, CatalogMode mode) {
     if (mode==CatalogMode.update) {
       if (Files.exists(path)) {
@@ -50,6 +55,9 @@ public class Catalog extends LinkedHashMap<String,String> {
     }
   }
 
+  /// load all files and directories into the catalog
+  /// @param hdf5Files the files and directories to load
+  /// @see #loadFile(Path)
   public void loadAll(List<Path> hdf5Files) {
     for (Path hdf5File : hdf5Files) {
       if (Files.isDirectory(hdf5File)) {

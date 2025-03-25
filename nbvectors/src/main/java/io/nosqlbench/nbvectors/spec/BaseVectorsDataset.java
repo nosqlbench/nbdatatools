@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec.attributes;
+package io.nosqlbench.nbvectors.spec;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,11 +18,32 @@ package io.nosqlbench.nbvectors.spec.attributes;
  */
 
 
-/// This record type captures attribute requirements for the neighbor indices dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborIndicesAttributes(
-    long count,
-    long max_k
-) {
+import io.jhdf.api.Dataset;
+import io.nosqlbench.nbvectors.spec.access.datasets.DatasetView;
+
+public abstract class BaseVectorsDataset<T> implements DatasetView {
+  private final Dataset dataset;
+
+
+  public BaseVectorsDataset(Dataset dataset) {
+
+    this.dataset = dataset;
+  }
+
+  @Override
+  public int getCount() {
+     return dataset.getDimensions()[0];
+  }
+
+  @Override
+  public int getVectorDimensions() {
+    return dataset.getDimensions()[1];
+  }
+
+  @Override
+  public Class<?> getDataType() {
+    return dataset.getDataType().getJavaType();
+  }
+
+
 }

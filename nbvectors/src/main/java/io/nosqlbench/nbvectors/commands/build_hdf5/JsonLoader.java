@@ -49,7 +49,7 @@ public class JsonLoader implements SpecDataSource {
   /// get an iterator for training vectors
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Iterator<LongIndexedFloatVector> getBaseVectors() {
+  public Iterable<LongIndexedFloatVector> getBaseVectors() {
 
     Supplier<String> input = JJQSupplier.path(config.getTrainingJsonFile());
     String expr = config.getTrainingJqExpr();
@@ -61,18 +61,18 @@ public class JsonLoader implements SpecDataSource {
     invoker.run();
     ConvertingIterable<JsonNode, LongIndexedFloatVector> converter =
         new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoLongIndexedFloatVector);
-    return converter.iterator();
+    return converter;
   }
 
   @Override
-  public Optional<Iterator<?>> getBaseContent() {
+  public Optional<Iterable<?>> getBaseContent() {
     return Optional.empty();
   }
 
   /// get an iterator for test vectors
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Iterator<LongIndexedFloatVector> getQueryVectors() {
+  public Iterable<LongIndexedFloatVector> getQueryVectors() {
     Supplier<String> input = JJQSupplier.path(config.getTestJsonFile());
     String expr = config.getTestJqExpr();
     BufferOutput output = new BufferOutput(5000000);
@@ -83,19 +83,19 @@ public class JsonLoader implements SpecDataSource {
     }
     ConvertingIterable<JsonNode, LongIndexedFloatVector> converter =
         new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoLongIndexedFloatVector);
-    return converter.iterator();
+    return converter;
 
   }
 
   @Override
-  public Optional<Iterator<?>> getQueryTerms() {
+  public Optional<Iterable<?>> getQueryTerms() {
     return Optional.empty();
   }
 
   /// get an iterator for neighbors
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Iterator<int[]> getNeighborIndices() {
+  public Iterable<int[]> getNeighborIndices() {
     Supplier<String> input = JJQSupplier.path(config.getNeighborhoodJsonFile());
     String expr = config.getNeighborhoodTestExpr();
     BufferOutput output = new BufferOutput(5000000);
@@ -106,13 +106,13 @@ public class JsonLoader implements SpecDataSource {
     }
     ConvertingIterable<JsonNode, int[]> converter =
         new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoIntegerNeighborIndices);
-    return converter.iterator();
+    return converter;
   }
 
   /// get an iterator for distances
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Optional<Iterator<float[]>> getNeighborDistances() {
+  public Optional<Iterable<float[]>> getNeighborDistances() {
     Optional<Path> optionalDistancesJsonFile = config.getDistancesJsonFile();
     if (optionalDistancesJsonFile.isEmpty()) {
       return Optional.empty();
@@ -127,7 +127,7 @@ public class JsonLoader implements SpecDataSource {
     }
     ConvertingIterable<JsonNode, float[]> converter =
         new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoFloatNeighborScoreDistances);
-    return Optional.of(converter.iterator());
+    return Optional.of(converter);
 
   }
 
@@ -166,6 +166,7 @@ public class JsonLoader implements SpecDataSource {
     return longs;
   };
 
+  /// a converter for json nodes into `int[]` indices
   public static Function<JsonNode, int[]> JsonNodeIntoIntegerNeighborIndices = n -> {
     JsonNode vnode = n.get("ids");
     if (vnode == null) {
@@ -251,7 +252,7 @@ public class JsonLoader implements SpecDataSource {
 
   /// get an iterator for predicate filters
   /// @return an iterator for {@link PNode}
-  public Optional<Iterator<PNode<?>>> getQueryFilters() {
+  public Optional<Iterable<PNode<?>>> getQueryFilters() {
     Optional<Path> filtersFile = config.getFiltersFile();
     Optional<String> filtersExpr = config.getFiltersExpr();
     if (filtersExpr.isEmpty() || filtersFile.isEmpty()) {
@@ -265,7 +266,7 @@ public class JsonLoader implements SpecDataSource {
     invoker.run();
     ConvertingIterable<JsonNode, PNode<?>> converter =
         new ConvertingIterable<>(output.getResultStream(), PredicateParser::parse);
-    return Optional.of(converter.iterator());
+    return Optional.of(converter);
   }
 
 

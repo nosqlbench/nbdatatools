@@ -55,7 +55,7 @@ public class CMD_build_hdf5 implements Callable<Integer> {
       required = true,
       defaultValue = "out.hdf5",
       description = "The " + "HDF5" + " file to " + "write")
-  private Path hdfOutPath;
+  private String hdfOutPath;
 
   @Option(names = {"-l", "--layout"},
       required = true,

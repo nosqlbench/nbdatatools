@@ -23,6 +23,11 @@ import io.jhdf.WritableHdfFile;
 import io.jhdf.api.WritableDataset;
 import io.jhdf.api.WritableNode;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.ConvertingIterable;
+import io.nosqlbench.nbvectors.common.FilePaths;
+import io.nosqlbench.nbvectors.common.jhdf.StreamableDataset;
+import io.nosqlbench.nbvectors.common.jhdf.StreamableDatasetImpl;
+import io.nosqlbench.nbvectors.spec.VectorData;
 import io.nosqlbench.nbvectors.spec.attributes.*;
 import io.nosqlbench.nbvectors.spec.SpecDataSource;
 import io.nosqlbench.nbvectors.spec.SpecDatasets;
@@ -36,21 +41,14 @@ import java.lang.reflect.RecordComponent;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.*;
-import java.util.function.Function;
-import java.util.regex.MatchResult;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static java.util.Collections.replaceAll;
 
 /// A writer for KNN data in the HDF5 format
 public class KnnDataWriter {
   private final static Logger logger = LogManager.getLogger(KnnDataWriter.class);
 
-  private final Path outTemplate;
+  private final String outTemplate;
   private WritableHdfFile writable;
   private final SpecDataSource loader;
   private final Path tempFile;
@@ -61,17 +59,20 @@ public class KnnDataWriter {
   private RootGroupAttributes rootGroupAttributes;
 
   /// create a new KNN data writer
-  /// @param outTemplate
+  /// @param outfileTemplate
   ///     the path to the file to write to
   /// @param loader
   ///     the loader for the data
-  public KnnDataWriter(Path outTemplate, SpecDataSource loader) {
+  public KnnDataWriter(String outfileTemplate, SpecDataSource loader) {
     try {
       Path dir = Path.of(".").toAbsolutePath();
-      this.tempFile = Files.createTempFile(dir, "hdf5buffer", "hdf5", PosixFilePermissions.asFileAttribute(
-          PosixFilePermissions.fromString("rwxr-xr-x")
-      ));
-      this.outTemplate = outTemplate;
+      this.tempFile = Files.createTempFile(
+          dir,
+          ".hdf5buffer",
+          ".hdf5",
+          PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxr-xr-x"))
+      );
+      this.outTemplate = outfileTemplate;
       this.writable = HdfFile.write(tempFile);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -80,141 +81,147 @@ public class KnnDataWriter {
   }
 
   /// write the training vector data to a dataset
-  /// @param iterator
+  /// @param iterable
   ///     an iterator for the training vectors
-  public void writeBaseVectors(Iterator<LongIndexedFloatVector> iterator) {
-    List<LongIndexedFloatVector> vectors = new ArrayList<>();
-    iterator.forEachRemaining(vectors::add);
-    float[][] ary = new float[vectors.size()][vectors.getFirst().vector().length];
-    for (LongIndexedFloatVector vector : vectors) {
-      ary[(int) vector.index()] = vector.vector();
+  public void writeBaseVectors(Iterable<LongIndexedFloatVector> iterable) {
+
+    ConvertingIterable<LongIndexedFloatVector, float[]> remapper =
+        new ConvertingIterable<LongIndexedFloatVector, float[]>(
+            iterable,
+            LongIndexedFloatVector::vector
+        );
+
+    Class<? extends float[]> fclass = new float[0].getClass();
+    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, remapper, 1024 * 1024 * 512);
+
+    StreamableDataset streamer =
+        new StreamableDatasetImpl(aci, SpecDatasets.base_vectors.name(), this.writable);
+
+    if (iterable instanceof Sized sized) {
+      streamer.modifyDimensions(new int[]{sized.getSize()});
     }
-    WritableDataset writableDataset =
-        this.writable.putDataset(SpecDatasets.base_vectors.name(), ary);
+
+    WritableDataset wds =
+        this.writable.putDataset(SpecDatasets.base_vectors.name(), streamer);
+
     this.baseVectorAttributes = new BaseVectorAttributes(
-        ary[0].length,
-        ary.length,
+        wds.getDimensions()[0],
+        wds.getDimensions()[1],
         this.loader.getMetadata().model(),
         this.loader.getMetadata().distance_function()
     );
-    this.writeAttributes(writableDataset, SpecDatasets.base_vectors, baseVectorAttributes);
-    //
-    //    // Record number of records in train dataset as an attribute
-    //    this.writable.putAttribute(BaseVectorAttributes.count.name(), ary.length);
-    //    // Record vector dimensionality (this will be the same for both train and test) as an attribute
-    //    this.writable.putAttribute("dimensions", ary[0].length);
-  }
 
-  private <T extends Record> void writeAttributes(WritableNode wnode, SpecDatasets dstype, T attrs)
-  {
-    if (dstype != null && !dstype.getAttributesType().isAssignableFrom(attrs.getClass())) {
-      throw new RuntimeException(
-          "unable to assign attributes from " + attrs.getClass().getCanonicalName()
-          + " to dataset for " + dstype.name());
-    }
-
-    try {
-      if (attrs instanceof Record record) {
-        RecordComponent[] comps = record.getClass().getRecordComponents();
-        for (RecordComponent comp : comps) {
-          String fieldname = comp.getName();
-          Method accessor = comp.getAccessor();
-          Object value = accessor.invoke(record);
-          if (value instanceof Enum<?> e) {
-            value = e.name();
-          }
-          if (value instanceof Optional<?> o) {
-            if (o.isPresent()) {
-              value = o.get();
-            } else {
-              continue;
-            }
-          }
-          if (value == null) {
-            throw new RuntimeException(
-                "attribute value for requied attribute " + fieldname + " " + "was null");
-          }
-          wnode.putAttribute(fieldname, value);
-        }
-      }
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    this.writeAttributes(wds, SpecDatasets.base_vectors, baseVectorAttributes);
   }
 
   /// write the test vector data to a dataset
   /// @param iterator
   ///     an iterator for the test vectors
-  public void writeQueryVectors(Iterator<LongIndexedFloatVector> iterator) {
-    List<LongIndexedFloatVector> vectors = new ArrayList<>();
-    iterator.forEachRemaining(vectors::add);
-    float[][] ary = new float[vectors.size()][vectors.getFirst().vector().length];
-    for (LongIndexedFloatVector vector : vectors) {
-      ary[(int) vector.index()] = vector.vector();
+  public void writeQueryVectors(Iterable<LongIndexedFloatVector> iterator) {
+
+    ConvertingIterable<LongIndexedFloatVector, float[]> remapper =
+        new ConvertingIterable<LongIndexedFloatVector, float[]>(
+            iterator,
+            LongIndexedFloatVector::vector
+        );
+
+    Class<? extends float[]> fclass = new float[0].getClass();
+    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, remapper, 1024 * 1024 * 512);
+
+    StreamableDatasetImpl streamer =
+        new StreamableDatasetImpl(aci, SpecDatasets.query_vectors.name(), this.writable);
+
+    if (iterator instanceof Sized sized) {
+      streamer.modifyDimensions(new int[]{sized.getSize()});
     }
-    //    WritableDataset ds = new WritableDatasetImpl(ary,"/train",writable);
-    WritableDataset wds = this.writable.putDataset(SpecDatasets.query_vectors.name(), ary);
-    this.queryVectorsAttributes =
-        new QueryVectorsAttributes(loader.getMetadata().model(), ary.length, ary[0].length);
+
+    WritableDataset wds =
+        this.writable.putDataset(SpecDatasets.query_vectors.name(), streamer);
+
+    this.queryVectorsAttributes = new QueryVectorsAttributes(
+        loader.getMetadata().model(),
+        wds.getDimensions()[0],
+        wds.getDimensions()[1]
+    );
     writeAttributes(wds, SpecDatasets.query_vectors, queryVectorsAttributes);
   }
 
   /// write the neighbors data to a dataset
   /// @param iterator
   ///     an iterator for the neighbors
-  public void writeNeighborsIntStream(Iterator<int[]> iterator) {
-    List<int[]> vectors = new ArrayList<>();
-    iterator.forEachRemaining(vectors::add);
-    int[][] ary = new int[vectors.size()][vectors.getFirst().length];
-    for (int i = 0; i < ary.length; i++) {
-      ary[i] = vectors.get(i);
+  public void writeNeighborsIntStream(Iterable<int[]> iterator) {
+
+    Class<? extends int[]> fclass = new int[0].getClass();
+    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterator, 1024 * 1024 * 512);
+    StreamableDatasetImpl streamer =
+        new StreamableDatasetImpl(aci, SpecDatasets.neighbor_indices.name(), this.writable);
+
+    if (iterator instanceof Sized sized) {
+      streamer.modifyDimensions(new int[]{sized.getSize()});
     }
-    WritableDataset wds = this.writable.putDataset(SpecDatasets.neighbor_indices.name(), ary);
-    this.neighborIndicesAttributes = new NeighborIndicesAttributes(ary[0].length, ary.length);
+
+    WritableDataset wds =
+        this.writable.putDataset(SpecDatasets.neighbor_indices.name(), streamer);
+
+
+    this.neighborIndicesAttributes =
+        new NeighborIndicesAttributes(wds.getDimensions()[0], wds.getDimensions()[1]);
     writeAttributes(wds, SpecDatasets.neighbor_indices, neighborIndicesAttributes);
   }
 
   /// write the distances data to a dataset
   /// @param iterator
   ///     an iterator for the distances
-  public void writeDistancesStream(Iterator<float[]> iterator) {
-    List<float[]> distances = new ArrayList<>();
-    iterator.forEachRemaining(distances::add);
-    float[][] ary = new float[distances.size()][distances.getFirst().length];
-    for (int i = 0; i < ary.length; i++) {
-      ary[i] = distances.get(i);
+  public void writeDistancesStream(Iterable<float[]> iterator) {
+
+    Class<? extends float[]> fclass = new float[0].getClass();
+    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterator, 1024 * 1024 * 512);
+    StreamableDatasetImpl streamer =
+        new StreamableDatasetImpl(aci, SpecDatasets.neighbor_distances.name(), this.writable);
+
+    if (iterator instanceof Sized sized) {
+      streamer.modifyDimensions(new int[]{sized.getSize()});
     }
-    WritableDataset wds = this.writable.putDataset(SpecDatasets.neighbor_distances.name(), ary);
-    this.neighborDistancesAttributes = new NeighborDistancesAttributes(ary[0].length, ary.length);
+
+    WritableDataset wds =
+        this.writable.putDataset(SpecDatasets.neighbor_distances.name(), streamer);
+
+    this.neighborDistancesAttributes =
+        new NeighborDistancesAttributes(wds.getDimensions()[0], wds.getDimensions()[1]);
     writeAttributes(wds, SpecDatasets.neighbor_distances, neighborDistancesAttributes);
 
   }
 
   /// write the filters data to a dataset
-  /// @param nodeIterator
-  ///     an iterator for the filters
-  public void writeFiltersStream(Iterator<PNode<?>> nodeIterator) {
-    List<byte[]> predicateEncodings = new ArrayList<>();
-    ByteBuffer workingBuffer = ByteBuffer.allocate(5_000_000);
+  /// @param iterable
+  ///     an Iterable for the filters
+  /// @see PNode
+  public void writeFiltersStream(Iterable<PNode<?>> iterable) {
 
-    int maxlen = 0;
-    int minlen = Integer.MAX_VALUE;
-    while (nodeIterator.hasNext()) {
-      PNode<?> node = nodeIterator.next();
+    ByteBuffer workingBuffer = ByteBuffer.allocate(5_000_000);
+    ConvertingIterable<PNode<?>, byte[]> remapper = new ConvertingIterable<PNode<?>, byte[]>(
+        iterable, node -> {
       workingBuffer.clear();
       node.encode(workingBuffer);
       workingBuffer.flip();
       byte[] bytes = new byte[workingBuffer.remaining()];
       workingBuffer.get(bytes);
-      predicateEncodings.add(bytes);
-      maxlen = Math.max(maxlen, bytes.length);
-      minlen = Math.min(minlen, bytes.length);
+      return bytes;
     }
-    byte[][] encoded = new byte[predicateEncodings.size()][maxlen];
-    for (int i = 0; i < encoded.length; i++) {
-      encoded[i] = predicateEncodings.get(i);
+    );
+
+    Class<? extends byte[]> fclass = new byte[0].getClass();
+    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, remapper, 1024 * 1024 * 512);
+
+    StreamableDatasetImpl streamer =
+        new StreamableDatasetImpl(aci, SpecDatasets.query_filters.name(), this.writable);
+
+    if (iterable instanceof Sized sized) {
+      streamer.modifyDimensions(new int[]{sized.getSize()});
     }
-    this.writable.putDataset(SpecDatasets.query_filters.name(), encoded);
+
+    WritableDataset wds =
+        this.writable.putDataset(SpecDatasets.query_filters.name(), streamer);
   }
 
   /// write the data to the file
@@ -254,8 +261,13 @@ public class KnnDataWriter {
       this.writeAttributes(this.writable, null, rootGroupAttributes);
       this.writable.close();
 
-      relinkName();
+      VectorData vectorData = new VectorData(tempFile);
+      Path filePath = vectorData.tokenize(this.outTemplate.toString()).map(Path::of)
+          .orElseThrow(() -> new RuntimeException("error tokenizing file"));
+      Path newPath = FilePaths.relinkPath(tempFile, filePath);
+      logger.debug("moved {} to {}", tempFile, newPath);
     } catch (Exception e) {
+
       if (Files.exists(tempFile)) {
         try {
           Files.delete(tempFile);
@@ -266,132 +278,60 @@ public class KnnDataWriter {
     }
   }
 
-  private void relinkName() {
-    String filenameTemplate = this.outTemplate.getFileName().toString();
 
-    Pattern scanner = Pattern.compile("\\[[^\\]]+\\]");
-    Matcher matcher = scanner.matcher(filenameTemplate);
-    String newName = matcher.replaceAll(new Resolver(filenameTemplate));
-    if (newName.contains("[") || newName.contains("]")) {
+  private <T extends Record> void writeAttributes(WritableNode wnode, SpecDatasets dstype, T attrs)
+  {
+    if (dstype != null && !dstype.getAttributesType().isAssignableFrom(attrs.getClass())) {
       throw new RuntimeException(
-          "unresolved tokens in outfile template '" + filenameTemplate + "'");
+          "unable to assign attributes from " + attrs.getClass().getCanonicalName()
+          + " to dataset for " + dstype.name());
     }
-    Path path = Path.of(newName);
-    Path newPath = this.outTemplate.resolveSibling(path);
+
     try {
-      Files.createDirectories(
-          newPath.getParent(),
-          PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxr-x---"))
-      );
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    try {
-      Files.move(
-          tempFile,
-          newPath,
-          StandardCopyOption.REPLACE_EXISTING,
-          StandardCopyOption.ATOMIC_MOVE
-      );
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private class Resolver implements Function<MatchResult, String> {
-    private final HashMap<String, String> tokens = new HashMap<>() {{
-      putAll(Map.of(
-          "dimensions",
-          baseVectorAttributes.dimensions() + "",
-          "max_k",
-          neighborIndicesAttributes.max_k() + "",
-          "count",
-          neighborIndicesAttributes.count() + "",
-          "model",
-          baseVectorAttributes.model(),
-          "function",
-          baseVectorAttributes.distance_function().name(),
-          "base_count",
-          baseVectorAttributes.count() + "",
-          "query_count",
-          queryVectorsAttributes.count() + ""
-      ));
-      putAll(Map.of("d", get("dimensions"), "dims", get("dimensions")));
-      putAll(Map.of("k", get("max_k"), "maxk", get("max_k")));
-      putAll(Map.of("b", get("count"), "base_vectors", get("count"), "vectors", get("count")));
-      putAll(Map.of("m", get("model")));
-      putAll(Map.of("f", get("function"), "distance_function", get("function")));
-      putAll(Map.of(
-          "q",
-          get("query_count"),
-          "queries",
-          get("query_count"),
-          "query_vectors",
-          get("query_count")
-      ));
-    }};
-    private final String templateForDiagnostics;
-
-    Pattern tokenPattern = Pattern.compile(
-        """
-            (?<pre>[^}]*)
-            \\{ (?<token>.+?) \\}
-            (?<post>[^]]*)
-            """, Pattern.COMMENTS
-    );
-    Pattern barePattern = Pattern.compile(
-        """
-            (?<pre>[^a-zA-Z0-9_]*)
-            (?<token>[a-zA-Z0-_]+)
-            (?<post>[^]]*)
-            """, Pattern.COMMENTS
-    );
-
-    public Resolver(String templateForDiagnostics) {
-      this.templateForDiagnostics = templateForDiagnostics;
-    }
-
-    @Override
-    public String apply(MatchResult mr) {
-      String section = mr.group();
-      section = section.substring(1, section.length() - 1);
-
-      Matcher matcher1 = tokenPattern.matcher(section);
-      Matcher matcher2 = barePattern.matcher(section);
-      MatchResult inner = matcher1.matches() ? matcher1 : matcher2.matches() ? matcher2 : null;
-      if (inner == null) {
-        throw new RuntimeException(
-            "unresolved token in outfile template '" + templateForDiagnostics + "': for '" + section
-            + "'");
-      }
-      String token = inner.group("token");
-      String before = inner.group("pre");
-      String after = inner.group("post");
-
-      boolean optional = token.endsWith("*");
-      token = optional ? token.substring(0, token.length() - 1) : token;
-      String replacement = tokens.get(token);
-      if (replacement == null) {
-        if (optional) {
-          return "";
-        } else {
-          throw new RuntimeException(
-              "WARNING: no replacement for token '" + token + "' in outfile template '"
-              + templateForDiagnostics + "'");
+      if (attrs instanceof Record record) {
+        RecordComponent[] comps = record.getClass().getRecordComponents();
+        for (RecordComponent comp : comps) {
+          String fieldname = comp.getName();
+          Method accessor = comp.getAccessor();
+          Object value = accessor.invoke(record);
+          if (value instanceof Enum<?> e) {
+            value = e.name();
+          }
+          if (value instanceof Optional<?> o) {
+            if (o.isPresent()) {
+              value = o.get();
+            } else {
+              continue;
+            }
+          }
+          if (value == null) {
+            throw new RuntimeException(
+                "attribute value for requied attribute " + fieldname + " " + "was null");
+          }
+          wnode.putAttribute(fieldname, value);
         }
       }
-      String sanitized = replacement.replaceAll("[^a-zA-Z0-9_-]", "");
-      if (!sanitized.equals(replacement)) {
-        logger.info(
-            "sanitized replacement for token '{}' from '{}' to '{}' in outfile template " + "'{}'",
-            token,
-            replacement,
-            sanitized,
-            templateForDiagnostics
-        );
-      }
-
-      return before + sanitized + after;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
+
+  private int sizeOf(Object row0) {
+    if (row0 instanceof int[] ia) {
+      return ia.length * Integer.BYTES;
+    } else if (row0 instanceof byte[] ba) {
+      return ba.length * Byte.BYTES;
+    } else if (row0 instanceof short[] sa) {
+      return sa.length * Short.BYTES;
+    } else if (row0 instanceof long[] la) {
+      return la.length * Long.BYTES;
+    } else if (row0 instanceof float[] fa) {
+      return fa.length * Float.BYTES;
+    } else if (row0 instanceof double[] da) {
+      return da.length * Double.BYTES;
+    } else {
+      throw new RuntimeException("Unknown type for sizing:" + row0.getClass());
+    }
+  }
+
 }

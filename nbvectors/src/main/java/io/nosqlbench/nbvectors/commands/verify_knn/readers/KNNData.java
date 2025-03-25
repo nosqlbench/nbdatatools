@@ -23,6 +23,7 @@ import io.jhdf.api.Dataset;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.Neighborhood;
+import io.nosqlbench.nbvectors.spec.SpecDatasets;
 
 /// This record type captures the basic requirements of a standard KNN answer key format.
 ///
@@ -48,10 +49,10 @@ public record KNNData(
   /// @param hdfFile the hdfFile containing the datasets
   public KNNData(HdfFile hdfFile) {
     this(
-        hdfFile.getDatasetByPath("/test"),
-        hdfFile.getDatasetByPath("/train"),
-        hdfFile.getDatasetByPath("/neighbors"),
-        hdfFile.getDatasetByPath("/distances"),
+        hdfFile.getDatasetByPath(SpecDatasets.query_vectors.name()),
+        hdfFile.getDatasetByPath(SpecDatasets.base_vectors.name()),
+        hdfFile.getDatasetByPath(SpecDatasets.neighbor_indices.name()),
+        hdfFile.getDatasetByPath(SpecDatasets.neighbor_distances.name()),
         hdfFile
     );
   }

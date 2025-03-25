@@ -47,7 +47,7 @@ public record VectorFilesConfig(
     Path base_vectors,
     Path query_vectors,
     Path neighbors,
-    Path distances,
+    Optional<Path> distances,
     Optional<Path> base_content,
     Optional<Path> query_terms,
     Optional<Path> query_filters,
@@ -86,7 +86,7 @@ public record VectorFilesConfig(
         base_vectors,
         query_vectors,
         neighbors,
-        distances,
+        Optional.ofNullable(distances),
         Optional.ofNullable(base_content),
         Optional.ofNullable(query_terms),
         Optional.ofNullable(query_filters),
@@ -115,16 +115,11 @@ public record VectorFilesConfig(
       throw new RuntimeException("indices is required");
     }
 
-    String distances1 = cfg.remove("distances");
-    if (distances1 == null) {
-      throw new RuntimeException("distances is required");
-    }
-
     return new VectorFilesConfig(
         Path.of(base),
         Path.of(query),
         Path.of(indices),
-        Path.of(distances1),
+        Optional.ofNullable(cfg.remove("distances")).map(Path::of),
         Optional.ofNullable(cfg.remove("base_content")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_terms")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_filters")).map(Path::of),

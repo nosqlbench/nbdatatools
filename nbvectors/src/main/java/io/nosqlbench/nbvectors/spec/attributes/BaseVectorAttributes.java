@@ -27,8 +27,8 @@ import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
 /// @param model the name of the model used to generate the data
 /// @param distance_function the distance function used to compute distance between vectors
 public record BaseVectorAttributes(
-    long dimensions,
     long count,
+    long dimensions,
     String model,
     DistanceFunction distance_function
 ) {

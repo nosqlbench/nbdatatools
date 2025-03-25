@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.batch_export;
+package io.nosqlbench.nbvectors.commands.export_hdf5;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,7 +18,6 @@ package io.nosqlbench.nbvectors.commands.batch_export;
  */
 
 
-import io.nosqlbench.nbvectors.commands.export_hdf5.VectorFilesConfig;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 

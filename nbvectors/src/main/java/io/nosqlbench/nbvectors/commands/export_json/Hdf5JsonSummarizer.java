@@ -32,29 +32,31 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+/// Summarize an HDF5 file as JSON
 public class Hdf5JsonSummarizer implements Function<Path, String> {
 
   @Override
   public String apply(Path path) {
-    return describeFile(path).toString();
-  }
-
-  private String summarizeHdf5(HdfFile file) {
-    StringBuilder sb = new StringBuilder();
-    Map<String, Object> groupMap = describeGroup(file, 0);
+    Map<String, Object> summaryMap = describeFile(path);
     Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    gson.toJson(groupMap, sb);
-    String summary = sb.toString();
-//    System.out.println(summary);
-    return summary;
+    String json = gson.toJson(summaryMap);
+    return json;
   }
 
+  /// describe a file
+  /// @param path the path to the file
+  /// @return the summary of the file
   public Map<String, Object> describeFile(Path path) {
     try (HdfFile file = new HdfFile(path)) {
       return describeGroup(file, 0);
     }
   }
 
+  /// describe a node
+  /// @param node the node to describe
+  /// @param parentMap the parent map to add the node to
+  /// @param level the level of the node
+  /// @return a descriptive map
   public Map<String, Object> describeNode(Node node, Map<String, Object> parentMap, int level) {
     switch (node) {
       case Dataset dataset:
@@ -77,6 +79,10 @@ public class Hdf5JsonSummarizer implements Function<Path, String> {
     return parentMap;
   }
 
+  /// describe a group
+  /// @param group the group to describe
+  /// @param level the level of the group
+  /// @return a descriptive map
   private Map<String, Object> describeGroup(Group group, int level) {
     Map<String, Object> groupMap = new LinkedHashMap<>();
     groupMap.put("name", group.getName());
@@ -110,14 +116,12 @@ public class Hdf5JsonSummarizer implements Function<Path, String> {
 
   }
 
-
   private void addAttrs(Node node, Map<String, Object> map) {
     Map<String, Attribute> attributes = node.getAttributes();
     if (attributes != null && attributes.size() > 0) {
       map.put("attributes", mapAttrs(node));
     }
   }
-
 
   private Map<String, String> mapAttrs(Node node) {
     Map<String, Attribute> attrs = node.getAttributes();
@@ -126,7 +130,6 @@ public class Hdf5JsonSummarizer implements Function<Path, String> {
       attrvals.put(k, v.getData().toString());
     });
     return attrvals;
-
   }
 
 }

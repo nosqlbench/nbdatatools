@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec.attributes;
+package io.nosqlbench.nbvectors.spec.access.datasets;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,11 +18,14 @@ package io.nosqlbench.nbvectors.spec.attributes;
  */
 
 
-/// This record type captures attribute requirements for the neighbor indices dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborIndicesAttributes(
-    long count,
-    long max_k
-) {
+import io.nosqlbench.nbvectors.spec.VectorData;
+
+/// Each dataset which is accessible through the {@link VectorData}
+/// API **must** implement this interface.
+/// @param <T> the type of the dataset
+/// @see VectorData
+public interface DatasetView<T> {
+  int getCount();
+  int getVectorDimensions();
+  Class<? extends T> getDataType();
 }
