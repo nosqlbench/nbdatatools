@@ -22,7 +22,7 @@
     <maven.compiler.source>23</maven.compiler.source>
     <maven.compiler.target>23</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <mainClass>io.nosqlbench.nbvectors.CMD_nbvectors</mainClass>
+    <mainClass>io.nosqlbench.nbvectors.commands.CMD_nbvectors</mainClass>
     <imageName>nbvectors</imageName>
     <jline.version>3.28.0</jline.version>
     <native.maven.plugin.version>0.10.4</native.maven.plugin.version>
@@ -33,7 +33,7 @@
     <dependency>
       <groupId>io.jhdf</groupId>
       <artifactId>jhdf</artifactId>
-      <version>0.9.1</version>
+      <version>0.9.2</version>
     </dependency>
 
     <dependency>
@@ -52,6 +52,12 @@
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.11.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.17.0</version>
     </dependency>
 
     <!--    <dependency>-->

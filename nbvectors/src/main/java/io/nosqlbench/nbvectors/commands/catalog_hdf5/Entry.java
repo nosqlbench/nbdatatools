@@ -20,5 +20,6 @@ package io.nosqlbench.nbvectors.commands.catalog_hdf5;
 
 import java.util.LinkedHashMap;
 
+/// A catalog entry is a map of key-value pairs
 public class Entry extends LinkedHashMap<String,Object> {
 }

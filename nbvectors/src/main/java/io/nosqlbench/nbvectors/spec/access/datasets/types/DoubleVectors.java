@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec.attributes;
+package io.nosqlbench.nbvectors.spec.access.datasets.types;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,11 +18,17 @@ package io.nosqlbench.nbvectors.spec.attributes;
  */
 
 
-/// This record type captures attribute requirements for the neighbor indices dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborIndicesAttributes(
-    long count,
-    long max_k
-) {
+/// a dataset consisting of arrays of float values
+public interface DoubleVectors extends DatasetView<double[]> {
+  /// get a vector by its ordinal
+  /// @param ordinal the ordinal of the vector to get
+  /// @return the vector
+  public double[] getVector(long ordinal);
+  /// get a range of vectors by their ordinals
+  /// @param startInclusive the start ordinal, inclusive
+  /// @param endExclusive the end ordinal, exclusive
+  /// @return the vectors
+  public double[][] getVectors(long startInclusive, long endExclusive);
+
 }
+

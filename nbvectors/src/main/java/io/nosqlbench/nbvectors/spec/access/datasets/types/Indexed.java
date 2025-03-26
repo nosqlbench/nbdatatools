@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec.attributes;
+package io.nosqlbench.nbvectors.spec.access.datasets.types;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,12 +17,11 @@ package io.nosqlbench.nbvectors.spec.attributes;
  * under the License.
  */
 
+/// An indexed type. The index is an associated id or ordinal
+/// @param index the index of the value
+/// @param value the value
+/// @param <T> the type of the value
+/// @see DatasetView
+public record Indexed<T>(long index, T value) {
 
-/// This record type captures attribute requirements for the neighbor indices dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborIndicesAttributes(
-    long count,
-    long max_k
-) {
 }

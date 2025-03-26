@@ -26,22 +26,70 @@ import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
+import static picocli.CommandLine.ScopeType.INHERIT;
 
 /// Run jjq commands
-@Command(name = "export_hdf5", description = "export HDF5 KNN answer-keys from other formats")
+@Command(name = "export_hdf5",
+    headerHeading = "export HDF5 KNN answer-keys from other formats",
+    header = "Usage:%n%n",
+    description = """
+        Reads base vectors, query vectors, neighborhood indices, and optionally, neighbor distances,
+        from ivec, fvec and other formats, and creates HDF5 vector test data files.
+        
+        When no mapping file is provided, then these individual input files are specified by the respective options.
+        The output file name is determined, by default, from a template that uses common parameter tokens so that
+        files are automatically named and unique as long as the parameter sets are unique.
+        
+        When a mapping file is provided, then the mapping file is used to determine the input files and output file names.
+        This is an example of the mapping file format:
+        
+            # mapping.yaml
+            filekey: #this is only unique within the mapping file and is not used otherwise
+             # the following are required
+             query: my_query_vectors.fvec
+             base: my_base_vectors.fvec
+             indices: my_indices.ivec
+             url: https://...
+             license: The license of the model used
+             vendor: The vendor of the model used
+             model: The name of the model used
+            # the following are optional
+             distance_function: The distance function used # defaults to COSINE
+             distances: my_distances.ivec # this is only added to the hdf5 file if provided
+             notes: Any notes about the model used
+        
+        When a mapping file is not provided, the remaining metadata can be provided in a yaml file 
+        and specified with the --metadata option.  
+        
+        """,
+    synopsisHeading = "%n",
+    descriptionHeading = "%nDescription%n%n",
+    parameterListHeading = "%nParameters:%n%",
+    optionListHeading = "%nOptions:%n")
 public class CMD_export_hdf5 implements Callable<Integer> {
+  private final static String DEFAULT_TEMPLATE =
+      "[model][_d{dims}][_b{vectors}][_q{queries" + "}][_mk{max_k}].hdf5";
 
   @Option(names = {"-o", "--outfile"},
       required = true,
-      defaultValue = "out.hdf5",
-      description = "The " + "HDF5" + " file to " + "write")
-  private Path hdfOutPath;
+      defaultValue = "[model][_d{dims}][_b{vectors}][_q{queries" + "}][_mk{max_k}].hdf5",
+      description = "The HDF5 file to write\ndefault: ${DEFAULT-VALUE}")
+  private String outfile;
+
+  @Option(names = {"-m", "--mapping-file"},
+      required = false,
+      description = "The mapping file(s) to read. If provided, exports multiple files according "
+                    + "to contents of the mapping files.")
+  private List<Path> mappingFiles;
 
   @CommandLine.Option(names = {"--query_vectors"},
       required = false,
@@ -53,25 +101,22 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       description = "The query_terms file to read")
   private Path query_terms;
 
-  @CommandLine.Option(names = {"--query_filters"},
+  @CommandLine.Option(names = {"--query_filters", "--query"},
       required = false,
       description = "The query_filters file to read")
   private Path query_filters;
 
-  @CommandLine.Option(names = {"--neighbors"},
+  @CommandLine.Option(names = {"--neighbor_indices", "--indices"},
       required = false,
       description = "The query_neighbors file to read")
   private Path neighbors;
 
-  @CommandLine.Option(names = {"--distances"},
+  @CommandLine.Option(names = {"--neighbor_distances", "--distances"},
       required = false,
       description = "The query_distances file to read")
   private Path distances;
 
-  @CommandLine.Parameters(description = "The files to import and export")
-  private List<Path> files;
-
-  @CommandLine.Option(names = {"--base_vectors"},
+  @CommandLine.Option(names = {"--base_vectors", "--base"},
       required = false,
       description = "The base_vectors file to read")
   private Path base_vectors;
@@ -85,6 +130,11 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       required = false,
       description = "The metadata file to read")
   private Path metadataFile;
+
+  @CommandLine.Option(names = {"--force"},
+      description = "Force overwrite of existing HDF5 files,"
+                    + " even if no changes to mapping since last export")
+  private boolean force = false;
 
   /// run an export_hdf5 command
   /// @param args
@@ -105,23 +155,50 @@ public class CMD_export_hdf5 implements Callable<Integer> {
 
   @Override
   public Integer call() throws Exception {
+    List<BatchConfig> configs = new ArrayList<>();
+    if (this.mappingFiles != null && !mappingFiles.isEmpty()) {
+      for (Path mappingFile : this.mappingFiles) {
+        configs.add(BatchConfig.file(mappingFile));
+      }
+    } else {
+      if (metadataFile == null) {
+        throw new RuntimeException("metadata file is required when not using a mapping file");
+      }
+      RootGroupAttributes rga = RootGroupAttributes.fromFile(metadataFile);
+      VectorFilesConfig cfg = new VectorFilesConfig(
+          this.base_vectors,
+          this.query_vectors,
+          this.neighbors,
+          Optional.ofNullable(this.distances),
+          Optional.ofNullable(this.base_content),
+          Optional.ofNullable(this.query_terms),
+          Optional.ofNullable(this.query_filters),
+          rga
+      );
+      configs.add(new BatchConfig(Map.of("default", cfg), Instant.now()));
+    }
 
-    RootGroupAttributes rga = RootGroupAttributes.fromFile(metadataFile);
+    String template = this.outfile;
+    if (outfile.contains("TEMPLATE")) {
+      outfile = outfile.replace("TEMPLATE", DEFAULT_TEMPLATE);
+    }
+    for (BatchConfig config : configs) {
+      for (String entry : config.files().keySet()) {
+        System.err.println("exporting " + entry);
+        VectorFilesConfig vectorFilesConfig = config.files().get(entry);
 
-    VectorFilesConfig cfg = new VectorFilesConfig(
-        this.base_vectors,
-        this.query_vectors,
-        this.neighbors,
-        this.distances,
-        Optional.ofNullable(this.base_content),
-        Optional.ofNullable(this.query_terms),
-        Optional.ofNullable(this.query_filters),
-        rga
-    );
-
-    BasicTestDataSource source = new BasicTestDataSource(cfg);
-    KnnDataWriter writer = new KnnDataWriter(this.hdfOutPath, source);
-    writer.writeHdf5();
+        if (!this.force && config.epochTimestamp()
+            .isBefore(vectorFilesConfig.getLastModifiedTime()))
+        {
+          System.err.println(
+              "skipping " + entry + " because it is up to date (use --force to override)");
+          continue;
+        }
+        BasicTestDataSource source = new BasicTestDataSource(vectorFilesConfig);
+        KnnDataWriter writer = new KnnDataWriter(this.outfile, source);
+        writer.writeHdf5();
+      }
+    }
     return 0;
   }
 }

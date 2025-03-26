@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.batch_export;
+package io.nosqlbench.nbvectors.commands.export_hdf5;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,7 +18,6 @@ package io.nosqlbench.nbvectors.commands.batch_export;
  */
 
 
-import io.nosqlbench.nbvectors.commands.export_hdf5.VectorFilesConfig;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 
@@ -27,13 +26,16 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /// A basic config wrapper for the batch_export command's mapping logic.
 /// @param files
 ///     the files to export
-public record BatchConfig(Map<String, VectorFilesConfig> files) {
+/// @param epochTimestamp
+///     the epoch timestamp of the config file
+public record BatchConfig(Map<String, VectorFilesConfig> files, Instant epochTimestamp) {
 
   /// create a batch config from a file
   /// @param layoutPath
@@ -56,7 +58,7 @@ public record BatchConfig(Map<String, VectorFilesConfig> files) {
         }
       });
 
-      return new BatchConfig(fcfg);
+      return new BatchConfig(fcfg,Files.getLastModifiedTime(layoutPath).toInstant());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

@@ -20,6 +20,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.computation;
 
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.Neighborhood;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
 
 import static io.nosqlbench.nbvectors.commands.verify_knn.statusview.Glyphs.braille;
 
@@ -29,17 +30,17 @@ import static io.nosqlbench.nbvectors.commands.verify_knn.statusview.Glyphs.brai
 /// @param providedNeighborhood the neighborhood provided by the system under test
 /// @param expectedNeighborhood the neighborhood expected by the test, based on KNN data
 public record NeighborhoodComparison(
-    LongIndexedFloatVector testVector,
-    Neighborhood providedNeighborhood,
-    Neighborhood expectedNeighborhood
+    Indexed<float[]> testVector,
+    int[] providedNeighborhood,
+    int[] expectedNeighborhood
 )
 {
   /// determine if the provided neighborhood is an error
   /// @return true if the provided neighborhood is an error
   public boolean isError() {
-    long[][] partitions = Computations.partitions(
-        providedNeighborhood.getIndices(),
-        expectedNeighborhood.getIndices()
+    int[][] partitions = Computations.partitions(
+        providedNeighborhood,
+        expectedNeighborhood
     );
     return partitions[Computations.SET_A].length > 0 || partitions[Computations.SET_B].length > 0;
   }
@@ -48,17 +49,17 @@ public record NeighborhoodComparison(
   public String toString() {
     StringBuilder sb = new StringBuilder();
 
-    long[][] partitions = Computations.partitions(
-        providedNeighborhood.getIndices(),
-        expectedNeighborhood.getIndices()
+    int[][] partitions = Computations.partitions(
+        providedNeighborhood,
+        expectedNeighborhood
     );
 
     sb.append(partitions[Computations.SET_A].length==0? "PASS " : "FAIL ");
 
     sb.append("[");
     sb.append(braille(Computations.matchingImage(
-        expectedNeighborhood().getIndices(),
-        providedNeighborhood.getIndices()
+        expectedNeighborhood(),
+        providedNeighborhood
     )));
     sb.append("]");
 

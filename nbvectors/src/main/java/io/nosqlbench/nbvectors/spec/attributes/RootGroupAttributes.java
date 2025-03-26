@@ -77,6 +77,9 @@ public record RootGroupAttributes(
     }
   }
 
+  /// read the metadata from a map
+  /// @param data the map of metadata
+  /// @return the metadata for this file
   public static RootGroupAttributes fromMap(Map<String, String> data) {
     return new RootGroupAttributes(
         data.get("model"),

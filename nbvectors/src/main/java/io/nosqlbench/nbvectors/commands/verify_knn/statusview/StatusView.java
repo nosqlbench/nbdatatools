@@ -20,6 +20,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
 import io.nosqlbench.nbvectors.commands.verify_knn.CMD_verify_knn;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
 
 /// status view eventing interface for [CMD_verify_knn]
 public interface StatusView extends AutoCloseable{
@@ -38,7 +39,7 @@ public interface StatusView extends AutoCloseable{
   /// @param vector the query vector
   /// @param index the index of the query vector in the test data
   /// @param end the end index of the test data
-  void onQueryVector(LongIndexedFloatVector vector, long index, long end);
+  void onQueryVector(Indexed<float[]> vector, long index, long end);
 
   /// a neighborhood comparison has been performed
   /// @param comparison the neighborhood comparison

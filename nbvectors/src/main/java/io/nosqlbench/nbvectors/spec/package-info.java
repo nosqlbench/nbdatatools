@@ -1,4 +1,5 @@
-/// Scaffolding types which enforce the test data specification
+/// Scaffolding types which enforce the test data specification. The entry point to the consumer
+/// view is [io.nosqlbench.nbvectors.spec.VectorData]
 package io.nosqlbench.nbvectors.spec;
 
 /*

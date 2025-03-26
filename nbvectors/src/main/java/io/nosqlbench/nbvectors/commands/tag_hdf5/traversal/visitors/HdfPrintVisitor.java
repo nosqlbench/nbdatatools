@@ -31,6 +31,7 @@ import java.util.LinkedList;
 public class HdfPrintVisitor extends BaseHdfVisitor {
   LinkedList<String> names = new LinkedList<>();
 
+  /// {@inheritDoc}
   @Override
   public void enterNode(Node node) {
     names.addLast(node.getName());
@@ -38,11 +39,13 @@ public class HdfPrintVisitor extends BaseHdfVisitor {
     System.out.println("name:" + path + "\ntype: " + node.getType().name());
   }
 
+  /// {@inheritDoc}
   @Override
   public void leaveNode(Node node) {
     names.removeLast();
   }
 
+  /// {@inheritDoc}
   @Override
   public void dataset(Dataset dataset) {
     System.out.println("""
@@ -58,27 +61,29 @@ public class HdfPrintVisitor extends BaseHdfVisitor {
         .replaceAll("STORAGESIZE", String.valueOf(dataset.getStorageInBytes())));
   }
 
+  /// {@inheritDoc}
   @Override
   public void attribute(Node node, Attribute attribute) {
     System.out.println(attribute.toString());
   }
 
+  /// {@inheritDoc}
   @Override
   public void committedDataType(CommittedDatatype cdt) {
     System.out.println("""
           datatype: HDFTYPE
         """.replaceAll("HDFTYPE", cdt.getDataType().getClass().getSimpleName()));
-
   }
 
+  /// {@inheritDoc}
   @Override
   public void enterGroup(Group group) {
     System.out.println(group.toString());
   }
 
+  /// {@inheritDoc}
   @Override
   public void finish() {
   }
-
 
 }

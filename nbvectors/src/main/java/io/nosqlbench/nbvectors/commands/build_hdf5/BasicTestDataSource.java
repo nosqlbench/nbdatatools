@@ -24,24 +24,23 @@ import io.nosqlbench.nbvectors.commands.export_hdf5.FvecToFloatArray;
 import io.nosqlbench.nbvectors.commands.export_hdf5.FvecToIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.export_hdf5.IvecToIntArray;
 import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
-import io.nosqlbench.nbvectors.spec.SpecDataSource;
+import io.nosqlbench.nbvectors.spec.views.SpecDataSource;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 
-import java.util.Iterator;
 import java.util.Optional;
 
 /// A basic test data source which provides iterators for all the required data,
 /// and allows for setting the iterators for each component as needed.
 public class BasicTestDataSource implements SpecDataSource {
 
-  private Iterator<LongIndexedFloatVector> baseVectorsIterator;
-  private Iterator<?> baseContentIter;
-  private Iterator<LongIndexedFloatVector> queryVectorsIter;
-  private Iterator<?> queryTermsIter;
-  private Iterator<PNode<?>> queryFiltersIter;
-  private Iterator<int[]> neighborIndicesIter;
+  private Iterable<LongIndexedFloatVector> baseVectorsIterable;
   private RootGroupAttributes metadata;
-  private Iterator<float[]> neighborDistancesIter;
+  private Iterable<LongIndexedFloatVector> queryVectorsIterable;
+  private Iterable<?> queryTermsIterable;
+  private Iterable<PNode<?>> queryFiltersIterable;
+  private Iterable<int[]> neighborIndicesIterable;
+  private Iterable<float[]> neighborDistancesIterable;
+  private Iterable<?> baseContentIterable;
 
 
   /// create a new basic test data source
@@ -52,46 +51,57 @@ public class BasicTestDataSource implements SpecDataSource {
   /// @param cfg
   ///     the file config
   public BasicTestDataSource(VectorFilesConfig cfg) {
-    setBaseVectorsIterator(new FvecToIndexedFloatVector(cfg.base_vectors()).iterator());
-    setQueryVectorsIter(new FvecToIndexedFloatVector(cfg.query_vectors()).iterator());
-    setNeighborIndicesIter(new IvecToIntArray(cfg.neighbors()).iterator());
-    setNeighborDistancesIter(new FvecToFloatArray(cfg.distances()).iterator());
+    setBaseVectorsIterable(new FvecToIndexedFloatVector(cfg.base_vectors()));
+    setQueryVectorsIterable(new FvecToIndexedFloatVector(cfg.query_vectors()));
+    setNeighborIndicesIterable(new IvecToIntArray(cfg.neighbors()));
+
+    if (cfg.distances().isPresent()) {
+      setNeighborDistancesIterable(new FvecToFloatArray(cfg.distances().get()));
+    }
     setMetadata(cfg.metadata());
   }
 
-  @Override
-  public Iterator<LongIndexedFloatVector> getBaseVectors() {
-    return this.baseVectorsIterator;
+  /// Set the iterable for the neighbor distances
+  /// @param neighborDistancesIterable
+  ///     the iterable for the neighbor distances
+  /// @see FvecToFloatArray
+  public void setNeighborDistancesIterable(FvecToFloatArray neighborDistancesIterable) {
+    this.neighborDistancesIterable = neighborDistancesIterable;
   }
 
   @Override
-  public Optional<Iterator<?>> getBaseContent() {
-    return Optional.ofNullable(this.baseContentIter);
+  public Iterable<LongIndexedFloatVector> getBaseVectors() {
+    return baseVectorsIterable;
   }
 
   @Override
-  public Iterator<LongIndexedFloatVector> getQueryVectors() {
-    return this.queryVectorsIter;
+  public Optional<Iterable<?>> getBaseContent() {
+    return Optional.ofNullable(this.baseContentIterable);
   }
 
   @Override
-  public Optional<Iterator<?>> getQueryTerms() {
-    return Optional.ofNullable(this.queryTermsIter);
+  public Iterable<LongIndexedFloatVector> getQueryVectors() {
+    return this.queryVectorsIterable;
   }
 
   @Override
-  public Optional<Iterator<PNode<?>>> getQueryFilters() {
-    return Optional.ofNullable(this.queryFiltersIter);
+  public Optional<Iterable<?>> getQueryTerms() {
+    return Optional.ofNullable(this.queryTermsIterable);
   }
 
   @Override
-  public Iterator<int[]> getNeighborIndices() {
-    return this.neighborIndicesIter;
+  public Optional<Iterable<PNode<?>>> getQueryFilters() {
+    return Optional.ofNullable(this.queryFiltersIterable);
   }
 
   @Override
-  public Optional<Iterator<float[]>> getNeighborDistances() {
-    return Optional.ofNullable(this.neighborDistancesIter);
+  public Iterable<int[]> getNeighborIndices() {
+    return this.neighborIndicesIterable;
+  }
+
+  @Override
+  public Optional<Iterable<float[]>> getNeighborDistances() {
+    return Optional.ofNullable(this.neighborDistancesIterable);
   }
 
   @Override
@@ -100,52 +110,52 @@ public class BasicTestDataSource implements SpecDataSource {
   }
 
   /// Set the iterator for the base vectors
-  /// @param baseVectorsIterator
-  ///     the iterator for the base vectors
-  public void setBaseVectorsIterator(Iterator<LongIndexedFloatVector> baseVectorsIterator) {
-    this.baseVectorsIterator = baseVectorsIterator;
+  /// @param baseVectorsIterable
+  ///     the iterable for the base vectors
+  public void setBaseVectorsIterable(Iterable<LongIndexedFloatVector> baseVectorsIterable) {
+    this.baseVectorsIterable = baseVectorsIterable;
   }
 
   /// Set the iterator for the base content
-  /// @param baseContentIter
+  /// @param baseContentIterable
   ///     the iterator for the base content
-  public void setBaseContentIter(Iterator<?> baseContentIter) {
-    this.baseContentIter = baseContentIter;
+  public void setBaseContentIterable(Iterable<?> baseContentIterable) {
+    this.baseContentIterable = baseContentIterable;
   }
 
   /// Set the iterator for the query vectors
-  /// @param queryVectorsIter
+  /// @param queryVectorsIterable
   ///     the iterator for the query vectors
-  public void setQueryVectorsIter(Iterator<LongIndexedFloatVector> queryVectorsIter) {
-    this.queryVectorsIter = queryVectorsIter;
+  public void setQueryVectorsIterable(Iterable<LongIndexedFloatVector> queryVectorsIterable) {
+    this.queryVectorsIterable = queryVectorsIterable;
   }
 
-  /// Set the iterator for the query terms
-  /// @param queryTermsIter
-  ///     the iterator for the query terms
-  public void setQueryTermsIter(Iterator<?> queryTermsIter) {
-    this.queryTermsIter = queryTermsIter;
+  /// Set the iterable for the query terms
+  /// @param queryTermsIterable
+  ///     the iterable for the query terms
+  public void setQueryTermsIterable(Iterable<?> queryTermsIterable) {
+    this.queryTermsIterable = queryTermsIterable;
   }
 
   /// Set the iterator for the query filters
   /// @param queryFiltersIter
   ///     the iterator for the query filters
-  public void setQueryFiltersIter(Iterator<PNode<?>> queryFiltersIter) {
-    this.queryFiltersIter = queryFiltersIter;
+  public void setQueryFiltersIter(Iterable<PNode<?>> queryFiltersIter) {
+    this.queryFiltersIterable = queryFiltersIter;
   }
 
-  /// Set the iterator for the neighbor indices
-  /// @param neighborIndicesIter
-  ///     the iterator for the neighbor indices
-  public void setNeighborIndicesIter(Iterator<int[]> neighborIndicesIter) {
-    this.neighborIndicesIter = neighborIndicesIter;
+  /// Set the iterable for the neighbor indices
+  /// @param neighborIndicesIterable
+  ///     the iterable for the neighbor indices
+  public void setNeighborIndicesIterable(Iterable<int[]> neighborIndicesIterable) {
+    this.neighborIndicesIterable = neighborIndicesIterable;
   }
 
-  /// Set the iterator for the neighbor distances
-  /// @param neighborDistancesIter
-  ///     the iterator for the neighbor distances
-  public void setNeighborDistancesIter(Iterator<float[]> neighborDistancesIter) {
-    this.neighborDistancesIter = neighborDistancesIter;
+  /// Set the iteraable for the neighbor distances
+  /// @param neighborDistancesIterable
+  ///     the iterable for the neighbor distances
+  public void setNeighborDistancesIter(Iterable<float[]> neighborDistancesIterable) {
+    this.neighborDistancesIterable = neighborDistancesIterable;
   }
 
   /// Set the metadata

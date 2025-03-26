@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec.attributes;
+package io.nosqlbench.nbvectors.spec.access.datasets.types;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,12 +17,9 @@ package io.nosqlbench.nbvectors.spec.attributes;
  * under the License.
  */
 
-
-/// This record type captures attribute requirements for the neighbor indices dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborIndicesAttributes(
-    long count,
-    long max_k
-) {
+/// A view of data consisting of neighbor indices
+public interface NeighborIndices extends IntVectors {
+  /// get the maximum number of neighbors provided for each query vector
+  /// @return the maximum number of neighbors provided for each query vector
+  int getMaxK();
 }

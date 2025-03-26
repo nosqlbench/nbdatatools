@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec;
+package io.nosqlbench.nbvectors.spec.views;
 
 /*
  * Copyright (c) nosqlbench
