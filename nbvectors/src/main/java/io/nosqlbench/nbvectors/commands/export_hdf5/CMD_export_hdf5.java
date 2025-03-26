@@ -39,8 +39,8 @@ import static picocli.CommandLine.ScopeType.INHERIT;
 
 /// Run jjq commands
 @Command(name = "export_hdf5",
-    headerHeading = "export HDF5 KNN answer-keys from other formats",
-    header = "Usage:%n%n",
+    headerHeading = "Usage:%n%n",
+    header = "export HDF5 KNN answer-keys from other formats",
     description = """
         Reads base vectors, query vectors, neighborhood indices, and optionally, neighbor distances,
         from ivec, fvec and other formats, and creates HDF5 vector test data files.
