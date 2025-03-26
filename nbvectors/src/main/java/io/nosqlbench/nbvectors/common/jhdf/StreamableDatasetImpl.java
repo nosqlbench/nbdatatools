@@ -156,6 +156,9 @@ public class StreamableDatasetImpl extends AbstractWritableNode implements Strea
     return getDataSpace().getTotalLength();
   }
 
+  /// The data space is computed by streaming over all input data.
+  /// This may be expensive depending on the length of the stream.
+  /// @return the computed data space
   public DataSpace getDataSpace() {
     ensureComputeEnabled("getDataSpace()");
     if (this.computedDataSpace == null) {
