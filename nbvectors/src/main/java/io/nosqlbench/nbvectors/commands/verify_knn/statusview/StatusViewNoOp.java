@@ -20,6 +20,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
 
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
 
 /// a no-op status view
 public class StatusViewNoOp implements StatusView {
@@ -33,7 +34,7 @@ public class StatusViewNoOp implements StatusView {
   }
 
   @Override
-  public void onQueryVector(LongIndexedFloatVector vector, long index, long end) {
+  public void onQueryVector(Indexed<float[]> vector, long index, long end) {
   }
 
   @Override

@@ -1,14 +1,14 @@
-package io.nosqlbench.nbvectors.spec.attributes;
+package io.nosqlbench.nbvectors.spec.access.datasets.impl;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -18,11 +18,16 @@ package io.nosqlbench.nbvectors.spec.attributes;
  */
 
 
-/// This record type captures attribute requirements for the neighbor indices dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborIndicesAttributes(
-    long count,
-    long max_k
-) {
+import io.jhdf.api.Dataset;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.IntVectors;
+
+/// A view of integer vectors data
+public class IntVectorsImpl extends CoreDatasetViewMethods<int[]> implements IntVectors {
+
+  /// create a new integer vectors view
+  /// @param dataset the dataset to view
+  public IntVectorsImpl(Dataset dataset) {
+    super(dataset);
+  }
+
 }

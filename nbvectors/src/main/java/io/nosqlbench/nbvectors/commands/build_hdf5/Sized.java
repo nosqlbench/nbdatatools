@@ -1,5 +1,4 @@
-/// the {@link io.nosqlbench.nbvectors.commands.batch_export.CMD_batch_export} command
-package io.nosqlbench.nbvectors.commands.batch_export;
+package io.nosqlbench.nbvectors.commands.build_hdf5;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,3 +17,11 @@ package io.nosqlbench.nbvectors.commands.batch_export;
  * under the License.
  */
 
+
+/// An optional interface for providing the size of something
+public interface Sized {
+
+  /// get the size
+  /// @return the size of this
+  public int getSize();
+}

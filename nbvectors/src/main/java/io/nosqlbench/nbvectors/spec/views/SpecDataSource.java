@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec;
+package io.nosqlbench.nbvectors.spec.views;
 
 /*
  * Copyright (c) nosqlbench
@@ -22,7 +22,6 @@ import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 
-import java.util.Iterator;
 import java.util.Optional;
 
 /// Defines the provider interface for test data which may be used
@@ -36,31 +35,31 @@ public interface SpecDataSource {
   /// /base_vectors
   /// @return an interator of base vectors
   /// The index and vector component types are fixed in this version.
-  public Iterator<LongIndexedFloatVector> getBaseVectors();
+  public Iterable<LongIndexedFloatVector> getBaseVectors();
 
   /// /base_content
   /// @return an iterator of base content
-  public Optional<Iterator<?>> getBaseContent();
+  public Optional<Iterable<?>> getBaseContent();
 
   /// /query_vectors
   /// @return an iterator of query vectors
-  public Iterator<LongIndexedFloatVector> getQueryVectors();
+  public Iterable<LongIndexedFloatVector> getQueryVectors();
 
   /// /query_terms
   /// @return an optional iterator of query terms
-  public Optional<Iterator<?>> getQueryTerms();
+  public Optional<Iterable<?>> getQueryTerms();
 
   /// /query_filters
   /// @return an optional iterator of query filters
-  public Optional<Iterator<PNode<?>>> getQueryFilters();
+  public Optional<Iterable<PNode<?>>> getQueryFilters();
 
   /// /neighbors
   /// @return an iterator of neighbor indices
-  public Iterator<int[]> getNeighborIndices();
+  public Iterable<int[]> getNeighborIndices();
 
   /// /distances
   /// @return an iterator of neighbor distances
-  public Optional<Iterator<float[]>> getNeighborDistances();
+  public Optional<Iterable<float[]>> getNeighborDistances();
 
   /// get metadata
   /// @return the metadata for the test data

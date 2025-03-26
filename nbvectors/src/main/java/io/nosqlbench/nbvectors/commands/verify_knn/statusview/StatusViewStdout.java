@@ -20,6 +20,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
 
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
 
 /// Print status events to stdout, buffering until the max if needed,
 /// but flushing intermittently if not
@@ -53,7 +54,7 @@ public class StatusViewStdout implements StatusView {
   }
 
   @Override
-  public void onQueryVector(LongIndexedFloatVector vector, long index, long end) {
+  public void onQueryVector(Indexed<float[]> vector, long index, long end) {
     sb.append(++currentQueryVector).append("/").append(totalQueryVectors).append(": ");
     sb.append(vector);
     flushIf();

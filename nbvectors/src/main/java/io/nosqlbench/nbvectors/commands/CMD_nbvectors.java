@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors;
+package io.nosqlbench.nbvectors.commands;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,7 +18,6 @@ package io.nosqlbench.nbvectors;
  */
 
 
-import io.nosqlbench.nbvectors.commands.batch_export.CMD_batch_export;
 import io.nosqlbench.nbvectors.commands.build_hdf5.CMD_build_hdf5;
 import io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog_hdf5;
 import io.nosqlbench.nbvectors.commands.export_json.CMD_export_json;
@@ -38,7 +37,7 @@ import picocli.CommandLine;
 /// This is the top level command which serves as an entry point for all sub-commands
 @CommandLine.Command(name = "nbvectors", subcommands = {
     CMD_verify_knn.class, CMD_tag_hdf5.class, CMD_jjq.class, CMD_build_hdf5.class,
-    CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class, CMD_batch_export.class,
+    CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class,
     CMD_catalog_hdf5.class
 })
 public class CMD_nbvectors {

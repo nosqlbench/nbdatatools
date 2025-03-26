@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.commands.verify_knn;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -18,24 +18,38 @@ package io.nosqlbench.nbvectors.commands.verify_knn;
  */
 
 
-import java.nio.file.Path;
-import java.util.*;
-import java.util.concurrent.Callable;
-
-import io.jhdf.HdfFile;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.NeighborIndex;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.Neighborhood;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
-import io.nosqlbench.nbvectors.commands.verify_knn.options.*;
-import io.nosqlbench.nbvectors.commands.verify_knn.statusview.*;
-import io.nosqlbench.nbvectors.commands.verify_knn.readers.KNNData;
+import io.nosqlbench.nbvectors.commands.verify_knn.options.ConsoleDiagnostics;
+import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
+import io.nosqlbench.nbvectors.commands.verify_knn.options.ErrorMode;
+import io.nosqlbench.nbvectors.commands.verify_knn.options.Interval;
+import io.nosqlbench.nbvectors.commands.verify_knn.options.IntervalParser;
+import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusMode;
+import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusView;
+import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewLanterna;
+import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewNoOp;
+import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewRouter;
+import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewStdout;
+import io.nosqlbench.nbvectors.spec.VectorData;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.FloatVectors;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.IntVectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
+
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.Callable;
 
 /// This app will read data from an HDF5 file in the standard vector KNN answer key format,
 /// computing correct neighborhoods and comparing them to the provided ones.
@@ -86,8 +100,9 @@ public class CMD_verify_knn implements Callable<Integer> {
   @Option(names = {"-h", "--help"}, usageHelp = true, description = "display a help message")
   private boolean helpRequested = false;
 
-  @Option(names = {"-f", "--hdf_file"}, required = true, description = "The HDF5 file to load")
-  private Path hdfpath;
+
+  @Parameters(description = "The HDF5 file(s) to load")
+  private List<Path> hdfpaths;
 
   @Option(names = {"-d", "--distance_function"},
       defaultValue = "COSINE",
@@ -129,7 +144,8 @@ public class CMD_verify_knn implements Callable<Integer> {
 
 
   /// run a verify_knn command
-  /// @param args command line args
+  /// @param args
+  ///     command line args
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
     System.setProperty(
@@ -154,33 +170,65 @@ public class CMD_verify_knn implements Callable<Integer> {
   public Integer call() throws Exception {
 
     int errors = 0;
-    try (StatusView view = getStatusView(); KNNData knndata = new KNNData(new HdfFile(hdfpath))) {
-      view.onStart(interval.count());
-      for (long index = interval.min(); index < interval.max(); index++) {
+    try {
+      // This level catches any exceptions thrown by the command to be shown outside the
+      // scope of any terminal UI or other screen modifications.
+      for (Path hdfpath : hdfpaths) {
+        try (StatusView view = getStatusView(); VectorData data = new VectorData(hdfpath)) {
+          logger.info("loaded vector data file: {}", data.toString());
+          Optional<FloatVectors> distances = data.getNeighborDistances();
 
-        // This is the query vector from the provided test data
-        LongIndexedFloatVector providedTestVector = knndata.readHdf5TestVector(index);
-        view.onQueryVector(providedTestVector, index, interval.max());
+          if (data.getNeighborDistances().isEmpty()) {
+            logger.error("neighbor distances are not available in the provided data, so "
+                         + "distance-based verification is not possible.");
+            return 1;
+          } else {
+            logger.info("loaded neighbor distances: {}", distances.get().toString());
+          }
+          IntVectors indices = data.getNeighborIndices();
+          FloatVectors baseVectors = data.getBaseVectors();
+          FloatVectors queryVectors = data.getQueryVectors();
 
-        // This is the neighborhood from the provided test data, corresponding to the query
-        // vector (we are checking this one for errors)
-        Neighborhood providedNeighborhood = knndata.neighborhood(providedTestVector.index());
+          if (baseVectors instanceof FloatVectors floatVectors) {
+            logger.info("loaded base vectors: {}", floatVectors.toString());
+          } else {
+            throw new RuntimeException("unsupported vector type: " + baseVectors.getClass());
+          }
 
-        // This neighborhood is the one we calculate from the test and train vectors.
-        Neighborhood expectedNeighborhood = computeNeighborhood(providedTestVector, knndata, view);
-        // Compute the ordered intersection view of these relative to each other
+          view.onStart(interval.count());
+          for (long index = interval.min(); index < interval.max(); index++) {
 
-        NeighborhoodComparison comparison = new NeighborhoodComparison(
-            providedTestVector,
-            providedNeighborhood,
-            expectedNeighborhood
-        );
-        view.onNeighborhoodComparison(comparison);
-        errors += comparison.isError() ? 1 : 0;
-        if (errors > 0 && errorMode == ErrorMode.Fail)
-          break;
+            // This is the query vector from the provided test data
+            Indexed<float[]> query = queryVectors.getIndexed(index);
+
+            view.onQueryVector(query, index, interval.max());
+
+            // This is the neighborhood from the provided test data, corresponding to the query
+            // vector (we are checking this one for errors)
+            int[] providedNeighborhood = indices.get(index);
+
+            int[] expectedNeighborhood;
+            // This neighborhood is the one we calculate from the test and train vectors.
+
+            // This neighborhood is the one we calculate from the test and train vectors.
+            expectedNeighborhood = computeNeighborhood(query, baseVectors, view);
+            //
+            //        Neighborhood expectedNeighborhood = computeNeighborhood(queryVector, knndata, view);
+            // Compute the ordered intersection view of these relative to each other
+
+            NeighborhoodComparison comparison =
+                new NeighborhoodComparison(query, providedNeighborhood, expectedNeighborhood);
+            view.onNeighborhoodComparison(comparison);
+            errors += comparison.isError() ? 1 : 0;
+            if (errors > 0 && errorMode == ErrorMode.Fail)
+              break;
+          }
+          view.end();
+        }
+
       }
-      view.end();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
     return errors > 0 ? 2 : 0;
   }
@@ -201,15 +249,16 @@ public class CMD_verify_knn implements Callable<Integer> {
   }
 
 
-  private Neighborhood computeNeighborhood(
-      LongIndexedFloatVector testVector,
-      KNNData data,
+  private int[] computeNeighborhood(
+      Indexed<float[]> testVector,
+      FloatVectors baseVectors,
       StatusView view
   )
   {
-    buffer_limit = buffer_limit > 0 ? buffer_limit : computeBufferLimit(data.trainingVectorCount());
-    float[] testVecAry = testVector.vector();
-    int totalTrainingVectors = data.trainingVectorCount();
+    int count = baseVectors.getCount();
+    buffer_limit = buffer_limit > 0 ? buffer_limit : computeBufferLimit(count);
+    float[] testVecAry = testVector.value();
+    int totalTrainingVectors = count;
 
     NeighborIndex[] topKResultBuffer = new NeighborIndex[0];
     for (int chunk = 0; chunk < totalTrainingVectors; chunk += buffer_limit) {
@@ -223,7 +272,7 @@ public class CMD_verify_knn implements Callable<Integer> {
       // fill the unordered neighborhood with the next batch of vector ordinals and distances
       for (int i = 0; i < chunkSize; i++) {
         int testVectorOrdinal = chunk + i;
-        float[] trainVector = data.train(testVectorOrdinal);
+        float[] trainVector = baseVectors.get(testVectorOrdinal);
         double distance = distanceFunction.distance(testVecAry, trainVector);
         unsortedNeighbors[i] = new NeighborIndex(testVectorOrdinal, distance);
       }
@@ -233,7 +282,11 @@ public class CMD_verify_knn implements Callable<Integer> {
       topKResultBuffer = new NeighborIndex[K];
       System.arraycopy(unsortedNeighbors, 0, topKResultBuffer, 0, topKResultBuffer.length);
     }
-    return new Neighborhood(topKResultBuffer);
+    int[] neighborhood = new int[topKResultBuffer.length];
+    for (int i = 0; i < neighborhood.length; i++) {
+      neighborhood[i] = (int) topKResultBuffer[i].index();
+    }
+    return neighborhood;
   }
 
   private int computeBufferLimit(int totalTrainingVectors) {

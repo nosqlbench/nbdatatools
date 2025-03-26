@@ -20,7 +20,10 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
 
 import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -47,7 +50,7 @@ public record VectorFilesConfig(
     Path base_vectors,
     Path query_vectors,
     Path neighbors,
-    Path distances,
+    Optional<Path> distances,
     Optional<Path> base_content,
     Optional<Path> query_terms,
     Optional<Path> query_filters,
@@ -86,12 +89,29 @@ public record VectorFilesConfig(
         base_vectors,
         query_vectors,
         neighbors,
-        distances,
+        Optional.ofNullable(distances),
         Optional.ofNullable(base_content),
         Optional.ofNullable(query_terms),
         Optional.ofNullable(query_filters),
         RootGroupAttributes.fromMap(metadata)
     );
+  }
+
+  /// get the last modified time of the file config
+  /// @return the last modified time of the file config
+  public Instant getLastModifiedTime() {
+    Instant lastModifiedTime = Instant.MIN;
+    for (Path path : new Path[]{base_vectors, query_vectors, neighbors, distances.orElse(null), base_content.orElse(null), query_terms.orElse(null), query_filters.orElse(null)}) {
+      if (path!=null) {
+        try {
+          Instant instant = Files.getLastModifiedTime(path).toInstant();
+          lastModifiedTime=lastModifiedTime.isAfter(instant) ? lastModifiedTime : instant;
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+    return lastModifiedTime;
   }
 
   /// create a file config from a config map
@@ -115,16 +135,11 @@ public record VectorFilesConfig(
       throw new RuntimeException("indices is required");
     }
 
-    String distances1 = cfg.remove("distances");
-    if (distances1 == null) {
-      throw new RuntimeException("distances is required");
-    }
-
     return new VectorFilesConfig(
         Path.of(base),
         Path.of(query),
         Path.of(indices),
-        Path.of(distances1),
+        Optional.ofNullable(cfg.remove("distances")).map(Path::of),
         Optional.ofNullable(cfg.remove("base_content")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_terms")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_filters")).map(Path::of),

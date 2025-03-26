@@ -22,7 +22,7 @@ package io.nosqlbench.nbvectors.spec.attributes;
 /// @param max_k the number of neighbors provided for each query vector
 /// @param count the number of query vectors
 public record NeighborDistancesAttributes(
-    long max_k,
-    long count
+    long count,
+    long max_k
 ) {
 }

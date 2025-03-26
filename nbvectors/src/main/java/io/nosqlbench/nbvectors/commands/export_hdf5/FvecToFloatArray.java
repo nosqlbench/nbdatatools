@@ -17,6 +17,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
  * under the License.
  */
 
+import io.nosqlbench.nbvectors.commands.build_hdf5.Sized;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -29,25 +30,43 @@ import java.nio.file.Path;
 import java.util.Iterator;
 
 /// Read indexed float vectors from a file, incrementally
-public class FvecToFloatArray implements Iterable<float[]> {
+public class FvecToFloatArray implements Iterable<float[]>, Sized {
 
   private final Path path;
+  private final int count;
 
   /// create a new FvecToIndexFloatVector
   /// @param path the path to the file to read from
   public FvecToFloatArray(Path path) {
     String[] parts = path.getFileName().toString().split("\\.");
     String extension = parts[parts.length - 1].toLowerCase();
-    if (!extension.equals("fvec")) {
+    if (!extension.equals("fvec") && !extension.equals("fvecs")) {
       throw new RuntimeException("Unsupported file type: " + extension);
     }
     this.path = path;
+
+    try (DataInputStream sizein = new DataInputStream(new BufferedInputStream(Files.newInputStream(
+        path))))
+    {
+      int i = sizein.readInt();
+      int dim = Integer.reverseBytes(i);
+      int rowsize = (Float.BYTES * dim) + Integer.BYTES;
+      long filesize = Files.size(path);
+      this.count = (int) (filesize / rowsize);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /// {@inheritDoc}
   @Override
   public Iterator<float[]> iterator() {
     return new FloatIterable(this.path);
+  }
+
+  @Override
+  public int getSize() {
+    return count;
   }
 
   /// An iterator for indexed float vectors

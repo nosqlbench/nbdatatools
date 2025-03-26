@@ -2,13 +2,13 @@ package io.nosqlbench.verify_knn;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -21,6 +21,7 @@ package io.nosqlbench.verify_knn;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.Neighborhood;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
 import org.junit.jupiter.api.Test;
 
 import static io.nosqlbench.nbvectors.commands.verify_knn.statusview.Glyphs.braille;
@@ -45,23 +46,23 @@ public class NeighborhoodComparisonTest {
   @Test
   public void testErrorDetection() {
     NeighborhoodComparison c1 = new NeighborhoodComparison(
-        new LongIndexedFloatVector(0, new float[]{1, 2, 3}),
-        new Neighborhood().add(1, 0.1).add(2, 0.2).add(3, 0.3),
-        new Neighborhood().add(1, 0.1).add(2, 0.2).add(3, 0.3)
+        new Indexed<>(0, new float[]{1, 2, 3}),
+        new int[]{1, 2, 3},
+        new int[]{1, 2, 3}
     );
     assertThat(c1.isError()).isFalse();
 
     NeighborhoodComparison c2 = new NeighborhoodComparison(
-        new LongIndexedFloatVector(0, new float[]{1, 2, 3}),
-        new Neighborhood().add(1, 0.1).add(2, 0.2).add(4, 0.4),
-        new Neighborhood().add(1, 0.1).add(2, 0.2).add(3, 0.3)
+        new Indexed<>(0, new float[]{1, 2, 3}),
+        new int[]{1, 2, 3},
+        new int[]{1, 2, 4}
     );
     assertThat(c2.isError()).isTrue();
 
     NeighborhoodComparison c3 = new NeighborhoodComparison(
-        new LongIndexedFloatVector(0, new float[]{1, 2, 3}),
-        new Neighborhood().add(1, 0.1).add(2, 0.2).add(3, 0.3),
-        new Neighborhood().add(1, 0.1).add(2, 0.2).add(4, 0.4)
+        new Indexed<>(0, new float[]{1, 2, 3}),
+        new int[]{1, 2, 3},
+        new int[]{1, 2, 4}
     );
     assertThat(c3.isError()).isTrue();
 
