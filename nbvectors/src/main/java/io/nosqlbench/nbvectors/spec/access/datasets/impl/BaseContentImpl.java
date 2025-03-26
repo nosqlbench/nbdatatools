@@ -24,6 +24,7 @@ import io.jhdf.api.Dataset;
 public class BaseContentImpl extends CoreDatasetViewMethods<Object>{
 
   /// create a base content reader
+  /// @param dataset the dataset to read
   public BaseContentImpl(Dataset dataset) {
     super(dataset);
   }

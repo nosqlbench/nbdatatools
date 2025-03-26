@@ -156,7 +156,6 @@ public class StreamableDatasetImpl extends AbstractWritableNode implements Strea
     return getDataSpace().getTotalLength();
   }
 
-  /// {@inheritDoc}
   public DataSpace getDataSpace() {
     ensureComputeEnabled("getDataSpace()");
     if (this.computedDataSpace == null) {

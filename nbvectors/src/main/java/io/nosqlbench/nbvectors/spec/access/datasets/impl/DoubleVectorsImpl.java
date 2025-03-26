@@ -21,6 +21,7 @@ import io.jhdf.api.Dataset;
 import io.nosqlbench.nbvectors.spec.access.datasets.types.DoubleVectors;
 import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
 
+/// a view of double vectors data
 public class DoubleVectorsImpl extends CoreDatasetViewMethods<double[]> implements DoubleVectors {
 
   /// create a new double vectors view

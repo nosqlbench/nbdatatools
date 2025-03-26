@@ -47,6 +47,7 @@ public class ArrayChunkingIterable<T> implements Iterable {
   }
 
   /// An iterator for arrays of objects which are chunked into arrays of the specified size
+  /// @param <T> the type of the array elements
   public static class Iter<T> implements Iterator {
 
     private final Class<T> clazz;
@@ -54,6 +55,9 @@ public class ArrayChunkingIterable<T> implements Iterable {
     private final int maxsize;
 
     /// create an iterator for arrays of objects which are chunked into arrays of the specified size
+    /// @param clazz the class of the array elements
+    /// @param iter the iterator of the array elements
+    /// @param maxsize the maximum size of the array elements in bytes ; the chunk size limit
     public Iter(Class<T> clazz, Iterator<T> iter, int maxsize) {
       this.clazz = clazz;
       this.iter = iter;

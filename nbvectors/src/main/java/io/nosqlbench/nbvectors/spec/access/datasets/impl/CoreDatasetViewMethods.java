@@ -28,7 +28,9 @@ import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
 /// @param <T>
 ///     the type of the elements in the dataset
 /// @see DatasetView
-public class CoreDatasetViewMethods<T> implements DatasetView<T> {
+public abstract class CoreDatasetViewMethods<T> implements DatasetView<T> {
+
+  /// the dataset to wrap
   protected final Dataset dataset;
 
   /// create a dataset view
