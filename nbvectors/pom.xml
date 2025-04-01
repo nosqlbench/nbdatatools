@@ -11,11 +11,11 @@
   <description>test data management for nosqblench vector workloads</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
-<!--  <parent>-->
-<!--    <artifactId>nbdatatools</artifactId>-->
-<!--    <groupId>io.nosqlbench</groupId>-->
-<!--    <version>${revision}</version>-->
-<!--  </parent>-->
+  <!--  <parent>-->
+  <!--    <artifactId>nbdatatools</artifactId>-->
+  <!--    <groupId>io.nosqlbench</groupId>-->
+  <!--    <version>${revision}</version>-->
+  <!--  </parent>-->
 
   <properties>
     <revision>0.1.2-SNAPSHOT</revision>
@@ -29,12 +29,61 @@
     <javadoc.name>nbvectors</javadoc.name>
   </properties>
 
+
   <dependencies>
+
     <dependency>
       <groupId>io.jhdf</groupId>
       <artifactId>jhdf</artifactId>
       <version>0.9.2</version>
     </dependency>
+
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.parquet</groupId>-->
+    <!--      <artifactId>parquet-hadoop</artifactId>-->
+    <!--      <version>1.15.1</version>-->
+    <!--      <scope>test</scope>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.parquet</groupId>-->
+    <!--      <artifactId>parquet-common</artifactId>-->
+    <!--      <version>1.15.1</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>com.exasol</groupId>-->
+    <!--      <artifactId>parquet-io-java</artifactId>-->
+    <!--      <version>2.0.8</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.parquet</groupId>-->
+    <!--      <artifactId>parquet-encoding</artifactId>-->
+    <!--      <version>1.13.1</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.parquet</groupId>-->
+    <!--      <artifactId>parquet-column</artifactId>-->
+    <!--      <version>1.13.1</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.parquet</groupId>-->
+    <!--      <artifactId>parquet-format</artifactId>-->
+    <!--      <version>2.8.0</version>-->
+    <!--    </dependency>-->
+    <!--&lt;!&ndash;    <dependency>&ndash;&gt;-->
+    <!--&lt;!&ndash;      <groupId>org.apache.parquet</groupId>&ndash;&gt;-->
+    <!--&lt;!&ndash;      <artifactId>parquet-io</artifactId>&ndash;&gt;-->
+    <!--&lt;!&ndash;      <version></version>&ndash;&gt;-->
+    <!--&lt;!&ndash;    </dependency>&ndash;&gt;-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.parquet</groupId>-->
+    <!--      <artifactId>parquet-jackson</artifactId>-->
+    <!--      <version>1.13.1</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.parquet</groupId>-->
+    <!--      <artifactId>parquet-hadoop</artifactId>-->
+    <!--      <version>1.15.1</version>-->
+    <!--    </dependency>-->
 
     <dependency>
       <groupId>net.thisptr</groupId>
@@ -47,7 +96,21 @@
       <artifactId>smile-core</artifactId>
       <version>4.2.0</version>
     </dependency>
-
+<!--    <dependency>-->
+<!--      <groupId>com.github.haifengl</groupId>-->
+<!--      <artifactId>smile-data</artifactId>-->
+<!--      <version>2.6.0</version>-->
+<!--    </dependency>-->
+    <dependency>
+      <groupId>com.github.haifengl</groupId>
+      <artifactId>smile-base</artifactId>
+      <version>4.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.haifengl</groupId>
+      <artifactId>smile-io</artifactId>
+      <version>2.6.0</version>
+    </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
@@ -174,6 +237,31 @@
       <version>5.10.2</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.parquet</groupId>
+      <artifactId>parquet-column</artifactId>
+      <version>1.15.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.parquet</groupId>
+      <artifactId>parquet-hadoop</artifactId>
+      <version>1.15.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>3.3.0</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>2.18.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-mapreduce-client-core</artifactId>
+      <version>3.3.0</version>
+    </dependency>
   </dependencies>
 
   <repositories>
@@ -191,8 +279,9 @@
   </repositories>
   <scm>
     <connection>scm:git:git://github.com/nosqlbench/nbdatatools.git</connection>
-    <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git</developerConnection>
-    <url>http://github.com/nosqlbench/nbdatatools/tree/main</url>
+    <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git
+    </developerConnection>
+    <url>https://github.com/nosqlbench/nbdatatools/tree/main</url>
   </scm>
   <distributionManagement>
     <snapshotRepository>
@@ -422,29 +511,29 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>3.11.2</version>
         <configuration>
-<!--          <additionalOptions>-->
-<!--            <additionalOption>-Xdoclint:none</additionalOption>-->
-<!--          </additionalOptions>-->
+          <!--          <additionalOptions>-->
+          <!--            <additionalOption>-Xdoclint:none</additionalOption>-->
+          <!--          </additionalOptions>-->
           <!--          <doclint>none</doclint>-->
 
 
           <!--          <additionalJOptions>&#45;&#45;enable-preview</additionalJOptions>-->
-<!--          <release>23</release>-->
-<!--          <doctitle>${javadoc.name}</doctitle>-->
-<!--          <header>${javadoc.name}</header>-->
-<!--          <windowtitle>${javadoc.name}</windowtitle>-->
-<!--          <detectJavaApiLink>false</detectJavaApiLink>-->
-<!--          <detectLinks>false</detectLinks>-->
-<!--          <detectOfflineLinks>false</detectOfflineLinks>-->
+          <!--          <release>23</release>-->
+          <!--          <doctitle>${javadoc.name}</doctitle>-->
+          <!--          <header>${javadoc.name}</header>-->
+          <!--          <windowtitle>${javadoc.name}</windowtitle>-->
+          <!--          <detectJavaApiLink>false</detectJavaApiLink>-->
+          <!--          <detectLinks>false</detectLinks>-->
+          <!--          <detectOfflineLinks>false</detectOfflineLinks>-->
           <!--                    <additionalparam>-Xdoclint:none</additionalparam>-->
           <!--                    <additionalJOption>-Xdoclint:none</additionalJOption>-->
-<!--          <notimestamp>true</notimestamp>-->
-<!--          <groups>-->
-<!--            <group>-->
-<!--              <title>Adapter Drivers</title>-->
-<!--              <packages>io.nosqlbench.adapter.*</packages>-->
-<!--            </group>-->
-<!--          </groups>-->
+          <!--          <notimestamp>true</notimestamp>-->
+          <!--          <groups>-->
+          <!--            <group>-->
+          <!--              <title>Adapter Drivers</title>-->
+          <!--              <packages>io.nosqlbench.adapter.*</packages>-->
+          <!--            </group>-->
+          <!--          </groups>-->
         </configuration>
         <executions>
           <execution>
@@ -457,32 +546,32 @@
         </executions>
       </plugin>
 
-            <plugin>
-              <groupId>org.apache.maven.plugins</groupId>
-              <artifactId>maven-assembly-plugin</artifactId>
-              <version>3.7.1</version>
-              <executions>
-                <execution>
-                  <phase>package</phase>
-                  <goals>
-                    <goal>single</goal>
-                  </goals>
-                </execution>
-              </executions>
-              <configuration>
-                <archive>
-                  <manifest>
-                    <addClasspath>true</addClasspath>
-                    <mainClass>${mainClass}</mainClass>
-                  </manifest>
-                </archive>
-                <descriptorRefs>
-<!--                  <ref>assembly.xml</ref>-->
-                  <descriptorRef>jar-with-dependencies</descriptorRef>
-                  <!--            <descriptorRef>assembly</descriptorRef>-->
-                </descriptorRefs>
-              </configuration>
-            </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>3.7.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <archive>
+            <manifest>
+              <addClasspath>true</addClasspath>
+              <mainClass>${mainClass}</mainClass>
+            </manifest>
+          </archive>
+          <descriptorRefs>
+            <!--                  <ref>assembly.xml</ref>-->
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+            <!--            <descriptorRef>assembly</descriptorRef>-->
+          </descriptorRefs>
+        </configuration>
+      </plugin>
 
       <plugin>
         <groupId>org.sonatype.central</groupId>
@@ -557,31 +646,31 @@
             </executions>
           </plugin>
 
-<!--          Building with native image seems infeasible with some dependencies-->
-<!--          <plugin>-->
-<!--            <groupId>org.graalvm.buildtools</groupId>-->
-<!--            <artifactId>native-maven-plugin</artifactId>-->
-<!--            <version>${native.maven.plugin.version}</version>-->
-<!--            <executions>-->
-<!--              <execution>-->
-<!--                <id>build-native</id>-->
-<!--                <goals>-->
-<!--                  <goal>compile-no-fork</goal>-->
-<!--                </goals>-->
-<!--                <phase>package</phase>-->
-<!--              </execution>-->
-<!--              &lt;!&ndash;              <execution>&ndash;&gt;-->
-<!--              &lt;!&ndash;                <id>test-native</id>&ndash;&gt;-->
-<!--              &lt;!&ndash;                <goals>&ndash;&gt;-->
-<!--              &lt;!&ndash;                  <goal>test</goal>&ndash;&gt;-->
-<!--              &lt;!&ndash;                </goals>&ndash;&gt;-->
-<!--              &lt;!&ndash;                <phase>test</phase>&ndash;&gt;-->
-<!--              &lt;!&ndash;              </execution>&ndash;&gt;-->
-<!--            </executions>-->
-<!--            <configuration>-->
-<!--              <fallback>false</fallback>-->
-<!--            </configuration>-->
-<!--          </plugin>-->
+          <!--          Building with native image seems infeasible with some dependencies-->
+          <!--          <plugin>-->
+          <!--            <groupId>org.graalvm.buildtools</groupId>-->
+          <!--            <artifactId>native-maven-plugin</artifactId>-->
+          <!--            <version>${native.maven.plugin.version}</version>-->
+          <!--            <executions>-->
+          <!--              <execution>-->
+          <!--                <id>build-native</id>-->
+          <!--                <goals>-->
+          <!--                  <goal>compile-no-fork</goal>-->
+          <!--                </goals>-->
+          <!--                <phase>package</phase>-->
+          <!--              </execution>-->
+          <!--              &lt;!&ndash;              <execution>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <id>test-native</id>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <goals>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                  <goal>test</goal>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                </goals>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <phase>test</phase>&ndash;&gt;-->
+          <!--              &lt;!&ndash;              </execution>&ndash;&gt;-->
+          <!--            </executions>-->
+          <!--            <configuration>-->
+          <!--              <fallback>false</fallback>-->
+          <!--            </configuration>-->
+          <!--          </plugin>-->
         </plugins>
       </build>
     </profile>

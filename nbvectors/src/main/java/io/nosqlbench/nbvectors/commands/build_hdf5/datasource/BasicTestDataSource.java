@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.build_hdf5;
+package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
 
 /*
  * Copyright (c) nosqlbench
@@ -20,9 +20,8 @@ package io.nosqlbench.nbvectors.commands.build_hdf5;
 
 import io.nosqlbench.nbvectors.commands.export_hdf5.VectorFilesConfig;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
-import io.nosqlbench.nbvectors.commands.export_hdf5.FvecToFloatArray;
-import io.nosqlbench.nbvectors.commands.export_hdf5.FvecToIndexedFloatVector;
-import io.nosqlbench.nbvectors.commands.export_hdf5.IvecToIntArray;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.FvecToFloatArray;
+import io.nosqlbench.nbvectors.common.adapters.DataSourceAdapter;
 import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.nbvectors.spec.views.SpecDataSource;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
@@ -33,7 +32,7 @@ import java.util.Optional;
 /// and allows for setting the iterators for each component as needed.
 public class BasicTestDataSource implements SpecDataSource {
 
-  private Iterable<LongIndexedFloatVector> baseVectorsIterable;
+  private Iterable<float[]> baseVectorsIterable;
   private RootGroupAttributes metadata;
   private Iterable<LongIndexedFloatVector> queryVectorsIterable;
   private Iterable<?> queryTermsIterable;
@@ -51,13 +50,17 @@ public class BasicTestDataSource implements SpecDataSource {
   /// @param cfg
   ///     the file config
   public BasicTestDataSource(VectorFilesConfig cfg) {
-    setBaseVectorsIterable(new FvecToIndexedFloatVector(cfg.base_vectors()));
-    setQueryVectorsIterable(new FvecToIndexedFloatVector(cfg.query_vectors()));
-    setNeighborIndicesIterable(new IvecToIntArray(cfg.neighbors()));
 
-    if (cfg.distances().isPresent()) {
-      setNeighborDistancesIterable(new FvecToFloatArray(cfg.distances().get()));
-    }
+    cfg.base_content().map(DataSourceAdapter::adaptBaseContent)
+        .ifPresent(this::setBaseContentIterable);
+    cfg.base_vectors().map(DataSourceAdapter::adaptBaseVectors)
+        .ifPresent(this::setBaseVectorsIterable);
+    cfg.query_vectors().map(DataSourceAdapter::adaptQueryVectors)
+        .ifPresent(this::setQueryVectorsIterable);
+    cfg.neighbors().map(DataSourceAdapter::adaptNeighborIndices)
+        .ifPresent(this::setNeighborIndicesIterable);
+    cfg.distances().map(DataSourceAdapter::adaptNeighborDistances)
+        .ifPresent(this::setNeighborDistancesIter);
     setMetadata(cfg.metadata());
   }
 
@@ -70,8 +73,8 @@ public class BasicTestDataSource implements SpecDataSource {
   }
 
   @Override
-  public Iterable<LongIndexedFloatVector> getBaseVectors() {
-    return baseVectorsIterable;
+  public Optional<Iterable<float[]>> getBaseVectors() {
+    return Optional.ofNullable(baseVectorsIterable);
   }
 
   @Override
@@ -80,8 +83,8 @@ public class BasicTestDataSource implements SpecDataSource {
   }
 
   @Override
-  public Iterable<LongIndexedFloatVector> getQueryVectors() {
-    return this.queryVectorsIterable;
+  public Optional<Iterable<LongIndexedFloatVector>> getQueryVectors() {
+    return Optional.ofNullable(this.queryVectorsIterable);
   }
 
   @Override
@@ -95,8 +98,8 @@ public class BasicTestDataSource implements SpecDataSource {
   }
 
   @Override
-  public Iterable<int[]> getNeighborIndices() {
-    return this.neighborIndicesIterable;
+  public Optional<Iterable<int[]>> getNeighborIndices() {
+    return Optional.ofNullable(this.neighborIndicesIterable);
   }
 
   @Override
@@ -112,7 +115,7 @@ public class BasicTestDataSource implements SpecDataSource {
   /// Set the iterator for the base vectors
   /// @param baseVectorsIterable
   ///     the iterable for the base vectors
-  public void setBaseVectorsIterable(Iterable<LongIndexedFloatVector> baseVectorsIterable) {
+  public void setBaseVectorsIterable(Iterable<float[]> baseVectorsIterable) {
     this.baseVectorsIterable = baseVectorsIterable;
   }
 

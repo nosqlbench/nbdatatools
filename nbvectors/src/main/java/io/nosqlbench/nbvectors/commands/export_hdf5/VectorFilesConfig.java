@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /// Config for a single hdf5 file, with some required and some optional components from other files
-///  @param base_vectors
+/// @param base_vectors
 ///     the base_vectors file to read
 /// @param query_vectors
 ///     the query_vectors file to read
@@ -47,9 +47,9 @@ import java.util.Optional;
 ///     the metadata associated with the overall hdf5 file
 
 public record VectorFilesConfig(
-    Path base_vectors,
-    Path query_vectors,
-    Path neighbors,
+    Optional<Path> base_vectors,
+    Optional<Path> query_vectors,
+    Optional<Path> neighbors,
     Optional<Path> distances,
     Optional<Path> base_content,
     Optional<Path> query_terms,
@@ -86,9 +86,9 @@ public record VectorFilesConfig(
   )
   {
     this(
-        base_vectors,
-        query_vectors,
-        neighbors,
+        Optional.ofNullable(base_vectors),
+        Optional.ofNullable(query_vectors),
+        Optional.ofNullable(neighbors),
         Optional.ofNullable(distances),
         Optional.ofNullable(base_content),
         Optional.ofNullable(query_terms),
@@ -101,11 +101,15 @@ public record VectorFilesConfig(
   /// @return the last modified time of the file config
   public Instant getLastModifiedTime() {
     Instant lastModifiedTime = Instant.MIN;
-    for (Path path : new Path[]{base_vectors, query_vectors, neighbors, distances.orElse(null), base_content.orElse(null), query_terms.orElse(null), query_filters.orElse(null)}) {
-      if (path!=null) {
+    for (Path path : new Path[]{
+        base_vectors.orElse(null), query_vectors.orElse(null), neighbors.orElse(null),
+        distances.orElse(null), base_content.orElse(null), query_terms.orElse(null),
+        query_filters.orElse(null)
+    }) {
+      if (path != null) {
         try {
           Instant instant = Files.getLastModifiedTime(path).toInstant();
-          lastModifiedTime=lastModifiedTime.isAfter(instant) ? lastModifiedTime : instant;
+          lastModifiedTime = lastModifiedTime.isAfter(instant) ? lastModifiedTime : instant;
         } catch (IOException e) {
           throw new RuntimeException(e);
         }
@@ -136,9 +140,9 @@ public record VectorFilesConfig(
     }
 
     return new VectorFilesConfig(
-        Path.of(base),
-        Path.of(query),
-        Path.of(indices),
+        Optional.of(Path.of(base)),
+        Optional.of(Path.of(query)),
+        Optional.of(Path.of(indices)),
         Optional.ofNullable(cfg.remove("distances")).map(Path::of),
         Optional.ofNullable(cfg.remove("base_content")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_terms")).map(Path::of),

@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.jjq;
  */
 
 
-import io.nosqlbench.nbvectors.commands.build_hdf5.JJQSupplier;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.JJQSupplier;
 import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.commands.jjq.outputs.JsonlFileOutput;
 import io.nosqlbench.nbvectors.commands.jjq.outputs.NullOutput;

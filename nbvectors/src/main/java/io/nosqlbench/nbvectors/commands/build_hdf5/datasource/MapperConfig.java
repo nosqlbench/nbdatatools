@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.build_hdf5;
+package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
 
 /*
  * Copyright (c) nosqlbench
@@ -70,8 +70,8 @@ public class MapperConfig {
 
   /// get the training JSON file
   /// @return the training JSON file
-  public Path getTrainingJsonFile() {
-    return Path.of((String) this.cfgmap.get("training_file"));
+  public Optional<Path> getBaseVectorsJsonFile() {
+    return Optional.ofNullable(this.cfgmap.get("training_file")).map(String::valueOf).map(Path::of);
   }
 
   /// get the training jq expression
@@ -82,8 +82,8 @@ public class MapperConfig {
 
   /// get the test JSON file
   /// @return the test JSON file
-  public Path getTestJsonFile() {
-    return Path.of((String) this.cfgmap.get("test_file"));
+  public Optional<Path> getTestJsonFile() {
+    return Optional.ofNullable(this.cfgmap.get("test_file")).map(String::valueOf).map(Path::of);
   }
 
   /// get the test jq expression
@@ -94,8 +94,8 @@ public class MapperConfig {
 
   /// get the neighborhood JSON file
   /// @return the neighborhood JSON file
-  public Path getNeighborhoodJsonFile() {
-    return Path.of((String) this.cfgmap.get("neighborhood_file"));
+  public Optional<Path> getNeighborhoodJsonFile() {
+    return Optional.ofNullable(this.cfgmap.get("neighborhood_file")).map(String::valueOf).map(Path::of);
   }
 
   /// get the neighborhood jq expression

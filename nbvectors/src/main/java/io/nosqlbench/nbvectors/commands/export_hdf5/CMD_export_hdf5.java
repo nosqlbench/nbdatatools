@@ -18,8 +18,8 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
  */
 
 
-import io.nosqlbench.nbvectors.commands.build_hdf5.BasicTestDataSource;
-import io.nosqlbench.nbvectors.commands.build_hdf5.KnnDataWriter;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.BasicTestDataSource;
+import io.nosqlbench.nbvectors.commands.build_hdf5.writers.KnnDataWriter;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
@@ -35,7 +35,6 @@ import java.util.concurrent.Callable;
 
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
-import static picocli.CommandLine.ScopeType.INHERIT;
 
 /// Run jjq commands
 @Command(name = "export_hdf5",
@@ -67,8 +66,8 @@ import static picocli.CommandLine.ScopeType.INHERIT;
              distances: my_distances.ivec # this is only added to the hdf5 file if provided
              notes: Any notes about the model used
         
-        When a mapping file is not provided, the remaining metadata can be provided in a yaml file 
-        and specified with the --metadata option.  
+        When a mapping file is not provided, the remaining metadata can be provided in a yaml
+        file and specified with the --metadata option.
         
         """,
     synopsisHeading = "%n",
@@ -166,9 +165,9 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       }
       RootGroupAttributes rga = RootGroupAttributes.fromFile(metadataFile);
       VectorFilesConfig cfg = new VectorFilesConfig(
-          this.base_vectors,
-          this.query_vectors,
-          this.neighbors,
+          Optional.ofNullable(this.base_vectors),
+          Optional.ofNullable(this.query_vectors),
+          Optional.ofNullable(this.neighbors),
           Optional.ofNullable(this.distances),
           Optional.ofNullable(this.base_content),
           Optional.ofNullable(this.query_terms),

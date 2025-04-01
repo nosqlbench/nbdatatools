@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.build_hdf5;
+package io.nosqlbench.nbvectors.commands.build_hdf5.datasource.json;
 
 /*
  * Copyright (c) nosqlbench
@@ -19,6 +19,8 @@ package io.nosqlbench.nbvectors.commands.build_hdf5;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.JJQSupplier;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.MapperConfig;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.ConvertingIterable;
@@ -49,9 +51,13 @@ public class JsonLoader implements SpecDataSource {
   /// get an iterator for training vectors
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Iterable<LongIndexedFloatVector> getBaseVectors() {
+  public Optional<Iterable<float[]>> getBaseVectors() {
 
-    Supplier<String> input = JJQSupplier.path(config.getTrainingJsonFile());
+    Optional<Path> baseJsonFile = config.getBaseVectorsJsonFile();
+    if (baseJsonFile.isEmpty()) {
+      return Optional.empty();
+    }
+    Supplier<String> input = JJQSupplier.path(baseJsonFile.get());
     String expr = config.getTrainingJqExpr();
 
     BufferOutput output = new BufferOutput(5000000);
@@ -59,9 +65,9 @@ public class JsonLoader implements SpecDataSource {
     JJQInvoker invoker = new JJQInvoker(input, expr, output);
 
     invoker.run();
-    ConvertingIterable<JsonNode, LongIndexedFloatVector> converter =
-        new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoLongIndexedFloatVector);
-    return converter;
+    ConvertingIterable<JsonNode, float[]> converter =
+        new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoVectorFloatAry);
+    return Optional.of(converter);
   }
 
   @Override
@@ -72,8 +78,13 @@ public class JsonLoader implements SpecDataSource {
   /// get an iterator for test vectors
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Iterable<LongIndexedFloatVector> getQueryVectors() {
-    Supplier<String> input = JJQSupplier.path(config.getTestJsonFile());
+  public Optional<Iterable<LongIndexedFloatVector>> getQueryVectors() {
+
+    Optional<Path> testJsonFile = config.getTestJsonFile();
+    if (testJsonFile.isEmpty()) {
+      return Optional.empty();
+    }
+    Supplier<String> input = JJQSupplier.path(testJsonFile.get());
     String expr = config.getTestJqExpr();
     BufferOutput output = new BufferOutput(5000000);
     try (JJQInvoker invoker = new JJQInvoker(input, expr, output)) {
@@ -83,7 +94,7 @@ public class JsonLoader implements SpecDataSource {
     }
     ConvertingIterable<JsonNode, LongIndexedFloatVector> converter =
         new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoLongIndexedFloatVector);
-    return converter;
+    return Optional.of(converter);
 
   }
 
@@ -95,8 +106,13 @@ public class JsonLoader implements SpecDataSource {
   /// get an iterator for neighbors
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Iterable<int[]> getNeighborIndices() {
-    Supplier<String> input = JJQSupplier.path(config.getNeighborhoodJsonFile());
+  public Optional<Iterable<int[]>> getNeighborIndices() {
+
+    Optional<Path> neighborhoodJsonFile = config.getNeighborhoodJsonFile();
+    if (neighborhoodJsonFile.isEmpty()) {
+      return Optional.empty();
+    }
+    Supplier<String> input = JJQSupplier.path(neighborhoodJsonFile.get());
     String expr = config.getNeighborhoodTestExpr();
     BufferOutput output = new BufferOutput(5000000);
     try (JJQInvoker invoker = new JJQInvoker(input, expr, output)) {
@@ -106,7 +122,7 @@ public class JsonLoader implements SpecDataSource {
     }
     ConvertingIterable<JsonNode, int[]> converter =
         new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoIntegerNeighborIndices);
-    return converter;
+    return Optional.of(converter);
   }
 
   /// get an iterator for distances
@@ -249,6 +265,22 @@ public class JsonLoader implements SpecDataSource {
         }
         return new LongIndexedFloatVector(n.get("id").asLong(), floats);
       };
+
+  public static Function<JsonNode, float[]> JsonNodeIntoVectorFloatAry =      n -> {
+    JsonNode vnode = n.get("vector");
+    if (vnode == null) {
+      List<String> names = new ArrayList<>();
+      n.fieldNames().forEachRemaining(names::add);
+      throw new RuntimeException("vector node was null, keys:" + names);
+    }
+    float[] floats = new float[vnode.size()];
+    int i = 0;
+    for (JsonNode node : vnode) {
+      floats[i++] = node.floatValue();
+    }
+    return floats;
+  };
+
 
   /// get an iterator for predicate filters
   /// @return an iterator for {@link PNode}

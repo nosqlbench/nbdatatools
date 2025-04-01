@@ -35,7 +35,7 @@ public interface SpecDataSource {
   /// /base_vectors
   /// @return an interator of base vectors
   /// The index and vector component types are fixed in this version.
-  public Iterable<LongIndexedFloatVector> getBaseVectors();
+  public Optional<Iterable<float[]>> getBaseVectors();
 
   /// /base_content
   /// @return an iterator of base content
@@ -43,7 +43,7 @@ public interface SpecDataSource {
 
   /// /query_vectors
   /// @return an iterator of query vectors
-  public Iterable<LongIndexedFloatVector> getQueryVectors();
+  public Optional<Iterable<LongIndexedFloatVector>> getQueryVectors();
 
   /// /query_terms
   /// @return an optional iterator of query terms
@@ -55,7 +55,7 @@ public interface SpecDataSource {
 
   /// /neighbors
   /// @return an iterator of neighbor indices
-  public Iterable<int[]> getNeighborIndices();
+  public Optional<Iterable<int[]>> getNeighborIndices();
 
   /// /distances
   /// @return an iterator of neighbor distances

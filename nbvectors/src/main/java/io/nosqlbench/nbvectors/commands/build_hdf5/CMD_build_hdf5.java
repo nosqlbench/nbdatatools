@@ -18,6 +18,10 @@ package io.nosqlbench.nbvectors.commands.build_hdf5;
  */
 
 
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.JJQSupplier;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.json.JsonLoader;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.MapperConfig;
+import io.nosqlbench.nbvectors.commands.build_hdf5.writers.KnnDataWriter;
 import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.commands.jjq.outputs.BufferOutput;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;

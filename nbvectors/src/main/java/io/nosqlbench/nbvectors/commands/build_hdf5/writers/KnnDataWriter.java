@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.build_hdf5;
+package io.nosqlbench.nbvectors.commands.build_hdf5.writers;
 
 /*
  * Copyright (c) nosqlbench
@@ -22,7 +22,9 @@ import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.api.WritableDataset;
 import io.jhdf.api.WritableNode;
+import io.nosqlbench.nbvectors.common.adapters.Sized;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.ArrayChunkingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.ConvertingIterable;
 import io.nosqlbench.nbvectors.common.FilePaths;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDataset;
@@ -83,16 +85,16 @@ public class KnnDataWriter {
   /// write the training vector data to a dataset
   /// @param iterable
   ///     an iterator for the training vectors
-  public void writeBaseVectors(Iterable<LongIndexedFloatVector> iterable) {
+  public void writeBaseVectors(Iterable<float[]> iterable) {
 
-    ConvertingIterable<LongIndexedFloatVector, float[]> remapper =
-        new ConvertingIterable<LongIndexedFloatVector, float[]>(
-            iterable,
-            LongIndexedFloatVector::vector
-        );
+//    ConvertingIterable<LongIndexedFloatVector, float[]> remapper =
+//        new ConvertingIterable<LongIndexedFloatVector, float[]>(
+//            iterable,
+//            LongIndexedFloatVector::vector
+//        );
 
     Class<? extends float[]> fclass = new float[0].getClass();
-    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, remapper, 1024 * 1024 * 512);
+    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterable, 1024 * 1024 * 512);
 
     StreamableDataset streamer =
         new StreamableDatasetImpl(aci, SpecDatasets.base_vectors.name(), this.writable);
@@ -230,24 +232,30 @@ public class KnnDataWriter {
     try {
       this.writable = HdfFile.write(tempFile);
 
-      System.err.println("writing base vectors...");
-      writeBaseVectors(loader.getBaseVectors());
+      loader.getBaseVectors().ifPresent(baseVectors -> {
+        System.err.println("writing base vectors...");
+        writeBaseVectors(baseVectors);
+      });
 
-      System.err.println("writing query vectors...");
-      writeQueryVectors(loader.getQueryVectors());
+      loader.getQueryVectors().ifPresent(queryVectors -> {
+        System.err.println("writing query vectors...");
+        writeQueryVectors(queryVectors);
+      });
 
-      if (loader.getQueryFilters().isPresent()) {
+      loader.getQueryFilters().ifPresent(queryFilters -> {
         System.err.println("writing query filters...");
-        writeFiltersStream(loader.getQueryFilters().orElseThrow());
-      }
+        writeFiltersStream(queryFilters);
+      });
 
-      System.err.println("writing neighbors indices...");
-      writeNeighborsIntStream(loader.getNeighborIndices());
+      loader.getNeighborIndices().ifPresent(neighborIndices -> {
+        System.err.println("writing neighbors indices...");
+        writeNeighborsIntStream(neighborIndices);
+      });
 
-      if (loader.getNeighborDistances().isPresent()) {
+      loader.getNeighborDistances().ifPresent(neighborDistances -> {
         System.err.println("writing neighbor distances...");
-        writeDistancesStream(loader.getNeighborDistances().orElseThrow());
-      }
+        writeDistancesStream(neighborDistances);
+      });
 
       System.err.println("writing metadata...");
       this.rootGroupAttributes = new RootGroupAttributes(

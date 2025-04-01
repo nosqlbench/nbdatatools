@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.build_hdf5;
+package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
 
 /*
  * Copyright (c) nosqlbench

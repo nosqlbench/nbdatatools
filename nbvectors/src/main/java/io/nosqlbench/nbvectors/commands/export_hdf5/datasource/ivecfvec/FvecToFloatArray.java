@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.export_hdf5;
+package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,30 +17,30 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
  * under the License.
  */
 
+import io.nosqlbench.nbvectors.common.adapters.Sized;
 
-import io.nosqlbench.nbvectors.commands.build_hdf5.Sized;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.IntBuffer;
+import java.nio.FloatBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 
 /// Read indexed float vectors from a file, incrementally
-public class IvecToIntArray implements Iterable<int[]>, Sized {
+public class FvecToFloatArray implements Iterable<float[]>, Sized {
 
   private final Path path;
   private final int count;
 
   /// create a new FvecToIndexFloatVector
   /// @param path the path to the file to read from
-  public IvecToIntArray(Path path) {
+  public FvecToFloatArray(Path path) {
     String[] parts = path.getFileName().toString().split("\\.");
     String extension = parts[parts.length - 1].toLowerCase();
-    if (!extension.equals("ivec") && !extension.equals("ivecs")) {
+    if (!extension.equals("fvec") && !extension.equals("fvecs")) {
       throw new RuntimeException("Unsupported file type: " + extension);
     }
     this.path = path;
@@ -50,20 +50,18 @@ public class IvecToIntArray implements Iterable<int[]>, Sized {
     {
       int i = sizein.readInt();
       int dim = Integer.reverseBytes(i);
-      int rowsize = (Integer.BYTES * dim) + Integer.BYTES;
+      int rowsize = (Float.BYTES * dim) + Integer.BYTES;
       long filesize = Files.size(path);
       this.count = (int) (filesize / rowsize);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
-
   }
 
   /// {@inheritDoc}
   @Override
-  public Iterator<int[]> iterator() {
-    return new IndicesIterable(this.path);
+  public Iterator<float[]> iterator() {
+    return new FloatIterable(this.path);
   }
 
   @Override
@@ -72,14 +70,14 @@ public class IvecToIntArray implements Iterable<int[]>, Sized {
   }
 
   /// An iterator for indexed float vectors
-  public static class IndicesIterable implements Iterator<int[]> {
+  public static class FloatIterable implements Iterator<float[]> {
 
     private final DataInputStream in;
     private long index = 0;
 
     /// create a float iterable
     /// @param path the path to the file to read from
-    public IndicesIterable(Path path) {
+    public FloatIterable(Path path) {
       try {
         this.in = new DataInputStream(new BufferedInputStream(Files.newInputStream(path)));
       } catch (IOException e) {
@@ -97,13 +95,14 @@ public class IvecToIntArray implements Iterable<int[]>, Sized {
     }
 
     @Override
-    public int[] next() {
+    public float[] next() {
       try {
-        int dim = Integer.reverseBytes(in.readInt());
-        byte[] vbuf = new byte[dim*Integer.BYTES];
+        int i = in.readInt();
+        int dim = Integer.reverseBytes(i);
+        byte[] vbuf = new byte[dim*Float.BYTES];
         int read = in.read(vbuf);
-        IntBuffer fbuf= ByteBuffer.wrap(vbuf).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer();
-        int[] ary = new int[dim];
+        FloatBuffer fbuf= ByteBuffer.wrap(vbuf).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+        float[] ary = new float[dim];
         fbuf.get(ary);
         return ary;
       } catch (IOException e) {
