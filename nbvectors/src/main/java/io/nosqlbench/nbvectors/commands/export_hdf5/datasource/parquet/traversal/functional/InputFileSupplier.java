@@ -9,10 +9,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
 
+/// A supplier for [InputFile] from a list of [Path]
 public class InputFileSupplier implements Supplier<InputFile> {
   private final Iterator<InputFile> iterator;
 
-  public InputFileSupplier(List<Path> files, boolean recurse) {
+  /// create a supplier for [InputFile] from a list of [Path]
+  /// @param files the list of [Path] to read from
+  public InputFileSupplier(List<Path> files) {
 
     ConvertingIterable<Path, InputFile> inputFileIterable =
         new ConvertingIterable<>(files, LocalInputFile::new);

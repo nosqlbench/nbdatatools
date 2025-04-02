@@ -12,17 +12,23 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Supplier;
 
+/// traverse parquet data
+/// @see ParquetVisitor
 public class ParquetTraversal {
 
   private final Iterable<PathAggregator> rootTraversers;
 
-  public ParquetTraversal(List<Path> roots, String glob) {
+  /// create a new parquet traversal
+  /// @param roots the root paths to traverse
+  public ParquetTraversal(List<Path> roots) {
     rootTraversers = new ConvertingIterable<Path, PathAggregator>(
         roots,
         r -> new PathAggregator(r, true)
     );
   }
 
+  /// traverse the parquet data, calling the appropriate methods on the visitor.
+  /// @param visitor the visitor to call
   public void traverse(ParquetVisitor visitor) {
 
     if (visitor.getTraversalDepth().isEnabledFor(ParquetVisitor.Depth.CALL)) {
@@ -51,7 +57,7 @@ public class ParquetTraversal {
                     Supplier<Group> groupRecordSupplier = pageStore.get();
                     Group group;
                     while ((group = groupRecordSupplier.get()) != null) {
-                      visitor.afterGroup(group);
+                      visitor.onGroup(group);
                     }
                   }
                   visitor.afterPage(pageStore);

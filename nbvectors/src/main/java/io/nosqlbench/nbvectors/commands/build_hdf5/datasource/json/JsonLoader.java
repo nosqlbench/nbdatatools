@@ -266,6 +266,14 @@ public class JsonLoader implements SpecDataSource {
         return new LongIndexedFloatVector(n.get("id").asLong(), floats);
       };
 
+  /// a converter for json nodes into `float[]` vectors
+  /// ---
+  /// # required node structure
+  /// ```json
+  /// {
+  ///   "vector": [0.23,-0.12,0.01]
+  /// }
+  /// ```
   public static Function<JsonNode, float[]> JsonNodeIntoVectorFloatAry =      n -> {
     JsonNode vnode = n.get("vector");
     if (vnode == null) {
@@ -280,7 +288,6 @@ public class JsonLoader implements SpecDataSource {
     }
     return floats;
   };
-
 
   /// get an iterator for predicate filters
   /// @return an iterator for {@link PNode}

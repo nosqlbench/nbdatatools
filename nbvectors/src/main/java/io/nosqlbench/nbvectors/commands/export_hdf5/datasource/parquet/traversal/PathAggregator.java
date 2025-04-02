@@ -28,7 +28,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
-/// parquet path traverser
+/// parquet path aggregator, representing a root path and its matching files, and statistics thereof
 public class PathAggregator {
 
   private final static WildcardFileFilter fileFilter =
@@ -44,6 +44,8 @@ public class PathAggregator {
   /// create a new path traverser
   /// @param root
   ///     the root path to traverse
+  /// @param recurse
+  ///     whether to recurse into subdirectories
   public PathAggregator(Path root, boolean recurse) {
     this.root = root;
     this.recurse = recurse;

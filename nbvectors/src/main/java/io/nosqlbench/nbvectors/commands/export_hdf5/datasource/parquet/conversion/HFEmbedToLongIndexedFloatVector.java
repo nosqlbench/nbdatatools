@@ -24,6 +24,7 @@ import org.apache.parquet.example.data.Group;
 import java.util.Arrays;
 import java.util.function.Function;
 
+/// Convert a Parquet [Group] into a LongIndexedFloatVector
 public class HFEmbedToLongIndexedFloatVector implements Function<Group, LongIndexedFloatVector> {
 
   @Override

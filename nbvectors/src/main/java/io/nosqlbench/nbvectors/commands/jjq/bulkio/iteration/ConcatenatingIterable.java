@@ -49,6 +49,8 @@ public class ConcatenatingIterable<O> implements Iterable<O> {
     private Iterator<Iterable<O>> sequenceIterator;
     private Iterator<O> stageIterator;
 
+    /// create a new concatenating iterator
+    /// @param sequence The sequence of iterable stages to concatenate
     public ConcatenatingIterator(Iterable<Iterable<O>> sequence) {
       this.sequenceIterator = sequence.iterator();
     }

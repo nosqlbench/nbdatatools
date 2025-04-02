@@ -12,12 +12,15 @@ import org.apache.parquet.schema.MessageType;
 import java.io.IOException;
 import java.util.function.Supplier;
 
+/// A supplier for [BoundedPageStore] from a [InputFile]
 public class PageSupplier implements Supplier<BoundedPageStore> {
 
   private final MessageColumnIO columnIO;
   private final ParquetFileReader parquetFileReader;
   private final GroupRecordConverter groupRecordConverter;
 
+  /// create a supplier for [BoundedPageStore] from a [InputFile]
+  /// @param inf the [InputFile] to read from
   public PageSupplier(InputFile inf) {
     try {
       this.parquetFileReader = ParquetFileReader.open(inf);
@@ -38,11 +41,7 @@ public class PageSupplier implements Supplier<BoundedPageStore> {
       if (pageReadStore==null) {
         return null;
       }
-//      System.out.println("page:" + pageReadStore);
       return new BoundedPageStore(pageReadStore,columnIO,groupRecordConverter);
-//      RecordReader<Group> recordReader =
-//          columnIO.getRecordReader(pageReadStore, recordMaterializer);
-//      return new RecordSupplier(pageReadStore, recordReader, pageReadStore.getRowCount());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

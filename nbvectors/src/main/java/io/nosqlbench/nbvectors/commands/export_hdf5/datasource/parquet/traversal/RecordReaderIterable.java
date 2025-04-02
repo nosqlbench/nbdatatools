@@ -35,9 +35,13 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Iterator;
 
+/// An iterable of [BoundedRecordReader] from a [Path]
+/// @see BoundedRecordReader
 public class RecordReaderIterable implements Iterable<BoundedRecordReader<Group>> {
   private final Path path;
 
+  /// create a new record reader iterable
+  /// @param path the path to the parquet file to read from
   public RecordReaderIterable(Path path) {
     this.path = path;
   }
@@ -51,7 +55,6 @@ public class RecordReaderIterable implements Iterable<BoundedRecordReader<Group>
     public final ParquetFileReader fileReader;
     public final MessageColumnIO columnIO;
     private final MessageType schema;
-    private long remaining;
     private PageReadStore pageReadStore;
 
     public RecordReaderIterator(Path path) {
@@ -62,8 +65,6 @@ public class RecordReaderIterable implements Iterable<BoundedRecordReader<Group>
         ParquetMetadata footer = fileReader.getFooter();
         this.schema = footer.getFileMetaData().getSchema();
         this.columnIO = new ColumnIOFactory().getColumnIO(schema);
-//        this.recordCount = fileReader.getRecordCount();
-//        this.remaining = recordCount;
       } catch (IOException e) {
         throw new RuntimeException(e);
       }

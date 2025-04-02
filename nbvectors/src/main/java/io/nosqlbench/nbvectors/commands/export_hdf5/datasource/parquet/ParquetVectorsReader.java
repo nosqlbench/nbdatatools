@@ -34,12 +34,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
+/// Read vectors from parquet files. This layer of reading/parsing is expected to be applied to a
+///  set of Paths which are files only, and which are part of a logical group.
 public class ParquetVectorsReader implements Iterable<float[]>, Sized {
 
   private final Iterable<float[]> compositeIterable;
   private final List<Path> paths;
   private long size;
 
+  /// create a new parquet vectors reader
+  /// @param paths the paths to the parquet files to read from, which must be readable files only
+  /// @throws RuntimeException if any of the paths are not readable files
   public ParquetVectorsReader(List<Path> paths) {
     this.paths = paths;
 
@@ -71,13 +76,13 @@ public class ParquetVectorsReader implements Iterable<float[]>, Sized {
 
   @Override
   public int getSize() {
-    if (size==0) {
+    if (size == 0) {
       ParquetTabulator tabulator = new ParquetTabulator();
-      ParquetTraversal traversal= new ParquetTraversal(paths, "*.parquet");
+      ParquetTraversal traversal = new ParquetTraversal(paths);
       traversal.traverse(tabulator);
       this.size = tabulator.getRecordCount();
     }
-    if (size>Integer.MAX_VALUE) {
+    if (size > Integer.MAX_VALUE) {
       throw new RuntimeException("int overflow with long size:" + size);
     }
     return (int) size;

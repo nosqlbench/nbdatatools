@@ -6,6 +6,7 @@ import org.apache.parquet.io.RecordReader;
 
 import java.util.function.Supplier;
 
+/// A supplier for [Group] from a [BoundedPageStore]
 public class RecordSupplier implements Supplier<Group> {
 
   private final BoundedPageStore pageClosure;
@@ -13,6 +14,8 @@ public class RecordSupplier implements Supplier<Group> {
   private final long count;
   private long remaining;
 
+  /// create a supplier for [Group] from a [BoundedPageStore]
+  /// @param pageClosure the [BoundedPageStore] to read from
   public RecordSupplier(BoundedPageStore pageClosure) {
     this.pageClosure = pageClosure;
     this.count = this.pageClosure.pageReadStore().getRowCount();

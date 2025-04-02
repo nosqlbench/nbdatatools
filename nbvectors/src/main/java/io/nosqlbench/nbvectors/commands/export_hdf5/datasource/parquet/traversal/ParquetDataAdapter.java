@@ -10,19 +10,23 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+/// Handle parquet data appropriately, depending on how it is specified
 public class ParquetDataAdapter implements Iterable<float[]>, Sized {
 
   private final List<Path> paths;
   private final Iterable<ParquetVectorsReader> parquetVectorsReaders;
   private final Iterable<float[]> iterable;
 
-
+  /// create a new parquet data adapter
+  /// @param paths the paths to the parquet data
   public ParquetDataAdapter(List<Path> paths) {
     this.paths = paths;
     this.parquetVectorsReaders = composeAggregatorsIterable();
     iterable = new FlatteningIterable<ParquetVectorsReader, float[]>(parquetVectorsReaders, f -> f);
   }
 
+  /// compose an iterable of parquet vectors readers
+  /// @return an iterable of parquet vectors readers
   public Iterable<ParquetVectorsReader> composeAggregatorsIterable() {
     int dirs = 0;
     int files = 0;

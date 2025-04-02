@@ -30,6 +30,8 @@ public class ParquetGroupIterable implements Iterable<Group> {
 
   private final BoundedRecordReader<Group> recordReader;
 
+  /// create a new parquet group iterable
+  /// @param recordReader the record reader to read from
   public ParquetGroupIterable(BoundedRecordReader<Group> recordReader) {
     this.recordReader = recordReader;
   }
@@ -44,6 +46,8 @@ public class ParquetGroupIterable implements Iterable<Group> {
     private final long count;
     private long remaining;
 
+    /// create a new parquet group iterator
+    /// @param groupReader the record reader to read from
     public ParquetGroupIterator(BoundedRecordReader<Group> groupReader) {
       this.groupReader = groupReader.reader();
       this.count = groupReader.count();

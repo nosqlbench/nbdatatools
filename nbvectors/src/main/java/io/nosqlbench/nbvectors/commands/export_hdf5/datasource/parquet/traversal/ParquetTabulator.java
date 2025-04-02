@@ -4,10 +4,14 @@ import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetVi
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.BoundedPageStore;
 
 // TODO: make this multithreaded, its tooooo slooooow
+
+/// Tabulate parquet data file statistics via traversal
 public class ParquetTabulator implements ParquetVisitor {
 
   private long totalRows =Long.MIN_VALUE;
 
+  /// get the total number of records seen during traversal
+  /// @return the total number of records seen during traversal
   public long getRecordCount() {
     if (totalRows == Long.MIN_VALUE) {
       throw new RuntimeException("Unable to get count without traversal first.");

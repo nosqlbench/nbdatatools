@@ -20,4 +20,8 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversa
 
 import org.apache.parquet.io.RecordReader;
 
+/// A record reader with a count
+/// @param reader the record reader
+/// @param count the number of records to read
+/// @param <T> the type of the records
 public record BoundedRecordReader<T>(RecordReader<T> reader, long count) { }

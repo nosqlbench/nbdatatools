@@ -22,6 +22,7 @@ import org.apache.parquet.example.data.Group;
 
 import java.util.function.Function;
 
+/// Convert a Parquet [Group] into a float[]
 public class HFEmbedToFloatAry implements Function<Group, float[]> {
 
   @Override

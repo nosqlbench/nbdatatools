@@ -29,20 +29,33 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+/// Adapt a path to a data source, depending on the file name or contents
 public class DataSourceAdapter {
 
+  /// Adapt a path to a data source, depending on the file name or contents
+  /// @param path the path to adapt
+  /// @return an iterable of query vectors
   public static Iterable<LongIndexedFloatVector> adaptQueryVectors(Path path) {
     return adaptLongIndexedFloatVector(path);
   }
 
+  /// Adapt a path to a data source, depending on the file name or contents
+  /// @param path the path to adapt
+  /// @return an iterable of base content
   public static Iterable<Object> adaptBaseContent(Path path) {
     return null;
   }
 
+  /// Adapt a path to a data source, depending on the file name or contents
+  /// @param path the path to adapt
+  /// @return an iterable of base vectors
   public static Iterable<float[]> adaptBaseVectors(Path path) {
     return adaptFloatArray(path);
   }
 
+  /// Adapt a path to a data source, depending on the file name or contents
+  /// @param path the path to adapt
+  /// @return an iterable of long indexed float vectors
   private static Iterable<LongIndexedFloatVector> adaptLongIndexedFloatVector(Path path) {
     if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
       return new FvecToIndexedFloatVector(path);
@@ -51,6 +64,9 @@ public class DataSourceAdapter {
     throw new RuntimeException("Unsupported path type: " + path);
   }
 
+  /// Adapt a path to a data source, depending on the file name or contents
+  /// @param path the path to adapt
+  /// @return an iterable of neighbor indices
   public static Iterable<int[]> adaptNeighborIndices(Path path) {
     return adaptIntArray(path);
   }
@@ -63,10 +79,16 @@ public class DataSourceAdapter {
     throw new RuntimeException("Unsupported path type: " + path);
   }
 
+  /// Adapt a path to a data source, depending on the file name or contents
+  /// @param path the path to adapt
+  /// @return an iterable of neighbor distances
   public static Iterable<float[]> adaptNeighborDistances(Path path) {
     return adaptFloatArray(path);
   }
 
+  /// Adapt a path to a data source, depending on the file name or contents
+  /// @param path the path to adapt
+  /// @return an iterable of float arrays
   private static Iterable<float[]> adaptFloatArray(Path path) {
     if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
       return new FvecToFloatArray(path);

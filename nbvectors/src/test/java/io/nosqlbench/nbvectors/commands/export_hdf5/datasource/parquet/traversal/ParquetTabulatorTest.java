@@ -16,7 +16,7 @@ public class ParquetTabulatorTest {
         new ParquetTabulator();
     ParqueLoggingVisitor parqueLoggingVisitor = new ParqueLoggingVisitor(tabulator, Level.INFO);
     ParquetTraversal traversal =
-        new ParquetTraversal(List.of(ParquetVectorsReaderTest.SNAPSHOT_PATH), "*.parquet");
+        new ParquetTraversal(List.of(ParquetVectorsReaderTest.SNAPSHOT_PATH));
     traversal.traverse(parqueLoggingVisitor);
     long recordCount = tabulator.getRecordCount();
     System.out.println("record count: " + recordCount);
