@@ -76,11 +76,12 @@ import static picocli.CommandLine.Option;
     optionListHeading = "%nOptions:%n")
 public class CMD_export_hdf5 implements Callable<Integer> {
   private final static String DEFAULT_TEMPLATE =
-      "[model][_d{dims*}][_b{vectors*}][_q{queries*}][_mk{max_k*}].hdf5";
+      "[model][_d{dims*}][_b{vectors*}][_q{queries*}][_i{indices*}][_mk{max_k*}].hdf5";
 
   @Option(names = {"-o", "--outfile"},
       required = true,
-      defaultValue = "[model][_d{dims*}][_b{vectors*}][_q{queries*}][_mk{max_k*}].hdf5",
+      defaultValue = "[model][_d{dims*}][_b{vectors*}][_q{queries*}][_i{indices*}][_mk{max_k*}]"
+                     + ".hdf5",
       description = "The HDF5 file to write\ndefault: ${DEFAULT-VALUE}")
   private String outfile;
 
@@ -90,7 +91,7 @@ public class CMD_export_hdf5 implements Callable<Integer> {
                     + "to contents of the mapping files.")
   private List<Path> mappingFiles;
 
-  @CommandLine.Option(names = {"--query_vectors"},
+  @CommandLine.Option(names = {"--query_vectors", "--query"},
       required = false,
       description = "The query_vectors file to read")
   private Path query_vectors;
@@ -100,7 +101,7 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       description = "The query_terms file to read")
   private Path query_terms;
 
-  @CommandLine.Option(names = {"--query_filters", "--query"},
+  @CommandLine.Option(names = {"--query_filters"},
       required = false,
       description = "The query_filters file to read")
   private Path query_filters;
