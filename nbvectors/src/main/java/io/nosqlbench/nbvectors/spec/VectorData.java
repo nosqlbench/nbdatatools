@@ -62,42 +62,30 @@ public class VectorData implements AutoCloseable {
 
   /// Get the base vectors dataset
   /// @return the base vectors dataset
-  public FloatVectors getBaseVectors() {
-    Dataset dataset = getFirstDataset(SpecDatasets.base_vectors.name(), "train");
-    Class<?> javaType = dataset.getDataType().getJavaType();
-    if (javaType == float.class || javaType == Float.class) {
-      return new FloatVectorsImpl(dataset);
-    } else {
-      throw new RuntimeException("unsupported vector type: " + javaType);
-    }
-  }
-
-  private Dataset getFirstDataset(String... names) {
-    Dataset dataset = null;
-    for (String name : names) {
-      try {
-        dataset = hdfFile.getDatasetByPath(name);
-        return dataset;
-      } catch (HdfInvalidPathException ignored) {
-      }
-    }
-    throw new HdfInvalidPathException(
-        "none of the following datasets were found: " + String.join(",", names),
-        this.hdfFile.getFileAsPath()
-    );
+  public Optional<FloatVectors> getBaseVectors() {
+    return getFirstDataset(SpecDatasets.base_vectors.name(), "train").map(FloatVectorsImpl::new);
+//    Dataset dataset = getFirstDataset(SpecDatasets.base_vectors.name(), "train");
+//    Class<?> javaType = dataset.getDataType().getJavaType();
+//    if (javaType == float.class || javaType == Float.class) {
+//      return new FloatVectorsImpl(dataset);
+//    } else {
+//      throw new RuntimeException("unsupported vector type: " + javaType);
+//    }
   }
 
   /// Get the query vectors dataset
   /// @return the query vectors dataset
-  public FloatVectors getQueryVectors() {
-    Dataset dataset = hdfFile.getDatasetByPath(SpecDatasets.query_vectors.name());
-    return new FloatVectorsImpl(dataset);
+  public Optional<FloatVectors> getQueryVectors() {
+    return getFirstDataset(SpecDatasets.query_vectors.name(),"test").map(FloatVectorsImpl::new);
+//    Dataset dataset = hdfFile.getDatasetByPath(SpecDatasets.query_vectors.name());
+//    return new FloatVectorsImpl(dataset);
   }
 
   /// Get the neighbor indices dataset
   /// @return the neighbor indices dataset
-  public NeighborIndices getNeighborIndices() {
-    return new NeighborIndicesImpl(hdfFile.getDatasetByPath(SpecDatasets.neighbor_indices.name()));
+  public Optional<NeighborIndices> getNeighborIndices() {
+    return getFirstDataset(SpecDatasets.neighbor_indices.name(),"neighbors").map(NeighborIndicesImpl::new);
+//    return new NeighborIndicesImpl(hdfFile.getDatasetByPath(SpecDatasets.neighbor_indices.name()));
   }
 
   /// Get the neighbor distances dataset
@@ -200,4 +188,26 @@ public class VectorData implements AutoCloseable {
     sb.append("}");
     return sb.toString();
   }
+
+  private Optional<Dataset> getFirstDataset(String... names) {
+    Dataset dataset = null;
+    for (String name : names) {
+      try {
+        dataset = hdfFile.getDatasetByPath(name);
+        return Optional.of(dataset);
+      } catch (HdfInvalidPathException ignored) {
+      }
+    }
+    return Optional.empty();
+  }
+
+  private Dataset getFirstDatasetRequired(String... names) {
+    Optional<Dataset> firstDataset = getFirstDataset(names);
+    return firstDataset.orElseThrow(() -> new HdfInvalidPathException(
+        "none of the following datasets were found: " + String.join(",", names),
+        this.hdfFile.getFileAsPath()
+    ));
+  }
+
+
 }

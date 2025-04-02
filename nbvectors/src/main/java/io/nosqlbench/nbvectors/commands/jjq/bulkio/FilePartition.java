@@ -18,6 +18,9 @@ package io.nosqlbench.nbvectors.commands.jjq.bulkio;
  */
 
 
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.FlatteningIterable;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;

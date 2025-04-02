@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.commands;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -36,14 +36,15 @@ import picocli.CommandLine;
 ///
 /// This is the top level command which serves as an entry point for all sub-commands
 @CommandLine.Command(name = "nbvectors", subcommands = {
-    CMD_verify_knn.class, CMD_tag_hdf5.class, CMD_jjq.class, CMD_build_hdf5.class,
-    CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class,
+    CommandLine.HelpCommand.class, CMD_verify_knn.class, CMD_tag_hdf5.class, CMD_jjq.class,
+    CMD_build_hdf5.class, CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class,
     CMD_catalog_hdf5.class
 })
 public class CMD_nbvectors {
 
   /// run a nbv command
-  /// @param args command line args
+  /// @param args
+  ///     command line args
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
     System.setProperty(

@@ -1,29 +1,57 @@
 package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet;
 
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.ConvertingIterable;
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.FlatteningIterable;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
-import io.nosqlbench.nbvectors.common.parquet.PathSorter;
+/*
+ * Copyright (c) nosqlbench
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.conversion.HFEmbedToFloatAry;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.ParquetTabulator;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.BoundedRecordReader;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.ParquetGroupIterable;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.RecordReaderIterable;
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.FlatteningIterable;
+import io.nosqlbench.nbvectors.common.adapters.Sized;
 import org.apache.parquet.example.data.Group;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
-public class ParquetVectorsReader implements Iterable<float[]> {
-
+public class ParquetVectorsReader implements Iterable<float[]>, Sized {
 
   private final Iterable<float[]> compositeIterable;
+  private final List<Path> paths;
+  private long size;
 
-  public ParquetVectorsReader(List<Path> roots) {
+  public ParquetVectorsReader(List<Path> paths) {
+    this.paths = paths;
 
-    FlatteningIterable<Path, Path> pathsIterable =
-        new FlatteningIterable<>(roots, b -> new PathSorter(b, "*.parquet"));
+    for (Path file : paths) {
+      if (!Files.isRegularFile(file) && !Files.isSymbolicLink(file)) {
+        throw new RuntimeException("unhandled file type for '" + file + "', only regular files "
+                                   + "and symlinks are allowed here");
+      }
+    }
 
     Iterable<BoundedRecordReader<Group>> recordReaderIterable =
-        new FlatteningIterable<Path, BoundedRecordReader<Group>>(pathsIterable,
-            RecordReaderIterable::new);
+        new FlatteningIterable<Path, BoundedRecordReader<Group>>(paths, RecordReaderIterable::new);
 
     Iterable<Group> groupIterable = new FlatteningIterable<BoundedRecordReader<Group>, Group>(
         recordReaderIterable,
@@ -39,5 +67,19 @@ public class ParquetVectorsReader implements Iterable<float[]> {
   @Override
   public Iterator<float[]> iterator() {
     return compositeIterable.iterator();
+  }
+
+  @Override
+  public int getSize() {
+    if (size==0) {
+      ParquetTabulator tabulator = new ParquetTabulator();
+      ParquetTraversal traversal= new ParquetTraversal(paths, "*.parquet");
+      traversal.traverse(tabulator);
+      this.size = tabulator.getRecordCount();
+    }
+    if (size>Integer.MAX_VALUE) {
+      throw new RuntimeException("int overflow with long size:" + size);
+    }
+    return (int) size;
   }
 }

@@ -20,10 +20,14 @@ package io.nosqlbench.nbvectors.spec.attributes;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.MapperConfig;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
+import org.snakeyaml.engine.v2.api.Load;
+import org.snakeyaml.engine.v2.api.LoadSettings;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -60,7 +64,19 @@ public record RootGroupAttributes(
   public static RootGroupAttributes fromFile(Path metadataFile) {
     try {
 
-      if (metadataFile.toString().toLowerCase().endsWith(".json")) {
+      if (metadataFile.toString().toLowerCase().endsWith(".yaml")) {
+        LoadSettings loadSettings = LoadSettings.builder().build();
+        Load yaml = new Load(loadSettings);
+        try {
+          BufferedReader reader = null;
+          reader = Files.newBufferedReader(metadataFile, StandardCharsets.UTF_8);
+          Map<String, String> data = (Map<String, String>) yaml.loadFromReader(reader);
+          return RootGroupAttributes.fromMap(data);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+
+      } else if (metadataFile.toString().toLowerCase().endsWith(".json")) {
         Gson gson = new GsonBuilder().create();
         try {
           BufferedReader reader = Files.newBufferedReader(metadataFile);

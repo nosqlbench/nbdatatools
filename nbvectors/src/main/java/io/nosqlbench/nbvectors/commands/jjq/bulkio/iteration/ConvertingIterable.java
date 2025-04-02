@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.jjq.bulkio;
+package io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration;
 
 /*
  * Copyright (c) nosqlbench

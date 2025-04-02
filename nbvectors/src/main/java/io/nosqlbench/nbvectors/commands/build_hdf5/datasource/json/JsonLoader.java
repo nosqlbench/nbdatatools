@@ -23,7 +23,7 @@ import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.JJQSupplier;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.MapperConfig;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.ConvertingIterable;
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.outputs.BufferOutput;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.PredicateParser;
 import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;

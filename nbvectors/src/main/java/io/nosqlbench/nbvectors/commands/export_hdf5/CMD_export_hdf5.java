@@ -76,11 +76,11 @@ import static picocli.CommandLine.Option;
     optionListHeading = "%nOptions:%n")
 public class CMD_export_hdf5 implements Callable<Integer> {
   private final static String DEFAULT_TEMPLATE =
-      "[model][_d{dims}][_b{vectors}][_q{queries" + "}][_mk{max_k}].hdf5";
+      "[model][_d{dims*}][_b{vectors*}][_q{queries*}][_mk{max_k*}].hdf5";
 
   @Option(names = {"-o", "--outfile"},
       required = true,
-      defaultValue = "[model][_d{dims}][_b{vectors}][_q{queries" + "}][_mk{max_k}].hdf5",
+      defaultValue = "[model][_d{dims*}][_b{vectors*}][_q{queries*}][_mk{max_k*}].hdf5",
       description = "The HDF5 file to write\ndefault: ${DEFAULT-VALUE}")
   private String outfile;
 
@@ -161,6 +161,7 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       }
     } else {
       if (metadataFile == null) {
+
         throw new RuntimeException("metadata file is required when not using a mapping file");
       }
       RootGroupAttributes rga = RootGroupAttributes.fromFile(metadataFile);
@@ -174,7 +175,7 @@ public class CMD_export_hdf5 implements Callable<Integer> {
           Optional.ofNullable(this.query_filters),
           rga
       );
-      configs.add(new BatchConfig(Map.of("default", cfg), Instant.now()));
+      configs.add(new BatchConfig(Map.of("from CLI options:", cfg), Instant.now()));
     }
 
     String template = this.outfile;

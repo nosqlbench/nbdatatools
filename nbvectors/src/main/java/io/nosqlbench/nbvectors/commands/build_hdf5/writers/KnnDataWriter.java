@@ -25,7 +25,7 @@ import io.jhdf.api.WritableNode;
 import io.nosqlbench.nbvectors.common.adapters.Sized;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.ArrayChunkingIterable;
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.ConvertingIterable;
+import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.common.FilePaths;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDataset;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDatasetImpl;
@@ -101,11 +101,16 @@ public class KnnDataWriter {
 
     if (iterable instanceof Sized sized) {
       streamer.modifyDimensions(new int[]{sized.getSize()});
+    } else {
+      logger.warn("no dimensions are calculated for this dataset during writing");
+      throw new RuntimeException("Dimensions are required to be known at time of writing. "
+                                 + "Labeling and dataset inventory need this data.");
     }
 
     WritableDataset wds =
         this.writable.putDataset(SpecDatasets.base_vectors.name(), streamer);
 
+    // TODO: remove dimensions from attributes because they are shape data
     this.baseVectorAttributes = new BaseVectorAttributes(
         wds.getDimensions()[0],
         wds.getDimensions()[1],

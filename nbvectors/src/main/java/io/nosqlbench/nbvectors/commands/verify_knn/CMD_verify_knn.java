@@ -185,9 +185,17 @@ public class CMD_verify_knn implements Callable<Integer> {
           } else {
             logger.info("loaded neighbor distances: {}", distances.get().toString());
           }
-          IntVectors indices = data.getNeighborIndices();
-          FloatVectors baseVectors = data.getBaseVectors();
-          FloatVectors queryVectors = data.getQueryVectors();
+          IntVectors indices = data.getNeighborIndices().orElseThrow(() -> new RuntimeException("""
+              Neighbor indices are not available int he provided data, so distance-based verification is not possible.
+              """));
+          FloatVectors baseVectors =
+              data.getBaseVectors().orElseThrow(() -> new RuntimeException("""
+                  Base vectors are not available in the provided data, so distance-based verification is not possible.
+                  """));
+          FloatVectors queryVectors =
+              data.getQueryVectors().orElseThrow(() -> new RuntimeException("""
+                  Query vectors are not available in the provided data, so distance-based verification is not possible.
+                  """));
 
           if (baseVectors instanceof FloatVectors floatVectors) {
             logger.info("loaded base vectors: {}", floatVectors.toString());

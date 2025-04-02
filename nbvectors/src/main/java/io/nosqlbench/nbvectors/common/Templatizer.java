@@ -128,7 +128,7 @@ public class Templatizer {
           return "";
         } else {
           throw new RuntimeException(
-              "WARNING: no replacement for token '" + token + "' in outfile template '"
+              "ERROR: no replacement for required token '" + token + "' in outfile template '"
               + templateForDiagnostics + "'");
         }
       }

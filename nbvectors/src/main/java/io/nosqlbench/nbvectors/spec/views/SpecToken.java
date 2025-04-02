@@ -19,6 +19,8 @@ package io.nosqlbench.nbvectors.spec.views;
 
 
 import io.nosqlbench.nbvectors.spec.VectorData;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.DatasetView;
+import io.nosqlbench.nbvectors.spec.access.datasets.types.NeighborIndices;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,43 +40,43 @@ public enum SpecToken implements Function<VectorData, Optional<String>> {
 
   /// The number of base vectors in the dataset
   base_vectors(
-      d -> d.getBaseVectors().getCount() + "", """
+      d -> d.getBaseVectors().map(DatasetView::getCount).map(String::valueOf), """
       The number of base vectors in the dataset
       """
   ),
   /// The number of query vectors in the dataset
   query_vectors(
-      d -> d.getQueryVectors().getCount() + "", """
+      d -> d.getQueryVectors().map(DatasetView::getCount).map(String::valueOf), """
       The number of query vectors in the dataset
       """
   ),
   /// The number of neighborhoods provided ; should be the same as query_vectors
   neighbor_indices(
-      d -> d.getNeighborIndices().getCount() + "", """
+      d -> d.getNeighborIndices().map(DatasetView::getCount).map(String::valueOf), """
       The number of neighborhoods provided ; should be the same as query_vectors
       """
   ),
   /// The model used to build this dataset
   model(
-      VectorData::getModel, """
+      d -> Optional.of(d.getModel()), """
       The model used to build this dataset
       """
   ),
   /// The number of components in the vector space
   dimensions(
-      d -> d.getBaseVectors().getVectorDimensions() + "", """
+      d -> d.getBaseVectors().map(DatasetView::getVectorDimensions).map(String::valueOf), """
       The number of components in the vector space
       """
   ),
   /// The maximum number of neighbors provided for each query vector
   max_k(
-      d -> d.getNeighborIndices().getMaxK() + "", """
+      d -> d.getNeighborIndices().map(NeighborIndices::getMaxK).map(String::valueOf), """
       The maximum number of neighbors provided for each query vector
       """
   ),
   /// The vendor of the dataset
   vendor(
-      VectorData::getVendor, """
+      d -> Optional.of(d.getVendor()), """
       The vendor of the dataset
       """
   );
@@ -109,7 +111,8 @@ public enum SpecToken implements Function<VectorData, Optional<String>> {
   @Override
   public Optional<String> apply(VectorData vectorData) {
     if (this.accessor != null) {
-      return Optional.of(this.accessor.apply(vectorData));
+      Optional<String> result = this.accessor.apply(vectorData);
+      return result;
     }
     return Optional.empty();
   }
@@ -135,12 +138,12 @@ public enum SpecToken implements Function<VectorData, Optional<String>> {
     }
   }
 
-  private final Function<VectorData, String> accessor;
+  private final Function<VectorData, Optional<String>> accessor;
 
   /// The description of the token
   public String description;
 
-  SpecToken(Function<VectorData, String> accessor, String description) {
+  SpecToken(Function<VectorData, Optional<String>> accessor, String description) {
     this.accessor = accessor;
     this.description = description;
   }

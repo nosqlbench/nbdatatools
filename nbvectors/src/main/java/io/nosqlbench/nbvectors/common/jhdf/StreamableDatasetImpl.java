@@ -177,7 +177,7 @@ public class StreamableDatasetImpl extends AbstractWritableNode implements Strea
   private void ensureComputeEnabled(String method, String... additional) {
     if (!computeEnabled) {
       throw new HdfWritingException("For streaming datasets, some properties are not available without "
-                             + "(possibly intenstive) compute over the input stream. If you want "
+                             + "(possibly intensive) compute over the input stream. If you want "
                              + "to use the " + method + " method, then you can call "
                              + ".enableCompute() first. Note that such methods will not be "
                              + "efficient for large datasets. " + String.join(",", additional));
@@ -415,8 +415,8 @@ public class StreamableDatasetImpl extends AbstractWritableNode implements Strea
     logger.info("Writing dataset via chunked reads [{}] at position [{}]", getPath(), position);
     List<Message> messages = new ArrayList<>();
     messages.add(DataTypeMessage.create(computeDataType()));
-
-    Message dataSpaceMessagePlaceholder = DataSpaceMessage.create(this.userDimensionedSpace);
+    Message dataSpaceMessagePlaceholder = DataSpaceMessage.create(this.userDimensionedSpace!=null
+        ?this.userDimensionedSpace:this.dataSpacePrototype);
     messages.add(dataSpaceMessagePlaceholder);
     messages.add(FillValueMessage.NO_FILL);
     // TODO will have know fixed size so don't really need these objects but for now...
