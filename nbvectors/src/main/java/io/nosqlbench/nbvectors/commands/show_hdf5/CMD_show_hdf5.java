@@ -22,7 +22,7 @@ import io.jhdf.HdfFile;
 import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.vectordata.local.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

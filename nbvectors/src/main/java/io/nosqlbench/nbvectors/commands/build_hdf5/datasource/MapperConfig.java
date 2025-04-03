@@ -18,8 +18,8 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
  */
 
 
-import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
-import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
+import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 

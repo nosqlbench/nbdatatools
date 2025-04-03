@@ -21,15 +21,15 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.datasource.json;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.JJQSupplier;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.MapperConfig;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
+import io.nosqlbench.vectordata.local.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.outputs.BufferOutput;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.PredicateParser;
-import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
-import io.nosqlbench.nbvectors.spec.views.SpecDataSource;
+import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.local.tokens.SpecDataSource;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
-import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -78,7 +78,7 @@ public class JsonLoader implements SpecDataSource {
   /// get an iterator for test vectors
   /// @return an iterator for {@link LongIndexedFloatVector}
   @Override
-  public Optional<Iterable<LongIndexedFloatVector>> getQueryVectors() {
+  public Optional<Iterable<float[]>> getQueryVectors() {
 
     Optional<Path> testJsonFile = config.getTestJsonFile();
     if (testJsonFile.isEmpty()) {
@@ -92,8 +92,8 @@ public class JsonLoader implements SpecDataSource {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-    ConvertingIterable<JsonNode, LongIndexedFloatVector> converter =
-        new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoLongIndexedFloatVector);
+    ConvertingIterable<JsonNode, float[]> converter =
+        new ConvertingIterable<>(output.getResultStream(), JsonNodeIntoVectorFloatAry);
     return Optional.of(converter);
 
   }

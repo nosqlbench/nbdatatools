@@ -18,13 +18,14 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.binders.examples;
  */
 
 
-import io.nosqlbench.nbvectors.commands.build_hdf5.binders.Templatizer;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.nbvectors.commands.build_hdf5.binders.PredicateTemplatizer;
+import io.nosqlbench.vectordata.local.predicates.PNode;
+
 
 import java.util.regex.Pattern;
 
 /// test cql predicate binding - experimental
-public class ExampleCqlPredBinderTest implements Templatizer<String,String> {
+public class ExampleCqlPredBinderTest implements PredicateTemplatizer<String,String> {
 
   /// The string to replace in the template with the predicate syntax
   public static final String PREDICATE = "{PREDICATE}";

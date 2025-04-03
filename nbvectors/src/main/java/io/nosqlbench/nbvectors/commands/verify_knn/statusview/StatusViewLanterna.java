@@ -28,9 +28,8 @@ import com.googlecode.lanterna.terminal.Terminal;
 import com.googlecode.lanterna.terminal.ansi.UnixLikeTerminal;
 import com.googlecode.lanterna.terminal.ansi.UnixTerminal;
 import com.googlecode.lanterna.terminal.virtual.DefaultVirtualTerminal;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
+import io.nosqlbench.vectordata.api.Indexed;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

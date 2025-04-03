@@ -19,12 +19,11 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
 
 
 import io.nosqlbench.nbvectors.commands.export_hdf5.VectorFilesConfig;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.vectordata.local.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.FvecToFloatArray;
 import io.nosqlbench.nbvectors.common.adapters.DataSourceAdapter;
-import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
-import io.nosqlbench.nbvectors.spec.views.SpecDataSource;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.local.tokens.SpecDataSource;
 
 import java.util.Optional;
 
@@ -34,7 +33,7 @@ public class BasicTestDataSource implements SpecDataSource {
 
   private Iterable<float[]> baseVectorsIterable;
   private RootGroupAttributes metadata;
-  private Iterable<LongIndexedFloatVector> queryVectorsIterable;
+  private Iterable<float[]> queryVectorsIterable;
   private Iterable<?> queryTermsIterable;
   private Iterable<PNode<?>> queryFiltersIterable;
   private Iterable<int[]> neighborIndicesIterable;
@@ -83,7 +82,7 @@ public class BasicTestDataSource implements SpecDataSource {
   }
 
   @Override
-  public Optional<Iterable<LongIndexedFloatVector>> getQueryVectors() {
+  public Optional<Iterable<float[]>> getQueryVectors() {
     return Optional.ofNullable(this.queryVectorsIterable);
   }
 
@@ -129,7 +128,7 @@ public class BasicTestDataSource implements SpecDataSource {
   /// Set the iterator for the query vectors
   /// @param queryVectorsIterable
   ///     the iterator for the query vectors
-  public void setQueryVectorsIterable(Iterable<LongIndexedFloatVector> queryVectorsIterable) {
+  public void setQueryVectorsIterable(Iterable<float[]> queryVectorsIterable) {
     this.queryVectorsIterable = queryVectorsIterable;
   }
 

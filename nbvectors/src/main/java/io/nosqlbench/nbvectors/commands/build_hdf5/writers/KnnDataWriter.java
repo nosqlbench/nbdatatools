@@ -22,18 +22,21 @@ import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.api.WritableDataset;
 import io.jhdf.api.WritableNode;
+import io.nosqlbench.vectordata.local.datasets.attrs.BaseVectorAttributes;
+import io.nosqlbench.vectordata.local.datasets.attrs.NeighborDistancesAttributes;
+import io.nosqlbench.vectordata.local.datasets.attrs.NeighborIndicesAttributes;
+import io.nosqlbench.vectordata.local.datasets.attrs.QueryVectorsAttributes;
+import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
 import io.nosqlbench.nbvectors.common.adapters.Sized;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.vectordata.local.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.ArrayChunkingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.common.FilePaths;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDataset;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDatasetImpl;
-import io.nosqlbench.nbvectors.spec.VectorData;
-import io.nosqlbench.nbvectors.spec.attributes.*;
-import io.nosqlbench.nbvectors.spec.views.SpecDataSource;
-import io.nosqlbench.nbvectors.spec.views.SpecDatasets;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.vectordata.VectorData;
+import io.nosqlbench.vectordata.local.tokens.SpecDataSource;
+import io.nosqlbench.vectordata.local.datasets.SpecDatasets;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -124,16 +127,10 @@ public class KnnDataWriter {
   /// write the test vector data to a dataset
   /// @param iterator
   ///     an iterator for the test vectors
-  public void writeQueryVectors(Iterable<LongIndexedFloatVector> iterator) {
-
-    ConvertingIterable<LongIndexedFloatVector, float[]> remapper =
-        new ConvertingIterable<LongIndexedFloatVector, float[]>(
-            iterator,
-            LongIndexedFloatVector::vector
-        );
+  public void writeQueryVectors(Iterable<float[]> iterator) {
 
     Class<? extends float[]> fclass = new float[0].getClass();
-    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, remapper, 1024 * 1024 * 512);
+    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterator, 1024 * 1024 * 512);
 
     StreamableDatasetImpl streamer =
         new StreamableDatasetImpl(aci, SpecDatasets.query_vectors.name(), this.writable);

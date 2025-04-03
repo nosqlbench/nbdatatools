@@ -17,26 +17,14 @@ package io.nosqlbench.nbvectors.commands.catalog_hdf5;
  * under the License.
  */
 
-import io.jhdf.HdfFile;
-import io.jhdf.api.Dataset;
-import io.jhdf.api.Group;
-import io.jhdf.api.Node;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
-import io.nosqlbench.nbvectors.commands.export_json.CMD_export_json;
-import io.nosqlbench.nbvectors.commands.export_json.Hdf5JsonSummarizer;
-import io.nosqlbench.nbvectors.commands.show_hdf5.DatasetNames;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 
 /// Show details of HDF5 vector data files

@@ -18,9 +18,10 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
  */
 
 
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+
+import io.nosqlbench.vectordata.api.Indexed;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
+
 
 /// Print status events to stdout, buffering until the max if needed,
 /// but flushing intermittently if not

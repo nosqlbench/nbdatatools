@@ -21,7 +21,11 @@ package io.nosqlbench.nbvectors.build_hdf5.predicates;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.PredicateParser;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.*;
+import io.nosqlbench.vectordata.local.predicates.ConjugateNode;
+import io.nosqlbench.vectordata.local.predicates.ConjugateType;
+import io.nosqlbench.vectordata.local.predicates.OpType;
+import io.nosqlbench.vectordata.local.predicates.PNode;
+import io.nosqlbench.vectordata.local.predicates.PredicateNode;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

@@ -18,9 +18,8 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
  */
 
 
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
+import io.nosqlbench.vectordata.api.Indexed;
 
 /// a no-op status view
 public class StatusViewNoOp implements StatusView {

@@ -19,11 +19,11 @@ package io.nosqlbench.nbvectors.build_hdf5.predicates;
 
 
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.repr.CqlNodeRenderer;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.ConjugateNode;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PredicateNode;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.ConjugateType;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.OpType;
+import io.nosqlbench.vectordata.local.predicates.ConjugateNode;
+import io.nosqlbench.vectordata.local.predicates.PredicateNode;
+import io.nosqlbench.vectordata.local.predicates.ConjugateType;
+import io.nosqlbench.vectordata.local.predicates.PNode;
+import io.nosqlbench.vectordata.local.predicates.OpType;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;

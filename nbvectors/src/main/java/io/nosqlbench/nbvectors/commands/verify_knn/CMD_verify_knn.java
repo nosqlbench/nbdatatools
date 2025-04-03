@@ -19,11 +19,9 @@ package io.nosqlbench.nbvectors.commands.verify_knn;
 
 
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.ConsoleDiagnostics;
-import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.ErrorMode;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.Interval;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.IntervalParser;
@@ -33,10 +31,11 @@ import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewLanterna
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewNoOp;
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewRouter;
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewStdout;
-import io.nosqlbench.nbvectors.spec.VectorData;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.FloatVectors;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.IntVectors;
+import io.nosqlbench.vectordata.VectorData;
+import io.nosqlbench.vectordata.local.datasets.FloatVectors;
+import io.nosqlbench.vectordata.api.Indexed;
+import io.nosqlbench.vectordata.local.datasets.IntVectors;
+import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;

@@ -1,5 +1,4 @@
-/// This package contains record types which capture the attributes required for each dataset
-package io.nosqlbench.nbvectors.spec.attributes;
+package io.nosqlbench.vectordata.api;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,3 +17,13 @@ package io.nosqlbench.nbvectors.spec.attributes;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.local.datasets.DatasetView;
+
+/// An indexed type. The index is an associated id or ordinal
+/// @param index the index of the value
+/// @param value the value
+/// @param <T> the type of the value
+/// @see DatasetView
+public record Indexed<T>(long index, T value) {
+
+}

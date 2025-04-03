@@ -19,9 +19,7 @@ package io.nosqlbench.verify_knn;
 
 
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.Neighborhood;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.Indexed;
+import io.nosqlbench.vectordata.api.Indexed;
 import org.junit.jupiter.api.Test;
 
 import static io.nosqlbench.nbvectors.commands.verify_knn.statusview.Glyphs.braille;

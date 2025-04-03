@@ -35,8 +35,8 @@ public class DataSourceAdapter {
   /// Adapt a path to a data source, depending on the file name or contents
   /// @param path the path to adapt
   /// @return an iterable of query vectors
-  public static Iterable<LongIndexedFloatVector> adaptQueryVectors(Path path) {
-    return adaptLongIndexedFloatVector(path);
+  public static Iterable<float[]> adaptQueryVectors(Path path) {
+    return adaptFloatArray(path);
   }
 
   /// Adapt a path to a data source, depending on the file name or contents

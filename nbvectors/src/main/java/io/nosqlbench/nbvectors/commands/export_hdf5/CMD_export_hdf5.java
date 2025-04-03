@@ -19,9 +19,10 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
 
 
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.BasicTestDataSource;
+import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.ObjectLoader;
 import io.nosqlbench.nbvectors.commands.build_hdf5.writers.KnnDataWriter;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
-import io.nosqlbench.nbvectors.spec.attributes.RootGroupAttributes;
+import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
@@ -165,7 +166,9 @@ public class CMD_export_hdf5 implements Callable<Integer> {
 
         throw new RuntimeException("metadata file is required when not using a mapping file");
       }
-      RootGroupAttributes rga = RootGroupAttributes.fromFile(metadataFile);
+      RootGroupAttributes rga = ObjectLoader.load(metadataFile, RootGroupAttributes::fromMap).orElseThrow(
+          () -> new RuntimeException("root group attributes failed to load from " + metadataFile));
+
       VectorFilesConfig cfg = new VectorFilesConfig(
           Optional.ofNullable(this.base_vectors),
           Optional.ofNullable(this.query_vectors),

@@ -1,4 +1,6 @@
-package io.nosqlbench.nbvectors.spec.attributes;
+/// Types in this package are intended to be the primary access point for consuming vector test
+/// data and related functions.
+package io.nosqlbench.vectordata;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,12 +19,3 @@ package io.nosqlbench.nbvectors.spec.attributes;
  * under the License.
  */
 
-
-/// This record type captures attribute requirements for the neighbor indices dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborIndicesAttributes(
-    long count,
-    long max_k
-) {
-}

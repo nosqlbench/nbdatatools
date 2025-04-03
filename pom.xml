@@ -25,6 +25,7 @@
   </dependencies>
 
   <modules>
+    <module>vectordata</module>
     <module>nbvectors</module>
   </modules>
 

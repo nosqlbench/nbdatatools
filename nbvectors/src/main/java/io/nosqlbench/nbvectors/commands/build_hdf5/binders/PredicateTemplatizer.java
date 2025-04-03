@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.binders;
  */
 
 
-import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
+import io.nosqlbench.vectordata.local.predicates.PNode;
 
 /// An adapter must have a way to enhance an object with predicate structure
 /// in order for predicates to be meshed with non-predicate operations.
@@ -34,7 +34,7 @@ import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.types.PNode;
 /// form of the base type.
 /// @param <BASE> base type to extend
 /// @param <ANDPRED> resulting type after extension
-public interface Templatizer<BASE,ANDPRED> {
+public interface PredicateTemplatizer<BASE,ANDPRED> {
 
   /// add predicate to base to yield a type that includes the predicate
   /// @param base original object before adding predicate

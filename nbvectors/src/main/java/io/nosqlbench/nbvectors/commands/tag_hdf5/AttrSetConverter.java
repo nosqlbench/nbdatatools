@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec;
+package io.nosqlbench.nbvectors.commands.tag_hdf5;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,22 +18,14 @@ package io.nosqlbench.nbvectors.spec;
  */
 
 
-import io.jhdf.api.Dataset;
-import io.nosqlbench.nbvectors.spec.access.datasets.impl.IntVectorsImpl;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.NeighborIndices;
+import io.nosqlbench.vectordata.local.attributes.spec.AttrSet;
+import picocli.CommandLine;
 
-/// A view of neighbor indices data
-public class NeighborIndicesImpl extends IntVectorsImpl implements NeighborIndices {
-
-  /// create a new neighbor indices view
-  /// @param dataset the dataset to view
-  public NeighborIndicesImpl(Dataset dataset) {
-    super(dataset);
-  }
-
-  /// {@inheritDoc}
+/// A converter for the {@link AttrSet} type
+/// @see AttrSet
+public class AttrSetConverter implements CommandLine.ITypeConverter<AttrSet> {
   @Override
-  public int getMaxK() {
-    return dataset.getDimensions()[1];
+  public AttrSet convert(String value)  {
+    return AttrSet.parse(value);
   }
 }

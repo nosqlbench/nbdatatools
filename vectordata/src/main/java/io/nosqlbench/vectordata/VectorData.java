@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.spec;
+package io.nosqlbench.vectordata;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,18 +17,18 @@ package io.nosqlbench.nbvectors.spec;
  * under the License.
  */
 
-
 import io.jhdf.HdfFile;
 import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
 import io.jhdf.exceptions.HdfInvalidPathException;
-import io.nosqlbench.nbvectors.commands.verify_knn.options.DistanceFunction;
-import io.nosqlbench.nbvectors.common.Templatizer;
-import io.nosqlbench.nbvectors.spec.access.datasets.impl.FloatVectorsImpl;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.FloatVectors;
-import io.nosqlbench.nbvectors.spec.access.datasets.types.NeighborIndices;
-import io.nosqlbench.nbvectors.spec.views.SpecDatasets;
-import io.nosqlbench.nbvectors.spec.views.SpecToken;
+import io.nosqlbench.vectordata.local.datasets.FloatVectors;
+import io.nosqlbench.vectordata.local.datasets.views.NeighborIndices;
+import io.nosqlbench.vectordata.local.datasets.SpecDatasets;
+import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
+import io.nosqlbench.vectordata.local.datasets.FloatVectorsImpl;
+import io.nosqlbench.vectordata.local.datasets.NeighborIndicesImpl;
+import io.nosqlbench.vectordata.local.tokens.SpecToken;
+import io.nosqlbench.vectordata.local.tokens.Templatizer;
 
 import java.nio.file.Path;
 
@@ -64,28 +64,18 @@ public class VectorData implements AutoCloseable {
   /// @return the base vectors dataset
   public Optional<FloatVectors> getBaseVectors() {
     return getFirstDataset(SpecDatasets.base_vectors.name(), "train").map(FloatVectorsImpl::new);
-//    Dataset dataset = getFirstDataset(SpecDatasets.base_vectors.name(), "train");
-//    Class<?> javaType = dataset.getDataType().getJavaType();
-//    if (javaType == float.class || javaType == Float.class) {
-//      return new FloatVectorsImpl(dataset);
-//    } else {
-//      throw new RuntimeException("unsupported vector type: " + javaType);
-//    }
   }
 
   /// Get the query vectors dataset
   /// @return the query vectors dataset
   public Optional<FloatVectors> getQueryVectors() {
     return getFirstDataset(SpecDatasets.query_vectors.name(),"test").map(FloatVectorsImpl::new);
-//    Dataset dataset = hdfFile.getDatasetByPath(SpecDatasets.query_vectors.name());
-//    return new FloatVectorsImpl(dataset);
   }
 
   /// Get the neighbor indices dataset
   /// @return the neighbor indices dataset
   public Optional<NeighborIndices> getNeighborIndices() {
     return getFirstDataset(SpecDatasets.neighbor_indices.name(),"neighbors").map(NeighborIndicesImpl::new);
-//    return new NeighborIndicesImpl(hdfFile.getDatasetByPath(SpecDatasets.neighbor_indices.name()));
   }
 
   /// Get the neighbor distances dataset
@@ -161,7 +151,6 @@ public class VectorData implements AutoCloseable {
   /// @param template
   ///     the template string to tokenize
   /// @return the tokenized string
-  /// @see Templatizer
   public Optional<String> tokenize(String template) {
     return new Templatizer(t -> this.lookupToken(t).orElse(null)).templatize(template, template);
   }
@@ -180,11 +169,11 @@ public class VectorData implements AutoCloseable {
     sb.append(" vendor: ").append(getVendor()).append("\n");
     sb.append(" distance_function: ").append(getDistanceFunction()).append("\n");
     sb.append(" url: ").append(getUrl()).append("\n");
-    sb.append(" notes: ").append(getNotes()).append("\n");
-    sb.append(" base_vectors: ").append(getBaseVectors().toString()).append("\n");
-    sb.append(" query_vectors: ").append(getQueryVectors().toString()).append("\n");
-    sb.append(" neighbor_indices: ").append(getNeighborIndices().toString()).append("\n");
-    sb.append(" neighbor_distances: ").append(getNeighborDistances().toString()).append("\n");
+    getNotes().ifPresent(n -> sb.append(" notes: ").append(n).append("\n"));
+    getBaseVectors().ifPresent(v -> sb.append(" base_vectors: ").append(v.toString()).append("\n"));
+    getQueryVectors().ifPresent(v -> sb.append(" query_vectors: ").append(v.toString()).append("\n"));
+    getNeighborIndices().ifPresent(v -> sb.append(" neighbor_indices: ").append(v.toString()).append("\n"));
+    getNeighborDistances().ifPresent(v -> sb.append(" neighbor_distances: ").append(v.toString()).append("\n"));
     sb.append("}");
     return sb.toString();
   }
