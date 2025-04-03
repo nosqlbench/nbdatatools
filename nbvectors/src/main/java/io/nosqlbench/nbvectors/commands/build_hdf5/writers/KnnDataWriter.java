@@ -266,7 +266,8 @@ public class KnnDataWriter {
           loader.getMetadata().distance_function(),
           loader.getMetadata().notes(),
           loader.getMetadata().license(),
-          loader.getMetadata().vendor()
+          loader.getMetadata().vendor(),
+          loader.getMetadata().tags()
       );
       this.writeAttributes(this.writable, null, rootGroupAttributes);
       this.writable.close();

@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
  */
 
 
+import com.google.gson.Gson;
 import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
 import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
 import org.snakeyaml.engine.v2.api.Load;
@@ -95,7 +96,8 @@ public class MapperConfig {
   /// get the neighborhood JSON file
   /// @return the neighborhood JSON file
   public Optional<Path> getNeighborhoodJsonFile() {
-    return Optional.ofNullable(this.cfgmap.get("neighborhood_file")).map(String::valueOf).map(Path::of);
+    return Optional.ofNullable(this.cfgmap.get("neighborhood_file")).map(String::valueOf)
+        .map(Path::of);
   }
 
   /// get the neighborhood jq expression
@@ -131,7 +133,9 @@ public class MapperConfig {
         DistanceFunction.valueOf(cfgmap.get("distance_function").toString()),
         Optional.ofNullable(cfgmap.get("notes")).map(String::valueOf),
         cfgmap.get("license").toString(),
-        cfgmap.get("vendor").toString()
+        cfgmap.get("vendor").toString(),
+        Optional.ofNullable(cfgmap.get("tags")).map(String::valueOf)
+            .map(t -> new Gson().fromJson(t, Map.class)).orElse(Map.of())
     );
   }
 

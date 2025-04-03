@@ -155,7 +155,8 @@ public class JsonLoader implements SpecDataSource {
         DistanceFunction.valueOf(config.getDistanceFunction()),
         config.getNotes(),
         config.getDatasetMeta().license(),
-        config.getDatasetMeta().vendor()
+        config.getDatasetMeta().vendor(),
+        config.getDatasetMeta().tags()
     );
   }
 

@@ -22,6 +22,7 @@ import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
 import io.jhdf.exceptions.HdfInvalidPathException;
 import io.nosqlbench.vectordata.local.datasets.FloatVectors;
+import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
 import io.nosqlbench.vectordata.local.datasets.views.NeighborIndices;
 import io.nosqlbench.vectordata.local.datasets.SpecDatasets;
 import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
@@ -33,6 +34,7 @@ import io.nosqlbench.vectordata.local.tokens.Templatizer;
 import java.nio.file.Path;
 
 import java.net.URL;
+import java.util.Map;
 import java.util.Optional;
 
 /// This is the entry to consuming Vector Test Data according to the documented spec.
@@ -196,6 +198,11 @@ public class VectorData implements AutoCloseable {
         "none of the following datasets were found: " + String.join(",", names),
         this.hdfFile.getFileAsPath()
     ));
+  }
+
+
+  public Map<String,String> getTags() {
+    return RootGroupAttributes.fromGroup(hdfFile).tags();
   }
 
 
