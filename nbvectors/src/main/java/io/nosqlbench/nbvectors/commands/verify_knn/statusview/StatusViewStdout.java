@@ -17,11 +17,8 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
  * under the License.
  */
 
-
-
 import io.nosqlbench.vectordata.api.Indexed;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
-
 
 /// Print status events to stdout, buffering until the max if needed,
 /// but flushing intermittently if not
