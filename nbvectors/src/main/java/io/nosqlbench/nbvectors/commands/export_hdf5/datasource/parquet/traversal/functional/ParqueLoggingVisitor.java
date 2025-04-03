@@ -18,8 +18,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversa
  */
 
 
-import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetVisitor;
-import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.PathAggregator;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout.PathAggregator;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

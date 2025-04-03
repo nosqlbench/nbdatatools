@@ -22,6 +22,7 @@ import io.nosqlbench.nbvectors.commands.build_hdf5.CMD_build_hdf5;
 import io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog_hdf5;
 import io.nosqlbench.nbvectors.commands.export_json.CMD_export_json;
 import io.nosqlbench.nbvectors.commands.export_hdf5.CMD_export_hdf5;
+import io.nosqlbench.nbvectors.commands.hugging_dl.CMD_hugging_dl;
 import io.nosqlbench.nbvectors.commands.jjq.CMD_jjq;
 import io.nosqlbench.nbvectors.commands.show_hdf5.CMD_show_hdf5;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.CMD_tag_hdf5;
@@ -38,7 +39,7 @@ import picocli.CommandLine;
 @CommandLine.Command(name = "nbvectors", subcommands = {
     CommandLine.HelpCommand.class, CMD_verify_knn.class, CMD_tag_hdf5.class, CMD_jjq.class,
     CMD_build_hdf5.class, CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class,
-    CMD_catalog_hdf5.class
+    CMD_catalog_hdf5.class, CMD_hugging_dl.class
 })
 public class CMD_nbvectors {
 

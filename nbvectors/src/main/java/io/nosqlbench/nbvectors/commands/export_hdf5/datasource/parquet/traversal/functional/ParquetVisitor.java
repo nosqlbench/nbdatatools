@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet;
+package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,8 +18,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet;
  */
 
 
-import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.BoundedPageStore;
-import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.PathAggregator;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout.PathAggregator;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.io.InputFile;
 

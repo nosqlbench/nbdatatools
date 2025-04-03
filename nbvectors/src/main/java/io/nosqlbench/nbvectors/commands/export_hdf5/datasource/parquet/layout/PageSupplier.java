@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional;
+package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversa
  */
 
 
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.BoundedPageStore;
 import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
 import org.apache.parquet.hadoop.ParquetFileReader;
@@ -31,7 +32,7 @@ import java.io.IOException;
 import java.util.function.Supplier;
 
 /// A supplier for [BoundedPageStore] from a [InputFile]
-public class PageSupplier implements Supplier<BoundedPageStore> {
+public class PageSupplier implements Supplier<BoundedPageStore>, AutoCloseable {
 
   private final MessageColumnIO columnIO;
   private final ParquetFileReader parquetFileReader;
@@ -63,5 +64,10 @@ public class PageSupplier implements Supplier<BoundedPageStore> {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.parquetFileReader.close();
   }
 }

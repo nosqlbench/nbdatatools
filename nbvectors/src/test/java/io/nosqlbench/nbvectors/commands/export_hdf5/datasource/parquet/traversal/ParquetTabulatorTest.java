@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversa
  */
 
 
-import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetTraversal;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.ParquetTraversal;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetVectorsReaderTest;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.ParqueLoggingVisitor;
 import org.apache.logging.log4j.Level;

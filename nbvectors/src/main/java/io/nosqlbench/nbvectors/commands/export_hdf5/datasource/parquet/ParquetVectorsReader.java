@@ -23,6 +23,7 @@ import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.BoundedRecordReader;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.ParquetGroupIterable;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.RecordReaderIterable;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.ParquetTraversal;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.FlatteningIterable;
 import io.nosqlbench.nbvectors.common.adapters.Sized;
@@ -78,7 +79,7 @@ public class ParquetVectorsReader implements Iterable<float[]>, Sized {
   public int getSize() {
     if (size == 0) {
       ParquetTabulator tabulator = new ParquetTabulator();
-      ParquetTraversal traversal = new ParquetTraversal(paths);
+      ParquetTraversal traversal = new ParquetTraversal(paths, 10);
       traversal.traverse(tabulator);
       this.size = tabulator.getRecordCount();
     }

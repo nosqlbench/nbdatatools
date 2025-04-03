@@ -18,7 +18,8 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversa
  */
 
 
-import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetVisitor;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout.PathAggregator;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.ParquetVisitor;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.BoundedPageStore;
 
 // TODO: make this multithreaded, its tooooo slooooow
@@ -38,7 +39,7 @@ public class ParquetTabulator implements ParquetVisitor {
   }
 
   @Override
-  public void beforeAll() {
+  public synchronized void beforeAll() {
     this.totalRows =0;
   }
 
@@ -48,13 +49,13 @@ public class ParquetTabulator implements ParquetVisitor {
   }
 
   @Override
-  public void afterPage(BoundedPageStore pageStore) {
+  public synchronized void afterPage(BoundedPageStore pageStore) {
     long rowCount = pageStore.pageReadStore().getRowCount();
     this.totalRows +=rowCount;
   }
 
   @Override
-  public void afterRoot(PathAggregator path) {
+  public synchronized void afterRoot(PathAggregator path) {
     System.out.println("row count up to " + this.totalRows + " for " + path.getRootPath().getFileName());
   }
 

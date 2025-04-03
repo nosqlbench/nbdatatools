@@ -19,6 +19,8 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversa
 
 
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetVectorsReader;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout.PathBinning;
+import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout.PathsSorter;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.FlatteningIterable;
 import io.nosqlbench.nbvectors.common.adapters.Sized;
 
