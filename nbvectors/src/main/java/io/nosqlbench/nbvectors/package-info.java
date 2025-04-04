@@ -1,7 +1,7 @@
 /// a collection of tools for working with vector test data, available as sub-commands under the
 /// nbvectors command.
 ///
-/// The {@link io.nosqlbench.nbvectors.commands.CMD_nbvectors} class is the main entry point.
+/// The {@link io.nosqlbench.nbvectors.commands.CMD_nbvectors} class is the main props point.
 ///
 /// Each sub-command is implemented in a package directly below this one, with a name like `CMD_<name>`.
 ///

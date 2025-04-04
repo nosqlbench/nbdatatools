@@ -21,5 +21,9 @@ package io.nosqlbench.nbvectors.commands.datasets;
 import java.net.URL;
 import java.util.Map;
 
-public record DatasetEntry(URL url, int index, Map<?,?> entry) {
+/// a dataset props
+/// @param url the url of the dataset
+/// @param index the index of the dataset
+/// @param props the props of the dataset
+public record DatasetEntry(URL url, int index, Map<?,?> props) {
 }

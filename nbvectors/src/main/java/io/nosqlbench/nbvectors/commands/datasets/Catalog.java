@@ -30,8 +30,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/// a catalog of datasets
 public record Catalog(List<DatasetEntry> datasets) {
 
+  /// create a catalog from a config
+  /// @param config the config to use
+  /// @return a catalog
   public static Catalog of(DataConfig config) {
     List<DatasetEntry> entries = new ArrayList<>();
     Gson gson = new Gson();

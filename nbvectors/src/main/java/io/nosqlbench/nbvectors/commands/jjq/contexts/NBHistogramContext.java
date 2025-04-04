@@ -65,9 +65,9 @@ public class NBHistogramContext extends ConcurrentHashMap<String, AtomicLong>
     return sb.toString();
   }
 
-  /// a record to hold an entry in the histogram
-  /// @param id the id of the entry
-  /// @param freq the frequency of the entry
+  /// a record to hold an props in the histogram
+  /// @param id the id of the props
+  /// @param freq the frequency of the props
   public record entry(long id, long freq) {
   }
 

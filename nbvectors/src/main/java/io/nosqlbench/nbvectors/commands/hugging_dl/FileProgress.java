@@ -42,44 +42,38 @@ public class FileProgress {
         this.totalSize = totalSize;
     }
 
-    /**
-     * @return Path to the file being downloaded
-     */
+    /// get the filename
+    /// @return the filename
     public Path getFilename() {
         return filename;
     }
 
-    /**
-     * @return Total expected file size in bytes
-     */
+    /// get the total size
+    /// @return the total size
     public long getTotalSize() {
         return totalSize;
     }
 
-    /**
-     * @return Number of bytes downloaded so far
-     */
+    /// get current bytes
+    /// @return the current bytes
     public long getCurrentBytes() {
         return currentBytes.get();
     }
 
-    /**
-     * @return true if download completed successfully
-     */
+    /// get completed status
+    /// @return the completed status
     public boolean isCompleted() {
         return completed;
     }
 
-    /**
-     * @return true if download failed
-     */
+    /// get failed status
+    /// @return the failed status
     public boolean isFailed() {
         return failed;
     }
 
-    /**
-     * @return Error message if download failed, null otherwise
-     */
+    /// get error message
+    /// @return the error message
     public String getError() {
         return error;
     }

@@ -54,6 +54,13 @@ public class DatasetDownloader implements AutoCloseable {
   private final ConcurrentHashMap<Path, FileProgress> fileProgresses = new ConcurrentHashMap<>();
   private volatile boolean running = true;
 
+  /// parquet file metadata
+  /// @param dataset the dataset name
+  /// @param config the config name
+  /// @param split the split name
+  /// @param url the url to download from
+  /// @param filename the filename
+  /// @param size the file size
   public record ParquetFileData(
       String dataset,
       String config,
@@ -64,6 +71,8 @@ public class DatasetDownloader implements AutoCloseable {
   )
   {
 
+    /// get the fully qualified path
+    /// @return the fully qualified path
     public Path path() {
       return Path.of(config).resolve(filename);
     }
@@ -72,8 +81,8 @@ public class DatasetDownloader implements AutoCloseable {
   /**
    * Creates a new dataset downloader
    * @param token Hugging Face API token
-   * @param datasetName Name of dataset to download
-   * @param targetDir Directory to save downloaded files
+   * @param dsName Name of dataset to download
+   * @param target Target directory to save downloaded files
    * @throws IOException If target directory cannot be created
    */
   public DatasetDownloader(String token, String dsName, Path target) throws IOException {
@@ -111,6 +120,7 @@ public class DatasetDownloader implements AutoCloseable {
     }
   }
 
+  /// download the dataset
   public void download() {
     try {
       display.setStatus("Creating output directory");

@@ -32,6 +32,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+/// a console display for the hugging_dl command
 public class ConsoleDisplay implements AutoCloseable {
     private final Terminal terminal;
     private final Object terminalLock = new Object();
@@ -58,6 +59,9 @@ public class ConsoleDisplay implements AutoCloseable {
         }
     }
 
+    /// create a new console display
+    /// @param dsName the name of the dataset to download
+    /// @param target the target directory to download to
     public ConsoleDisplay(String dsName, Path target,
         ConcurrentHashMap<Path, FileProgress> fileProgresses, DownloadStats stats) throws IOException {
         this.dsName = dsName;
@@ -70,22 +74,33 @@ public class ConsoleDisplay implements AutoCloseable {
         log("Initializing display for dataset '%s' to path '%s'", dsName, target);
     }
 
+    /// set the current status
+    /// @param status the current status
     public void setStatus(String status) {
         this.currentStatus = status;
     }
 
+    /// set the current action
+    /// @param action the current action
     public void setAction(String action) {
         this.currentAction = action;
     }
 
+    /// clear the pre-download info
+    /// @see #addPreDownloadInfo
     public void clearPreDownloadInfo() {
         preDownloadInfo.clear();
     }
 
+    /// add pre-download info
+    /// @param info the info to add
     public void addPreDownloadInfo(String info) {
         preDownloadInfo.add(info);
     }
 
+    /// log a message
+    /// @param format the format string
+    /// @param args the arguments to the format string
     public void log(String format, Object... args) {
         String message = String.format("[%s] %s",
             LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")),
@@ -98,6 +113,7 @@ public class ConsoleDisplay implements AutoCloseable {
         logMessages.add(new LogEntry(++eventCounter, message));
     }
 
+    /// update the display
     void updateDisplay() {
         synchronized (terminalLock) {
             int width = terminal.getWidth();
@@ -204,6 +220,8 @@ public class ConsoleDisplay implements AutoCloseable {
         terminal.writer().println();
     }
 
+    /// start the progress thread
+    /// @see #close
     public void startProgressThread() {
         progressThread = new Thread(() -> {
             terminal.puts(InfoCmp.Capability.cursor_invisible);
@@ -219,6 +237,8 @@ public class ConsoleDisplay implements AutoCloseable {
         progressThread.start();
     }
 
+    /// close the display
+    /// @see #startProgressThread
     @Override
     public void close() {
         running = false;

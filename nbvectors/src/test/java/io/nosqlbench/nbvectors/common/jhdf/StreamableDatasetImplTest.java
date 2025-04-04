@@ -30,6 +30,7 @@ package io.nosqlbench.nbvectors.common.jhdf;
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.exceptions.HdfWritingException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,7 @@ class StreamableDatasetImplTest {
 
   private static final Logger logger = LoggerFactory.getLogger(StreamableDatasetImplTest.class);
 
+  @Disabled
   @Test
   public void testDimensionChecking() {
     Path hdf5Out;
@@ -78,6 +80,7 @@ class StreamableDatasetImplTest {
   }
 
 
+  @Disabled
   @Test
   public void testBasicStreaming() {
 

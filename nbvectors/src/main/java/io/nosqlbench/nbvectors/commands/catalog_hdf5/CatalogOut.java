@@ -46,6 +46,7 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   private final static Hdf5JsonSummarizer jsonSummarizer = new Hdf5JsonSummarizer();
 
   /// create a catalog
+  /// @param entries the entries to add
   public CatalogOut(List<Map<String, Object>> entries) {
     super(entries);
     //    if (mode==CatalogMode.update) {
@@ -64,7 +65,6 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   /// load all files and directories into the catalog
   /// @param hdf5Files
   ///     the files and directories to load
-  /// @see #loadFile(Path)
   public static CatalogOut loadAll(List<Path> hdf5Files) {
     List<Map<String, Object>> entries = new ArrayList<>();
     for (Path hdf5File : hdf5Files) {
@@ -102,6 +102,8 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
     }
   }
 
+  /// save the catalog to a file
+  /// @param path the path to the file to save to
   public void save(Path path) {
     try {
       Files.writeString(path, gson.toJson(this));

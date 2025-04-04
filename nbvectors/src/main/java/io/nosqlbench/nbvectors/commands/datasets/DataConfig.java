@@ -29,8 +29,14 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+/// configuration for the datasets command
+/// @param locations the locations to search for datasets
 public record DataConfig(List<URL> locations) {
 
+  /// load the config from a config directory and a list of catalogs
+  /// @param configdir the config directory
+  /// @param catalogs the catalogs to search for datasets
+  /// @return a data config
   public static DataConfig load(Path configdir, List<String> catalogs) {
     List<URL> clocations = new ArrayList<>();
 

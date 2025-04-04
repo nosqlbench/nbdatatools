@@ -18,7 +18,12 @@ package io.nosqlbench.nbvectors.commands.datasets;
  */
 
 
+/// valid commands for the datasets command
 public enum Commands {
-  list,ls,
+  /// list the datasets in the catalog
+  list,
+  /// synonym for list
+  ls,
+  /// download a dataset
   download
 }

@@ -24,6 +24,8 @@ import io.nosqlbench.vectordata.internalapi.predicates.PNode;
 
 /// A renderer for cql syntax
 public class CqlNodeRenderer implements PredicateRepresenter {
+
+
   @Override
   public String apply(PNode<?> node) {
     return switch (node) {

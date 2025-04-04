@@ -32,7 +32,7 @@ public class AllFieldStats {
   @JsonProperty()
   private Map<String,SingleFieldStats> stats = new HashMap<>();
 
-  /// create an empty stats entry
+  /// create an empty stats props
   public AllFieldStats() {
   }
 

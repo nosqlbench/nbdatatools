@@ -54,7 +54,7 @@ public record BatchConfig(Map<String, VectorFilesConfig> files, Instant epochTim
         try {
           fcfg.put(k, VectorFilesConfig.of((Map<String, String>) v));
         } catch (Exception e) {
-          throw new RuntimeException("while configuring entry '" + k + "': " + e);
+          throw new RuntimeException("while configuring props '" + k + "': " + e);
         }
       });
 

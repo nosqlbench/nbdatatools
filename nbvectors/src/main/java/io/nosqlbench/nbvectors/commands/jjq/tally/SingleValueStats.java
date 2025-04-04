@@ -29,10 +29,10 @@ public class SingleValueStats {
   @JsonProperty
   private long count;
 
-  /// create an empty stats entry
+  /// create an empty stats props
   public SingleValueStats() {}
 
-  /// create a stats entry for a specific value of a specific field
+  /// create a stats props for a specific value of a specific field
   /// @param idx the index of the value in the field
   /// @param count the number of times the value was seen
   public SingleValueStats(long idx, long count) {

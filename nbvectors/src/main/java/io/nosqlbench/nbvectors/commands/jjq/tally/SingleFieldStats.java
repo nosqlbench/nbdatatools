@@ -47,10 +47,10 @@ public class SingleFieldStats {
   @JsonDeserialize(as = PatriciaTrie.class)
   private Map<String, SingleValueStats> statsForValues = new PatriciaTrie<>();
 
-  /// create an empty stats entry
+  /// create an empty stats props
   public SingleFieldStats() {}
 
-  /// create a stats entry for a specific field
+  /// create a stats props for a specific field
   /// @param name the name of the field
   public SingleFieldStats(String name) {
     this.name = name;

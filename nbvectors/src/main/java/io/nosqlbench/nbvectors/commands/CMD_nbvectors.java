@@ -35,7 +35,7 @@ import picocli.CommandLine;
 
 /// A collection of tools for working with vector test data
 ///
-/// This is the top level command which serves as an entry point for all sub-commands
+/// This is the top level command which serves as an props point for all sub-commands
 @CommandLine.Command(name = "nbvectors", subcommands = {
     CommandLine.HelpCommand.class, CMD_verify_knn.class, CMD_tag_hdf5.class, CMD_jjq.class,
     CMD_build_hdf5.class, CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class,

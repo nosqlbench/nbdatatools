@@ -76,7 +76,7 @@ public class CMD_hugging_dl implements Callable<Integer> {
   private String token;
 
   /**
-   * Main entry point for the hugging_dl command
+   * Main props point for the hugging_dl command
    * @param args Command line arguments
    */
   public static void main(String[] args) {
