@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.predicates.repr;
  */
 
 
-import io.nosqlbench.vectordata.local.predicates.PNode;
+import io.nosqlbench.vectordata.internalapi.predicates.PNode;
 
 import java.util.function.Function;
 

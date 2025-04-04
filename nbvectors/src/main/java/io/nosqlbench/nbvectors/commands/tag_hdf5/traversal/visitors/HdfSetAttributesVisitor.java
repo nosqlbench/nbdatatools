@@ -20,7 +20,7 @@ package io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.visitors;
 
 import io.jhdf.WritableHdfFile;
 import io.jhdf.api.Node;
-import io.nosqlbench.vectordata.local.attributes.spec.AttrSet;
+import io.nosqlbench.vectordata.internalapi.attributes.spec.AttrSet;
 
 import java.util.HashMap;
 import java.util.List;

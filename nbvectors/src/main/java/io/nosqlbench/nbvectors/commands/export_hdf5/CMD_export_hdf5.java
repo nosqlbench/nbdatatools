@@ -22,7 +22,7 @@ import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.BasicTestDataSourc
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.ObjectLoader;
 import io.nosqlbench.nbvectors.commands.build_hdf5.writers.KnnDataWriter;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
-import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 

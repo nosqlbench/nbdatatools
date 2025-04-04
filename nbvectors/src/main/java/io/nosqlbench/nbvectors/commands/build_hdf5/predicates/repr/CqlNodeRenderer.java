@@ -18,9 +18,9 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.predicates.repr;
  */
 
 
-import io.nosqlbench.vectordata.local.predicates.ConjugateNode;
-import io.nosqlbench.vectordata.local.predicates.PredicateNode;
-import io.nosqlbench.vectordata.local.predicates.PNode;
+import io.nosqlbench.vectordata.internalapi.predicates.ConjugateNode;
+import io.nosqlbench.vectordata.internalapi.predicates.PredicateNode;
+import io.nosqlbench.vectordata.internalapi.predicates.PNode;
 
 /// A renderer for cql syntax
 public class CqlNodeRenderer implements PredicateRepresenter {

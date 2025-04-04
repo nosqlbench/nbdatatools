@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
  */
 
 
-import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
 
 import java.io.IOException;
 import java.nio.file.Files;

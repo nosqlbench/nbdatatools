@@ -20,17 +20,16 @@ package io.nosqlbench.vectordata;
 import io.jhdf.HdfFile;
 import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
-import io.jhdf.api.Node;
 import io.jhdf.exceptions.HdfInvalidPathException;
-import io.nosqlbench.vectordata.local.datasets.FloatVectors;
-import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
-import io.nosqlbench.vectordata.local.datasets.views.NeighborIndices;
-import io.nosqlbench.vectordata.local.datasets.SpecDatasets;
-import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
-import io.nosqlbench.vectordata.local.datasets.FloatVectorsImpl;
-import io.nosqlbench.vectordata.local.datasets.NeighborIndicesImpl;
-import io.nosqlbench.vectordata.local.tokens.SpecToken;
-import io.nosqlbench.vectordata.local.tokens.Templatizer;
+import io.nosqlbench.vectordata.internalapi.datasets.FloatVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
+import io.nosqlbench.vectordata.internalapi.datasets.SpecDatasets;
+import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
+import io.nosqlbench.vectordata.internalapi.datasets.FloatVectorsImpl;
+import io.nosqlbench.vectordata.internalapi.datasets.NeighborIndicesImpl;
+import io.nosqlbench.vectordata.internalapi.tokens.SpecToken;
+import io.nosqlbench.vectordata.internalapi.tokens.Templatizer;
 
 import java.nio.file.Path;
 

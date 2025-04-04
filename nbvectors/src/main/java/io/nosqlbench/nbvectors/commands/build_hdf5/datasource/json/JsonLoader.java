@@ -21,14 +21,14 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.datasource.json;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.JJQSupplier;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.MapperConfig;
-import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
-import io.nosqlbench.vectordata.local.predicates.PNode;
+import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
+import io.nosqlbench.vectordata.internalapi.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.outputs.BufferOutput;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.PredicateParser;
-import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
-import io.nosqlbench.vectordata.local.tokens.SpecDataSource;
+import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.internalapi.tokens.SpecDataSource;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 
 import java.nio.file.Path;

@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.tag_hdf5;
  */
 
 
-import io.nosqlbench.vectordata.local.attributes.spec.AttrSet;
+import io.nosqlbench.vectordata.internalapi.attributes.spec.AttrSet;
 import picocli.CommandLine;
 
 /// A converter for the {@link AttrSet} type

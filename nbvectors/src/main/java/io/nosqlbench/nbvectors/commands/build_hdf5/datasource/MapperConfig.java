@@ -19,8 +19,8 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
 
 
 import com.google.gson.Gson;
-import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
-import io.nosqlbench.vectordata.local.attributes.DistanceFunction;
+import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 

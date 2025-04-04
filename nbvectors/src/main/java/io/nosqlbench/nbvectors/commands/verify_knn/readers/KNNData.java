@@ -23,7 +23,7 @@ import io.jhdf.api.Dataset;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.Neighborhood;
-import io.nosqlbench.vectordata.local.datasets.SpecDatasets;
+import io.nosqlbench.vectordata.internalapi.datasets.SpecDatasets;
 
 /// This record type captures the basic requirements of a standard KNN answer key format.
 ///

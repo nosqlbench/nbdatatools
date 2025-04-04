@@ -18,7 +18,7 @@ package io.nosqlbench.tag_hdf5;
  */
 
 
-import io.nosqlbench.vectordata.local.attributes.spec.ValueType;
+import io.nosqlbench.vectordata.internalapi.attributes.spec.ValueType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
