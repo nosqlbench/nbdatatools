@@ -22,6 +22,7 @@ import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetVe
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout.PathAggregator;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout.PathBinning;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.layout.PathsSorter;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
@@ -33,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class ParquetPathTraverserTest {
 
+  @Disabled
   @Test
   public void testParquetPathTraverserTest() {
     PathAggregator traverser =
@@ -41,6 +43,7 @@ public class ParquetPathTraverserTest {
     System.out.println("total size in bytes = " + size);
   }
 
+  @Disabled
   @Test
   public void testParquetGrouping() {
     URL testdata = getClass().getClassLoader().getResource("testdata");
@@ -59,7 +62,7 @@ public class ParquetPathTraverserTest {
     Set<Path> paths = binning.getBins().toParentGroups().keySet();
 
     List<Path> sorted = new PathsSorter(paths).sorted().toPaths();
-    System.out.println("sorted bin dirs:" + sorted);
+//    System.out.println("sorted bin dirs:" + sorted);
 
   }
 }

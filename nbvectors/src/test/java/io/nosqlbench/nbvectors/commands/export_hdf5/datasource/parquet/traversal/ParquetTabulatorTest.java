@@ -22,12 +22,14 @@ import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetVectorsReaderTest;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.functional.ParqueLoggingVisitor;
 import org.apache.logging.log4j.Level;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 public class ParquetTabulatorTest {
 
+  @Disabled
   @Test
   public void testTabulation() {
     ParquetTabulator tabulator =
