@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.datasets;
+package io.nosqlbench.vectordata;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.commands.datasets;
  */
 
 
+import io.nosqlbench.vectordata.download.Catalog;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 
@@ -31,13 +32,13 @@ import java.util.List;
 
 /// configuration for the datasets command
 /// @param locations the locations to search for datasets
-public record DataConfig(List<URL> locations) {
+public record VectorSources(List<URL> locations) {
 
   /// load the config from a config directory and a list of catalogs
   /// @param configdir the config directory
   /// @param catalogs the catalogs to search for datasets
   /// @return a data config
-  public static DataConfig load(Path configdir, List<String> catalogs) {
+  public static VectorSources load(Path configdir, List<String> catalogs) {
     List<URL> clocations = new ArrayList<>();
 
     catalogs.forEach(catalog -> {
@@ -49,7 +50,7 @@ public record DataConfig(List<URL> locations) {
       LoadSettings loadSettings = LoadSettings.builder().build();
       Load yaml = new Load(loadSettings);
       try {
-        Object configs = yaml.loadAllFromString(Files.readString(catalogCatalog));
+        Object configs = yaml.loadFromString(Files.readString(catalogCatalog));
         if (configs instanceof List<?> list) {
           list.forEach(c -> clocations.add(createUrl((String) c)));
         } else {
@@ -63,7 +64,7 @@ public record DataConfig(List<URL> locations) {
     if (clocations.isEmpty()) {
       throw new RuntimeException("no catalogs specified, and no ");
     }
-    return new DataConfig(clocations);
+    return new VectorSources(clocations);
   }
 
   private static URL createUrl(String catalog) {
@@ -79,6 +80,18 @@ public record DataConfig(List<URL> locations) {
       } catch (MalformedURLException e) {
         throw new RuntimeException(e);
       }
+    }
+  }
+
+  public Catalog catalog() {
+    return Catalog.of(this);
+  }
+
+  public static VectorSources ofUrl(String url) {
+    try {
+      return new VectorSources(List.of(new URL(url)));
+    } catch (MalformedURLException e) {
+      throw new RuntimeException(e);
     }
   }
 }

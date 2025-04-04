@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.datasets;
+package io.nosqlbench.vectordata.download;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,12 +18,5 @@ package io.nosqlbench.nbvectors.commands.datasets;
  */
 
 
-import java.net.URL;
-import java.util.Map;
-
-/// a dataset props
-/// @param url the url of the dataset
-/// @param index the index of the dataset
-/// @param props the props of the dataset
-public record DatasetEntry(URL url, int index, Map<?,?> props) {
+record FileMetadata(long totalSize, boolean supportsRanges) {
 }

@@ -59,7 +59,7 @@ public class CMD_hugging_dl implements Callable<Integer> {
    * List of dataset names to download
    */
   @CommandLine.Parameters(description = "The dataset name")
-  private List<String> datasetNames;
+  private List<String> datasetNames = new java.util.ArrayList<>();
 
   /**
    * Environment variable name containing the Hugging Face API token

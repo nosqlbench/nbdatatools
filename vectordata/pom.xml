@@ -45,6 +45,17 @@
       <version>5.10.2</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.snakeyaml</groupId>
+      <artifactId>snakeyaml-engine</artifactId>
+      <version>2.7</version>
+    </dependency>
+    <!-- For Maven -->
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>4.11.0</version> <!-- Use the latest version -->
+    </dependency>
 
 
   </dependencies>
