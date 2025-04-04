@@ -20,6 +20,7 @@ package io.nosqlbench.vectordata;
 import io.jhdf.HdfFile;
 import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
+import io.jhdf.api.Node;
 import io.jhdf.exceptions.HdfInvalidPathException;
 import io.nosqlbench.vectordata.local.datasets.FloatVectors;
 import io.nosqlbench.vectordata.local.datasets.attrs.RootGroupAttributes;
@@ -34,6 +35,7 @@ import io.nosqlbench.vectordata.local.tokens.Templatizer;
 import java.nio.file.Path;
 
 import java.net.URL;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -200,6 +202,13 @@ public class VectorData implements AutoCloseable {
     ));
   }
 
+  public Map<String,String> getTokens() {
+    Map<String,String> tokenMap = new LinkedHashMap<>();
+    for (SpecToken specToken: SpecToken.values()) {
+      specToken.apply(this).ifPresent(t -> tokenMap.put(specToken.name(),t));
+    }
+    return tokenMap;
+  }
 
   public Map<String,String> getTags() {
     return RootGroupAttributes.fromGroup(hdfFile).tags();

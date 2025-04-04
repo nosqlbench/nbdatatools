@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.catalog_hdf5;
+package io.nosqlbench.nbvectors.commands.datasets;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,10 +18,8 @@ package io.nosqlbench.nbvectors.commands.catalog_hdf5;
  */
 
 
-/// Whether to create or update the catalog files
-public enum CatalogMode {
-  /// Create a new catalog, removing the old one if it exists
-  create,
-//  /// Only update the catalog
-//  update
+import java.net.URL;
+import java.util.Map;
+
+public record DatasetEntry(URL url, int index, Map<?,?> entry) {
 }

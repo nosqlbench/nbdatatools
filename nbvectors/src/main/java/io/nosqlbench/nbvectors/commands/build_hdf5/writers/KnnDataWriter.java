@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.writers;
  */
 
 
+import com.google.gson.Gson;
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.api.WritableDataset;
@@ -90,11 +91,11 @@ public class KnnDataWriter {
   ///     an iterator for the training vectors
   public void writeBaseVectors(Iterable<float[]> iterable) {
 
-//    ConvertingIterable<LongIndexedFloatVector, float[]> remapper =
-//        new ConvertingIterable<LongIndexedFloatVector, float[]>(
-//            iterable,
-//            LongIndexedFloatVector::vector
-//        );
+    //    ConvertingIterable<LongIndexedFloatVector, float[]> remapper =
+    //        new ConvertingIterable<LongIndexedFloatVector, float[]>(
+    //            iterable,
+    //            LongIndexedFloatVector::vector
+    //        );
 
     Class<? extends float[]> fclass = new float[0].getClass();
     ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterable, 1024 * 1024 * 512);
@@ -110,8 +111,7 @@ public class KnnDataWriter {
                                  + "Labeling and dataset inventory need this data.");
     }
 
-    WritableDataset wds =
-        this.writable.putDataset(SpecDatasets.base_vectors.name(), streamer);
+    WritableDataset wds = this.writable.putDataset(SpecDatasets.base_vectors.name(), streamer);
 
     // TODO: remove dimensions from attributes because they are shape data
     this.baseVectorAttributes = new BaseVectorAttributes(
@@ -139,8 +139,7 @@ public class KnnDataWriter {
       streamer.modifyDimensions(new int[]{sized.getSize()});
     }
 
-    WritableDataset wds =
-        this.writable.putDataset(SpecDatasets.query_vectors.name(), streamer);
+    WritableDataset wds = this.writable.putDataset(SpecDatasets.query_vectors.name(), streamer);
 
     this.queryVectorsAttributes = new QueryVectorsAttributes(
         loader.getMetadata().model(),
@@ -164,8 +163,7 @@ public class KnnDataWriter {
       streamer.modifyDimensions(new int[]{sized.getSize()});
     }
 
-    WritableDataset wds =
-        this.writable.putDataset(SpecDatasets.neighbor_indices.name(), streamer);
+    WritableDataset wds = this.writable.putDataset(SpecDatasets.neighbor_indices.name(), streamer);
 
 
     this.neighborIndicesAttributes =
@@ -224,8 +222,7 @@ public class KnnDataWriter {
       streamer.modifyDimensions(new int[]{sized.getSize()});
     }
 
-    WritableDataset wds =
-        this.writable.putDataset(SpecDatasets.query_filters.name(), streamer);
+    WritableDataset wds = this.writable.putDataset(SpecDatasets.query_filters.name(), streamer);
   }
 
   /// write the data to the file
@@ -305,15 +302,20 @@ public class KnnDataWriter {
           String fieldname = comp.getName();
           Method accessor = comp.getAccessor();
           Object value = accessor.invoke(record);
-          if (value instanceof Enum<?> e) {
-            value = e.name();
-          }
+
           if (value instanceof Optional<?> o) {
             if (o.isPresent()) {
               value = o.get();
             } else {
               continue;
             }
+          }
+
+          if (value instanceof Enum<?> e) {
+            value = e.name();
+          }
+          if (value instanceof Map || value instanceof List || value instanceof Set) {
+            value = new Gson().toJson(value);
           }
           if (value == null) {
             throw new RuntimeException(

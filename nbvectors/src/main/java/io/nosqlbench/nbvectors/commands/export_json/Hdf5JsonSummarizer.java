@@ -25,6 +25,7 @@ import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
+import io.nosqlbench.vectordata.VectorData;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -48,7 +49,10 @@ public class Hdf5JsonSummarizer implements Function<Path, String> {
   /// @return the summary of the file
   public Map<String, Object> describeFile(Path path) {
     try (HdfFile file = new HdfFile(path)) {
-      return describeGroup(file, 0);
+      Map<String, Object> filejson = describeGroup(file, 0);
+      VectorData data = new VectorData(file);
+      filejson.put("tokens",data.getTokens());
+      return filejson;
     }
   }
 

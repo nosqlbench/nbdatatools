@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.catalog_hdf5;
+package io.nosqlbench.nbvectors.commands.datasets;
 
 /*
  * Copyright (c) nosqlbench
@@ -23,44 +23,34 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-/// Show details of HDF5 vector data files
-@CommandLine.Command(name = "catalog_hdf5",
-    headerHeading = "Usage:%n%n",
-    synopsisHeading = "%n",
-    descriptionHeading = "%nDescription%n%n",
-    parameterListHeading = "%nParameters:%n%",
-    optionListHeading = "%nOptions:%n",
-    description = "Create catalog views of HDF5 files",
-    exitCodeListHeading = "Exit Codes:%n",
-    exitCodeList = {
-        "0: no errors",
-    })
-public class CMD_catalog_hdf5 implements Callable<Integer> {
+/// Browse and download hdf5 datasets from accessible catalogs
+@CommandLine.Command(name = "datasets", description = "Browse and download hdf5 datasets from accessible catalogs")
+public class CMD_datasets implements Callable<Integer> {
 
-  private static final Logger logger = LogManager.getLogger(CMD_catalog_hdf5.class);
+  private static final Logger logger = LogManager.getLogger(CMD_datasets.class);
 
   @CommandLine.Parameters(description = "Files and/or directories to catalog; All files in the "
                                         + "specified directories and paths are added to the "
                                         + "catalog files", defaultValue = ".")
-  private List<Path> hdf5Files;
+  private List<String> query;
 
-  @CommandLine.Option(names = {"--basename"},
-      description = "The basename to use for the catalog",
-      defaultValue = "catalog")
-  private String basename;
+  @CommandLine.Option(names = {"--catalog"},
+      description = "A directory, remote url, or other catalog container",
+      defaultValue = "https://jvector-datasets-public.s3.us-east-1.amazonaws.com/")
+  private List<String> catalogs = new ArrayList<>();
 
-  @CommandLine.Option(names = {"--mode"},
-      description = "The mode to use for the catalog ; Valid values: ${COMPLETION-CANDIDATES}",
-      defaultValue = "create")
+  @CommandLine.Option(names = {"--configdir"},
+      description = "The directory to use for configuration files",
+      defaultValue = "~/.config/nbvectors")
+  private Path configdir;
 
-  private CatalogMode mode;
-
-  /// run a catalog_hdf5 command
+  /// run a datasets command
   /// @param args
   ///     command line args
   public static void main(String[] args) {
@@ -72,7 +62,7 @@ public class CMD_catalog_hdf5 implements Callable<Integer> {
     );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
-    CMD_catalog_hdf5 command = new CMD_catalog_hdf5();
+    CMD_datasets command = new CMD_datasets();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
@@ -84,16 +74,20 @@ public class CMD_catalog_hdf5 implements Callable<Integer> {
 
   @Override
   public Integer call() {
-    if (this.hdf5Files.isEmpty()) {
-      throw new RuntimeException("no files specified");
+    DataConfig config = DataConfig.load(this.configdir, this.catalogs);
+    LinkedList<String> commandStream = new LinkedList<>(this.query);
+    while (!commandStream.isEmpty()) {
+      String verb = commandStream.removeFirst();
+      Commands cmd = Commands.valueOf(verb.toLowerCase());
+      switch (cmd) {
+        case list,ls -> {
+          Catalog catalog = Catalog.of(config);
+          System.out.println(config);
+        }
+        case download -> {
+        }
+      }
     }
-
-    if (basename.contains(".")) {
-      throw new RuntimeException("basename must not contain extension (or dot character)");
-    }
-    CatalogOut catalog = CatalogOut.loadAll(this.hdf5Files);
-    catalog.save(Path.of(basename + ".json"));
-
     return 0;
   }
 }

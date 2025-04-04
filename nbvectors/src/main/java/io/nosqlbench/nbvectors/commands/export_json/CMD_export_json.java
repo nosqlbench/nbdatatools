@@ -94,6 +94,10 @@ public class CMD_export_json implements Callable<Integer> {
     Hdf5JsonSummarizer summarizer = new Hdf5JsonSummarizer();
 
     for (Path path : this.hdf5Files) {
+      if (Files.isDirectory(path)) {
+        System.err.println("skipping " + path);
+        continue;
+      }
       String summary = summarizer.apply(path);
       System.out.println(summary);
       if (this.save) {
