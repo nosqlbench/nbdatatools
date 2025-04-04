@@ -99,19 +99,26 @@ public class TagFilter {
 
     private final static Pattern conjugateForm = Pattern.compile("^(?<conjugate>\\w+)\\((?<filter>.+)\\)$",Pattern.DOTALL|Pattern.MULTILINE);
 
+    /// filter a list of tagged items
+    /// @param tagged a list of tagged items
+    /// @return a list of tagged items which match the filter
+    /// @param <T> the type of the tagged items
     public <T extends Tagged> List<T> filter(List<T> tagged) {
         return tagged.stream()
             .filter(this::matchesTagged)
             .collect(Collectors.toList());
     }
 
+    /// get a log of the filter results for each item
+    /// @param tagged a list of tagged items
+    /// @return a list of filter results for each item
+    /// @param <T> the type of the tagged items
     public <T extends Tagged> List<String> filterLog(List<T> tagged) {
         return tagged.stream()
             .map(this::matchesTaggedResult)
             .map(Result::getLog)
             .collect(Collectors.toList());
     }
-
 
     private enum Conjugate {
         any((i,j) -> (j>0)),
@@ -233,37 +240,57 @@ public class TagFilter {
         return new Result<>(tags, matched, log);
     }
 
+    /// a simple predicate for matching a tagged item
+    /// @param item the tagged item to match
+    /// @return a result object with the match status and log
+    /// @param <T> the type of the tagged item
     public <T extends Tagged> Result<T> matchesTaggedResult(T item) {
         Result<Map<String, String>> matches = matches(item.getTags());
         return new Result<>(item,matches.matched(),matches.matchLog);
     }
 
+    /// a simple predicate for matching a tagged item
+    /// @param item the tagged item to match
+    /// @return true if the item matches the filter
     public boolean matchesTagged(Tagged item) {
         return matches(item.getTags()).matched();
     }
 
+    /// get the filter map
     public Map<String, String> getMap() {
         return filter;
     }
 
+    /// a result object for a match
     public static class Result<T> {
         private final boolean matched;
         private final List<String> matchLog;
         private final T element;
 
+        /// create a new result object
+        /// @param element the element
+        /// @param matched the match status
+        /// @param log the match log
         public Result(T element, boolean matched, List<String> log) {
             this.element = element;
             this.matched = matched;
             this.matchLog = log;
         }
 
+        /// get the element
+        /// @return the element
         public T getElement() {
             return element;
         }
+
+        /// get the match status
+        /// @return the match status
         public boolean matched() {
             return this.matched;
         }
 
+        /// get the match log
+        /// @return the match log
         public String getLog() {
             return String.join("\n", this.matchLog);
         }

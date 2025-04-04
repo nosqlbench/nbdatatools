@@ -213,6 +213,8 @@ public class VectorData implements AutoCloseable {
     return tokenMap;
   }
 
+  /// get the tags associated with this dataset
+  /// @return the tags associated with this dataset
   public Map<String,String> getTags() {
     return RootGroupAttributes.fromGroup(hdfFile).tags();
   }

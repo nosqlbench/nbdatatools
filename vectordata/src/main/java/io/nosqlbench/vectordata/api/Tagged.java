@@ -18,6 +18,9 @@ package io.nosqlbench.vectordata.api;
 
 import java.util.Map;
 
+/// a type which has tags
 public interface Tagged {
+    /// get the tags associated with this item
+    /// @return the tags associated with this item
     Map<String,String> getTags();
 }
