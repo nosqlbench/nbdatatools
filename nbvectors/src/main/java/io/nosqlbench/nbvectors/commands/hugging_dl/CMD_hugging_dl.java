@@ -31,12 +31,23 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-/// Show details of HDF5 vector data files
+/**
+ * Command line interface for downloading datasets from Hugging Face.
+ * Supports authentication via token and downloads datasets to a specified cache directory.
+ *
+ * Usage:
+ * ```
+ * hugging_dl [--target dir] [--token token] [--envkey key] dataset_name...
+ * ```
+ */
 @CommandLine.Command(name = "hugging_dl", header = "Download Huggingface Datasets via API")
 public class CMD_hugging_dl implements Callable<Integer> {
 
   private static final Logger logger = LogManager.getLogger(CMD_hugging_dl.class);
 
+  /**
+   * Target directory for downloaded files. Defaults to ~/.cache/huggingface
+   */
   @CommandLine.Option(names = {
       "--target", "--cache_dir",
   },
@@ -44,20 +55,30 @@ public class CMD_hugging_dl implements Callable<Integer> {
       description = "The target directory to download " + "to (default: ${DEFAULT-VALUE})")
   private Path target = Path.of("downloads");
 
+  /**
+   * List of dataset names to download
+   */
   @CommandLine.Parameters(description = "The dataset name")
   private List<String> datasetNames;
 
+  /**
+   * Environment variable name containing the Hugging Face API token
+   */
   @CommandLine.Option(names = {"--envkey", "-k"},
       description = "The environment variable name for the token (default: ${DEFAULT-VALUE})"
                     + "%n% This is NOT the actual token.")
   private String envKey = "HF_TOKEN";
 
+  /**
+   * Direct token value for Hugging Face API authentication
+   */
   @CommandLine.Option(names = {"--token", "-t"}, description = "The token to use for the download")
   private String token;
 
-  /// run a hugging_dl command
-  /// @param args
-  ///     command line args
+  /**
+   * Main entry point for the hugging_dl command
+   * @param args Command line arguments
+   */
   public static void main(String[] args) {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
     System.setProperty(
@@ -76,6 +97,10 @@ public class CMD_hugging_dl implements Callable<Integer> {
     System.exit(exitCode);
   }
 
+  /**
+   * Executes the download command for each specified dataset
+   * @return 0 on success, non-zero on failure
+   */
   @Override
   public Integer call() {
     target = Path.of(target.toString().replaceAll("~", System.getProperty("user.home")));

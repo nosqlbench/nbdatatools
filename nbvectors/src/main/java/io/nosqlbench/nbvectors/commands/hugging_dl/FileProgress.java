@@ -17,10 +17,13 @@ package io.nosqlbench.nbvectors.commands.hugging_dl;
  * under the License.
  */
 
-
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Tracks download progress for a single file from Hugging Face datasets.
+ * Provides methods to update and display download progress.
+ */
 public class FileProgress {
     final Path filename;
     final long totalSize;
@@ -29,35 +32,63 @@ public class FileProgress {
     volatile boolean failed = false;
     volatile String error = null;
 
+    /**
+     * Creates a new file progress tracker
+     * @param filename Path to the file being downloaded
+     * @param totalSize Total expected size in bytes
+     */
     public FileProgress(Path filename, long totalSize) {
         this.filename = filename;
         this.totalSize = totalSize;
     }
 
+    /**
+     * @return Path to the file being downloaded
+     */
     public Path getFilename() {
         return filename;
     }
 
+    /**
+     * @return Total expected file size in bytes
+     */
     public long getTotalSize() {
         return totalSize;
     }
 
+    /**
+     * @return Number of bytes downloaded so far
+     */
     public long getCurrentBytes() {
         return currentBytes.get();
     }
 
+    /**
+     * @return true if download completed successfully
+     */
     public boolean isCompleted() {
         return completed;
     }
 
+    /**
+     * @return true if download failed
+     */
     public boolean isFailed() {
         return failed;
     }
 
+    /**
+     * @return Error message if download failed, null otherwise
+     */
     public String getError() {
         return error;
     }
 
+    /**
+     * Generates an ASCII progress bar showing download status
+     * @param width Total width of the progress bar in characters
+     * @return Formatted string containing filename, progress bar and percentage
+     */
     public String getProgressBar(int width) {
         int barWidth = width - filename.toString().length() - 15;
         long progress = currentBytes.get();

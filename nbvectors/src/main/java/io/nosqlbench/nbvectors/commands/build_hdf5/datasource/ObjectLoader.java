@@ -42,6 +42,7 @@ public class ObjectLoader {
   /// @param mapper the function to convert the map to an object
   /// @return the object
   /// @throws RuntimeException if the file cannot be read
+  /// @param <T> the type of the object
   public static <T> Optional<T> load(Path path, Function<Map<String, String>, T> mapper) {
     Map<String, String> data = null;
     try {

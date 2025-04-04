@@ -37,6 +37,10 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Handles downloading of datasets from Hugging Face.
+ * Manages authentication, metadata fetching, and actual file downloads.
+ */
 public class DatasetDownloader implements AutoCloseable {
   private static final String HF_API_URL = "https://huggingface.co/api/datasets/";
   private static final String HF_VIEWER_API =
@@ -65,6 +69,13 @@ public class DatasetDownloader implements AutoCloseable {
     }
   }
 
+  /**
+   * Creates a new dataset downloader
+   * @param token Hugging Face API token
+   * @param datasetName Name of dataset to download
+   * @param targetDir Directory to save downloaded files
+   * @throws IOException If target directory cannot be created
+   */
   public DatasetDownloader(String token, String dsName, Path target) throws IOException {
     this.dsName = dsName;
     this.target = target;
@@ -165,6 +176,12 @@ public class DatasetDownloader implements AutoCloseable {
     }
   }
 
+  /**
+   * Fetches dataset metadata from Hugging Face API
+   * @param datasetName Name of dataset to fetch metadata for
+   * @return List of parquet file metadata
+   * @throws Exception If API request fails
+   */
   private List<ParquetFileData> fetchFileList(String datasetName) throws Exception {
     display.setStatus("Fetching dataset parquet metadata");
     display.setAction("Connecting to Hugging Face Dataset Viewer API");
