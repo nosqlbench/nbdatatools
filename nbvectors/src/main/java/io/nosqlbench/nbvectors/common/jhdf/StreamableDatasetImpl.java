@@ -225,6 +225,19 @@ public class StreamableDatasetImpl extends AbstractWritableNode implements Strea
 
   /// {@inheritDoc}
   @Override
+  public void modifyDimensions(long[] dimensions) {
+    int[] intDims = new int[dimensions.length];
+    for (int i = 0; i < dimensions.length; i++) {
+      if (dimensions[i] > Integer.MAX_VALUE) {
+        throw new HdfWritingException("Dimensions must be less than " + Integer.MAX_VALUE);
+      }
+      intDims[i] = (int) dimensions[i];
+    }
+    this.modifyDimensions(intDims);
+  }
+
+  /// {@inheritDoc}
+  @Override
   public boolean isScalar() {
     ensureComputeEnabled("isScalar()");
     if (isEmpty()) {

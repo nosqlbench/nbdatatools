@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
  */
 
 
-import io.nosqlbench.nbvectors.commands.export_hdf5.VectorFilesConfig;
+import io.nosqlbench.nbvectors.commands.export_hdf5.DataGroupConfig;
 import io.nosqlbench.vectordata.internalapi.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.FvecToFloatArray;
 import io.nosqlbench.nbvectors.common.adapters.DataSourceAdapter;
@@ -48,7 +48,7 @@ public class BasicTestDataSource implements SpecDataSource {
   /// create a new basic test data source from a file config
   /// @param cfg
   ///     the file config
-  public BasicTestDataSource(VectorFilesConfig cfg) {
+  public BasicTestDataSource(DataGroupConfig cfg) {
 
     cfg.base_content().map(DataSourceAdapter::adaptBaseContent)
         .ifPresent(this::setBaseContentIterable);

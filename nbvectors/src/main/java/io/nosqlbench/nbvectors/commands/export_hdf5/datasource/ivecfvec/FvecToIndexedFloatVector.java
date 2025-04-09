@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec;
  */
 
 
+import io.nosqlbench.nbvectors.common.adapters.Enumerated;
 import io.nosqlbench.nbvectors.common.adapters.Sized;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
 
@@ -76,10 +77,12 @@ public class FvecToIndexedFloatVector implements Iterable<LongIndexedFloatVector
   }
 
   /// An iterator for indexed float vectors
-  public static class FloatIterable implements Iterator<LongIndexedFloatVector> {
+  public static class FloatIterable implements Iterator<LongIndexedFloatVector>,
+                                               Enumerated<LongIndexedFloatVector> {
 
     private final DataInputStream in;
     private long index = 0;
+    private long lastIndex=-1;
 
     /// create a float iterable
     /// @param path
@@ -114,12 +117,17 @@ public class FvecToIndexedFloatVector implements Iterable<LongIndexedFloatVector
         FloatBuffer fbuf = ByteBuffer.wrap(vbuf).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
         float[] ary = new float[dim];
         fbuf.get(ary);
+        this.lastIndex = index++;
         return new LongIndexedFloatVector(index++, ary);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }
 
+    @Override
+    public long getLastIndex() {
+      return lastIndex;
+    }
   }
 
 }

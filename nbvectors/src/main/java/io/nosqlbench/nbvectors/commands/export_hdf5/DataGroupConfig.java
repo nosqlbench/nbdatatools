@@ -45,8 +45,9 @@ import java.util.Optional;
 ///     the base_content file to read
 /// @param metadata
 ///     the metadata associated with the overall hdf5 file
-
-public record VectorFilesConfig(
+/// @param layout
+///     the layout file to read
+public record DataGroupConfig(
     Optional<Path> base_vectors,
     Optional<Path> query_vectors,
     Optional<Path> neighbors,
@@ -54,6 +55,7 @@ public record VectorFilesConfig(
     Optional<Path> base_content,
     Optional<Path> query_terms,
     Optional<Path> query_filters,
+    Optional<Path> layout,
     RootGroupAttributes metadata
 )
 {
@@ -72,9 +74,11 @@ public record VectorFilesConfig(
   ///     the query_filters file to read
   /// @param base_content
   ///     the base_content file to read
+  /// @param layout
+  ///     the layout file to read
   /// @param metadata
   ///     the metadata
-  public VectorFilesConfig(
+  public DataGroupConfig(
       Path base_vectors,
       Path query_vectors,
       Path neighbors,
@@ -82,6 +86,7 @@ public record VectorFilesConfig(
       Path base_content,
       Path query_terms,
       Path query_filters,
+      Path layout,
       Map<String, String> metadata
   )
   {
@@ -93,6 +98,7 @@ public record VectorFilesConfig(
         Optional.ofNullable(base_content),
         Optional.ofNullable(query_terms),
         Optional.ofNullable(query_filters),
+        Optional.ofNullable(layout),
         RootGroupAttributes.fromMap(metadata)
     );
   }
@@ -122,7 +128,7 @@ public record VectorFilesConfig(
   /// @param cfg
   ///     the config map
   /// @return a file config
-  public static VectorFilesConfig of(Map<String, String> cfg) {
+  public static DataGroupConfig of(Map<String, String> cfg) {
 
     String base = cfg.remove("base");
     if (base == null) {
@@ -139,7 +145,7 @@ public record VectorFilesConfig(
       throw new RuntimeException("indices is required");
     }
 
-    return new VectorFilesConfig(
+    return new DataGroupConfig(
         Optional.of(Path.of(base)),
         Optional.of(Path.of(query)),
         Optional.of(Path.of(indices)),
@@ -147,7 +153,8 @@ public record VectorFilesConfig(
         Optional.ofNullable(cfg.remove("base_content")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_terms")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_filters")).map(Path::of),
-        RootGroupAttributes.fromMap(new LinkedHashMap<>(cfg))
+        Optional.ofNullable(cfg.remove("layout")).map(Path::of),
+        io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes.fromMap(new LinkedHashMap<>(cfg))
     );
 
   }

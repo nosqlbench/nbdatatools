@@ -22,7 +22,11 @@ package io.nosqlbench.vectordata.internalapi.attributes;
 public enum DistanceFunction {
 
   /// The cosine distance function
-  COSINE;
+  COSINE,
+  /// The dot product distance function
+  DOT_PRODUCT,
+  /// The euclidean distance function
+  EUCLIDEAN;
 
   /// compute the distance between two vectors
   /// @param v1 the first vector
@@ -31,6 +35,7 @@ public enum DistanceFunction {
   public double distance(double[] v1, double[] v2) {
     return switch (this) {
       case COSINE -> doubleCosineDistance(v1, v2);
+      case DOT_PRODUCT, EUCLIDEAN -> throw new RuntimeException("Not implemented");
     };
   }
 
@@ -41,6 +46,8 @@ public enum DistanceFunction {
   public double distance(float[] v1, float[] v2) {
     return switch (this) {
       case COSINE -> floatCosineDistance(v1, v2);
+      case DOT_PRODUCT, EUCLIDEAN -> throw new RuntimeException("Not implemented");
+
     };
   }
 

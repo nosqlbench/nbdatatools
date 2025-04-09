@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.internalapi.datasets;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -22,10 +22,14 @@ import io.nosqlbench.vectordata.internalapi.datasets.attrs.BaseContentAttributes
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.BaseVectorAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborDistancesAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborIndicesAttributes;
+import io.nosqlbench.vectordata.internalapi.datasets.attrs.QueryPredicatesAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.QueryVectorsAttributes;
 
+import java.util.Arrays;
+import java.util.Optional;
+
 /// The datasets that are part of the vector test data format spec
-public enum SpecDatasets {
+public enum TestDataKind {
 
   /// The base vectors dataset, containing all vectors to search, organized by index
   base_vectors(
@@ -68,6 +72,12 @@ public enum SpecDatasets {
       "/neighbor_distances",
       "The neighbor distances dataset, containing all correct distances, organized by index",
       NeighborDistancesAttributes.class
+  ),
+  query_predicates(
+      "/query_predicates",
+      "The optional query predicates dataset, containing all query predicates, organized by index",
+      QueryPredicatesAttributes.class
+
   );
 
   /// The path to the dataset
@@ -78,11 +88,7 @@ public enum SpecDatasets {
   /// required for a given dataset
   private final Class<? extends Record> attributesClass;
 
-  SpecDatasets(
-      String path,
-      String description,
-      Class<? extends Record> attributesClass
-  )
+  TestDataKind(String path, String description, Class<? extends Record> attributesClass)
   {
     this.path = path;
     this.description = description;
@@ -106,4 +112,43 @@ public enum SpecDatasets {
   public Class<? extends Record> getAttributesType() {
     return attributesClass;
   }
+
+  public static Optional<TestDataKind> fromOptionalString(String kind) {
+    for (TestDataKind value : values()) {
+      if (value.name().equalsIgnoreCase(kind)) {
+        return Optional.of(value);
+      }
+    }
+    for (OtherNames value : OtherNames.values()) {
+      if (value.name().equalsIgnoreCase(kind)) {
+        return Optional.of(value.canonical);
+      }
+    }
+    return Optional.empty();
+  }
+
+  public static TestDataKind fromString(String kind) {
+    return fromOptionalString(kind).orElseThrow(() -> new IllegalArgumentException(
+        "kind '" + kind + "' is not a valid dataset kind: " + Arrays.toString(values())));
+  }
+
+  private enum OtherNames {
+    base(base_vectors),
+    train(base_vectors),
+    queries(query_vectors),
+    test(query_vectors),
+    query(query_vectors),
+    indices(neighbor_indices),
+    neighbors(neighbor_indices),
+    ground_truth(neighbor_indices),
+    gt(neighbor_indices),
+    distances(neighbor_distances);
+
+    public final TestDataKind canonical;
+
+    OtherNames(TestDataKind testDataKind) {
+      this.canonical = testDataKind;
+    }
+  }
+
 }

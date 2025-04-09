@@ -62,6 +62,9 @@ public class ConsoleDisplay implements AutoCloseable {
     /// create a new console display
     /// @param dsName the name of the dataset to download
     /// @param target the target directory to download to
+    /// @param stats the download stats
+    /// @param fileProgresses the file progresses
+    /// @throws IOException if the terminal cannot be created
     public ConsoleDisplay(String dsName, Path target,
         ConcurrentHashMap<Path, FileProgress> fileProgresses, DownloadStats stats) throws IOException {
         this.dsName = dsName;

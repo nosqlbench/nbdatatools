@@ -74,11 +74,11 @@ public class CMD_jjq implements Callable<Integer> {
   /// run jjq command
   /// @param args command line args
   public static void main(String[] args) {
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    System.setProperty(
-        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-        CustomConfigurationFactory.class.getCanonicalName()
-    );
+//    System.setProperty("slf4j.internal.verbosity", "ERROR");
+//    System.setProperty(
+//        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+//        CustomConfigurationFactory.class.getCanonicalName()
+//    );
 
     CMD_jjq command = new CMD_jjq();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)

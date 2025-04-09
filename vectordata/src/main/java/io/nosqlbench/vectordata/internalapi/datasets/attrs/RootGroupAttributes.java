@@ -20,10 +20,15 @@ package io.nosqlbench.vectordata.internalapi.datasets.attrs;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import io.jhdf.api.Attribute;
 import io.jhdf.api.Group;
 import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
+import org.snakeyaml.engine.v2.tokens.Token;
 
+import java.lang.reflect.Type;
+import java.net.URL;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -56,17 +61,24 @@ public record RootGroupAttributes(
 {
 
   /// create a metadata object from a group
-  /// @param dataset the dataset to read from
+  /// @param dataset
+  ///     the dataset to read from
   /// @return the metadata for this file
   public static RootGroupAttributes fromGroup(Group dataset) {
     return new RootGroupAttributes(
-        dataset.getAttribute("model").getData().toString(),
-        dataset.getAttribute("url").getData().toString(),
-        DistanceFunction.valueOf(dataset.getAttribute("distance_function").getData().toString()),
+        Optional.ofNullable(dataset.getAttribute("model")).map(Attribute::getData)
+            .map(String::valueOf).map(String::valueOf).orElse("unknown"),
+        Optional.ofNullable(dataset.getAttribute("url")).map(Attribute::getData)
+            .map(String::valueOf).map(String::valueOf).orElse("unknown"),
+        Optional.ofNullable(dataset.getAttribute("distance_function")).map(Attribute::getData)
+            .map(String::valueOf).map(String::toUpperCase)
+            .map(DistanceFunction::valueOf).orElse(DistanceFunction.COSINE),
         Optional.ofNullable(dataset.getAttribute("notes")).map(Attribute::getData)
             .map(String::valueOf),
-        dataset.getAttribute("license").getData().toString(),
-        dataset.getAttribute("vendor").getData().toString(),
+        Optional.ofNullable(dataset.getAttribute("license")).map(Attribute::getData)
+            .map(String::valueOf).map(String::valueOf).orElse("unknown"),
+        Optional.ofNullable(dataset.getAttribute("vendor")).map(Attribute::getData)
+            .map(String::valueOf).map(String::valueOf).orElse("unknown"),
         Optional.ofNullable(dataset.getAttribute("tags")).map(Attribute::getData)
             .map(String::valueOf).map(t -> new Gson().fromJson(t, Map.class)).orElse(Map.of())
     );
@@ -76,17 +88,31 @@ public record RootGroupAttributes(
   /// @param data
   ///     the map of metadata
   /// @return the metadata for this file
-  public static RootGroupAttributes fromMap(Map<String, String> data) {
+  public static RootGroupAttributes fromMap(Map<String, ?> data) {
     Gson gson = new GsonBuilder().create();
+    Object tagdata = data.get("tags");
+    Map<String, String> tags = new LinkedHashMap<>();
+    if (tagdata instanceof String s) {
+      Type tagsType = new TypeToken<Map<String, String>>() {
+      }.getType();
+      tags = gson.fromJson(s, tagsType);
+    } else if (tagdata instanceof Map<?, ?> m) {
+      tags = (Map<String, String>) m;
+    } else if (tagdata != null) {
+      {
+        throw new RuntimeException("invalid tags format:" + tagdata);
+      }
+    }
     return new RootGroupAttributes(
-        data.get("model"),
-        data.get("url"),
+        (String) data.get("model"),
+        (String) data.get("url"),
         DistanceFunction.valueOf(
-            data.get("distance_function") != null ? data.get("distance_function") : "COSINE"),
-        Optional.ofNullable(data.get("notes")),
-        data.get("license"),
-        data.get("vendor"),
-        Optional.ofNullable(data.get("tags")).map(t -> gson.fromJson(t, Map.class)).orElse(Map.of())
+            data.get("distance_function") != null ? data.get("distance_function").toString() :
+                "COSINE"),
+        Optional.ofNullable(data.get("notes")).map(String::valueOf),
+        (String) data.get("license"),
+        (String) data.get("vendor"),
+        tags
     );
   }
 }

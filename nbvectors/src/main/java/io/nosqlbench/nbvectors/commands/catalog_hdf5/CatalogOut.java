@@ -65,6 +65,7 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   /// load all files and directories into the catalog
   /// @param hdf5Files
   ///     the files and directories to load
+  /// @return a catalog
   public static CatalogOut loadAll(List<Path> hdf5Files) {
     List<Map<String, Object>> entries = new ArrayList<>();
     for (Path hdf5File : hdf5Files) {

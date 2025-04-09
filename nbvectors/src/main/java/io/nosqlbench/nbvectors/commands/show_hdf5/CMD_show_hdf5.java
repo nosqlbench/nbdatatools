@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.commands.show_hdf5;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -18,10 +18,14 @@ package io.nosqlbench.nbvectors.commands.show_hdf5;
  */
 
 
+import com.google.gson.reflect.TypeToken;
 import io.jhdf.HdfFile;
+import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
+import io.nosqlbench.vectordata.SHARED;
+import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
 import io.nosqlbench.vectordata.internalapi.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
@@ -29,10 +33,12 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
+import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 /// Show details of HDF5 vector data files
@@ -56,17 +62,18 @@ public class CMD_show_hdf5 implements Callable<Integer> {
 
   @CommandLine.Option(names = {"--datasets", "-d"},
       description = "Valid values: ${COMPLETION-CANDIDATES}")
-  private List<DatasetNames> decode;
+  private List<TestDataKind> decode;
 
   /// run a show_hdf5 command
-  /// @param args command line args
+  /// @param args
+  ///     command line args
   public static void main(String[] args) {
 
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    System.setProperty(
-        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-        CustomConfigurationFactory.class.getCanonicalName()
-    );
+    //    System.setProperty("slf4j.internal.verbosity", "ERROR");
+    //    System.setProperty(
+    //        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+    //        CustomConfigurationFactory.class.getCanonicalName()
+    //    );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     CMD_show_hdf5 command = new CMD_show_hdf5();
@@ -84,13 +91,16 @@ public class CMD_show_hdf5 implements Callable<Integer> {
     StringBuilder sb = new StringBuilder();
 
     try (HdfFile file = new HdfFile(this.file)) {
-      if (decode==null || decode.isEmpty()) {
+      if (decode == null || decode.isEmpty()) {
         walkHdf(file, sb, 0);
       } else {
-        for (DatasetNames dsname : decode) {
+
+        for (TestDataKind dsname : decode) {
           switch (dsname) {
-            case filters -> decodeFilters(sb,file.getDatasetByPath(DatasetNames.filters.name()));
-            default -> throw new RuntimeException("unable to show decoded dataset " + dsname.name());
+            case query_predicates ->
+                decodeFilters(sb, file.getDatasetByPath(TestDataKind.query_predicates.name()));
+            default ->
+                throw new RuntimeException("unable to show decoded dataset " + dsname.name());
           }
         }
       }
@@ -109,9 +119,8 @@ public class CMD_show_hdf5 implements Callable<Integer> {
       Object datao = ds.getData(new long[]{i, 0}, new int[]{1, dimensions[1]});
       byte[][] data = (byte[][]) datao;
       byte[] datum = data[0];
-      PNode<?> node =
-          PNode.fromBuffer(ByteBuffer.wrap(datum));
-      System.out.printf("predicate[%d]: %s%n",i, node);
+      PNode<?> node = PNode.fromBuffer(ByteBuffer.wrap(datum));
+      System.out.printf("predicate[%d]: %s%n", i, node);
     }
 
   }
@@ -137,6 +146,37 @@ public class CMD_show_hdf5 implements Callable<Integer> {
   }
 
   private void describeGroup(Group group, StringBuilder sb, int level) {
+    Map<String, Attribute> attributes = group.getAttributes();
+    if (attributes.isEmpty()) {
+      return;
+    }
+    sb.append(" ".repeat(level)).append("attributes: ").append(group.getName()).append("\n");
+    attributes.forEach((k, v) -> {
+      sb.append(" ".repeat(level + 1)).append(k).append(":\n");
+      Object data = v.getData();
+
+      if (data instanceof String s && s.startsWith("{") && s.endsWith("}")) {
+        Type type = new TypeToken<Map<String, ?>>() {
+        }.getType();
+        data = SHARED.gson.fromJson(s, type);
+        //        sb.append(" ".repeat(level + 2)).append(s).append("\n");
+      }
+
+      if (data instanceof String string && string.contains("\n")) {
+        String[] parts = string.split("\n");
+        for (String part : parts) {
+          sb.append(" ".repeat(level + 2)).append(part).append("\n");
+        }
+      } else if (data instanceof String string) {
+        sb.append(" ".repeat(level + 2)).append(string).append("\n");
+      } else if (data instanceof Map<?, ?> map && !map.isEmpty()) {
+        map.forEach((k2, v2) -> {
+          sb.append(" ".repeat(level + 2)).append(k2).append(": ").append(v2).append("\n");
+        });
+      } else {
+        sb.append(" ".repeat(level + 2)).append(data.getClass().getSimpleName()).append("\n");
+      }
+    });
     //    sb.append(" ".repeat(level)).append("group ").append(group.getName()).append("\n");
   }
 

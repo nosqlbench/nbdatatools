@@ -20,8 +20,7 @@ package io.nosqlbench.vectordata.download;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import io.nosqlbench.vectordata.VectorSources;
-import okhttp3.Headers;
+import io.nosqlbench.vectordata.TestDataSources;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -31,9 +30,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.net.URL;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 /// a catalog of datasets
 public record Catalog(List<DatasetEntry> datasets) {
@@ -44,7 +48,7 @@ public record Catalog(List<DatasetEntry> datasets) {
   /// @param config
   ///     the config to use
   /// @return a catalog
-  public static Catalog of(VectorSources config) {
+  public static Catalog of(TestDataSources config) {
     List<DatasetEntry> entries = new ArrayList<>();
     Gson gson = new Gson();
 
@@ -57,8 +61,7 @@ public record Catalog(List<DatasetEntry> datasets) {
         String content;
         if (fileUrl.getProtocol().startsWith("http")) {
           // Use OkHttp client for remote files
-          Request.Builder requestBuilder = new Request.Builder()
-              .url(fileUrl)
+          Request.Builder requestBuilder = new Request.Builder().url(fileUrl)
               .header("Accept", "application/yaml, application/json");
 
           // Add authorization if token is present in environment
@@ -78,7 +81,8 @@ public record Catalog(List<DatasetEntry> datasets) {
         } else {
           // Use direct file access for local files
           try (InputStream stream = fileUrl.openStream();
-               InputStreamReader reader = new InputStreamReader(stream)) {
+               InputStreamReader reader = new InputStreamReader(stream))
+          {
             StringBuilder builder = new StringBuilder();
             char[] buffer = new char[8192];
             int read;
@@ -115,6 +119,53 @@ public record Catalog(List<DatasetEntry> datasets) {
 
     return new Catalog(entries);
   }
+
+    /// Find a dataset by a specific name, case insensitive
+    /// @param name the name of the dataset to find
+    /// @return the dataset, if found
+    public Optional<DatasetEntry> findExact(String name) {
+      List<DatasetEntry> found =
+          datasets.stream().filter(e -> e.name().equalsIgnoreCase(name)).toList();
+      if (found.size() == 1) {
+        return Optional.of(found.getFirst());
+      } else if (found.size() > 1) {
+        throw new RuntimeException("Found multiple datasets matching " + name + ": " + found);
+      } else {
+        return Optional.empty();
+      }
+    }
+
+  //  /// Find a dataset by a partial name, case insensitive
+  //  /// @param name the name of the dataset to find
+  //  /// @return the dataset, if found
+  //  public Optional<DatasetEntry> findSubstring(String name) {
+  //    return datasets.stream().filter(e -> e.name().toLowerCase().contains(name.toLowerCase())).findFirst();
+  //  }
+
+  public List<DatasetEntry> matchGlob(String glob) {
+    PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:" + glob);
+    return datasets.stream().filter(e -> pathMatcher.matches(Path.of(e.name()))).toList();
+  }
+
+  public List<DatasetEntry> matchRegex(String regex) {
+    Pattern p = Pattern.compile(regex);
+    return datasets.stream().filter(e -> p.matcher(e.name()).matches()).toList();
+  }
+
+  public Optional<DatasetEntry> matchOne(String regex) {
+    Pattern p = Pattern.compile(regex);
+    List<DatasetEntry> found =
+        datasets.stream().filter(e -> p.matcher(e.name()).matches()).toList();
+    if (found.size() == 1) {
+      return Optional.of(found.getFirst());
+    } else if (found.size() > 1) {
+      throw new RuntimeException(
+          "Found multiple datasets matching " + regex + ": " + found + ":" + datasets);
+    } else {
+      return Optional.empty();
+    }
+  }
+
 
   private static URL fileFor(URL location) {
     if (location.toString().endsWith("/catalog.json")) {

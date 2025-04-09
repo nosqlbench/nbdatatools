@@ -27,11 +27,11 @@ import java.util.regex.Pattern;
 public class IntervalParser implements CommandLine.ITypeConverter<Interval> {
   final static Pattern format = Pattern.compile("^((?<minIncl>\\d+)\\.\\.)?(?<maxExcl>\\d+)$");
 
-  /// create an interval parser
+  /// create an intervals parser
   public IntervalParser() {
   }
 
-  /// convert a string to an interval, using the format {@code minIncl..maxExcl}, or {@code maxExcl}
+  /// convert a string to an intervals, using the format {@code minIncl..maxExcl}, or {@code maxExcl}
   /// For example, `5` means `0..5`, to include 0, 1, 2, 3, and 4.
   @Override
   public Interval convert(String value) {
@@ -42,7 +42,7 @@ public class IntervalParser implements CommandLine.ITypeConverter<Interval> {
       String maxExcl = matcher.group("maxExcl");
       return new Interval(Long.parseLong(minIncl), Long.parseLong(maxExcl));
     } else {
-      throw new IllegalArgumentException("Invalid interval: " + value);
+      throw new IllegalArgumentException("Invalid intervals: " + value);
     }
   }
 }

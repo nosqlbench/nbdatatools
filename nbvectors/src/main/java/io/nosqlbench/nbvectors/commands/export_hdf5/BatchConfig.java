@@ -35,7 +35,7 @@ import java.util.Map;
 ///     the files to export
 /// @param epochTimestamp
 ///     the epoch timestamp of the config file
-public record BatchConfig(Map<String, VectorFilesConfig> files, Instant epochTimestamp) {
+public record BatchConfig(Map<String, DataGroupConfig> files, Instant epochTimestamp) {
 
   /// create a batch config from a file
   /// @param layoutPath
@@ -49,10 +49,10 @@ public record BatchConfig(Map<String, VectorFilesConfig> files, Instant epochTim
     try {
       reader = Files.newBufferedReader(layoutPath, StandardCharsets.UTF_8);
       Map<String, Object> config = (Map<String, Object>) yaml.loadFromReader(reader);
-      Map<String, VectorFilesConfig> fcfg = new LinkedHashMap<>();
+      Map<String, DataGroupConfig> fcfg = new LinkedHashMap<>();
       config.forEach((k, v) -> {
         try {
-          fcfg.put(k, VectorFilesConfig.of((Map<String, String>) v));
+          fcfg.put(k, DataGroupConfig.of((Map<String, String>) v));
         } catch (Exception e) {
           throw new RuntimeException("while configuring props '" + k + "': " + e);
         }

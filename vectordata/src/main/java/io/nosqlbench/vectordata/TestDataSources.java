@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -31,20 +31,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /// configuration for the datasets command
-/// @param locations the locations to search for datasets
-public record VectorSources(List<URL> locations) {
+/// @param locations
+///     the locations to search for datasets
+public record TestDataSources(List<URL> locations) {
 
-  /// load the config from a config directory and a list of catalogs
-  /// @param configdir the config directory
-  /// @param catalogs the catalogs to search for datasets
-  /// @return a data config
-  public static VectorSources load(Path configdir, List<String> catalogs) {
+  public TestDataSources() {
+    this(loadConfig(Path.of("~/.config/nbvectors")));
+  }
+
+  private TestDataSources(List<URL> locations, List<URL> locations2) {
+    this(new ArrayList<>() {{
+      addAll(locations);
+      addAll(locations2);
+    }});
+  }
+
+  private static List<URL> loadConfig(Path configdir) {
+    configdir = Path.of(configdir.toString().replace("~", System.getProperty("user" + ".home")));
     List<URL> clocations = new ArrayList<>();
-
-    catalogs.forEach(catalog -> {
-      clocations.add(createUrl(catalog));
-    });
-
     Path catalogCatalog = configdir.resolve("catalogs.yaml");
     if (Files.exists(catalogCatalog)) {
       LoadSettings loadSettings = LoadSettings.builder().build();
@@ -59,13 +63,52 @@ public record VectorSources(List<URL> locations) {
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
+      return clocations;
+    } else {
+      throw new RuntimeException(
+          "no catalogs specified, and no catalogs.yaml found in " + configdir);
     }
-
-    if (clocations.isEmpty()) {
-      throw new RuntimeException("no catalogs specified, and no ");
-    }
-    return new VectorSources(clocations);
   }
+
+  public TestDataSources configure(Path configdir) {
+    return new TestDataSources(loadConfig(configdir), this.locations);
+  }
+
+
+  /// load a list of catalog locations
+  /// @param basepaths
+  ///     the base paths of catalogs to add
+  /// @return a data sources config
+  public TestDataSources addCatalogs(String... basepaths) {
+    List<URL> clocations = new ArrayList<>(this.locations);
+    for (String basepath : basepaths) {
+      clocations.add(createUrl(basepath));
+    }
+    return new TestDataSources(clocations);
+  }
+
+  public TestDataSources addCatalogs(List<String> basepaths) {
+    return addCatalogs(basepaths.toArray(new String[0]));
+  }
+
+
+  public Catalog find() {
+    if (this.locations.isEmpty()) {
+      throw new RuntimeException("no catalogs specified");
+    }
+    return Catalog.of(this);
+  }
+
+  public static TestDataSources ofUrl(String url) {
+    try {
+      return new TestDataSources(List.of(new URL(url)));
+    } catch (MalformedURLException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static TestDataSources DEFAULT =
+      TestDataSources.ofUrl("https://jvector-datasets-public.s3.us-east-1.amazonaws.com/");
 
   private static URL createUrl(String catalog) {
     if (catalog.startsWith("http")) {
@@ -83,15 +126,4 @@ public record VectorSources(List<URL> locations) {
     }
   }
 
-  public Catalog catalog() {
-    return Catalog.of(this);
-  }
-
-  public static VectorSources ofUrl(String url) {
-    try {
-      return new VectorSources(List.of(new URL(url)));
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
-    }
-  }
 }

@@ -19,13 +19,16 @@ package io.nosqlbench.vectordata.internalapi.datasets;
 
 
 import io.nosqlbench.vectordata.api.Indexed;
-import io.nosqlbench.vectordata.VectorData;
+import io.nosqlbench.vectordata.TestDataGroup;
 
-/// Each dataset which is accessible through the {@link VectorData}
+import java.util.List;
+import java.util.function.Function;
+
+/// Each dataset which is accessible through the {@link TestDataGroup}
 /// API **must** implement this interface.
-/// @see VectorData
+/// @see TestDataGroup
 /// @param <T> the type of the vector elements
-public interface DatasetView<T> {
+public interface DatasetView<T> extends Iterable<T>{
 
   /// get the number of vectors in the dataset
   /// @return the number of vectors in the dataset
@@ -35,7 +38,7 @@ public interface DatasetView<T> {
   public int getVectorDimensions();
   /// get the base type of the vector elements
   /// @return the base type of the vector elements
-  public Class<?> getBaseType();
+  public Class<?> getDataType();
   /// get a vector by its ordinal
   /// @param index the ordinal of the vector to get
   /// @return the vector
@@ -54,4 +57,8 @@ public interface DatasetView<T> {
   /// @param endExclusive the last ordinal to get
   /// @return the vectors
   Indexed<T>[] getIndexedRange(long startInclusive, long endExclusive);
+
+  List<T> toList();
+
+  <U> List<U> toList(Function<T, U> f);
 }

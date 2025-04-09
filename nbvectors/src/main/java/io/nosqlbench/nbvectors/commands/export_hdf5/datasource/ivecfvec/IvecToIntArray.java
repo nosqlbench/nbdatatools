@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec;
  */
 
 
+import io.nosqlbench.nbvectors.common.adapters.Enumerated;
 import io.nosqlbench.nbvectors.common.adapters.Sized;
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
@@ -72,10 +73,10 @@ public class IvecToIntArray implements Iterable<int[]>, Sized {
   }
 
   /// An iterator for indexed float vectors
-  public static class IndicesIterable implements Iterator<int[]> {
+  public static class IndicesIterable implements Iterator<int[]>, Enumerated<int[]> {
 
     private final DataInputStream in;
-    private long index = 0;
+    private long lastIndex = -1;
 
     /// create a float iterable
     /// @param path the path to the file to read from
@@ -102,6 +103,7 @@ public class IvecToIntArray implements Iterable<int[]>, Sized {
         int dim = Integer.reverseBytes(in.readInt());
         byte[] vbuf = new byte[dim*Integer.BYTES];
         int read = in.read(vbuf);
+        lastIndex++;
         IntBuffer fbuf= ByteBuffer.wrap(vbuf).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer();
         int[] ary = new int[dim];
         fbuf.get(ary);
@@ -109,6 +111,11 @@ public class IvecToIntArray implements Iterable<int[]>, Sized {
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
+    }
+
+    @Override
+    public long getLastIndex() {
+      return lastIndex;
     }
   }
 }

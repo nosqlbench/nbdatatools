@@ -18,14 +18,15 @@ package io.nosqlbench.vectordata.internalapi.datasets;
  */
 
 import io.jhdf.api.Dataset;
+import io.nosqlbench.vectordata.layout.FWindow;
 
 /// a view of double vectors data
 public class DoubleVectorsImpl extends CoreDatasetViewMethods<double[]> implements DoubleVectors {
 
   /// create a new double vectors view
   /// @param dataset the dataset to view
-  public DoubleVectorsImpl(Dataset dataset) {
-    super(dataset);
+  public DoubleVectorsImpl(Dataset dataset, FWindow window) {
+    super(dataset, window);
   }
 
 }

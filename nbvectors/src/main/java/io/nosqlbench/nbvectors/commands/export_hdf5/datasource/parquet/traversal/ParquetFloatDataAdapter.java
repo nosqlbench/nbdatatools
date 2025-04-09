@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 /// Handle parquet data appropriately, depending on how it is specified
-public class ParquetDataAdapter implements Iterable<float[]>, Sized {
+public class ParquetFloatDataAdapter implements Iterable<float[]>, Sized {
 
   private final List<Path> paths;
   private final Iterable<ParquetVectorsReader> parquetVectorsReaders;
@@ -39,7 +39,7 @@ public class ParquetDataAdapter implements Iterable<float[]>, Sized {
 
   /// create a new parquet data adapter
   /// @param paths the paths to the parquet data
-  public ParquetDataAdapter(List<Path> paths) {
+  public ParquetFloatDataAdapter(List<Path> paths) {
     this.paths = paths;
     this.parquetVectorsReaders = composeAggregatorsIterable();
     iterable = new FlatteningIterable<ParquetVectorsReader, float[]>(parquetVectorsReaders, f -> f);

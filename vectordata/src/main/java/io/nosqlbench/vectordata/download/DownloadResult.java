@@ -18,7 +18,11 @@ package io.nosqlbench.vectordata.download;
  */
 
 
+import io.nosqlbench.vectordata.TestDataGroup;
+
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 public record DownloadResult(
     Path path,
@@ -40,5 +44,18 @@ public record DownloadResult(
 
     public boolean isSuccess() {
         return status == DownloadStatus.DOWNLOADED || status == DownloadStatus.SKIPPED;
+    }
+
+    public Optional<TestDataGroup> getDataGroup() {
+        if (isSuccess()) {
+            return Optional.of(new TestDataGroup(path));
+        } else {
+            return Optional.empty();
+        }
+
+    }
+    public TestDataGroup getRequiredDataGroup() {
+        return getDataGroup().orElseThrow(() -> new RuntimeException("download of '" + path +
+                                                                     "' failed: " + error.getMessage()));
     }
 }

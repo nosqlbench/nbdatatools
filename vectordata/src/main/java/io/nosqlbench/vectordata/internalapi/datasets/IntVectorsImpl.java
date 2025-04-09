@@ -19,14 +19,34 @@ package io.nosqlbench.vectordata.internalapi.datasets;
 
 
 import io.jhdf.api.Dataset;
+import io.nosqlbench.vectordata.layout.FWindow;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /// A view of integer vectors data
 public class IntVectorsImpl extends CoreDatasetViewMethods<int[]> implements IntVectors {
 
   /// create a new integer vectors view
   /// @param dataset the dataset to view
-  public IntVectorsImpl(Dataset dataset) {
-    super(dataset);
+  public IntVectorsImpl(Dataset dataset, FWindow window) {
+    super(dataset, window);
+  }
+
+  @Override
+  public List<Set<Integer>> asSets() {
+    List<Set<Integer>> sets = new ArrayList<>(this.getCount());
+    for (int[] ints : this) {
+      HashSet<Integer> set = new HashSet<>(ints.length);
+      sets.add(set);
+      for (int i : ints) {
+        set.add(i);
+      }
+      sets.add(set);
+    }
+    return sets;
   }
 
 }

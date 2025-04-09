@@ -213,7 +213,7 @@ public class JsonLoader implements SpecDataSource {
   ///```
   /// If _distances_ is provided, then the values are presumed to be cosine similarity values, as
   ///  in _not_ converted to scalar distance values.
-  /// If _scores_ is provided, then the values are presumed to be in unit-interval scores, and
+  /// If _scores_ is provided, then the values are presumed to be in unit-intervals scores, and
   /// are converted to equivalent cosine similarity values.
   /// Other conversions may be added as needed, and should each be distinguished by a specific
   /// property name.
@@ -222,7 +222,7 @@ public class JsonLoader implements SpecDataSource {
     if (vnode != null) {
       float[] floats = new float[vnode.size()];
       for (int i = 0; i < floats.length; i++) {
-        // scores are presumed to be on the unit interval and need to be converted back to
+        // scores are presumed to be on the unit intervals and need to be converted back to
         // cosine similarity
         floats[i] = (vnode.get(i).floatValue() * 2) - 1;
       }

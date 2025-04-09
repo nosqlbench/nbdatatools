@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.download;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -16,6 +16,9 @@ package io.nosqlbench.vectordata.download;
  * specific language governing permissions and limitations
  * under the License.
  */
+
+// TODO: default download location should use one of the established from nb, jvector, hugging
+//  face, but should warn if there are multiple
 
 
 import okhttp3.*;
@@ -53,7 +56,7 @@ public record DatasetEntry(
 
             boolean supportsRanges = "bytes".equals(response.header("Accept-Ranges"));
             long contentLength = response.body() != null ? response.body().contentLength() : -1;
-            
+
             return new FileMetadata(contentLength, supportsRanges);
         } catch (IOException e) {
             return new FileMetadata(-1, false);
@@ -100,7 +103,7 @@ public record DatasetEntry(
         // Check if file exists and get metadata first
         OkHttpClient metadataClient = new OkHttpClient();
         FileMetadata metadata = getFileMetadata(metadataClient);
-        
+
         try {
             if (Files.exists(targetFile) && !force) {
                 long existingFileSize = Files.size(targetFile);
@@ -137,8 +140,15 @@ public record DatasetEntry(
                 Request.Builder requestBuilder = new Request.Builder()
                     .url(url);
 
+                // Correctly handle range requests to avoid exceeding the file size
                 if (existingFileSize > 0 && metadata.supportsRanges()) {
-                    requestBuilder.addHeader("Range", "bytes=" + existingFileSize + "-");
+                    if (existingFileSize < metadata.totalSize()) {
+                        requestBuilder.addHeader("Range", "bytes=" + existingFileSize + "-" + (metadata.totalSize() -1));
+                    } else {
+                        // Local file is larger than or equal to remote file, skip download
+                        future.complete(DownloadResult.skipped(targetFile, existingFileSize));
+                        return;
+                    }
                 }
 
                 try (Response response = client.newCall(requestBuilder.build()).execute()) {
@@ -152,9 +162,9 @@ public record DatasetEntry(
                         } catch (IOException ignored) {
                             // If we can't read the error body, continue with empty error message
                         }
-                        throw new IOException("HTTP " + response.code() + 
-                            " error downloading " + url + 
-                            (errorBody.isEmpty() ? "" : ": " + errorBody));
+                        throw new IOException("HTTP " + response.code() +
+                                              " error downloading " + url +
+                                              (errorBody.isEmpty() ? "" : ": " + errorBody));
                     }
 
                     ResponseBody body = response.body();
@@ -178,13 +188,13 @@ public record DatasetEntry(
                             while (!source.exhausted()) {
                                 int bytesRead = source.read(buffer);
                                 if (bytesRead == -1) break;
-                                
+
                                 file.write(buffer, 0, bytesRead);
                                 currentBytes.addAndGet(bytesRead);
                             }
                         }
                     }
-                    
+
                     future.complete(DownloadResult.downloaded(targetFile, currentBytes.get()));
                 }
 

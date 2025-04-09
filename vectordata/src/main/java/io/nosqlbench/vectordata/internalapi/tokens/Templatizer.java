@@ -58,16 +58,14 @@ public class Templatizer {
   /// Resolve a template String which contains place holders for token values.
   /// @param template
   ///     the template string to resolve
-  /// @param filenameTemplate
-  ///     the template string to resolve
   /// @return the resolved string
-  public Optional<String> templatize(String template, String filenameTemplate) {
+  public Optional<String> templatize(String template) {
 
-    Matcher matcher = scanner.matcher(filenameTemplate);
+    Matcher matcher = scanner.matcher(template);
     String newName = matcher.replaceAll(new MatchResolver(template, lookup));
     if (newName.contains("[") || newName.contains("]")) {
       throw new RuntimeException(
-          "unresolved tokens in outfile template '" + filenameTemplate + "'");
+          "unresolved tokens in outfile template '" + template + "'");
     }
     return Optional.of(newName);
   }

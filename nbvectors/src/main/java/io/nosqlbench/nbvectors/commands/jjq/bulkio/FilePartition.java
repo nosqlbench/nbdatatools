@@ -36,7 +36,7 @@ import java.util.Arrays;
 /// then the number of partitions is automatically increased.
 ///
 /// When there is less than the required amount of data in the provided partition
-/// ([#partition(int, int)]) then no partitioning is done. This limit defaults to
+/// ([#partition(int, int)]) then no partitioning is done. This limit profile_defaults to
 /// 20MB for [#partition(int)]
 /// @param path the path containing the current partition
 /// @param start the starting point of the partition as an offset within the file

@@ -80,11 +80,11 @@ public class CMD_hugging_dl implements Callable<Integer> {
    * @param args Command line arguments
    */
   public static void main(String[] args) {
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    System.setProperty(
-        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-        CustomConfigurationFactory.class.getCanonicalName()
-    );
+//    System.setProperty("slf4j.internal.verbosity", "ERROR");
+//    System.setProperty(
+//        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+//        CustomConfigurationFactory.class.getCanonicalName()
+//    );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     CMD_hugging_dl command = new CMD_hugging_dl();

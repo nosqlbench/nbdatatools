@@ -20,7 +20,7 @@ package io.nosqlbench.nbvectors.commands.datasets;
 import com.google.gson.Gson;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import io.nosqlbench.vectordata.download.Catalog;
-import io.nosqlbench.vectordata.VectorSources;
+import io.nosqlbench.vectordata.TestDataSources;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
@@ -43,8 +43,8 @@ public class CMD_datasets implements Callable<Integer> {
 
   @CommandLine.Parameters(description = "Files and/or directories to catalog; All files in the "
                                         + "specified directories and paths are added to the "
-                                        + "catalog files", defaultValue = ".")
-  private List<String> query;
+                                        + "catalog files")
+  private List<String> query = new ArrayList<>();
 
   @CommandLine.Option(names = {"--catalog"},
       description = "A directory, remote url, or other catalog container",
@@ -64,11 +64,11 @@ public class CMD_datasets implements Callable<Integer> {
   ///     command line args
   public static void main(String[] args) {
 
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    System.setProperty(
-        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-        CustomConfigurationFactory.class.getCanonicalName()
-    );
+//    System.setProperty("slf4j.internal.verbosity", "ERROR");
+//    System.setProperty(
+//        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+//        CustomConfigurationFactory.class.getCanonicalName()
+//    );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     CMD_datasets command = new CMD_datasets();
@@ -87,7 +87,8 @@ public class CMD_datasets implements Callable<Integer> {
         Path.of(this.configdir.toString().replace("~", System.getProperty("user" + ".home"))
             .replace("${HOME}", System.getProperty("user.home")));
     Gson gson = new Gson();
-    VectorSources config = VectorSources.load(this.configdir, this.catalogs);
+    TestDataSources config =
+        new TestDataSources().configure(this.configdir).addCatalogs(this.catalogs);
     LinkedList<String> commandStream = new LinkedList<>(this.query);
 
     while (!commandStream.isEmpty()) {

@@ -21,9 +21,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.BasicTestDataSource;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.ObjectLoader;
 import io.nosqlbench.nbvectors.commands.build_hdf5.writers.KnnDataWriter;
-import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
-import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 import java.nio.file.Path;
@@ -132,6 +130,11 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       description = "The metadata file to read")
   private Path metadataFile;
 
+  @CommandLine.Option(names = {"--layout"},
+      required = false,
+      description = "The layout file to read")
+  private Path layout;
+
   @CommandLine.Option(names = {"--force"},
       description = "Force overwrite of existing HDF5 files,"
                     + " even if no changes to mapping since last export")
@@ -141,11 +144,11 @@ public class CMD_export_hdf5 implements Callable<Integer> {
   /// @param args
   ///     command line args
   public static void main(String[] args) {
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    System.setProperty(
-        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-        CustomConfigurationFactory.class.getCanonicalName()
-    );
+//    System.setProperty("slf4j.internal.verbosity", "ERROR");
+//    System.setProperty(
+//        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+//        CustomConfigurationFactory.class.getCanonicalName()
+//    );
 
     CMD_export_hdf5 command = new CMD_export_hdf5();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
@@ -169,7 +172,7 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       RootGroupAttributes rga = ObjectLoader.load(metadataFile, RootGroupAttributes::fromMap).orElseThrow(
           () -> new RuntimeException("root group attributes failed to load from " + metadataFile));
 
-      VectorFilesConfig cfg = new VectorFilesConfig(
+      DataGroupConfig cfg = new DataGroupConfig(
           Optional.ofNullable(this.base_vectors),
           Optional.ofNullable(this.query_vectors),
           Optional.ofNullable(this.neighbors),
@@ -177,6 +180,7 @@ public class CMD_export_hdf5 implements Callable<Integer> {
           Optional.ofNullable(this.base_content),
           Optional.ofNullable(this.query_terms),
           Optional.ofNullable(this.query_filters),
+          Optional.ofNullable(this.layout),
           rga
       );
       configs.add(new BatchConfig(Map.of("from CLI options:", cfg), Instant.now()));
@@ -189,7 +193,7 @@ public class CMD_export_hdf5 implements Callable<Integer> {
     for (BatchConfig config : configs) {
       for (String entry : config.files().keySet()) {
         System.err.println("exporting " + entry);
-        VectorFilesConfig vectorFilesConfig = config.files().get(entry);
+        DataGroupConfig vectorFilesConfig = config.files().get(entry);
 
         if (!this.force && config.epochTimestamp()
             .isBefore(vectorFilesConfig.getLastModifiedTime()))
@@ -200,7 +204,14 @@ public class CMD_export_hdf5 implements Callable<Integer> {
         }
         BasicTestDataSource source = new BasicTestDataSource(vectorFilesConfig);
         KnnDataWriter writer = new KnnDataWriter(this.outfile, source);
-        writer.writeHdf5();
+
+        if (vectorFilesConfig.layout().isPresent()) {
+          throw new RuntimeException("use export_hdf5new instead of export_hdf5 for layouts for "
+                                     + "now");
+        } else {
+          writer.writeHdf5();
+        }
+
       }
     }
     return 0;

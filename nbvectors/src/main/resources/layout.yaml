@@ -21,7 +21,7 @@ neighborhood_expr: |-
   {ids:.results|[.[].id]|map(nbremap("id";"id_map.json"))}
 
 # { "distances": [...] } # presumed to be in cosine similarity "distance", from -1.0 to 1.0
-# { "scores": [...] } # presumed to be in unit interval, and converted back to cosine similarity
+# { "scores": [...] } # presumed to be in unit intervals, and converted back to cosine similarity
 distances_file: "source_of_distances.jsonl"
 distances_expr: |-
   {scores:.results|map(.score)}

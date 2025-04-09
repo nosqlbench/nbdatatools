@@ -23,10 +23,13 @@ package io.nosqlbench.nbvectors.commands.verify_knn.options;
 /// @param max the max value, exclusive
 public record Interval(long min, long max)  {
 
-  /// get the number of values in the interval
-  /// @return the number of values in the interval
+  /// get the number of values in the intervals
+  /// @return the number of values in the intervals
   public int count() {
     return (int) (max() - min());
   }
 
+  public String toString() {
+    return min() + ".." + max();
+  }
 }

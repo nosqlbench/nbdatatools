@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets;
+package io.nosqlbench.nbvectors.commands.export_json;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,21 +18,7 @@ package io.nosqlbench.vectordata.internalapi.datasets;
  */
 
 
-import io.jhdf.api.Dataset;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
-
-/// A view of neighbor indices data
-public class NeighborIndicesImpl extends IntVectorsImpl implements NeighborIndices {
-
-  /// create a new neighbor indices view
-  /// @param dataset the dataset to view
-  public NeighborIndicesImpl(Dataset dataset) {
-    super(dataset);
-  }
-
-  /// {@inheritDoc}
-  @Override
-  public int getMaxK() {
-    return dataset.getDimensions()[1];
-  }
+public enum Mode {
+//  cooked,
+  raw
 }

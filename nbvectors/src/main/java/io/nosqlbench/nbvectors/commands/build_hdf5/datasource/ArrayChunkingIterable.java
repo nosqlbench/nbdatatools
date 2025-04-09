@@ -43,22 +43,25 @@ public class ArrayChunkingIterable<T> implements Iterable {
   /// {@inheritDoc}
   @Override
   public Iterator iterator() {
-    return new Iter(clazz, aryIterable.iterator(), maxsize);
+    return new Iter(clazz, aryIterable.iterator(), maxsize, Long.MAX_VALUE);
   }
 
   /// An iterator for arrays of objects which are chunked into arrays of the specified size
   /// @param <T> the type of the array elements
-  public static class Iter<T> implements Iterator {
+  public static class Iter<T> implements Iterator<T> {
 
     private final Class<T> clazz;
     private final Iterator<T> iter;
     private final int maxsize;
+    private final long limit = Long.MAX_VALUE;
+    private long total = 0L;
 
     /// create an iterator for arrays of objects which are chunked into arrays of the specified size
     /// @param clazz the class of the array elements
     /// @param iter the iterator of the array elements
     /// @param maxsize the maximum size of the array elements in bytes ; the chunk size limit
-    public Iter(Class<T> clazz, Iterator<T> iter, int maxsize) {
+    /// @param limit the maximum number of elements to return
+    public Iter(Class<T> clazz, Iterator<T> iter, int maxsize, long limit) {
       this.clazz = clazz;
       this.iter = iter;
       this.maxsize = maxsize;
@@ -66,11 +69,11 @@ public class ArrayChunkingIterable<T> implements Iterable {
 
     @Override
     public boolean hasNext() {
-      return iter.hasNext();
+      return iter.hasNext() && total < limit;
     }
 
     @Override
-    public Object next() {
+    public T next() {
       T elem = iter.next();
       int size = sizeOf(elem);
 
@@ -79,14 +82,15 @@ public class ArrayChunkingIterable<T> implements Iterable {
       ary[0]=elem;
       int i;
       for (i = 1; i < ary.length; i++) {
-        if (iter.hasNext()) {
+        if (iter.hasNext() && total < limit) {
           ary[i]=iter.next();
+          total++;
         } else {
           break;
         }
       }
       T[] ts = Arrays.copyOfRange(ary, 0, i);
-      return ts;
+      return (T) ts;
     }
 
     private int sizeOf(Object row0) {

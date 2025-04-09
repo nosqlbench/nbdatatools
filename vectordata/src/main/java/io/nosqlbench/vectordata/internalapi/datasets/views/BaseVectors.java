@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets;
+package io.nosqlbench.vectordata.internalapi.datasets.views;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,15 +17,11 @@ package io.nosqlbench.vectordata.internalapi.datasets;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.internalapi.datasets.FloatVectors;
 
-import io.jhdf.api.Dataset;
-
-/// Base content to be embedded in the test data
-public class BaseContentImpl extends CoreDatasetViewMethods<Object> {
-
-  /// create a base content reader
-  /// @param dataset the dataset to read
-  public BaseContentImpl(Dataset dataset) {
-    super(dataset);
-  }
+/// A view of data consisting of neighbor indices
+public interface BaseVectors extends FloatVectors {
+  /// get the maximum number of neighbors provided for each query vector
+  /// @return the maximum number of neighbors provided for each query vector
+  int getCount();
 }

@@ -18,11 +18,13 @@ package io.nosqlbench.vectordata.internalapi.tokens;
  */
 
 
+import io.nosqlbench.vectordata.TestDataView;
 import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
-import io.nosqlbench.vectordata.VectorData;
 import io.nosqlbench.vectordata.internalapi.datasets.DatasetView;
+
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +37,7 @@ import java.util.function.Function;
 /// The first leve of tokens are the canonical tokens. The second level are shortcuts and
 /// synonyms. For users, they are treated the same when it comes to token expansion.
 /// Library and tool maintainers may choose to treat them differently if needed.
-public enum SpecToken implements Function<VectorData, Optional<String>> {
+public enum SpecToken implements Function<TestDataView, Optional<String>> {
 
   /// The number of base vectors in the dataset
   base_vectors(
@@ -51,9 +53,10 @@ public enum SpecToken implements Function<VectorData, Optional<String>> {
   ),
   /// The number of neighborhoods provided ; should be the same as query_vectors
   neighbor_indices(
-      d -> d.getNeighborIndices().map(DatasetView::getCount).map(String::valueOf), """
-      The number of neighborhoods provided ; should be the same as query_vectors
+      d -> d.getNeighborIndices().map(DatasetView::getCount).map(String::valueOf),
       """
+          The number of neighborhoods provided ; should be the same as query_vectors
+          """
   ),
   /// The model used to build this dataset
   model(
@@ -79,6 +82,30 @@ public enum SpecToken implements Function<VectorData, Optional<String>> {
       The vendor of the dataset
       """
   );
+
+  private static final <T> Optional<String> reduceRange(
+      Collection<T> intype,
+      Function<T, ? extends Number> f
+  )
+  {
+    if (intype.isEmpty()) {
+      return Optional.empty();
+    }
+    long min = intype.stream().map(f).mapToLong(Number::longValue).min().orElse(0L);
+    long max = intype.stream().map(f).mapToLong(Number::longValue).max().orElse(0L);
+    return Optional.of(range(min, max));
+  }
+
+  private static final String range(Number min, Number max) {
+    if (min.equals(max)) {
+      return String.valueOf(min);
+    }
+    if (min.doubleValue() > max.doubleValue()) {
+      throw new RuntimeException(
+          "consistency error, min (" + min + ") is more than max(" + max + ")");
+    }
+    return (String.valueOf(min) + "to" + String.valueOf(max));
+  }
 
   /// Find the matching SpecToken for a given name
   /// @param tokenName
@@ -108,7 +135,7 @@ public enum SpecToken implements Function<VectorData, Optional<String>> {
   ///     the dataset to get the token value from
   /// @return the token value
   @Override
-  public Optional<String> apply(VectorData vectorData) {
+  public Optional<String> apply(TestDataView vectorData) {
     if (this.accessor != null) {
       Optional<String> result = this.accessor.apply(vectorData);
       return result;
@@ -137,12 +164,12 @@ public enum SpecToken implements Function<VectorData, Optional<String>> {
     }
   }
 
-  private final Function<VectorData, Optional<String>> accessor;
+  private final Function<TestDataView, Optional<String>> accessor;
 
   /// The description of the token
   public String description;
 
-  SpecToken(Function<VectorData, Optional<String>> accessor, String description) {
+  SpecToken(Function<TestDataView, Optional<String>> accessor, String description) {
     this.accessor = accessor;
     this.description = description;
   }

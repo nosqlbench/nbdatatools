@@ -18,7 +18,8 @@ package io.nosqlbench.vectordata.download;
  */
 
 
-import io.nosqlbench.vectordata.VectorSources;
+import io.nosqlbench.vectordata.TestDataSources;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -29,11 +30,12 @@ import java.util.concurrent.TimeUnit;
 
 public class CatalogTest {
 
+  @Disabled
   @Test
   public void testDatasetDownload() {
-    VectorSources sources =
-        VectorSources.ofUrl("https://jvector-datasets-public.s3.us-east-1.amazonaws.com/");
-    Catalog catalog = sources.catalog();
+    TestDataSources sources =
+        TestDataSources.ofUrl("https://jvector-datasets-public.s3.us-east-1.amazonaws.com/");
+    Catalog catalog = sources.find();
     List<DatasetEntry> datasets = catalog.datasets();
     DatasetEntry datasetEntry = datasets.get(0);
     try {

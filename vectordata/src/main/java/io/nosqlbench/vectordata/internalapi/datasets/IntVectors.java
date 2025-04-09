@@ -18,8 +18,12 @@ package io.nosqlbench.vectordata.internalapi.datasets;
  */
 
 
+import java.util.List;
+import java.util.Set;
+
 /// a dataset consisting of arrays of float values
 public interface IntVectors extends DatasetView<int[]> {
 
+  List<Set<Integer>> asSets();
 }
 

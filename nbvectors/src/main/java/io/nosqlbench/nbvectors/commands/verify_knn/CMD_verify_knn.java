@@ -20,7 +20,6 @@ package io.nosqlbench.nbvectors.commands.verify_knn;
 
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.NeighborIndex;
-import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.ConsoleDiagnostics;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.ErrorMode;
 import io.nosqlbench.nbvectors.commands.verify_knn.options.Interval;
@@ -31,19 +30,22 @@ import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewLanterna
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewNoOp;
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewRouter;
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewStdout;
-import io.nosqlbench.vectordata.VectorData;
+import io.nosqlbench.vectordata.ProfileDataView;
+import io.nosqlbench.vectordata.TestDataGroup;
+import io.nosqlbench.vectordata.TestDataView;
 import io.nosqlbench.vectordata.internalapi.datasets.FloatVectors;
 import io.nosqlbench.vectordata.api.Indexed;
 import io.nosqlbench.vectordata.internalapi.datasets.IntVectors;
 import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
+import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborDistances;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -90,7 +92,7 @@ public class CMD_verify_knn implements Callable<Integer> {
   private static final Logger logger = LogManager.getLogger(CMD_verify_knn.class);
   //  private final static Logger logger = NBLoggerContext.context().getLogger(NBVectors.class);
 
-  @Option(names = {"-i", "--interval"},
+  @Option(names = {"-i", "--intervals"},
       converter = IntervalParser.class,
       defaultValue = "1",
       description = "The index or closed..open range of indices to test")
@@ -135,7 +137,12 @@ public class CMD_verify_knn implements Callable<Integer> {
       errors, the distance within which the values are considered effectively
       the same.
       """)
-  double phi;
+  private double phi;
+
+  @Option(names = {"--profile", "--config"},
+      description = "The config profile to use from the dataset. (default ${DEFAULT-VALUE})",
+      defaultValue = "ALL")
+  private String dataconfig = "ALL";
 
   @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = """
       Internal diagnostic level, sends content directly to the console.""", defaultValue = "ERROR")
@@ -146,11 +153,11 @@ public class CMD_verify_knn implements Callable<Integer> {
   /// @param args
   ///     command line args
   public static void main(String[] args) {
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    System.setProperty(
-        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-        CustomConfigurationFactory.class.getCanonicalName()
-    );
+    //    System.setProperty("slf4j.internal.verbosity", "ERROR");
+    //    System.setProperty(
+    //        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+    //        CustomConfigurationFactory.class.getCanonicalName()
+    //    );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     logger.info("starting main");
@@ -173,64 +180,80 @@ public class CMD_verify_knn implements Callable<Integer> {
       // This level catches any exceptions thrown by the command to be shown outside the
       // scope of any terminal UI or other screen modifications.
       for (Path hdfpath : hdfpaths) {
-        try (StatusView view = getStatusView(); VectorData data = new VectorData(hdfpath)) {
-          logger.info("loaded vector data file: {}", data.toString());
-          Optional<FloatVectors> distances = data.getNeighborDistances();
 
-          if (data.getNeighborDistances().isEmpty()) {
-            logger.error("neighbor distances are not available in the provided data, so "
-                         + "distance-based verification is not possible.");
-            return 1;
-          } else {
-            logger.info("loaded neighbor distances: {}", distances.get().toString());
+        try (StatusView view = getStatusView(); TestDataGroup datag = new TestDataGroup(hdfpath)) {
+          TestDataView data = datag.getProfile("default");
+
+
+          List<String> configs = new ArrayList<>();
+          //          if (this.dataconfig.equalsIgnoreCase("ALL")) {
+          //            configs.addAll(data.getProfiles());
+          //          } else {
+          //            configs.add(this.dataconfig);
+          //          }
+          configs.add(this.dataconfig);
+          for (String config : configs) {
+
+            logger.info("loaded vector data file: {}", data.toString());
+
+            Optional<NeighborDistances> distances = data.getNeighborDistances();
+
+            if (data.getNeighborDistances().isEmpty()) {
+              logger.error("neighbor distances are not available in the provided data, so "
+                           + "distance-based verification is not possible.");
+              return 1;
+            } else {
+              logger.info("loaded neighbor distances: {}", distances.get().toString());
+            }
+            IntVectors indices = (IntVectors) data.getNeighborIndices()
+                .orElseThrow(() -> new RuntimeException("""
+                    Neighbor indices are not available int he provided data, so distance-based verification is not possible.
+                    """));
+            FloatVectors baseVectors =
+                data.getBaseVectors().orElseThrow(() -> new RuntimeException("""
+                    Base vectors are not available in the provided data, so distance-based verification is not possible.
+                    """));
+            FloatVectors queryVectors =
+                data.getQueryVectors().orElseThrow(() -> new RuntimeException("""
+                    Query vectors are not available in the provided data, so distance-based verification is not possible.
+                    """));
+
+            if (baseVectors instanceof FloatVectors floatVectors) {
+              logger.info("loaded base vectors: {}", floatVectors.toString());
+            } else {
+              throw new RuntimeException("unsupported vector type: " + baseVectors.getClass());
+            }
+
+            view.onStart(interval.count());
+            for (long index = interval.min(); index < interval.max(); index++) {
+
+              // This is the query vector from the provided test data
+              Indexed<float[]> query = queryVectors.getIndexed(index);
+
+              view.onQueryVector(query, index, interval.max());
+
+              // This is the neighborhood from the provided test data, corresponding to the query
+              // vector (we are checking this one for errors)
+              int[] providedNeighborhood = indices.get(index);
+
+              int[] expectedNeighborhood;
+              // This neighborhood is the one we calculate from the test and train vectors.
+
+              // This neighborhood is the one we calculate from the test and train vectors.
+              expectedNeighborhood = computeNeighborhood(query, baseVectors, view);
+              //
+              //        Neighborhood expectedNeighborhood = computeNeighborhood(queryVector, knndata, view);
+              // Compute the ordered intersection view of these relative to each other
+
+              NeighborhoodComparison comparison =
+                  new NeighborhoodComparison(query, providedNeighborhood, expectedNeighborhood);
+              view.onNeighborhoodComparison(comparison);
+              errors += comparison.isError() ? 1 : 0;
+              if (errors > 0 && errorMode == ErrorMode.Fail)
+                break;
+            }
+            view.end();
           }
-          IntVectors indices = data.getNeighborIndices().orElseThrow(() -> new RuntimeException("""
-              Neighbor indices are not available int he provided data, so distance-based verification is not possible.
-              """));
-          FloatVectors baseVectors =
-              data.getBaseVectors().orElseThrow(() -> new RuntimeException("""
-                  Base vectors are not available in the provided data, so distance-based verification is not possible.
-                  """));
-          FloatVectors queryVectors =
-              data.getQueryVectors().orElseThrow(() -> new RuntimeException("""
-                  Query vectors are not available in the provided data, so distance-based verification is not possible.
-                  """));
-
-          if (baseVectors instanceof FloatVectors floatVectors) {
-            logger.info("loaded base vectors: {}", floatVectors.toString());
-          } else {
-            throw new RuntimeException("unsupported vector type: " + baseVectors.getClass());
-          }
-
-          view.onStart(interval.count());
-          for (long index = interval.min(); index < interval.max(); index++) {
-
-            // This is the query vector from the provided test data
-            Indexed<float[]> query = queryVectors.getIndexed(index);
-
-            view.onQueryVector(query, index, interval.max());
-
-            // This is the neighborhood from the provided test data, corresponding to the query
-            // vector (we are checking this one for errors)
-            int[] providedNeighborhood = indices.get(index);
-
-            int[] expectedNeighborhood;
-            // This neighborhood is the one we calculate from the test and train vectors.
-
-            // This neighborhood is the one we calculate from the test and train vectors.
-            expectedNeighborhood = computeNeighborhood(query, baseVectors, view);
-            //
-            //        Neighborhood expectedNeighborhood = computeNeighborhood(queryVector, knndata, view);
-            // Compute the ordered intersection view of these relative to each other
-
-            NeighborhoodComparison comparison =
-                new NeighborhoodComparison(query, providedNeighborhood, expectedNeighborhood);
-            view.onNeighborhoodComparison(comparison);
-            errors += comparison.isError() ? 1 : 0;
-            if (errors > 0 && errorMode == ErrorMode.Fail)
-              break;
-          }
-          view.end();
         }
 
       }

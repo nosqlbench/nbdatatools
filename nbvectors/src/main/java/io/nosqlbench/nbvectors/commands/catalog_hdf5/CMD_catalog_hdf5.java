@@ -65,11 +65,11 @@ public class CMD_catalog_hdf5 implements Callable<Integer> {
   ///     command line args
   public static void main(String[] args) {
 
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    System.setProperty(
-        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-        CustomConfigurationFactory.class.getCanonicalName()
-    );
+//    System.setProperty("slf4j.internal.verbosity", "ERROR");
+//    System.setProperty(
+//        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+//        CustomConfigurationFactory.class.getCanonicalName()
+//    );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     CMD_catalog_hdf5 command = new CMD_catalog_hdf5();

@@ -26,6 +26,8 @@ import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
+import io.nosqlbench.vectordata.SHARED;
+import io.nosqlbench.vectordata.TestDataGroup;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.ConfigurationFactory;
@@ -65,18 +67,25 @@ public class CMD_export_json implements Callable<Integer> {
   @CommandLine.Option(names = {"--save"}, description = "Save the JSON summaries to files")
   private boolean save;
 
-  @CommandLine.Option(names = {"--force"}, description = "Force overwrite of existing JSON summaries")
+  @CommandLine.Option(names = {"--force"},
+      description = "Force overwrite of existing JSON summaries")
   private boolean force;
+
+  @CommandLine.Option(names = {"--mode"},
+      description = "The mode to use for the export (default:"
+                    + " ${DEFAULT-VALUE} valid values: ${COMPLETION-CANDIDATES})",
+      defaultValue = "raw")
+  private Mode mode = Mode.raw;
 
   /// run an export_json command
   /// @param args
   ///     command line args
   public static void main(String[] args) {
-    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    System.setProperty(
-        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-        CustomConfigurationFactory.class.getCanonicalName()
-    );
+    //    System.setProperty("slf4j.internal.verbosity", "ERROR");
+    //    System.setProperty(
+    //        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
+    //        CustomConfigurationFactory.class.getCanonicalName()
+    //    );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     CMD_export_json command = new CMD_export_json();
@@ -98,8 +107,12 @@ public class CMD_export_json implements Callable<Integer> {
         System.err.println("skipping " + path);
         continue;
       }
-      String summary = summarizer.apply(path);
-      System.out.println(summary);
+      String summary = null;
+      summary = switch (this.mode) {
+        case raw -> summarizer.apply(path);
+//        case cooked -> new TestDataGroup(path).toJson();
+        default -> throw new RuntimeException("unknown mode: " + mode);
+      };
       if (this.save) {
         Path jsonPath = Path.of(path.toString().replaceFirst("\\.hdf5$", ".json"));
         if (Files.exists(jsonPath) && !this.force) {
@@ -110,6 +123,7 @@ public class CMD_export_json implements Callable<Integer> {
         } catch (IOException e) {
           throw new RuntimeException(e);
         }
+
       }
     }
     return 0;

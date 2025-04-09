@@ -22,7 +22,10 @@ import com.google.gson.Gson;
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.api.WritableDataset;
+import io.jhdf.api.WritableGroup;
 import io.jhdf.api.WritableNode;
+import io.nosqlbench.nbvectors.common.adapters.DataSourceAdapter;
+import io.nosqlbench.vectordata.TestDataGroup;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.BaseVectorAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborDistancesAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborIndicesAttributes;
@@ -35,9 +38,8 @@ import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.common.FilePaths;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDataset;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDatasetImpl;
-import io.nosqlbench.vectordata.VectorData;
 import io.nosqlbench.vectordata.internalapi.tokens.SpecDataSource;
-import io.nosqlbench.vectordata.internalapi.datasets.SpecDatasets;
+import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -101,7 +103,7 @@ public class KnnDataWriter {
     ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterable, 1024 * 1024 * 512);
 
     StreamableDataset streamer =
-        new StreamableDatasetImpl(aci, SpecDatasets.base_vectors.name(), this.writable);
+        new StreamableDatasetImpl(aci, TestDataKind.base_vectors.name(), this.writable);
 
     if (iterable instanceof Sized sized) {
       streamer.modifyDimensions(new int[]{sized.getSize()});
@@ -111,7 +113,7 @@ public class KnnDataWriter {
                                  + "Labeling and dataset inventory need this data.");
     }
 
-    WritableDataset wds = this.writable.putDataset(SpecDatasets.base_vectors.name(), streamer);
+    WritableDataset wds = this.writable.putDataset(TestDataKind.base_vectors.name(), streamer);
 
     // TODO: remove dimensions from attributes because they are shape data
     this.baseVectorAttributes = new BaseVectorAttributes(
@@ -121,7 +123,7 @@ public class KnnDataWriter {
         this.loader.getMetadata().distance_function()
     );
 
-    this.writeAttributes(wds, SpecDatasets.base_vectors, baseVectorAttributes);
+    this.writeAttributes(wds, TestDataKind.base_vectors, baseVectorAttributes);
   }
 
   /// write the test vector data to a dataset
@@ -133,42 +135,64 @@ public class KnnDataWriter {
     ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterator, 1024 * 1024 * 512);
 
     StreamableDatasetImpl streamer =
-        new StreamableDatasetImpl(aci, SpecDatasets.query_vectors.name(), this.writable);
+        new StreamableDatasetImpl(aci, TestDataKind.query_vectors.name(), this.writable);
 
     if (iterator instanceof Sized sized) {
       streamer.modifyDimensions(new int[]{sized.getSize()});
     }
 
-    WritableDataset wds = this.writable.putDataset(SpecDatasets.query_vectors.name(), streamer);
+    WritableDataset wds = this.writable.putDataset(TestDataKind.query_vectors.name(), streamer);
 
     this.queryVectorsAttributes = new QueryVectorsAttributes(
         loader.getMetadata().model(),
         wds.getDimensions()[0],
         wds.getDimensions()[1]
     );
-    writeAttributes(wds, SpecDatasets.query_vectors, queryVectorsAttributes);
+    writeAttributes(wds, TestDataKind.query_vectors, queryVectorsAttributes);
   }
 
-  /// write the neighbors data to a dataset
-  /// @param iterator
+  /// write the neighbors data to a dataset, including all values available in the iterator
+  /// @param iterable
   ///     an iterator for the neighbors
-  public void writeNeighborsIntStream(Iterable<int[]> iterator) {
+  public void writeNeighborsIntStream(Iterable<int[]> iterable) {
+    this.writeNeighborsIntStream(iterable, "default", -1L, -1L);
+  }
 
+
+  /// write the neighbors data to a dataset, using the major coordinate intervals
+  /// {@code [start, end)}
+  /// @param iterable
+  ///     an iterator for the neighbors
+  /// @param configName
+  ///     the name of the config to use for the dataset. This is analogous to the config concept
+  ///         from huggingface datasets. If there is only one config, then this should be set to
+  ///        "default"
+  /// @param start
+  ///     the start of the major coordinate intervals, inclusive
+  /// @param end
+  ///     the end of the major coordinate intervals, exclusive
+  /// @see #writeNeighborsIntStream(Iterable)
+  public void writeNeighborsIntStream(
+      Iterable<int[]> iterable,
+      String configName,
+      long start,
+      long end
+  )
+  {
     Class<? extends int[]> fclass = new int[0].getClass();
-    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterator, 1024 * 1024 * 512);
+    ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterable, 1024 * 1024 * 512);
     StreamableDatasetImpl streamer =
-        new StreamableDatasetImpl(aci, SpecDatasets.neighbor_indices.name(), this.writable);
+        new StreamableDatasetImpl(aci, TestDataKind.neighbor_indices.name(), this.writable);
 
-    if (iterator instanceof Sized sized) {
+    if (iterable instanceof Sized sized) {
       streamer.modifyDimensions(new int[]{sized.getSize()});
     }
 
-    WritableDataset wds = this.writable.putDataset(SpecDatasets.neighbor_indices.name(), streamer);
-
+    WritableDataset wds = this.writable.putDataset(TestDataKind.neighbor_indices.name(), streamer);
 
     this.neighborIndicesAttributes =
         new NeighborIndicesAttributes(wds.getDimensions()[0], wds.getDimensions()[1]);
-    writeAttributes(wds, SpecDatasets.neighbor_indices, neighborIndicesAttributes);
+    writeAttributes(wds, TestDataKind.neighbor_indices, neighborIndicesAttributes);
   }
 
   /// write the distances data to a dataset
@@ -179,18 +203,18 @@ public class KnnDataWriter {
     Class<? extends float[]> fclass = new float[0].getClass();
     ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterator, 1024 * 1024 * 512);
     StreamableDatasetImpl streamer =
-        new StreamableDatasetImpl(aci, SpecDatasets.neighbor_distances.name(), this.writable);
+        new StreamableDatasetImpl(aci, TestDataKind.neighbor_distances.name(), this.writable);
 
     if (iterator instanceof Sized sized) {
       streamer.modifyDimensions(new int[]{sized.getSize()});
     }
 
     WritableDataset wds =
-        this.writable.putDataset(SpecDatasets.neighbor_distances.name(), streamer);
+        this.writable.putDataset(TestDataKind.neighbor_distances.name(), streamer);
 
     this.neighborDistancesAttributes =
         new NeighborDistancesAttributes(wds.getDimensions()[0], wds.getDimensions()[1]);
-    writeAttributes(wds, SpecDatasets.neighbor_distances, neighborDistancesAttributes);
+    writeAttributes(wds, TestDataKind.neighbor_distances, neighborDistancesAttributes);
 
   }
 
@@ -216,18 +240,18 @@ public class KnnDataWriter {
     ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, remapper, 1024 * 1024 * 512);
 
     StreamableDatasetImpl streamer =
-        new StreamableDatasetImpl(aci, SpecDatasets.query_filters.name(), this.writable);
+        new StreamableDatasetImpl(aci, TestDataKind.query_filters.name(), this.writable);
 
     if (iterable instanceof Sized sized) {
       streamer.modifyDimensions(new int[]{sized.getSize()});
     }
 
-    WritableDataset wds = this.writable.putDataset(SpecDatasets.query_filters.name(), streamer);
+    WritableDataset wds = this.writable.putDataset(TestDataKind.query_filters.name(), streamer);
   }
+
 
   /// write the data to the file
   public void writeHdf5() {
-
     try {
       this.writable = HdfFile.write(tempFile);
 
@@ -256,38 +280,51 @@ public class KnnDataWriter {
         writeDistancesStream(neighborDistances);
       });
 
-      System.err.println("writing metadata...");
-      this.rootGroupAttributes = new RootGroupAttributes(
-          loader.getMetadata().model(),
-          loader.getMetadata().url(),
-          loader.getMetadata().distance_function(),
-          loader.getMetadata().notes(),
-          loader.getMetadata().license(),
-          loader.getMetadata().vendor(),
-          loader.getMetadata().tags()
-      );
-      this.writeAttributes(this.writable, null, rootGroupAttributes);
+      writeRootGroupAttributes();
       this.writable.close();
+      relinkFile();
 
-      VectorData vectorData = new VectorData(tempFile);
-      Path filePath = vectorData.tokenize(this.outTemplate.toString()).map(Path::of)
-          .orElseThrow(() -> new RuntimeException("error tokenizing file"));
-      Path newPath = FilePaths.relinkPath(tempFile, filePath);
-      logger.debug("moved {} to {}", tempFile, newPath);
     } catch (Exception e) {
-
-      if (Files.exists(tempFile)) {
-        try {
-          Files.delete(tempFile);
-        } catch (IOException ignored) {
-        }
-      }
+      rmTempFile(tempFile);
       throw new RuntimeException(e);
     }
   }
 
+  private void relinkFile() {
+    TestDataGroup vectorData = new TestDataGroup(tempFile);
+    Path filePath = vectorData.tokenize(this.outTemplate.toString()).map(Path::of)
+        .orElseThrow(() -> new RuntimeException("error tokenizing file"));
+    Path newPath = FilePaths.relinkPath(tempFile, filePath);
+    logger.debug("moved {} to {}", tempFile, newPath);
 
-  private <T extends Record> void writeAttributes(WritableNode wnode, SpecDatasets dstype, T attrs)
+  }
+
+  private void rmTempFile(Path tempFile) {
+    if (Files.exists(tempFile)) {
+      try {
+        Files.delete(tempFile);
+      } catch (IOException ignored) {
+      }
+    }
+  }
+
+  private void writeRootGroupAttributes() {
+    System.err.println("writing metadata...");
+    this.rootGroupAttributes = new RootGroupAttributes(
+        loader.getMetadata().model(),
+        loader.getMetadata().url(),
+        loader.getMetadata().distance_function(),
+        loader.getMetadata().notes(),
+        loader.getMetadata().license(),
+        loader.getMetadata().vendor(),
+        loader.getMetadata().tags()
+    );
+    this.writeAttributes(this.writable, null, rootGroupAttributes);
+
+  }
+
+
+  private <T extends Record> void writeAttributes(WritableNode wnode, TestDataKind dstype, T attrs)
   {
     if (dstype != null && !dstype.getAttributesType().isAssignableFrom(attrs.getClass())) {
       throw new RuntimeException(

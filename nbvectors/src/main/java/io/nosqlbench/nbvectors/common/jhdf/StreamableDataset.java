@@ -81,6 +81,12 @@ public interface StreamableDataset extends WritableDataset {
    */
   public void modifyDimensions(int[] dimensions);
 
+  /// Sets the dimensions of this dataset, partially or fully.
+  /// This is the long version, which is checked for range errors against [#modifyDimensions(int[])]
+  /// @param dimensions the dimensions to be applied to the current data shape
+  /// @throws IllegalArgumentException if the dimensions are out of range
+  public void modifyDimensions(long[] dimensions);
+
   /**
    Creates a new StreamableDataset from the given chunk supplier. The chunk supplier must not be
    a one-shot iterable. In some cases, the data stream may be accessed more than once, such as

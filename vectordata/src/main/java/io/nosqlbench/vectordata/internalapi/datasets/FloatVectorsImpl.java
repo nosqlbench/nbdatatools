@@ -19,13 +19,14 @@ package io.nosqlbench.vectordata.internalapi.datasets;
 
 
 import io.jhdf.api.Dataset;
+import io.nosqlbench.vectordata.layout.FWindow;
 
 /// a dataset consisting of arrays of float values
 public class FloatVectorsImpl extends CoreDatasetViewMethods<float[]> implements FloatVectors {
   /// create a new float vectors dataset
   /// @param dataset the dataset to wrap
   /// @see FloatVectors
-  public FloatVectorsImpl(Dataset dataset) {
-    super(dataset);
+  public FloatVectorsImpl(Dataset dataset, FWindow window) {
+    super(dataset, window);
   }
 }
