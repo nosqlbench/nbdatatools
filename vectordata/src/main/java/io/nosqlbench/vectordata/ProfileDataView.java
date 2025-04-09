@@ -33,6 +33,8 @@ import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
 import io.nosqlbench.vectordata.internalapi.datasets.views.QueryVectors;
 import io.nosqlbench.vectordata.internalapi.tokens.SpecToken;
 import io.nosqlbench.vectordata.internalapi.tokens.Templatizer;
+import io.nosqlbench.vectordata.layout.FSource;
+import io.nosqlbench.vectordata.layout.FView;
 
 import java.net.URL;
 import java.util.Map;
@@ -49,44 +51,76 @@ public class ProfileDataView implements TestDataView {
 
   @Override
   public Optional<BaseVectors> getBaseVectors() {
-    return datagroup.getFirstDataset(TestDataKind.base_vectors.name(), "test")
-        .map(n -> new BaseVectorsImpl(
-            (Dataset) n,
-            profile.views().get(TestDataKind.base_vectors.name()).window()
-        ));
+    FView baseView = profile.views().get(TestDataKind.base_vectors.name());
+    String dsname = baseView.source().inpath();
+    Optional<Dataset> dataset = datagroup.getFirstDataset(dsname, "/sources/" + dsname);
+    return dataset.map(n -> new BaseVectorsImpl(
+        (Dataset) n,
+        profile.views().get(TestDataKind.base_vectors.name()).window()
+    ));
+//
+//    return datagroup.getFirstDataset(TestDataKind.base_vectors.name(), "test")
+//        .map(n -> new BaseVectorsImpl(
+//            (Dataset) n,
+//            profile.views().get(TestDataKind.base_vectors.name()).window()
+//        ));
   }
 
   @Override
   public Optional<QueryVectors> getQueryVectors() {
-    return datagroup.getFirstDataset(TestDataKind.query_vectors.name(), "test")
-        .map(n -> new QueryVectorsImpl(
-            (Dataset) n,
-            profile.views().get(TestDataKind.query_vectors.name()).window()
-        ));
+    FView baseView = profile.views().get(TestDataKind.query_vectors.name());
+    String dsname = baseView.source().inpath();
+    Optional<Dataset> dataset = datagroup.getFirstDataset(dsname, "/sources/" + dsname);
+    return dataset.map(n -> new QueryVectorsImpl(
+        (Dataset) n,
+        profile.views().get(TestDataKind.query_vectors.name()).window()
+    ));
+//    return datagroup.getFirstDataset(TestDataKind.query_vectors.name(), "test")
+//        .map(n -> new QueryVectorsImpl(
+//            (Dataset) n,
+//            profile.views().get(TestDataKind.query_vectors.name()).window()
+//        ));
   }
 
   @Override
   public Optional<NeighborIndices> getNeighborIndices() {
-    return datagroup.getFirstDataset(TestDataKind.neighbor_indices.name(), "ground_truth")
-        .map(n -> new NeighborIndicesImpl(
-            (Dataset) n,
-            profile.views().get(TestDataKind.neighbor_indices.name()).window()
-        ));
+    FView baseView = profile.views().get(TestDataKind.neighbor_indices.name());
+    String dsname = baseView.source().inpath();
+    Optional<Dataset> dataset = datagroup.getFirstDataset(dsname, "/sources/" + dsname);
+    return dataset.map(n -> new NeighborIndicesImpl(
+        (Dataset) n,
+        profile.views().get(TestDataKind.neighbor_indices.name()).window()
+    ));
+
+//    return datagroup.getFirstDataset(TestDataKind.neighbor_indices.name(), "ground_truth")
+//        .map(n -> new NeighborIndicesImpl(
+//            (Dataset) n,
+//            profile.views().get(TestDataKind.neighbor_indices.name()).window()
+//        ));
   }
 
   @Override
   public Optional<NeighborDistances> getNeighborDistances() {
-    return datagroup.getFirstDataset(TestDataKind.neighbor_distances.name(), "ground_truth")
-        .map(n -> new NeighborDistancesImpl(
-            (Dataset) n,
-            profile.views().get(TestDataKind.neighbor_distances.name()).window()
-        ));
+
+    FView baseView = profile.views().get(TestDataKind.neighbor_indices.name());
+    String dsname = baseView.source().inpath();
+    Optional<Dataset> dataset = datagroup.getFirstDataset(dsname, "/sources/" + dsname);
+    return dataset.map(n -> new NeighborDistancesImpl(
+        (Dataset) n,
+        profile.views().get(TestDataKind.neighbor_indices.name()).window()
+    ));
+
+//
+//    return datagroup.getFirstDataset(TestDataKind.neighbor_distances.name(), "ground_truth")
+//        .map(n -> new NeighborDistancesImpl(
+//            (Dataset) n,
+//            profile.views().get(TestDataKind.neighbor_distances.name()).window()
+//        ));
   }
 
   @Override
   public DistanceFunction getDistanceFunction() {
-    return DistanceFunction.valueOf(datagroup.getAttribute("distance_function").getData()
-        .toString());
+    return datagroup.getDistanceFunction();
   }
 
   @Override

@@ -23,6 +23,8 @@ import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 import io.jhdf.exceptions.HdfInvalidPathException;
+import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
+import io.nosqlbench.vectordata.internalapi.tokens.SpecDataSource;
 import io.nosqlbench.vectordata.internalapi.tokens.Templatizer;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FSource;
@@ -51,6 +53,7 @@ import java.util.stream.Collectors;
 /// implementation and the accompanying Javadoc.
 public class TestDataGroup implements AutoCloseable {
 
+  public static final String DEFAULT_PROFILE = "default";
   private final Group group;
   private final FGroup groupProfiles;
   private RootGroupAttributes attributes;
@@ -100,14 +103,15 @@ public class TestDataGroup implements AutoCloseable {
     //    List<FSource> sources = new ArrayList<>();
       group.getChildren().forEach((dsname, nodeValue) -> {
       if (nodeValue instanceof Dataset) {
-        fviews.put(dsname, new FView(new FSource(dsname, FWindow.ALL), FWindow.ALL));
+        TestDataKind kind = TestDataKind.fromString(dsname);
+        fviews.put(kind.name(), new FView(new FSource(dsname, FWindow.ALL), FWindow.ALL));
       }
       TestDataKind.fromOptionalString(dsname).ifPresent(s -> {
 
       });
       TestDataKind kind = TestDataKind.fromString(dsname);
     });
-    FGroup fgroup = new FGroup(Map.of("default", new FProfiles(fviews)));
+    FGroup fgroup = new FGroup(Map.of(DEFAULT_PROFILE, new FProfiles(fviews)));
     return fgroup;
   }
 
@@ -237,7 +241,7 @@ public class TestDataGroup implements AutoCloseable {
     try {
       Node child = this.group.getChild(kind.name());
       if (child instanceof Dataset) {
-        configSet.add("default");
+        configSet.add(DEFAULT_PROFILE);
       } else if (child instanceof Group g) {
         Map<String, Node> children = g.getChildren();
         configSet.addAll(children.keySet());
@@ -257,6 +261,9 @@ public class TestDataGroup implements AutoCloseable {
     return Optional.of(profile);
   }
 
+  public TestDataView getDefaultProfile() {
+    return this.getProfile(DEFAULT_PROFILE);
+  }
   public TestDataView getProfile(String profileName) {
     return getProfileOptionally(profileName).orElseThrow(() -> new IllegalArgumentException(
         "profile '" + profileName + "' not found in " + this));
@@ -330,7 +337,13 @@ public class TestDataGroup implements AutoCloseable {
     return Optional.empty();
   }
 
-//  public String toJson() {
+  public DistanceFunction getDistanceFunction() {
+    return Optional.ofNullable(group.getAttribute(SpecToken.distance_function.name())).map(Attribute::getData)
+        .map(String::valueOf).map(String::toUpperCase)
+        .map(DistanceFunction::valueOf).orElse(DistanceFunction.COSINE);
+  }
+
+  //  public String toJson() {
 //    return SHARED.gson.toJson(Map.of(
 ////        "attributes", attributes
 //        "profiles", groupProfiles

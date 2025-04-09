@@ -29,9 +29,12 @@ import java.io.RandomAccessFile;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+//import org.apache.logging.log4j.LogManager;
+//import org.apache.logging.log4j.Logger;
 
 public record DatasetEntry(
     String name,
@@ -42,6 +45,7 @@ public record DatasetEntry(
     Map<String, String> tags
 ) {
     private static final int BUFFER_SIZE = 8192;
+//    private static final Logger logger = LogManager.getLogger(DatasetEntry.class);
 
     private FileMetadata getFileMetadata(OkHttpClient client) {
         Request request = new Request.Builder()
@@ -68,6 +72,11 @@ public record DatasetEntry(
     }
 
     public DownloadProgress download(Path target, boolean force) {
+        // Handle local files differently
+        if ("file".equalsIgnoreCase(url.getProtocol())) {
+            return handleLocalFile(target, Path.of(url.getPath()), force);
+        }
+
         // Determine target file path
         Path targetFile;
         if (hasFileExtension(target)) {
@@ -216,5 +225,67 @@ public record DatasetEntry(
     private boolean hasFileExtension(Path path) {
         String fileName = path.getFileName().toString();
         return fileName.contains(".") && !fileName.endsWith(".");
+    }
+
+    private DownloadProgress handleLocalFile(Path target, Path sourcePath, boolean force) {
+        Path targetFile;
+        if (hasFileExtension(target)) {
+            targetFile = target;
+        } else {
+            String fileName = name;
+            if (!hasFileExtension(Path.of(fileName))) {
+                fileName += ".bin";
+            }
+            targetFile = target.resolve(fileName);
+        }
+
+        CompletableFuture<DownloadResult> future = new CompletableFuture<>();
+        AtomicLong currentBytes = new AtomicLong(0);
+
+        try {
+            // Create parent directories if needed
+            Files.createDirectories(targetFile.getParent());
+
+            if (!Files.exists(sourcePath)) {
+                throw new IOException("Source file does not exist: " + sourcePath);
+            }
+
+            long fileSize = Files.size(sourcePath);
+            currentBytes.set(fileSize);
+
+            // Check if target already exists
+            if (Files.exists(targetFile)) {
+                if (!force) {
+                    try {
+                        if (Files.isSameFile(sourcePath, targetFile)) {
+                            System.err.println("Target file is already linked to source file: " + sourcePath);
+                            future.complete(DownloadResult.skipped(targetFile, fileSize));
+                            return new DownloadProgress(targetFile, fileSize, currentBytes, future);
+                        }
+                    } catch (IOException e) {
+                        // Continue with creation if files are not the same
+                    }
+                }
+                Files.delete(targetFile);
+            }
+
+            // Try to create symbolic link first
+            try {
+                Files.createSymbolicLink(targetFile, sourcePath.toAbsolutePath());
+                System.err.println("Created symbolic link from " + targetFile + " to local file " + sourcePath);
+                future.complete(DownloadResult.downloaded(targetFile, fileSize));
+            } catch (IOException e) {
+                // If symlink fails (e.g., on Windows without privileges), fall back to copy
+                System.err.println("Failed to create symbolic link, falling back to file copy: " + e.getMessage());
+                Files.copy(sourcePath, targetFile, StandardCopyOption.REPLACE_EXISTING);
+                System.err.println("Copied local file " + sourcePath + " to " + targetFile);
+                future.complete(DownloadResult.downloaded(targetFile, fileSize));
+            }
+
+        } catch (Exception e) {
+            future.complete(DownloadResult.failed(targetFile, e));
+        }
+
+        return new DownloadProgress(targetFile, currentBytes.get(), currentBytes, future);
     }
 }
