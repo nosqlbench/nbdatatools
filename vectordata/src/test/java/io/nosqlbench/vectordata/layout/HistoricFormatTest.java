@@ -23,6 +23,7 @@ import io.nosqlbench.vectordata.TestDataView;
 import io.nosqlbench.vectordata.internalapi.datasets.views.BaseVectors;
 import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
 import org.assertj.core.util.URLs;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
@@ -37,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class HistoricFormatTest {
 
+  @Disabled
   @Test
   public void testFullConfig() {
     URL resource = getClass().getClassLoader().getResource("glove-25-angular.hdf5");

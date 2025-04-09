@@ -23,6 +23,5 @@ bin/**
 **/generated/**
 **/.flattened-pom.xml
 **/stargate-token.txt
-**/*.hdf5
 **/lucenedir
 
