@@ -20,10 +20,15 @@ The format used was initially inspired by
 that of [ann-benchmark](https://github.com/erikbern/ann-benchmarks), but has since been extended
 to support a significant variety of test data configurations.
 
-### vectordata
+### VectorData
 
 This is an API for working directly with a test data format documented in this repo. This allows 
 multiple testing systems to access the same data easily and consistently.  
+
+#### vectordata Javadoc
+
+[VectorData javadoc](https://javadoc.io/doc/io.nosqlbench/vectordata/latest/index.html)
+are graciously hosted by [javadoc.io]((https://javadoc.io/)).
 
 ### nbvectors
 
@@ -44,7 +49,9 @@ Here is a preview of the available commands:
                     # requires ranked gt metrics (of a known distance function)
 
     tag_hdf5        read or write hdf attributes
-                    # this will likely be removed, as it will be obviated by others
+                    # this will likely be removed, as it will be obviated 
+                    # by others as they become more type-safe on the hdf5
+                    # rendering side, and more adaptive on the reader side
 
     jjq             run jjq commands with extended functions
                     # runs jq-like expressions against streams of JSON data
@@ -75,20 +82,27 @@ Here is a preview of the available commands:
 
     hugging_dl      Download Huggingface Datasets via API
                     # This is useful for downloading datasets from Hugging Face
-                    # any huggingface dataset which has a parquet format can be downloaded
+                    # any huggingface dataset which has a parquet format can be 
+                    # downloaded and used as a data source
 
     datasets        Browse and download hdf5 datasets from accessible catalogs
-                    # This is useful for browsing and downloading datasets from accessible catalogs
+                    # This is useful for browsing and downloading datasets from 
+                    # accessible catalogs
 
     export_hdf5new  export HDF5 KNN answer-keys from other formats
                     # create a new hdf5 KNN test data file, from other formats
-                    # this version supports layouts and embedded metadata which allow
-                    # the vectordata API to work with the data in a logically consitent way
+                    # this version supports layouts and embedded metadata which 
+                    # allow the vectordata API to work with the data in a
+                    # logically consitent way
                     # !! This will likely be absorbed into export_hdf5 !!
 
 Generally speaking, these utilities fall into a few broad categories, like import, export, 
 summarization, and query. They will likely be consolidated down to a smaller number of tools over time.
 
+#### nbvectors Javadoc
+
+[Nbvectors javadoc](https://javadoc.io/doc/io.nosqlbench/nbvectors/latest/index.html)
+are graciously hosted by [javadoc.io]((https://javadoc.io/)).
 
 ## Java Version
 

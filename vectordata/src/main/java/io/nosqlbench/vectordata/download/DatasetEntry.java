@@ -258,7 +258,12 @@ public record DatasetEntry(
                 if (!force) {
                     try {
                         if (Files.isSameFile(sourcePath, targetFile)) {
-                            System.err.println("Target file is already linked to source file: " + sourcePath);
+                            System.err.println("""
+                                Target file is already linked to source file:
+                                target: TARGET
+                                source: SOURCE
+                                """.replace("TARGET", targetFile.toString())
+                                .replace("SOURCE", sourcePath.toString()));
                             future.complete(DownloadResult.skipped(targetFile, fileSize));
                             return new DownloadProgress(targetFile, fileSize, currentBytes, future);
                         }
