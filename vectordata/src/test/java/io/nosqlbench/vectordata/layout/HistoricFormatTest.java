@@ -41,6 +41,7 @@ public class HistoricFormatTest {
   @Disabled
   @Test
   public void testFullConfig() {
+    // http://ann-benchmarks.com/glove-25-angular.hdf5
     URL resource = getClass().getClassLoader().getResource("glove-25-angular.hdf5");
 
     TestDataGroup datagroup = new TestDataGroup(Path.of(resource.getPath()));

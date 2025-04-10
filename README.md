@@ -23,7 +23,7 @@ to support a significant variety of test data configurations.
 ### vectordata
 
 This is an API for working directly with a test data format documented in this repo. This allows 
-multiple testing systems to access the same data easily and consistently.
+multiple testing systems to access the same data easily and consistently.  
 
 ### nbvectors
 
@@ -89,6 +89,7 @@ Here is a preview of the available commands:
 Generally speaking, these utilities fall into a few broad categories, like import, export, 
 summarization, and query. They will likely be consolidated down to a smaller number of tools over time.
 
+
 ## Java Version
 
 This project is built with Java 23, and will tend to track the latest LTS at the very least. 
@@ -96,22 +97,6 @@ Generally speaking, one of the most effective ways to speed up your Java app is 
 JVM. The same applies to Java-based testing systems.
 
 ----
-
-## System Concepts
-
-----
-
-## Embedding the Tools
-
-Because nbvectors uses the excellent subcommand support of the [picocli](https://picocli.info/) 
-library, it is possible to embed various commands into other systems simply by including them 
-into your own picocli configuration [as a subcommand](https://picocli.info/#_subcommands).
-
-You may need to create a separate submodule in your project if needed so that you can use a 
-modern Java version. This is considered an acceptable trade-off, especially given that using 
-th associated test data files are used for more than just unit or micro-benches.
-
-## User Experience
 
 Ideally, users of these tools should have an experience like this:
 
