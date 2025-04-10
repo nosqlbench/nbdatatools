@@ -27,8 +27,8 @@ multiple testing systems to access the same data easily and consistently.
 
 #### vectordata Javadoc
 
-[VectorData javadoc](https://javadoc.io/doc/io.nosqlbench/vectordata/latest/index.html)
-are graciously hosted by [javadoc.io]((https://javadoc.io/)).
+[VectorData javadocs](https://javadoc.io/doc/io.nosqlbench/vectordata/latest/index.html)
+are graciously hosted by [javadoc.io](https://javadoc.io/).
 
 ### nbvectors
 
@@ -101,8 +101,8 @@ summarization, and query. They will likely be consolidated down to a smaller num
 
 #### nbvectors Javadoc
 
-[Nbvectors javadoc](https://javadoc.io/doc/io.nosqlbench/nbvectors/latest/index.html)
-are graciously hosted by [javadoc.io]((https://javadoc.io/)).
+[Nbvectors javadocs](https://javadoc.io/doc/io.nosqlbench/nbvectors/latest/index.html)
+are graciously hosted by [javadoc.io](https://javadoc.io/).
 
 ## Java Version
 
