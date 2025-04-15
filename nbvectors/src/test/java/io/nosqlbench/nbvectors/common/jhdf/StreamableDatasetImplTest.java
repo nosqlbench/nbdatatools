@@ -32,9 +32,6 @@ import io.jhdf.WritableHdfFile;
 import io.jhdf.exceptions.HdfWritingException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,8 +46,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class StreamableDatasetImplTest {
 
-  private static final Logger logger = LoggerFactory.getLogger(StreamableDatasetImplTest.class);
-
   @Disabled
   @Test
   public void testDimensionChecking() {
@@ -64,7 +59,7 @@ class StreamableDatasetImplTest {
       throw new RuntimeException(e);
     }
 
-    List<Integer> chunkIdx = Arrays.asList(0);
+    List<Integer> chunkIdx = List.of(0);
     int chunkRows = (1024 * 1024) / Long.BYTES;
     int rowsize = 1024;
 

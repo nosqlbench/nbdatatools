@@ -55,7 +55,13 @@
     <dependency>
       <groupId>com.squareup.okhttp3</groupId>
       <artifactId>okhttp</artifactId>
-      <version>4.11.0</version> <!-- Use the latest version -->
+      <version>4.12.0</version> <!-- Use the latest version -->
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
     </dependency>
 
 

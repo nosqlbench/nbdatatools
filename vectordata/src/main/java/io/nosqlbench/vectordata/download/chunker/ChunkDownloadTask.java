@@ -1,0 +1,103 @@
+package io.nosqlbench.vectordata.download.chunker;
+
+import okhttp3.*;
+import okio.BufferedSource;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.net.URL;
+import java.nio.file.Path;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+
+public class ChunkDownloadTask implements Runnable {
+    private static final int BUFFER_SIZE = 8192 * 2;
+    private final OkHttpClient client;
+    private final URL url;
+    private final Path targetFile;
+    private final long startByte;
+    private final long endByte;
+    private final AtomicLong totalBytesDownloaded;
+    private final AtomicBoolean downloadFailed;
+    private final DownloadEventSink eventSink;
+
+    public ChunkDownloadTask(OkHttpClient client, URL url, Path targetFile, long startByte, long endByte,
+                     AtomicLong totalBytesDownloaded, AtomicBoolean downloadFailed, DownloadEventSink eventSink) {
+        this.client = client;
+        this.url = url;
+        this.targetFile = targetFile;
+        this.startByte = startByte;
+        this.endByte = endByte;
+        this.totalBytesDownloaded = totalBytesDownloaded;
+        this.downloadFailed = downloadFailed;
+        this.eventSink = eventSink;
+    }
+
+    @Override
+    public void run() {
+        // Short-circuit if another task has already failed
+        if (downloadFailed.get()) {
+            eventSink.debug("Skipping chunk {}-{} as download already failed.", startByte, endByte);
+            return;
+        }
+
+        String rangeHeader = "bytes=" + startByte + "-" + endByte;
+        Request request = new Request.Builder()
+            .url(url)
+            .header("Range", rangeHeader)
+            .build();
+
+        eventSink.debug("Requesting chunk: {}", rangeHeader);
+
+        try (Response response = client.newCall(request).execute()) {
+            // Check for successful partial content response
+            if (response.code() != 206) { // 206 Partial Content is expected
+                throw new IOException("Unexpected HTTP status " + response.code() +
+                    " for range request " + rangeHeader + ". Body: " + getErrorBody(response));
+            }
+
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new IOException("No response body for range request " + rangeHeader);
+            }
+
+            // Write the received chunk to the correct position in the file
+            try (RandomAccessFile raf = new RandomAccessFile(targetFile.toFile(), "rw")) {
+                writeChunkToFile(raf, body, startByte, totalBytesDownloaded);
+            }
+
+        } catch (Exception e) {
+            // Log the error and set the shared failure flag
+            eventSink.error("Failed to download chunk {}-{}: {}", startByte, endByte, e.getMessage(), e);
+            downloadFailed.set(true); // Signal failure to other tasks and the main future
+            // Re-throw as a RuntimeException to make CompletableFuture fail
+            throw new CompletionException("Chunk download failed (" + startByte + "-" + endByte + ")", e);
+        }
+    }
+
+    private String getErrorBody(Response response) {
+        try (ResponseBody body = response.body()) {
+            return body != null ? body.string() : "";
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private void writeChunkToFile(RandomAccessFile raf, ResponseBody body, long startOffset, AtomicLong totalBytesDownloaded) throws IOException {
+        raf.seek(startOffset);
+        eventSink.trace("Writing chunk starting at offset {}", startOffset);
+        byte[] buffer = new byte[BUFFER_SIZE];
+        long chunkBytesWritten = 0;
+        try (BufferedSource source = body.source()) {
+            while (!source.exhausted()) {
+                int bytesRead = source.read(buffer);
+                if (bytesRead == -1) break;
+                raf.write(buffer, 0, bytesRead);
+                chunkBytesWritten += bytesRead;
+            }
+        }
+        totalBytesDownloaded.addAndGet(chunkBytesWritten);
+        eventSink.trace("Finished writing chunk at offset {}. Bytes written: {}", startOffset, chunkBytesWritten);
+    }
+}
