@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.download.merkle.restart;
+package io.nosqlbench.vectordata.download.merkle;
 
 /// Represents a range within a total data size
 /// Used for both specifying initial ranges and computing chunk boundaries
@@ -27,6 +27,22 @@ public record MerkleRange(long start, long end) {
     /// Returns true if the given offset falls within this range
     public boolean contains(long offset) {
         return offset >= start && offset < end;
+    }
+
+    /// Returns the intersection of this range with another range, or null if there is no overlap
+    public MerkleRange intersection(MerkleRange other) {
+        if (other == null) {
+            return null;
+        }
+
+        long intersectionStart = Math.max(this.start, other.start);
+        long intersectionEnd = Math.min(this.end, other.end);
+
+        if (intersectionStart >= intersectionEnd) {
+            return null;
+        }
+
+        return new MerkleRange(intersectionStart, intersectionEnd);
     }
 
     @Override

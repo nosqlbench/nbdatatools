@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.download.merkle.restart;
+package io.nosqlbench.vectordata.download.merkle;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -14,6 +14,15 @@ public record MerkleNode(
     MerkleNode right    // Right child node
 ) {
     public static final int HASH_SIZE = 32; // SHA-256 hash size in bytes
+    private static final MessageDigest DIGEST;
+
+    static {
+        try {
+            DIGEST = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
+    }
 
     public MerkleNode {
         if (hash.length != HASH_SIZE) {
@@ -35,14 +44,6 @@ public record MerkleNode(
      * Create an internal node with the given parameters
      */
     public static MerkleNode internal(int index, byte[] leftHash, byte[] rightHash, MerkleNode left, MerkleNode right) {
-        // Create MessageDigest instance for SHA-256
-        MessageDigest digest;
-        try {
-            digest = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
-
         // Combine and hash the child hashes
         byte[] combinedHash;
         if (rightHash != null) {
@@ -50,10 +51,10 @@ public record MerkleNode(
             byte[] combined = new byte[HASH_SIZE * 2];
             System.arraycopy(leftHash, 0, combined, 0, HASH_SIZE);
             System.arraycopy(rightHash, 0, combined, HASH_SIZE, HASH_SIZE);
-            combinedHash = digest.digest(combined);
+            combinedHash = DIGEST.digest(combined);
         } else {
             // If no right hash, hash the left hash alone
-            combinedHash = digest.digest(leftHash);
+            combinedHash = DIGEST.digest(leftHash);
         }
         
         int level = left != null ? left.level() + 1 : 1;
