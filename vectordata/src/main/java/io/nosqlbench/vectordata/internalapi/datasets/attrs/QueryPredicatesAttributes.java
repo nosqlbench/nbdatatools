@@ -17,6 +17,6 @@ package io.nosqlbench.vectordata.internalapi.datasets.attrs;
  * under the License.
  */
 
-
+/// a placeholder for attributes which are specific to query predicates
 public record QueryPredicatesAttributes() {
 }

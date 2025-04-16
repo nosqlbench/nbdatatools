@@ -34,9 +34,12 @@ import org.snakeyaml.engine.v2.representer.StandardRepresenter;
 import java.lang.reflect.Type;
 import java.util.Map;
 
+/// shared serdes helpers
 public class SHARED {
+  /// gson instance
   public final static Gson gson = new GsonBuilder().setPrettyPrinting().create();
   private final static LoadSettings loadSettings = LoadSettings.builder().setLabel("load").build();
+  /// yaml loader instance
   public final static Load yamlLoader = new Load(loadSettings);
   private final static DumpSettings dumpSettings =
       DumpSettings.builder().setDefaultFlowStyle(FlowStyle.BLOCK).build();
@@ -44,6 +47,7 @@ public class SHARED {
     addClassTag(FInterval.class, new Tag("!finterval"));
   }};
   private final static StandardConstructor constructor = new StandardConstructor(loadSettings);
+  /// yaml dumper instance
   public final static Dump yamlDumper = new Dump(dumpSettings, representer);
 
   public static Map<String,?> mapFromJson(String profilesData) {

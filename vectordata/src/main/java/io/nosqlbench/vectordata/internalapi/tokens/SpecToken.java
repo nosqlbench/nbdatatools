@@ -82,6 +82,7 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
       The vendor of the dataset
       """
   ),
+  /// The distance function used to compute distance between vectors
   distance_function(d -> Optional.of(d.getDistanceFunction()).map(String::valueOf), """
       The distance function used to compute distance between vectors
       """

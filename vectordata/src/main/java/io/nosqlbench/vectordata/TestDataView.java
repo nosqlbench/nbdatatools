@@ -35,6 +35,10 @@ import java.util.Map;
 import java.util.Optional;
 
 /// This is the entry to consuming Vector Test Data from a profile according to the documented spec.
+///
+/// TestDataView provides access to vector datasets and their associated metadata, including
+/// base vectors, query vectors, neighbor indices, and distance metrics. It also provides
+/// methods for accessing metadata like license, vendor, and model information.
 public interface TestDataView {
   /// Get the base vectors dataset
   /// @return the base vectors dataset
@@ -44,6 +48,8 @@ public interface TestDataView {
   /// @return the query vectors dataset
   Optional<QueryVectors> getQueryVectors();
 
+  /// Get the neighbor indices dataset
+  /// @return the neighbor indices dataset
   Optional<NeighborIndices> getNeighborIndices();
 
   /// Get the neighbor distances dataset
@@ -82,7 +88,11 @@ public interface TestDataView {
   /// @return the tokenized string
   Optional<String> tokenize(String template);
 
+  /// Get the name of this test data view
+  /// @return the name of this test data view
   public String getName();
 
+  /// Get all available tokens for this test data view
+  /// @return a map of token names to token values
   public Map<String, String> getTokens();
 }

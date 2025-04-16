@@ -53,15 +53,23 @@ import java.util.stream.Collectors;
 /// implementation and the accompanying Javadoc.
 public class TestDataGroup implements AutoCloseable {
 
+  /// The default profile name used when no specific profile is requested
   public static final String DEFAULT_PROFILE = "default";
+  /// The root HDF5 group containing all datasets
   private final Group group;
+  /// The parsed profile configurations from the HDF5 file
   private final FGroup groupProfiles;
+  /// The root group attributes parsed from the HDF5 file
   private RootGroupAttributes attributes;
 
+  /// Cache of profile views to avoid recreating them
   private Map<String, TestDataView> profileCache = new LinkedHashMap<>();
 
+  /// Name of the sources group in the HDF5 file
   public static final String SOURCES_GROUP = "sources";
+  /// Name of the attachments group in the HDF5 file
   public static final String ATTACHMENTS_GROUP = "attachments";
+  /// Name of the profiles attribute in the HDF5 file
   public static final String PROFILES_ATTR = "profiles";
 
   /// create a vector data reader
@@ -79,12 +87,18 @@ public class TestDataGroup implements AutoCloseable {
 
   }
 
+  /// Creates a TestDataGroup from an HDF5 Group.
+  ///
+  /// @param group The HDF5 group to read data from
   public TestDataGroup(Group group) {
     this.group = group;
     this.attributes = RootGroupAttributes.fromGroup(group);
     this.groupProfiles = initConfig();
   }
 
+  /// Initializes the profile configuration from the HDF5 file.
+  ///
+  /// @return The parsed profile configuration
   private FGroup initConfig() {
     TestGroupLayout testGroupLayout=null;
     Attribute profilesAttr = group.getAttribute(PROFILES_ATTR);
@@ -97,6 +111,11 @@ public class TestDataGroup implements AutoCloseable {
     return fgroup;
   }
 
+  /// Creates a synthetic profile configuration when none is found in the HDF5 file.
+  ///
+  /// This method attempts to infer a configuration based on the available datasets.
+  ///
+  /// @return A synthetic profile configuration
   private FGroup SyntheticDataConfig() {
     //    Map<String,FProfile> fprofiles = new LinkedHashMap<>();
     Map<String, FView> fviews = new LinkedHashMap<>();
@@ -115,11 +134,18 @@ public class TestDataGroup implements AutoCloseable {
     return fgroup;
   }
 
+  /// Gets the name of this data group.
+  ///
+  /// @return The name of the data group
   public String getName() {
     return group.getName();
   }
 
 
+  /// Gets a group node from the HDF5 file by path.
+  ///
+  /// @param path The path to the group
+  /// @return An Optional containing the group node, or empty if not found or not a group
   private Optional<Node> getGroup(String path) {
     try {
       Node node = this.group.getByPath(path);
@@ -133,6 +159,10 @@ public class TestDataGroup implements AutoCloseable {
     }
   }
 
+  /// Gets any node from the HDF5 file by path.
+  ///
+  /// @param path The path to the node
+  /// @return An Optional containing the node, or empty if not found
   private Optional<Node> getNode(String path) {
     try {
       Node node = this.group.getByPath(path);
@@ -143,6 +173,10 @@ public class TestDataGroup implements AutoCloseable {
   }
 
 
+  /// Looks up a token value across all profiles.
+  ///
+  /// @param tokenName The name of the token to look up
+  /// @return A map of profile names to token values
   public Map<String, String> lookupTokens(String tokenName) {
     Map<String, String> tokens = new LinkedHashMap<>();
     for (String profile : getProfileNames()) {
@@ -152,6 +186,9 @@ public class TestDataGroup implements AutoCloseable {
   }
 
 
+  /// Closes the underlying HDF5 file if this group is the root.
+  ///
+  /// @throws Exception If an error occurs while closing the file
   @Override
   public void close() throws Exception {
     if (group instanceof HdfFile) {
@@ -160,6 +197,9 @@ public class TestDataGroup implements AutoCloseable {
     }
   }
 
+  /// Returns a string representation of this TestDataGroup.
+  ///
+  /// @return A string representation of this TestDataGroup
   @Override
   public String toString() {
     final StringBuffer sb = new StringBuffer("TestDataGroup{");
@@ -198,6 +238,11 @@ public class TestDataGroup implements AutoCloseable {
   //    return sb.toString();
   //  }
 
+  /// Gets the first dataset found from a list of possible paths.
+  ///
+  /// @param names The paths to search for datasets
+  /// @param <Dataset> the type of dataset to return
+  /// @return An Optional containing the first dataset found, or empty if none found
   Optional<Dataset> getFirstDataset(String... names) {
     Dataset dataset = null;
     for (String name : names) {
@@ -210,6 +255,11 @@ public class TestDataGroup implements AutoCloseable {
     return Optional.empty();
   }
 
+  /// Gets the first dataset found from a list of possible paths, throwing an exception if none found.
+  ///
+  /// @param names The paths to search for datasets
+  /// @return The first dataset found
+  /// @throws HdfInvalidPathException If no dataset is found at any of the specified paths
   private Dataset getFirstDatasetRequired(String... names) {
     Optional<Dataset> firstDataset = getFirstDataset(names);
     return firstDataset.orElseThrow(() -> new HdfInvalidPathException(
@@ -236,6 +286,10 @@ public class TestDataGroup implements AutoCloseable {
     return RootGroupAttributes.fromGroup(group).tags();
   }
 
+  /// Gets the set of configuration names available for a specific data kind.
+  ///
+  /// @param kind The kind of data to get configurations for
+  /// @return A set of configuration names
   public Set<String> getConfigs(TestDataKind kind) {
     Set<String> configSet = new LinkedHashSet<>();
     try {
@@ -251,6 +305,10 @@ public class TestDataGroup implements AutoCloseable {
     return configSet;
   }
 
+  /// Gets a profile by name, returning an empty Optional if not found.
+  ///
+  /// @param profileName The name of the profile to get
+  /// @return An Optional containing the profile, or empty if not found
   public Optional<TestDataView> getProfileOptionally(String profileName) {
     FProfiles fprofile = this.groupProfiles.profiles().get(profileName);
     if (fprofile == null) {
@@ -261,29 +319,51 @@ public class TestDataGroup implements AutoCloseable {
     return Optional.of(profile);
   }
 
+  /// Gets the default profile.
+  ///
+  /// @return The default profile
   public TestDataView getDefaultProfile() {
     return this.getProfile(DEFAULT_PROFILE);
   }
+  /// Gets a profile by name, throwing an exception if not found.
+  ///
+  /// @param profileName The name of the profile to get
+  /// @return The profile
+  /// @throws IllegalArgumentException If the profile is not found
   public TestDataView getProfile(String profileName) {
     return getProfileOptionally(profileName).orElseThrow(() -> new IllegalArgumentException(
         "profile '" + profileName + "' not found in " + this));
   }
 
+  /// Gets the set of all profile names available in this data group.
+  ///
+  /// @return A set of profile names
   public Set<String> getProfileNames() {
     Set<String> names = this.groupProfiles.profiles().keySet();
     names.forEach(n -> profileCache.computeIfAbsent(n, p -> null));
     return profileCache.keySet();
   }
 
+  /// Gets an attribute from the root group by name.
+  ///
+  /// @param attrname The name of the attribute to get
+  /// @return The attribute, or null if not found
   public Attribute getAttribute(String attrname) {
     Attribute attribute = group.getAttribute(attrname);
     return attribute;
   }
 
+  /// Tokenizes a template string using the tokens available in this data group.
+  ///
+  /// @param template The template string to tokenize
+  /// @return An Optional containing the tokenized string, or empty if tokenization failed
   public Optional<String> tokenize(String template) {
     return new Templatizer(t -> this.lookupToken(t).orElse(null)).templatize(template);
   }
 
+  /// Gets the cache of all profiles, initializing it if empty.
+  ///
+  /// @return A map of profile names to profile views
   public synchronized Map<String, TestDataView> getProfileCache() {
     if (profileCache.isEmpty()) {
       profileCache.putAll(getProfileNames().stream()
@@ -292,6 +372,9 @@ public class TestDataGroup implements AutoCloseable {
     return profileCache;
   }
 
+  /// Gets all available tokens for this data group across all profiles.
+  ///
+  /// @return A map of token names to token values
   public Map<String,String> getTokens() {
       Map<String,String> tokens = new LinkedHashMap<>();
       Set<String> tokenNames = new LinkedHashSet<>();
@@ -300,6 +383,10 @@ public class TestDataGroup implements AutoCloseable {
       return tokens;
   }
 
+  /// Looks up a token value, first in the root attributes, then across all profiles.
+  ///
+  /// @param tokenName The name of the token to look up
+  /// @return An Optional containing the token value, or empty if not found
   private Optional<String> lookupToken(String tokenName) {
 
     Attribute rootAttr = group.getAttribute(tokenName);
@@ -337,6 +424,9 @@ public class TestDataGroup implements AutoCloseable {
     return Optional.empty();
   }
 
+  /// Gets the distance function used for this dataset.
+  ///
+  /// @return The distance function, defaulting to COSINE if not specified
   public DistanceFunction getDistanceFunction() {
     return Optional.ofNullable(group.getAttribute(SpecToken.distance_function.name())).map(Attribute::getData)
         .map(String::valueOf).map(String::toUpperCase)

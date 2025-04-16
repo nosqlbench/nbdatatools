@@ -93,6 +93,7 @@ import java.util.stream.Collectors;
  * </dl>
  */
 public class TagFilter {
+    /// the default filter matches everything
     public static TagFilter MATCH_ALL = new TagFilter("");
     private final Map<String, String> filter = new LinkedHashMap<>();
     private Conjugate conjugate = Conjugate.all;
@@ -161,11 +162,6 @@ public class TagFilter {
             }
         }
     }
-
-//    TODO: Implement Me!
-//     public TagFilter(Map<String,String> filterSpec) {
-//
-//    }
 
     private static String unquote(String filterSpec) {
         for (String s : new String[]{"'", "\""}) {
@@ -257,11 +253,13 @@ public class TagFilter {
     }
 
     /// get the filter map
+    /// @return the filter map
     public Map<String, String> getMap() {
         return filter;
     }
 
     /// a result object for a match
+    /// @param <T> the type of the element
     public static class Result<T> {
         private final boolean matched;
         private final List<String> matchLog;

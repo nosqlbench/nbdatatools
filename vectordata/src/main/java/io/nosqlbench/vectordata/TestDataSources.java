@@ -35,10 +35,15 @@ import java.util.List;
 ///     the locations to search for datasets
 public record TestDataSources(List<URL> locations) {
 
+  /// Creates a TestDataSources with default configuration from ~/.config/nbvectors/catalogs.yaml
   public TestDataSources() {
     this(loadConfig(Path.of("~/.config/nbvectors")));
   }
 
+  /// Creates a TestDataSources by combining two lists of locations
+  ///
+  /// @param locations The first list of catalog locations
+  /// @param locations2 The second list of catalog locations to append
   private TestDataSources(List<URL> locations, List<URL> locations2) {
     this(new ArrayList<>() {{
       addAll(locations);
@@ -46,6 +51,11 @@ public record TestDataSources(List<URL> locations) {
     }});
   }
 
+  /// Loads catalog URLs from a configuration directory
+  ///
+  /// @param configdir The directory containing catalogs.yaml
+  /// @return A list of catalog URLs
+  /// @throws RuntimeException If the configuration file cannot be read or is invalid
   private static List<URL> loadConfig(Path configdir) {
     configdir = Path.of(configdir.toString().replace("~", System.getProperty("user" + ".home")));
     List<URL> clocations = new ArrayList<>();
@@ -70,6 +80,10 @@ public record TestDataSources(List<URL> locations) {
     }
   }
 
+  /// Creates a new TestDataSources by adding catalogs from a configuration directory
+  ///
+  /// @param configdir The directory containing catalogs.yaml
+  /// @return A new TestDataSources with additional catalogs
   public TestDataSources configure(Path configdir) {
     return new TestDataSources(loadConfig(configdir), this.locations);
   }
@@ -87,11 +101,19 @@ public record TestDataSources(List<URL> locations) {
     return new TestDataSources(clocations);
   }
 
+  /// Creates a new TestDataSources by adding catalogs from a list of base paths
+  ///
+  /// @param basepaths The list of catalog base paths to add
+  /// @return A new TestDataSources with additional catalogs
   public TestDataSources addCatalogs(List<String> basepaths) {
     return addCatalogs(basepaths.toArray(new String[0]));
   }
 
 
+  /// Creates a Catalog from this TestDataSources
+  ///
+  /// @return A new Catalog
+  /// @throws RuntimeException If no catalogs are specified
   public Catalog find() {
     if (this.locations.isEmpty()) {
       throw new RuntimeException("no catalogs specified");
@@ -99,6 +121,11 @@ public record TestDataSources(List<URL> locations) {
     return Catalog.of(this);
   }
 
+  /// Creates a TestDataSources with a single URL
+  ///
+  /// @param url The catalog URL
+  /// @return A new TestDataSources with the specified URL
+  /// @throws RuntimeException If the URL is malformed
   public static TestDataSources ofUrl(String url) {
     try {
       return new TestDataSources(List.of(new URL(url)));
@@ -107,9 +134,15 @@ public record TestDataSources(List<URL> locations) {
     }
   }
 
+  /// The default TestDataSources pointing to the public jvector datasets
   public static TestDataSources DEFAULT =
       TestDataSources.ofUrl("https://jvector-datasets-public.s3.us-east-1.amazonaws.com/");
 
+  /// Creates a URL from a catalog string, handling both HTTP URLs and file paths
+  ///
+  /// @param catalog The catalog string (URL or file path)
+  /// @return The created URL
+  /// @throws RuntimeException If the URL cannot be created
   private static URL createUrl(String catalog) {
     if (catalog.startsWith("http")) {
       try {

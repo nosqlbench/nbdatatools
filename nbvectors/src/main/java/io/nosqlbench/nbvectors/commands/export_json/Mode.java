@@ -18,7 +18,8 @@ package io.nosqlbench.nbvectors.commands.export_json;
  */
 
 
+/// summary type
 public enum Mode {
-//  cooked,
+  /// just the raw hdf5 structure: dataset and attribute info
   raw
 }

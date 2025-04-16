@@ -88,6 +88,11 @@ public enum TestDataKind {
   /// required for a given dataset
   private final Class<? extends Record> attributesClass;
 
+  /// Creates a new TestDataKind enum value
+  ///
+  /// @param path The path to the dataset in the HDF5 file
+  /// @param description The description of the dataset
+  /// @param attributesClass The class of attributes required for this dataset, or null if none
   TestDataKind(String path, String description, Class<? extends Record> attributesClass)
   {
     this.path = path;
@@ -113,6 +118,12 @@ public enum TestDataKind {
     return attributesClass;
   }
 
+  /// Converts a string to a TestDataKind, returning an Optional
+  ///
+  /// This method handles both canonical names and alternative names defined in OtherNames.
+  ///
+  /// @param kind The string to convert
+  /// @return An Optional containing the TestDataKind, or empty if not found
   public static Optional<TestDataKind> fromOptionalString(String kind) {
     for (TestDataKind value : values()) {
       if (value.name().equalsIgnoreCase(kind)) {
@@ -127,11 +138,19 @@ public enum TestDataKind {
     return Optional.empty();
   }
 
+  /// Converts a string to a TestDataKind, throwing an exception if not found
+  ///
+  /// @param kind The string to convert
+  /// @return The TestDataKind
+  /// @throws IllegalArgumentException If the string is not a valid TestDataKind
   public static TestDataKind fromString(String kind) {
     return fromOptionalString(kind).orElseThrow(() -> new IllegalArgumentException(
         "kind '" + kind + "' is not a valid dataset kind: " + Arrays.toString(values())));
   }
 
+  /// Alternative names for TestDataKind values
+  ///
+  /// This enum maps common alternative names to their canonical TestDataKind values.
   private enum OtherNames {
     base(base_vectors),
     train(base_vectors),
@@ -144,8 +163,12 @@ public enum TestDataKind {
     gt(neighbor_indices),
     distances(neighbor_distances);
 
+    /// The canonical TestDataKind that this alternative name maps to
     public final TestDataKind canonical;
 
+    /// Creates a new OtherNames enum value
+    ///
+    /// @param testDataKind The canonical TestDataKind
     OtherNames(TestDataKind testDataKind) {
       this.canonical = testDataKind;
     }

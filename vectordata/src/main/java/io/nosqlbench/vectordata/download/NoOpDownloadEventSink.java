@@ -20,6 +20,7 @@ package io.nosqlbench.vectordata.download;
 
 import io.nosqlbench.vectordata.download.chunker.DownloadEventSink;
 
+/// a no-op download event sink
 public class NoOpDownloadEventSink implements DownloadEventSink {
     @Override
     public void debug(String format, Object... args) {}

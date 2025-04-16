@@ -3,17 +3,26 @@ package io.nosqlbench.vectordata.download.merkle;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-/**
- * Represents a node in a Merkle tree structure.
- */
+/// Represents a node in a Merkle tree structure.
+///
+/// Each node contains a hash value and references to its child nodes (if any).
+/// Leaf nodes represent chunks of the original data, while internal nodes
+/// combine and hash their children's values.
 public record MerkleNode(
-    int index,          // Index in logical tree structure
-    int level,          // Level in the tree (0 = leaf)
-    byte[] hash,        // SHA-256 hash of the section
-    MerkleNode left,    // Left child node
-    MerkleNode right    // Right child node
+    /// Index in logical tree structure
+    int index,
+    /// Level in the tree (0 = leaf)
+    int level,
+    /// SHA-256 hash of the section
+    byte[] hash,
+    /// Left child node
+    MerkleNode left,
+    /// Right child node
+    MerkleNode right
 ) {
-    public static final int HASH_SIZE = 32; // SHA-256 hash size in bytes
+    /// SHA-256 hash size in bytes
+    public static final int HASH_SIZE = 32;
+    /// Shared MessageDigest instance for SHA-256 hashing
     private static final MessageDigest DIGEST;
 
     static {
@@ -24,25 +33,33 @@ public record MerkleNode(
         }
     }
 
+    /// Compact constructor that validates the hash length
     public MerkleNode {
         if (hash.length != HASH_SIZE) {
             throw new IllegalArgumentException(
-                "Invalid hash length: expected " + HASH_SIZE + 
+                "Invalid hash length: expected " + HASH_SIZE +
                 ", got " + hash.length
             );
         }
     }
 
-    /**
-     * Create a leaf node with the given index and hash
-     */
+    /// Creates a leaf node with the given index and hash.
+    ///
+    /// @param index The index of the leaf node
+    /// @param hash The SHA-256 hash of the data chunk
+    /// @return A new leaf node
     public static MerkleNode leaf(int index, byte[] hash) {
         return new MerkleNode(index, 0, hash, null, null);
     }
 
-    /**
-     * Create an internal node with the given parameters
-     */
+    /// Creates an internal node by combining and hashing its children's values.
+    ///
+    /// @param index The index of the internal node
+    /// @param leftHash The hash from the left child
+    /// @param rightHash The hash from the right child (may be null)
+    /// @param left The left child node
+    /// @param right The right child node (may be null)
+    /// @return A new internal node with combined hash
     public static MerkleNode internal(int index, byte[] leftHash, byte[] rightHash, MerkleNode left, MerkleNode right) {
         // Combine and hash the child hashes
         byte[] combinedHash;
@@ -56,21 +73,26 @@ public record MerkleNode(
             // If no right hash, hash the left hash alone
             combinedHash = DIGEST.digest(leftHash);
         }
-        
+
         int level = left != null ? left.level() + 1 : 1;
         return new MerkleNode(index, level, combinedHash, left, right);
     }
 
-    /**
-     * Check if this node is a leaf node
-     */
+    /// Checks if this node is a leaf node (has no children).
+    ///
+    /// @return true if this is a leaf node, false otherwise
     public boolean isLeaf() {
         return left == null && right == null;
     }
 
-    /**
-     * Compute the start offset for this node based on index and chunk size
-     */
+    /// Computes the start byte offset for this node in the original data.
+    ///
+    /// For leaf nodes, this is based on the index and chunk size.
+    /// For internal nodes, it's the start offset of the leftmost leaf descendant.
+    ///
+    /// @param totalSize The total size of the original data
+    /// @param chunkSize The size of each chunk
+    /// @return The start byte offset
     public long startOffset(long totalSize, long chunkSize) {
         if (!isLeaf()) {
             return left.startOffset(totalSize, chunkSize);
@@ -78,38 +100,48 @@ public record MerkleNode(
         return (long) index * chunkSize;
     }
 
-    /**
-     * Compute the end offset for this node based on index and chunk size
-     */
+    /// Computes the end byte offset for this node in the original data.
+    ///
+    /// For leaf nodes, this is based on the index and chunk size.
+    /// For internal nodes, it's the end offset of the rightmost leaf descendant.
+    ///
+    /// @param totalSize The total size of the original data
+    /// @param chunkSize The size of each chunk
+    /// @return The end byte offset
     public long endOffset(long totalSize, long chunkSize) {
         if (!isLeaf()) {
-            return right != null ? right.endOffset(totalSize, chunkSize) 
+            return right != null ? right.endOffset(totalSize, chunkSize)
                                : left.endOffset(totalSize, chunkSize);
         }
         return Math.min(totalSize, ((long) index + 1) * chunkSize);
     }
 
-    /**
-     * Find the leaf node containing the given offset
-     */
+    /// Finds the leaf node containing the given byte offset in the original data.
+    ///
+    /// Traverses the tree to locate the appropriate leaf node.
+    ///
+    /// @param offset The byte offset to find
+    /// @param totalSize The total size of the original data
+    /// @param chunkSize The size of each chunk
+    /// @return The leaf node containing the offset, or null if not found
     public MerkleNode findLeafForOffset(long offset, long totalSize, long chunkSize) {
         if (isLeaf()) {
             long start = startOffset(totalSize, chunkSize);
             long end = endOffset(totalSize, chunkSize);
             return (offset >= start && offset < end) ? this : null;
         }
-        
+
         if (left != null) {
             long leftEnd = left.endOffset(totalSize, chunkSize);
             if (offset < leftEnd) {
                 return left.findLeafForOffset(offset, totalSize, chunkSize);
             }
         }
-        
+
         if (right != null) {
             return right.findLeafForOffset(offset, totalSize, chunkSize);
         }
-        
+
         return null;
     }
 }

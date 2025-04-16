@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -40,15 +40,29 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Optional;
 
+/// Implementation of TestDataView that provides access to vector data based on a profile configuration.
+///
+/// ProfileDataView uses a TestDataGroup and FProfiles configuration to provide access to
+/// vector datasets and their associated metadata. It maps profile configurations to the
+/// appropriate datasets in the data group.
 public class ProfileDataView implements TestDataView {
+  /// The data group containing the datasets
   private final TestDataGroup datagroup;
+  /// The profile configuration specifying how to access the datasets
   private final FProfiles profile;
 
+  /// Creates a new ProfileDataView with the specified data group and profile.
+  ///
+  /// @param group The data group containing the datasets
+  /// @param profile The profile configuration specifying how to access the datasets
   public ProfileDataView(TestDataGroup group, FProfiles profile) {
     this.datagroup = group;
     this.profile = profile;
   }
 
+  /// Gets the base vectors dataset based on the profile configuration.
+  ///
+  /// @return An Optional containing the base vectors dataset, or empty if not available
   @Override
   public Optional<BaseVectors> getBaseVectors() {
     FView baseView = profile.views().get(TestDataKind.base_vectors.name());
@@ -66,6 +80,9 @@ public class ProfileDataView implements TestDataView {
 //        ));
   }
 
+  /// Gets the query vectors dataset based on the profile configuration.
+  ///
+  /// @return An Optional containing the query vectors dataset, or empty if not available
   @Override
   public Optional<QueryVectors> getQueryVectors() {
     FView baseView = profile.views().get(TestDataKind.query_vectors.name());
@@ -82,6 +99,9 @@ public class ProfileDataView implements TestDataView {
 //        ));
   }
 
+  /// Gets the neighbor indices dataset based on the profile configuration.
+  ///
+  /// @return An Optional containing the neighbor indices dataset, or empty if not available
   @Override
   public Optional<NeighborIndices> getNeighborIndices() {
     FView baseView = profile.views().get(TestDataKind.neighbor_indices.name());
@@ -99,6 +119,9 @@ public class ProfileDataView implements TestDataView {
 //        ));
   }
 
+  /// Gets the neighbor distances dataset based on the profile configuration.
+  ///
+  /// @return An Optional containing the neighbor distances dataset, or empty if not available
   @Override
   public Optional<NeighborDistances> getNeighborDistances() {
 
@@ -118,11 +141,17 @@ public class ProfileDataView implements TestDataView {
 //        ));
   }
 
+  /// Gets the distance function used for this dataset.
+  ///
+  /// @return The distance function
   @Override
   public DistanceFunction getDistanceFunction() {
     return datagroup.getDistanceFunction();
   }
 
+  /// Gets the license information for this dataset.
+  ///
+  /// @return The license text
   @Override
   public String getLicense() {
     return datagroup.getAttribute("license").getData().toString();
@@ -134,6 +163,9 @@ public class ProfileDataView implements TestDataView {
     return datagroup.getAttribute("vendor").getData().toString();
   }
 
+  /// Gets the URL associated with this dataset.
+  ///
+  /// @return The URL, or null if not available
   @Override
   public URL getUrl() {
     Attribute urlAttr = datagroup.getAttribute("url");
@@ -154,11 +186,18 @@ public class ProfileDataView implements TestDataView {
         .map(String::valueOf);
   }
 
+  /// Gets the model name associated with this dataset.
+  ///
+  /// @return The model name
   @Override
   public String getModel() {
     return this.datagroup.getAttribute("model").getData().toString();
   }
 
+  /// Looks up a token value by name.
+  ///
+  /// @param tokenName The name of the token to look up
+  /// @return An Optional containing the token value, or empty if not found
   @Override
   public Optional<String> lookupToken(String tokenName) {
     try {
@@ -168,16 +207,26 @@ public class ProfileDataView implements TestDataView {
     }
   }
 
+  /// Tokenizes a template string using the tokens available in this dataset.
+  ///
+  /// @param template The template string to tokenize
+  /// @return An Optional containing the tokenized string, or empty if tokenization failed
   @Override
   public Optional<String> tokenize(String template) {
     return new Templatizer(t -> this.lookupToken(t).orElse(null)).templatize(template);
   }
 
+  /// Gets the name of this dataset.
+  ///
+  /// @return The dataset name
   @Override
   public String getName() {
     return datagroup.getName();
   }
 
+  /// Gets all available tokens for this dataset.
+  ///
+  /// @return A map of token names to token values
   @Override
   public Map<String, String> getTokens() {
     Map<String, String> tokens = new java.util.LinkedHashMap<>();
