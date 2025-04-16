@@ -36,7 +36,8 @@ import java.util.concurrent.Callable;
 
 /// Browse and download hdf5 datasets from accessible catalogs
 @CommandLine.Command(name = "datasets",
-    description = "Browse and download hdf5 datasets from accessible catalogs")
+    description = "Browse and download hdf5 datasets from accessible catalogs",
+    subcommands = {CommandLine.HelpCommand.class})
 public class CMD_datasets implements Callable<Integer> {
 
   private static final Logger logger = LogManager.getLogger(CMD_datasets.class);

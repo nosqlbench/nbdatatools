@@ -39,7 +39,7 @@ import java.util.concurrent.Callable;
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
-    })
+    },subcommands = {CommandLine.HelpCommand.class})
 public class CMD_catalog_hdf5 implements Callable<Integer> {
 
   private static final Logger logger = LogManager.getLogger(CMD_catalog_hdf5.class);

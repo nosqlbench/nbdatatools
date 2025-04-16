@@ -39,15 +39,26 @@ import java.util.ListIterator;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-/// a catalog of datasets
+/// A catalog of vector datasets available for download.
+///
+/// This class provides methods to search and retrieve dataset entries from various sources,
+/// supporting both local and remote catalogs in JSON format.
+///
+/// @param datasets The list of dataset entries in the catalog
 public record Catalog(List<DatasetEntry> datasets) {
 
+  /// HTTP client for downloading catalog files from remote sources
   private static final OkHttpClient httpClient = new OkHttpClient();
 
-  /// create a catalog from a config
-  /// @param config
-  ///     the config to use
-  /// @return a catalog
+  /// Creates a catalog by loading and parsing catalog files from the provided sources.
+  ///
+  /// This method fetches catalog.json files from each location in the config,
+  /// parses them, and combines all dataset entries into a single catalog.
+  /// Supports both HTTP and file URLs.
+  ///
+  /// @param config The configuration containing catalog source locations
+  /// @return A new catalog containing all dataset entries from the sources
+  /// @throws RuntimeException If any catalog file cannot be loaded or parsed
   public static Catalog of(TestDataSources config) {
     List<DatasetEntry> entries = new ArrayList<>();
     Gson gson = new Gson();
@@ -120,9 +131,11 @@ public record Catalog(List<DatasetEntry> datasets) {
     return new Catalog(entries);
   }
 
-    /// Find a dataset by a specific name, case insensitive
-    /// @param name the name of the dataset to find
-    /// @return the dataset, if found
+  /// Finds a dataset by its exact name (case insensitive).
+  ///
+  /// @param name The name of the dataset to find
+  /// @return An Optional containing the dataset if found, or empty if not found
+  /// @throws RuntimeException If multiple datasets match the same name
     public Optional<DatasetEntry> findExact(String name) {
       List<DatasetEntry> found =
           datasets.stream().filter(e -> e.name().equalsIgnoreCase(name)).toList();
@@ -142,16 +155,31 @@ public record Catalog(List<DatasetEntry> datasets) {
   //    return datasets.stream().filter(e -> e.name().toLowerCase().contains(name.toLowerCase())).findFirst();
   //  }
 
+  /// Matches datasets using a file glob pattern.
+  ///
+  /// Uses the same glob syntax as {@link java.nio.file.FileSystem#getPathMatcher(String)}.
+  ///
+  /// @param glob The glob pattern to match against dataset names
+  /// @return A list of matching dataset entries (may be empty)
   public List<DatasetEntry> matchGlob(String glob) {
     PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:" + glob);
     return datasets.stream().filter(e -> pathMatcher.matches(Path.of(e.name()))).toList();
   }
 
+  /// Matches datasets using a regular expression pattern.
+  ///
+  /// @param regex The regular expression to match against dataset names
+  /// @return A list of matching dataset entries (may be empty)
   public List<DatasetEntry> matchRegex(String regex) {
     Pattern p = Pattern.compile(regex);
     return datasets.stream().filter(e -> p.matcher(e.name()).matches()).toList();
   }
 
+  /// Matches a single dataset using a regular expression pattern.
+  ///
+  /// @param regex The regular expression to match against dataset names
+  /// @return An Optional containing the matching dataset if exactly one is found, or empty if none found
+  /// @throws RuntimeException If multiple datasets match the pattern
   public Optional<DatasetEntry> matchOne(String regex) {
     Pattern p = Pattern.compile(regex);
     List<DatasetEntry> found =
@@ -167,6 +195,14 @@ public record Catalog(List<DatasetEntry> datasets) {
   }
 
 
+  /// Resolves the catalog.json file URL for a given location.
+  ///
+  /// If the location already ends with catalog.json, it is returned as is.
+  /// Otherwise, catalog.json is appended to the location.
+  ///
+  /// @param location The base location URL
+  /// @return The resolved catalog.json file URL
+  /// @throws RuntimeException If the resulting URL is invalid
   private static URL fileFor(URL location) {
     if (location.toString().endsWith("/catalog.json")) {
       return location;

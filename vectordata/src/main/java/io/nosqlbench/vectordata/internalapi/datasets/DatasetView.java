@@ -58,7 +58,13 @@ public interface DatasetView<T> extends Iterable<T>{
   /// @return the vectors
   Indexed<T>[] getIndexedRange(long startInclusive, long endExclusive);
 
+  /// get a list of all vectors
+  /// @return the list of all vectors
   List<T> toList();
 
+  /// get a list of all vectors, transformed by the given function
+  /// @param f the function to transform the vectors
+  /// @param <U> the type of the transformed vectors
+  /// @return the list of all vectors, transformed
   <U> List<U> toList(Function<T, U> f);
 }

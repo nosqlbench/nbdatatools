@@ -36,7 +36,8 @@ import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
 /// Run jjq commands
-@Command(name = "jjq", description = "run jjq commands with extended functions")
+@Command(name = "jjq", description = "run jjq commands with extended functions",
+    subcommands = {CommandLine.HelpCommand.class})
 public class CMD_jjq implements Callable<Integer> {
 
   @Option(names = {"-i", "--in"}, required = true)

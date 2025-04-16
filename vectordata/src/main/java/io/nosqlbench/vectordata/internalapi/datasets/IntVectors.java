@@ -24,6 +24,8 @@ import java.util.Set;
 /// a dataset consisting of arrays of float values
 public interface IntVectors extends DatasetView<int[]> {
 
+  /// get the vectors as a list of sets
+  /// @return the vectors as a list of sets
   List<Set<Integer>> asSets();
 }
 

@@ -34,7 +34,8 @@ import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
 /// Tag HDF5 vector test data files
-@CommandLine.Command(name = "tag_hdf5", description = "read or write hdf attributes")
+@CommandLine.Command(name = "tag_hdf5", description = "read or write hdf attributes",
+    subcommands = {CommandLine.HelpCommand.class})
 public class CMD_tag_hdf5 implements Callable<Integer> {
 
   private final HdfTraverser hdfTraverser =

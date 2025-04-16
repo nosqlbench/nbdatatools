@@ -50,7 +50,7 @@ import java.util.function.Supplier;
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
-    })
+    }, subcommands = {CommandLine.HelpCommand.class})
 public class CMD_build_hdf5 implements Callable<Integer> {
 
   private static final Logger logger = LogManager.getLogger(CMD_build_hdf5.class);

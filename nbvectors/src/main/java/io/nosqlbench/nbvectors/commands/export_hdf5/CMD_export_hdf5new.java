@@ -67,7 +67,8 @@ import static picocli.CommandLine.Option;
     synopsisHeading = "%n",
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",
-    optionListHeading = "%nOptions:%n")
+    optionListHeading = "%nOptions:%n",
+    subcommands = {CommandLine.HelpCommand.class})
 public class CMD_export_hdf5new implements Callable<Integer> {
 
 

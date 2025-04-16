@@ -21,8 +21,15 @@ package io.nosqlbench.vectordata.layout;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/// An FView is a view of a source, with an optional window.
+/// @see FSource
+/// @param source the source of the view
+/// @param window the window of the view
 public record FView(FSource source, FWindow window) {
 
+  /// loads a view from object data
+  /// @param pv the object data to load from
+  /// @return a view
   public static FView fromObject(Object pv) {
     if (pv instanceof CharSequence cs) {
       return new FView(new FSource(cs.toString(), FWindow.ALL), FWindow.ALL);
@@ -35,6 +42,8 @@ public record FView(FSource source, FWindow window) {
     }
   }
 
+  /// provide raw data for this view
+  /// @return the raw data for this view
   public Map<String, Object> toData() {
     LinkedHashMap<String, Object> map = new LinkedHashMap<>();
     map.put("source", source.toData());

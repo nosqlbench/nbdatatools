@@ -29,6 +29,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+/// A task to download a specific chunk of a file and write it to the correct position in the target file
 public class ChunkDownloadTask implements Runnable {
     private static final int BUFFER_SIZE = 8192 * 2;
     private final OkHttpClient client;
@@ -40,6 +41,15 @@ public class ChunkDownloadTask implements Runnable {
     private final AtomicBoolean downloadFailed;
     private final DownloadEventSink eventSink;
 
+    /// create a new chunk download task
+    /// @param client the http client to use for downloading
+    /// @param url the url to download from
+    /// @param targetFile the file to write the downloaded chunk to
+    /// @param startByte the start byte of the chunk to download
+    /// @param endByte the end byte of the chunk to download
+    /// @param totalBytesDownloaded the total number of bytes downloaded so far
+    /// @param downloadFailed a flag indicating whether the download has failed
+    /// @param eventSink the event sink to use for logging
     public ChunkDownloadTask(OkHttpClient client, URL url, Path targetFile, long startByte, long endByte,
                      AtomicLong totalBytesDownloaded, AtomicBoolean downloadFailed, DownloadEventSink eventSink) {
         this.client = client;

@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.download.chunker;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -36,19 +36,43 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+/// A high-performance file downloader that supports parallel chunk-based downloading.
+///
+/// This class provides efficient file downloading with the following features:
+/// - Parallel downloading of file chunks for faster downloads
+/// - Resume capability for interrupted downloads
+/// - Fallback to single-stream downloads when chunking is not supported
+/// - Local file handling for file:// URLs
+/// - Automatic target path resolution
 public class ChunkedDownloader {
-  private static final int BUFFER_SIZE = 8192 * 2; // Increased buffer size
-  private static final long DEFAULT_CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB default chunk size
+  /// Buffer size for reading/writing data (16KB)
+  private static final int BUFFER_SIZE = 8192 * 2;
+  /// Default chunk size for parallel downloads (10MB)
+  private static final long DEFAULT_CHUNK_SIZE = 10 * 1024 * 1024;
+  /// Default number of parallel download threads (max of 8 or half available processors)
   private static final int DEFAULT_PARALLELISM =
       Math.max(8, Runtime.getRuntime().availableProcessors() / 2);
 
+  /// The URL to download from
   private final URL url;
+  /// The name to use for the downloaded file if not specified in the target path
   private final String name;
+  /// The size of each chunk for parallel downloads
   private final long chunkSize;
+  /// The number of parallel download threads to use
   private final int parallelism;
+  /// HTTP client for making requests
   private final OkHttpClient client;
+  /// Event sink for logging and progress reporting
   private final DownloadEventSink eventSink;
 
+  /// Creates a new chunked downloader with the specified parameters.
+  ///
+  /// @param url The URL to download from
+  /// @param name The name to use for the downloaded file if not specified in the target path
+  /// @param chunkSize The size of each chunk for parallel downloads (use 0 for default)
+  /// @param parallelism The number of parallel download threads to use (use 0 for default)
+  /// @param eventSink Event sink for logging and progress reporting
   public ChunkedDownloader(
       URL url,
       String name,
@@ -67,6 +91,11 @@ public class ChunkedDownloader {
         .build();
   }
 
+  /// Downloads a file from the configured URL to the specified target path.
+  ///
+  /// @param target The target path (can be a directory or file path)
+  /// @param force Whether to force download even if the file already exists
+  /// @return A DownloadProgress object that tracks the download progress and result
   public DownloadProgress download(Path target, boolean force) {
     if ("file".equalsIgnoreCase(url.getProtocol())) {
       return handleLocalFile(target, Path.of(url.getPath()), force);
@@ -122,6 +151,16 @@ public class ChunkedDownloader {
     return downloadParallel(targetFile, force, metadata, eventSink);
   }
 
+  /// Downloads a file in parallel chunks.
+  ///
+  /// This method divides the file into chunks and downloads them in parallel,
+  /// which can significantly improve download speed for large files.
+  ///
+  /// @param targetFile The target file path
+  /// @param force Whether to force download even if the file already exists
+  /// @param metadata Metadata about the file being downloaded
+  /// @param eventSink Event sink for logging and progress reporting
+  /// @return A DownloadProgress object that tracks the download progress and result
   private DownloadProgress downloadParallel(
       Path targetFile,
       boolean force,
@@ -207,6 +246,15 @@ public class ChunkedDownloader {
     );
   }
 
+  /// Downloads a file using a single HTTP stream.
+  ///
+  /// This method is used as a fallback when the server doesn't support range requests
+  /// or when the file size is unknown.
+  ///
+  /// @param targetFile The target file path
+  /// @param force Whether to force download even if the file already exists
+  /// @param metadata Metadata about the file being downloaded
+  /// @return A DownloadProgress object that tracks the download progress and result
   private DownloadProgress downloadSingleStream(
       Path targetFile,
       boolean force,
@@ -259,6 +307,14 @@ public class ChunkedDownloader {
     return new DownloadProgress(targetFile, expectedSize, currentBytes, future);
   }
 
+  /// Executes a single-stream download operation.
+  ///
+  /// @param client The HTTP client to use
+  /// @param request The HTTP request to execute
+  /// @param targetFile The target file path
+  /// @param expectedSize The expected size of the file (may be -1 if unknown)
+  /// @param currentBytes Atomic counter for tracking downloaded bytes
+  /// @param future Future to complete when the download finishes
   private void executeSingleStreamDownload(
       OkHttpClient client,
       Request request,
@@ -303,6 +359,10 @@ public class ChunkedDownloader {
   }
 
 
+  /// Retrieves metadata about the file to be downloaded using a HEAD request.
+  ///
+  /// @param client The HTTP client to use
+  /// @return Metadata about the file, including size and range support
   private FileMetadata getFileMetadata(OkHttpClient client) {
     Request request = new Request.Builder().url(url).head().build();
     eventSink.debug("Requesting HEAD metadata from {}", url);
@@ -328,6 +388,12 @@ public class ChunkedDownloader {
     }
   }
 
+  /// Retrieves metadata about the file using a GET request with Range: bytes=0-0.
+  ///
+  /// This is a fallback method used when HEAD requests are not supported by the server.
+  ///
+  /// @param client The HTTP client to use
+  /// @return Metadata about the file, including size and range support
   private FileMetadata getFileMetadataWithGet(OkHttpClient client) {
     Request request = new Request.Builder().url(url).get().addHeader("Range", "bytes=0-0").build();
     eventSink.debug("Requesting GET metadata (Range 0-0) from {}", url);
@@ -372,6 +438,10 @@ public class ChunkedDownloader {
     }
   }
 
+  /// Parses the Content-Length header value to a long.
+  ///
+  /// @param headerValue The header value to parse
+  /// @return The parsed content length, or -1 if parsing failed
   private long parseContentLength(String headerValue) {
     if (headerValue == null)
       return -1;
@@ -383,6 +453,10 @@ public class ChunkedDownloader {
   }
 
 
+  /// Extracts the error message from an HTTP response body.
+  ///
+  /// @param response The HTTP response
+  /// @return The response body as a string, or an empty string if extraction fails
   private String getErrorBody(Response response) {
     try (ResponseBody body = response.body()) { // Ensure body is closed
       return body != null ? body.string() : "";
@@ -391,7 +465,13 @@ public class ChunkedDownloader {
     }
   }
 
-  // Renamed from writeToFile to avoid confusion with parallel writing
+  /// Writes a chunk of data to a specific position in a file.
+  ///
+  /// @param raf The random access file to write to
+  /// @param body The response body containing the chunk data
+  /// @param startOffset The starting offset in the file
+  /// @param totalBytesDownloaded Atomic counter for tracking downloaded bytes
+  /// @throws IOException If an I/O error occurs
   private void writeChunkToFile(
       RandomAccessFile raf,
       ResponseBody body,
@@ -422,6 +502,14 @@ public class ChunkedDownloader {
     );
   }
 
+  /// Handles errors that occur during download.
+  ///
+  /// This method logs the error, attempts to delete the partial file,
+  /// and completes the future exceptionally.
+  ///
+  /// @param targetFile The target file path
+  /// @param e The exception that occurred
+  /// @param future The future to complete exceptionally
   private void handleDownloadError(
       Path targetFile,
       Exception e,
@@ -443,6 +531,11 @@ public class ChunkedDownloader {
     }
   }
 
+  /// Creates a DownloadProgress object for a failed download.
+  ///
+  /// @param targetFile The target file path
+  /// @param e The exception that caused the failure
+  /// @return A DownloadProgress object with a failed future
   private DownloadProgress createFailedProgress(Path targetFile, Exception e) {
     CompletableFuture<DownloadResult> future = new CompletableFuture<>();
     future.completeExceptionally(e); // Complete exceptionally immediately
@@ -451,6 +544,13 @@ public class ChunkedDownloader {
   }
 
 
+  /// Determines the actual file path to download to.
+  ///
+  /// This method handles cases where the target is a directory or doesn't have a file extension.
+  ///
+  /// @param target The target path specified by the user
+  /// @return The resolved file path to download to
+  /// @throws RuntimeException If the target path is ambiguous
   private Path determineTargetFile(Path target) {
     // If target has an extension OR if it doesn't exist yet, assume it's the file path
     if (hasFileExtension(target) || !Files.exists(target)) {
@@ -481,6 +581,10 @@ public class ChunkedDownloader {
                                + " exists but is not a directory and lacks a file extension. Cannot determine target file name.");
   }
 
+  /// Checks if a path has a file extension.
+  ///
+  /// @param path The path to check
+  /// @return true if the path has a file extension, false otherwise
   private boolean hasFileExtension(Path path) {
     String fileName = path.getFileName().toString();
     int dotIndex = fileName.lastIndexOf('.');
@@ -488,8 +592,12 @@ public class ChunkedDownloader {
     return dotIndex > 0 && dotIndex < fileName.length() - 1;
   }
 
-  // --- Local File Handling (Unchanged from original logic, but integrated) ---
-
+  /// Handles local file:// URLs by creating a symbolic link or copying the file.
+  ///
+  /// @param target The target path specified by the user
+  /// @param sourcePath The source file path from the URL
+  /// @param force Whether to force overwrite if the target already exists
+  /// @return A DownloadProgress object tracking the operation
   private DownloadProgress handleLocalFile(Path target, Path sourcePath, boolean force) {
     eventSink.info("Handling local file copy/link from {} to {}", sourcePath, target);
     Path targetFile = null; // Initialize to null
@@ -562,6 +670,15 @@ public class ChunkedDownloader {
     );
   }
 
+  /// Creates a symbolic link or copies a local file to the target path.
+  ///
+  /// This method first attempts to create a symbolic link for efficiency,
+  /// and falls back to copying the file if linking fails.
+  ///
+  /// @param targetFile The target file path
+  /// @param sourcePath The source file path
+  /// @param fileSize The size of the source file
+  /// @param future The future to complete when the operation finishes
   private void handleLocalFileCopy(
       Path targetFile,
       Path sourcePath,
@@ -599,6 +716,10 @@ public class ChunkedDownloader {
 
   // --- Inner Classes ---
 
+  /// Metadata about a file to be downloaded.
+  ///
+  /// @param totalSize The total size of the file in bytes, or -1 if unknown
+  /// @param supportsRanges Whether the server supports range requests for parallel downloading
   private record FileMetadata(long totalSize, boolean supportsRanges) {
   }
 }

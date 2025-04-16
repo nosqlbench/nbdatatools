@@ -40,7 +40,8 @@ import java.util.concurrent.Callable;
  * hugging_dl [--target dir] [--token token] [--envkey key] dataset_name...
  * ```
  */
-@CommandLine.Command(name = "hugging_dl", header = "Download Huggingface Datasets via API")
+@CommandLine.Command(name = "hugging_dl", header = "Download Huggingface Datasets via API",
+    subcommands = {CommandLine.HelpCommand.class})
 public class CMD_hugging_dl implements Callable<Integer> {
 
   private static final Logger logger = LogManager.getLogger(CMD_hugging_dl.class);

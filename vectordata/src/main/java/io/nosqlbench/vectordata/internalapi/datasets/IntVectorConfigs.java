@@ -22,7 +22,11 @@ import java.util.Map;
 import java.util.Optional;
 
 /// a dataset consisting of arrays of float values
+/// @see IntVectors
 public interface IntVectorConfigs extends Map<String,DatasetView<int[]>> {
+  /// get a profile by name
+  /// @param name the name of the profile
+  /// @return the profile
   public default Optional<DatasetView<int[]>> getProfile(String name) {
     return Optional.ofNullable(get(name));
   }

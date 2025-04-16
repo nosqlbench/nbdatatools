@@ -56,7 +56,7 @@ import java.util.concurrent.Callable;
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
-    })
+    },subcommands = {CommandLine.HelpCommand.class})
 public class CMD_export_json implements Callable<Integer> {
 
   private static final Logger logger = LogManager.getLogger(CMD_export_json.class);

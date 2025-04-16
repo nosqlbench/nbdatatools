@@ -72,7 +72,8 @@ import static picocli.CommandLine.Option;
     synopsisHeading = "%n",
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",
-    optionListHeading = "%nOptions:%n")
+    optionListHeading = "%nOptions:%n",
+    subcommands = {CommandLine.HelpCommand.class})
 public class CMD_export_hdf5 implements Callable<Integer> {
   private final static String DEFAULT_TEMPLATE =
       "[model][_d{dims*}][_b{vectors*}][_q{queries*}][_i{indices*}][_mk{max_k*}].hdf5";
