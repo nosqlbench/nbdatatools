@@ -114,7 +114,7 @@ public record TestDataSources(List<URL> locations) {
   ///
   /// @return A new Catalog
   /// @throws RuntimeException If no catalogs are specified
-  public Catalog find() {
+  public Catalog catalog() {
     if (this.locations.isEmpty()) {
       throw new RuntimeException("no catalogs specified");
     }

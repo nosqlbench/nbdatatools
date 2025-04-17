@@ -98,26 +98,26 @@ public class CMD_datasets implements Callable<Integer> {
       switch (cmd) {
         case list, ls -> {
           Catalog catalog = Catalog.of(config);
-          catalog.datasets().forEach(d -> {
-            System.out.println(d.name());
+          catalog.datasets().forEach(entry -> {
+            System.out.println(entry.name());
             if (verbose) {
-              d.datasets().forEach((k, v) -> {
-                System.out.println(" DATASET:" + k);
-                if (v.containsKey("dimensions")) {
-                  System.out.println("   dimensions: " + v.get("dimensions"));
-                }
-                if (v.containsKey("attributes")) {
-                  Map<String, String> attrs = (Map<String, String>) v.get("attributes");
-                  System.out.println("   attributes: ");
-                  for (String an : attrs.keySet()) {
-                    System.out.println("    " + an + ": " + attrs.get(an));
-                  }
-                }
+              catalog.datasets().forEach(dataset -> {
+                System.out.println(" DATASET:" + dataset.toString());
+//                if (v.containsKey("dimensions")) {
+//                  System.out.println("   dimensions: " + v.get("dimensions"));
+//                }
+//                if (v.containsKey("attributes")) {
+//                  Map<String, String> attrs = (Map<String, String>) v.get("attributes");
+//                  System.out.println("   attributes: ");
+//                  for (String an : attrs.keySet()) {
+//                    System.out.println("    " + an + ": " + attrs.get(an));
+//                  }
+//                }
               });
-              d.tokens().forEach((k, v) -> {
-                System.out.println(" " + k + ": " + v);
-              });
-              Optional.ofNullable(d.tags()).ifPresent(tags -> {
+//              d.tokens().forEach((k, v) -> {
+//                System.out.println(" " + k + ": " + v);
+//              });
+              Optional.ofNullable(entry.tags()).ifPresent(tags -> {
                 System.out.println(" tags: " + gson.toJson(tags));
               });
 

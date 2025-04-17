@@ -26,16 +26,33 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class CatalogTest {
+
+  @Test
+  public void testLayoutDownloadAndRealization() {
+    TestDataSources sources = TestDataSources.ofUrl(
+        "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/");
+    Catalog catalog = sources.catalog();
+    List<DatasetEntry> dsentries = catalog.datasets();
+    dsentries.forEach(System.out::println);
+    Optional<DatasetEntry> dsOpt = catalog.findExact("ANN_SIFT1B");
+    dsOpt.ifPresent(ds -> {
+      System.out.println("Found dataset: " + ds.name());
+      System.out.println("Attributes: " + ds.attributes());
+    });
+
+  }
+
 
   @Disabled
   @Test
   public void testDatasetDownload() {
     TestDataSources sources =
         TestDataSources.ofUrl("https://jvector-datasets-public.s3.us-east-1.amazonaws.com/");
-    Catalog catalog = sources.find();
+    Catalog catalog = sources.catalog();
     List<DatasetEntry> datasets = catalog.datasets();
     DatasetEntry datasetEntry = datasets.get(0);
     try {

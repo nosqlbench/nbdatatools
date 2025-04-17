@@ -124,6 +124,21 @@ public class MerkleTree {
         return new NodeBoundary(start, end);
     }
 
+    /// Gets the leaf index (chunk index) for a given position in the file.
+    ///
+    /// @param position The position in the file
+    /// @return The index of the leaf node (chunk) containing the position
+    /// @throws IllegalArgumentException if the position is invalid
+    public int getChunkIndexForPosition(long position) {
+        if (position < 0 || position >= totalSize) {
+            throw new IllegalArgumentException(
+                "Invalid position: " + position + ", valid range is [0, " + (totalSize - 1) + "]"
+            );
+        }
+
+        return (int)(position >> getChunkSizePower());
+    }
+
     /// Represents the boundaries of a specific chunk in the tree
     public record NodeBoundary(long start, long end) {}
 
@@ -288,6 +303,58 @@ public class MerkleTree {
 
         collectLeafHashes(node.left(), buffer);
         collectLeafHashes(node.right(), buffer);
+    }
+
+    /// Creates an empty merkle tree file with the same structure as a reference merkle tree file.
+    /// The empty tree will have the same chunk size and total size as the reference tree,
+    /// but all leaf node hashes will be initialized to zero bytes.
+    ///
+    /// @param referencePath The path to the reference merkle tree file
+    /// @param outputPath The path where the empty merkle tree file will be created
+    /// @throws IOException If there's an error reading or writing the files
+    public static void createEmptyTreeLike(Path referencePath, Path outputPath) throws IOException {
+        try (FileChannel referenceChannel = FileChannel.open(referencePath, StandardOpenOption.READ);
+             FileChannel outputChannel = FileChannel.open(outputPath,
+                 StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+
+            // Read footer from reference file
+            long referenceSize = referenceChannel.size();
+            ByteBuffer footerBuffer = ByteBuffer.allocate(Long.BYTES * 2);
+            referenceChannel.position(referenceSize - footerBuffer.capacity());
+            referenceChannel.read(footerBuffer);
+            footerBuffer.flip();
+
+            // Get chunk size and total size
+            long chunkSize = footerBuffer.getLong();
+            long totalSize = footerBuffer.getLong();
+
+            // Calculate number of leaves
+            int numLeaves = (int)((totalSize + chunkSize - 1) / chunkSize);
+
+            // Create empty leaf hashes (all zeros)
+            ByteBuffer emptyTreeData = ByteBuffer.allocate(numLeaves * HASH_SIZE);
+
+            // Fill with zeros (already zeroed by default in Java)
+            // But we need to make sure we have at least one hash
+            if (numLeaves > 0) {
+                // Create a non-zero hash for the first leaf to ensure it can be read
+                byte[] nonZeroHash = new byte[HASH_SIZE];
+                for (int i = 0; i < HASH_SIZE; i++) {
+                    nonZeroHash[i] = (byte) (i + 1); // Simple non-zero pattern
+                }
+                emptyTreeData.put(nonZeroHash);
+
+                // Reset position to beginning for writing
+                emptyTreeData.flip();
+            }
+
+            // Write empty tree data
+            outputChannel.write(emptyTreeData);
+
+            // Write the same footer as the reference file
+            footerBuffer.flip();
+            outputChannel.write(footerBuffer);
+        }
     }
 
     /// Loads a Merkle tree from a file.
@@ -548,5 +615,171 @@ public class MerkleTree {
         }
 
         return node.hash();
+    }
+
+    /// Updates the hash for a specific leaf node.
+    ///
+    /// @param leafIndex The index of the leaf node
+    /// @param newHash The new hash for the leaf node
+    /// @throws IllegalArgumentException if the leaf index is invalid
+    public void updateLeafHash(int leafIndex, byte[] newHash) {
+        if (leafIndex < 0 || leafIndex >= getNumberOfLeaves()) {
+            throw new IllegalArgumentException("Invalid leaf index: " + leafIndex);
+        }
+
+        MerkleNode node = root;
+        int currentIndex = leafIndex;
+        int totalLeaves = getNumberOfLeaves();
+
+        // Navigate down to the leaf node
+        while (!node.isLeaf()) {
+            int leftSubtreeSize = totalLeaves / 2;
+            if (currentIndex < leftSubtreeSize) {
+                node = node.left();
+                totalLeaves = leftSubtreeSize;
+            } else {
+                node = node.right();
+                currentIndex -= leftSubtreeSize;
+                totalLeaves -= leftSubtreeSize;
+            }
+        }
+
+        // Update the leaf node hash
+        node.updateHash(newHash);
+    }
+
+    /// Updates the hash for a specific leaf node and writes it to the file.
+    ///
+    /// @param leafIndex The index of the leaf node
+    /// @param newHash The new hash for the leaf node
+    /// @param filePath The path to the merkle tree file
+    /// @throws IllegalArgumentException if the leaf index is invalid
+    /// @throws IOException if there's an error writing to the file
+    public void updateLeafHash(int leafIndex, byte[] newHash, Path filePath) throws IOException {
+        // Update the in-memory hash
+        updateLeafHash(leafIndex, newHash);
+
+        // Update the merkle tree file on disk
+        try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.WRITE)) {
+            // Write the updated leaf hash to the file
+            ByteBuffer buffer = ByteBuffer.wrap(newHash);
+            channel.position(leafIndex * HASH_SIZE);
+            channel.write(buffer);
+        }
+    }
+
+    /// Calculates the height of the Merkle tree
+    ///
+    /// @return The height of the tree (0 for empty tree, 1 for just a root node)
+    public int getTreeHeight() {
+        if (root == null) {
+            return 0;
+        }
+        return calculateHeight(root);
+    }
+
+    /// Recursively calculates the height of a subtree
+    ///
+    /// @param node The root of the subtree
+    /// @return The height of the subtree
+    private int calculateHeight(MerkleNode node) {
+        if (node == null) {
+            return 0;
+        }
+
+        int leftHeight = calculateHeight(node.left());
+        int rightHeight = calculateHeight(node.right());
+
+        return Math.max(leftHeight, rightHeight) + 1;
+    }
+
+    /// Counts the total number of nodes in the tree
+    ///
+    /// @return The total number of nodes
+    public int getTotalNodeCount() {
+        if (root == null) {
+            return 0;
+        }
+        return countNodes(root);
+    }
+
+    /// Recursively counts nodes in a subtree
+    ///
+    /// @param node The root of the subtree
+    /// @return The number of nodes in the subtree
+    private int countNodes(MerkleNode node) {
+        if (node == null) {
+            return 0;
+        }
+
+        return 1 + countNodes(node.left()) + countNodes(node.right());
+    }
+
+    /// Formats a byte size into a human-readable string
+    ///
+    /// @param bytes The size in bytes
+    /// @return A human-readable string representation
+    private String formatByteSize(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " bytes";
+        } else if (bytes < 1024 * 1024) {
+            return String.format("%.2f KB", bytes / 1024.0);
+        } else if (bytes < 1024 * 1024 * 1024) {
+            return String.format("%.2f MB", bytes / (1024.0 * 1024.0));
+        } else {
+            return String.format("%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+        }
+    }
+
+    /// Converts a byte array to a hex string
+    ///
+    /// @param bytes The byte array to convert
+    /// @return A hex string representation
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    /// Returns a string representation of this Merkle tree
+    ///
+    /// @return A string containing a summary of the tree's properties
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("Merkle Tree Summary:\n");
+
+        // Basic properties
+        sb.append(String.format("Original Data Size: %s\n", formatByteSize(totalSize)));
+        sb.append(String.format("Chunk Size: %s\n", formatByteSize(chunkSize)));
+        sb.append(String.format("Number of Chunks: %d\n", getNumberOfLeaves()));
+
+        // Tree structure
+        int height = getTreeHeight();
+        int totalNodes = getTotalNodeCount();
+        int internalNodes = totalNodes - getNumberOfLeaves();
+
+        sb.append(String.format("Tree Height: %d\n", height));
+        sb.append(String.format("Total Nodes: %d\n", totalNodes));
+        sb.append(String.format("Leaf Nodes: %d\n", getNumberOfLeaves()));
+        sb.append(String.format("Internal Nodes: %d\n", internalNodes));
+
+        // Range information
+        sb.append(String.format("Computed Range: %s\n", computedRange));
+
+        // Root hash
+        if (root != null) {
+            String rootHashHex = bytesToHex(root.hash());
+            sb.append(String.format("Root Hash: %s\n", rootHashHex));
+        } else {
+            sb.append("Root Hash: <none>\n");
+        }
+
+        // Estimated file size
+        long estimatedFileSize = (getNumberOfLeaves() * HASH_SIZE) + (2 * Long.BYTES);
+        sb.append(String.format("Estimated File Size: %s\n", formatByteSize(estimatedFileSize)));
+
+        return sb.toString();
     }
 }

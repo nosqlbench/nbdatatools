@@ -169,7 +169,7 @@ public record TestGroupLayout(
   ///
   /// @return A map containing the data from this TestGroupLayout
   /// @throws RuntimeException If profiles is null
-  private Map<String, Object> toData() {
+  public Map<String, Object> toData() {
     LinkedHashMap<String, Object> map = new LinkedHashMap<>();
 
     if (attributes != null) {

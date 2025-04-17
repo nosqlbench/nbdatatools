@@ -64,8 +64,8 @@ public class MerkleConsoleDisplay implements AutoCloseable {
         String message = String.format("[%s] %s",
             LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")),
             String.format(format, args));
-        
-        while (logMessages.size() >= 3) {
+
+        while (logMessages.size() >= 6) { // Increased from 3 to 6 to show more log entries
             logMessages.poll();
         }
         logMessages.add(new LogEntry(++eventCounter, message));
@@ -75,12 +75,12 @@ public class MerkleConsoleDisplay implements AutoCloseable {
         synchronized (terminalLock) {
             int width = terminal.getWidth();
             int height = terminal.getHeight();
-            
+
             // Clear screen and move cursor to top
             terminal.writer().print("\033[2J\033[H");
-            
+
             displayProgress(width);
-            
+
             terminal.writer().flush();
         }
     }
@@ -100,10 +100,10 @@ public class MerkleConsoleDisplay implements AutoCloseable {
             float percentage = (float) bytesProcessed / totalBytes * 100;
             long processedGB = bytesProcessed / (1024 * 1024 * 1024);
             long totalGB = totalBytes / (1024 * 1024 * 1024);
-            
+
             terminal.writer().println(String.format("Overall Progress: %d/%d sections (%3.0f%%) - %d/%d GB",
                 sectionsCompleted, totalSections, percentage, processedGB, totalGB));
-            
+
             // Progress bar
             int barWidth = width - 10;
             int completed = (int) ((barWidth * bytesProcessed) / totalBytes);
@@ -119,29 +119,29 @@ public class MerkleConsoleDisplay implements AutoCloseable {
             }
             terminal.writer().println("]");
         }
-        
+
         displayLogMessages(width);
     }
 
     private void displayLogMessages(int width) {
         terminal.writer().println("─".repeat(width));
         terminal.writer().println("Recent Events:");
-        
-        LogEntry[] logLines = new LogEntry[3];
+
+        LogEntry[] logLines = new LogEntry[6]; // Increased from 3 to 6 to show more log entries
         Iterator<LogEntry> logIter = logMessages.iterator();
-        
-        for (int i = 0; i < 3 && logIter.hasNext(); i++) {
+
+        for (int i = 0; i < 6 && logIter.hasNext(); i++) { // Increased from 3 to 6
             logLines[i] = logIter.next();
         }
-        
-        for (int i = 0; i < 3; i++) {
+
+        for (int i = 0; i < 6; i++) { // Increased from 3 to 6
             if (logLines[i] != null) {
                 terminal.writer().printf("#%-4d %s%n", logLines[i].number, logLines[i].message);
             } else {
                 terminal.writer().println();
             }
         }
-        
+
         terminal.writer().println();
     }
 

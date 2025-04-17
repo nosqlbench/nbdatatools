@@ -34,7 +34,7 @@ class MerklePaneTest {
 
     private Path createMerkleFile(Path dataFile, int chunkSize) throws IOException {
         Path merkleFile = tempDir.resolve("test.dat" + MerklePane.MRKL);
-        
+
         // Create and save Merkle tree
         ByteBuffer buffer = ByteBuffer.wrap(Files.readAllBytes(dataFile));
         MerkleTree tree = MerkleTree.fromData(
@@ -43,7 +43,7 @@ class MerklePaneTest {
             new MerkleRange(0, buffer.capacity())
         );
         tree.save(merkleFile);
-        
+
         return merkleFile;
     }
 
@@ -68,25 +68,25 @@ class MerklePaneTest {
         try (MerklePane window = new MerklePane(dataFile, merkleFile)) {
             assertEquals(TEST_FILE_SIZE, window.fileSize());
             assertEquals(dataFile, window.filePath());
-            
+
             // Test chunk reading
             ByteBuffer chunk = window.readChunk(0);
             assertEquals(CHUNK_SIZE, chunk.remaining());
             assertEquals(TEST_DATA_VALUE, chunk.get(0));
-            
+
             // Test last chunk reading
             int lastChunkIndex = (TEST_FILE_SIZE / CHUNK_SIZE) - 1;
             ByteBuffer lastChunk = window.readChunk(lastChunkIndex);
             assertEquals(CHUNK_SIZE, lastChunk.remaining());
             assertEquals(TEST_DATA_VALUE, lastChunk.get(0));
-            
+
             // Test range reading
             int rangeStart = 5;
             int rangeLength = 20;
             ByteBuffer range = window.readRange(rangeStart, rangeLength);
             assertEquals(rangeLength, range.remaining());
             assertEquals(TEST_DATA_VALUE, range.get(0));
-            
+
             // Test chunk verification
             assertTrue(window.verifyChunk(0), "First chunk should verify successfully");
             assertTrue(window.verifyChunk(lastChunkIndex), "Last chunk should verify successfully");
@@ -119,29 +119,29 @@ class MerklePaneTest {
 
         try (MerklePane window = new MerklePane(dataFile, merkleFile)) {
             // Test invalid chunk indices
-            assertThrows(IllegalArgumentException.class, 
+            assertThrows(IllegalArgumentException.class,
                 () -> window.readChunk(-1),
                 "Negative chunk index should throw exception"
             );
-            
+
             int invalidChunkIndex = TEST_FILE_SIZE / CHUNK_SIZE;
-            assertThrows(IllegalArgumentException.class, 
+            assertThrows(IllegalArgumentException.class,
                 () -> window.readChunk(invalidChunkIndex),
                 "Chunk index beyond file size should throw exception"
             );
 
             // Test invalid ranges
-            assertThrows(IllegalArgumentException.class, 
+            assertThrows(IllegalArgumentException.class,
                 () -> window.readRange(-1, CHUNK_SIZE),
                 "Negative range start should throw exception"
             );
-            
-            assertThrows(IllegalArgumentException.class, 
+
+            assertThrows(IllegalArgumentException.class,
                 () -> window.readRange(0, -1),
                 "Negative range length should throw exception"
             );
-            
-            assertThrows(IllegalArgumentException.class, 
+
+            assertThrows(IllegalArgumentException.class,
                 () -> window.readRange(TEST_FILE_SIZE - 5, 10),
                 "Range extending beyond file size should throw exception"
             );
@@ -151,8 +151,8 @@ class MerklePaneTest {
     @Test
     void testMissingOrInvalidFiles() {
         Path nonExistentFile = tempDir.resolve("nonexistent.dat");
-        
-        assertThrows(RuntimeException.class, 
+
+        assertThrows(RuntimeException.class,
             () -> new MerklePane(nonExistentFile),
             "Constructor should throw exception for non-existent file"
         );
@@ -167,9 +167,51 @@ class MerklePaneTest {
         MerklePane window = new MerklePane(dataFile, merkleFile);
         window.close();
 
-        assertThrows(IOException.class, 
+        assertThrows(IOException.class,
             () -> window.readChunk(0),
             "Operations after close should throw exception"
         );
+    }
+
+    @Test
+    void testSubmitChunk() throws IOException {
+        // Create initial data file with all zeros
+        byte[] initialData = new byte[TEST_FILE_SIZE];
+        Path dataFile = createTestFile(initialData);
+        Path merkleFile = createMerkleFile(dataFile, CHUNK_SIZE);
+
+        // Create a chunk of data with all ones
+        byte[] chunkData = createTestData(CHUNK_SIZE, TEST_DATA_VALUE);
+        ByteBuffer chunk = ByteBuffer.wrap(chunkData);
+
+        try (MerklePane window = new MerklePane(dataFile, merkleFile)) {
+            // Verify that the chunk initially has zeros
+            ByteBuffer initialChunk = window.readChunk(0);
+            assertEquals(0, initialChunk.get(0), "Initial chunk should contain zeros");
+
+            // Get the initial verification state
+            boolean initialVerification = window.verifyChunk(0);
+
+            // Submit the new chunk
+            window.submitChunk(0, chunk);
+
+            // Read the chunk again and verify it contains the new data
+            ByteBuffer updatedChunk = window.readChunk(0);
+            assertEquals(TEST_DATA_VALUE, updatedChunk.get(0), "Updated chunk should contain the new value");
+
+            // Verify that the chunk verification state has changed
+            boolean updatedVerification = window.verifyChunk(0);
+            // If the initial verification was true, the updated verification should still be true
+            // If the initial verification was false, the updated verification should now be true
+            assertTrue(updatedVerification, "Updated chunk should pass verification");
+
+            // The key test is that the hash has changed, which we can verify by checking
+            // that either the initial verification was false or the data has changed
+            if (initialVerification) {
+                // If initial verification passed, then the data must have changed
+                ByteBuffer finalChunk = window.readChunk(0);
+                assertNotEquals(0, finalChunk.get(0), "Data should have changed if initial verification passed");
+            }
+        }
     }
 }

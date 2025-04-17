@@ -17,49 +17,40 @@ package io.nosqlbench.nbvectors.commands.catalog_hdf5;
  * under the License.
  */
 
-import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
 
 /// Show details of HDF5 vector data files
-@CommandLine.Command(name = "catalog_hdf5",
+@CommandLine.Command(name = "catalog",
     headerHeading = "Usage:%n%n",
     synopsisHeading = "%n",
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
-    description = "Create catalog views of HDF5 files",
+    description = "Create catalog views of known formats",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
     },subcommands = {CommandLine.HelpCommand.class})
-public class CMD_catalog_hdf5 implements Callable<Integer> {
+public class CMD_catalog implements Callable<Integer> {
 
-  private static final Logger logger = LogManager.getLogger(CMD_catalog_hdf5.class);
+  private static final Logger logger = LogManager.getLogger(CMD_catalog.class);
 
   @CommandLine.Parameters(description = "Files and/or directories to catalog; All files in the "
                                         + "specified directories and paths are added to the "
                                         + "catalog files", defaultValue = ".")
-  private List<Path> hdf5Files;
+  private List<Path> paths;
 
   @CommandLine.Option(names = {"--basename"},
       description = "The basename to use for the catalog",
       defaultValue = "catalog")
   private String basename;
-
-  @CommandLine.Option(names = {"--mode"},
-      description = "The mode to use for the catalog ; Valid values: ${COMPLETION-CANDIDATES}",
-      defaultValue = "create")
-
-  private CatalogMode mode;
-
+  
   /// run a catalog_hdf5 command
   /// @param args
   ///     command line args
@@ -72,7 +63,7 @@ public class CMD_catalog_hdf5 implements Callable<Integer> {
 //    );
 
     //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
-    CMD_catalog_hdf5 command = new CMD_catalog_hdf5();
+    CMD_catalog command = new CMD_catalog();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
@@ -84,14 +75,14 @@ public class CMD_catalog_hdf5 implements Callable<Integer> {
 
   @Override
   public Integer call() {
-    if (this.hdf5Files.isEmpty()) {
+    if (this.paths.isEmpty()) {
       throw new RuntimeException("no files specified");
     }
 
     if (basename.contains(".")) {
       throw new RuntimeException("basename must not contain extension (or dot character)");
     }
-    CatalogOut catalog = CatalogOut.loadAll(this.hdf5Files);
+    CatalogOut catalog = CatalogOut.loadAll(this.paths);
     catalog.save(Path.of(basename + ".json"));
 
     return 0;

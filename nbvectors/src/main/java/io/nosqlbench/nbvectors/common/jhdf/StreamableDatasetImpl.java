@@ -12,13 +12,13 @@ package io.nosqlbench.nbvectors.common.jhdf;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -104,31 +104,21 @@ public class StreamableDatasetImpl extends AbstractWritableNode implements Strea
     this.computeEnabled = true;
   }
 
-  /**
-   Create a {@link StreamableDataset} with default double buffering.
-   @param chunkSupplier
-   The source of data chunks to be written to the dataset
-   @param name
-   The name of the dataset
-   @param parent
-   The parent group of the dataset
-   */
+  /// Create a {@link StreamableDataset} with default double buffering.
+  /// @param chunkSupplier The source of data chunks to be written to the dataset
+  /// @param name The name of the dataset
+  /// @param parent The parent group of the dataset
   public StreamableDatasetImpl(Iterable<?> chunkSupplier, String name, Group parent) {
     this(chunkSupplier, name, parent, Buffering.Double);
   }
 
-  /**
-   Create a {@link StreamableDataset}
-   @param chunkSupplier
-   The source of data chunks to be written to the dataset
-   @param name
-   The name of the dataset
-   @param parent
-   The parent group of the dataset
-   @param buffering
-   The number of buffers to use for buffering the data. A separate thread will
-   read-ahead to fill the buffers from the chunk supplier.
-   */
+
+  /// Create a {@link StreamableDataset} with specified buffering.
+  /// @param chunkSupplier The source of data chunks to be written to the dataset
+  /// @param name The name of the dataset
+  /// @param parent The parent group of the dataset
+  /// @param buffering The number of buffers to use for buffering the data. A separate thread will
+  /// read-ahead to fill the buffers from the chunk supplier.
   public StreamableDatasetImpl(
       Iterable<?> chunkSupplier,
       String name,

@@ -34,7 +34,7 @@ import java.util.function.Function;
 /// This is the reference implementation of valid tokens used for configuration
 /// and templating with the vector test data format.
 ///
-/// The first leve of tokens are the canonical tokens. The second level are shortcuts and
+/// The first level of tokens are the canonical tokens. The second level are shortcuts and
 /// synonyms. For users, they are treated the same when it comes to token expansion.
 /// Library and tool maintainers may choose to treat them differently if needed.
 public enum SpecToken implements Function<TestDataView, Optional<String>> {
@@ -51,7 +51,7 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
       The number of query vectors in the dataset
       """
   ),
-  /// The number of neighborhoods provided ; should be the same as query_vectors
+  /// The number of neighborhoods provided; should be the same as query_vectors
   neighbor_indices(
       d -> d.getNeighborIndices().map(DatasetView::getCount).map(String::valueOf),
       """
@@ -112,9 +112,8 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
     return (String.valueOf(min) + "to" + String.valueOf(max));
   }
 
-  /// Find the matching SpecToken for a given name
-  /// @param tokenName
-  ///     the name of the token to find
+  /// Find the matching SpecToken for a given name.
+  /// @param tokenName the name of the token to find
   /// @return the matching SpecToken
   public static Optional<SpecToken> lookup(String tokenName) {
     tokenName = tokenName.toLowerCase();
@@ -135,9 +134,8 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
   }
 
   /// Get the token value for this token in the given dataset,
-  /// whether it be a property of data or shape of data, or an attribute value
-  /// @param vectorData
-  ///     the dataset to get the token value from
+  /// whether it be a property of data or shape of data, or an attribute value.
+  /// @param vectorData the dataset to get the token value from
   /// @return the token value
   @Override
   public Optional<String> apply(TestDataView vectorData) {
@@ -179,7 +177,7 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
     this.description = description;
   }
 
-  /// List the valid tokens and their synonyms
+  /// List the valid tokens and their synonyms.
   /// @return a list of valid tokens and their synonyms
   public static List<String> listValidTokens() {
     List<String> docs = new ArrayList<>();

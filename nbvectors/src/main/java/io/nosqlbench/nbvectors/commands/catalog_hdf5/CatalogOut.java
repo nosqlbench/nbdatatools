@@ -21,20 +21,17 @@ package io.nosqlbench.nbvectors.commands.catalog_hdf5;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import io.nosqlbench.nbvectors.commands.export_json.Hdf5JsonSummarizer;
+import io.nosqlbench.vectordata.layout.TestGroupLayout;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.snakeyaml.engine.v2.api.Dump;
 import org.snakeyaml.engine.v2.api.DumpSettings;
-import org.snakeyaml.engine.v2.api.DumpSettingsBuilder;
-import org.snakeyaml.engine.v2.api.StreamDataWriter;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,7 +43,8 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   private final static Hdf5JsonSummarizer jsonSummarizer = new Hdf5JsonSummarizer();
 
   /// create a catalog
-  /// @param entries the entries to add
+  /// @param entries
+  ///     the entries to add
   public CatalogOut(List<Map<String, Object>> entries) {
     super(entries);
     //    if (mode==CatalogMode.update) {
@@ -63,37 +61,58 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   }
 
   /// load all files and directories into the catalog
-  /// @param hdf5Files
+  /// @param paths
   ///     the files and directories to load
   /// @return a catalog
-  public static CatalogOut loadAll(List<Path> hdf5Files) {
+  public static CatalogOut loadAll(List<Path> paths) {
     List<Map<String, Object>> entries = new ArrayList<>();
-    for (Path hdf5File : hdf5Files) {
-      if (Files.isDirectory(hdf5File)) {
-        entries.addAll(loadDirectory(hdf5File));
-      } else if (Files.isRegularFile(hdf5File)) {
-        entries.add(loadFile(hdf5File));
+    for (Path path : paths) {
+      if (Files.isDirectory(path)) {
+        entries.addAll(loadDirectory(path));
+      } else if (Files.isRegularFile(path) && path.toString().endsWith(".hdf5")) {
+        entries.add(loadHdf5File(path));
       } else {
-        throw new RuntimeException("not a file or directory: " + hdf5File);
+        throw new RuntimeException("not a file or directory: " + path);
       }
     }
     return new CatalogOut(entries);
   }
 
-  private static List<Map<String, Object>> loadDirectory(Path hdf5File) {
+  private static List<Map<String, Object>> loadDirectory(Path directory) {
     List<Map<String, Object>> entries = new ArrayList<>();
-    try {
-      for (Path path : Files.newDirectoryStream(hdf5File, "*.hdf5")) {
-        Map<String, Object> map = loadFile(path);
-        entries.add(map);
+    Path layoutPath = directory.resolve("dataset.yaml");
+    if (Files.exists(layoutPath)) {
+      Map<String, Object> map = loadDatasetYaml(layoutPath);
+      entries.add(map);
+    } else {
+      try {
+        try (DirectoryStream<Path> dirstream = Files.newDirectoryStream(directory)) {
+          for (Path path : dirstream) {
+            if (Files.isDirectory(path)) {
+              List<Map<String, Object>> subEntries = loadDirectory(path);
+              entries.addAll(subEntries);
+            } else if (path.endsWith(".hdf5") && Files.isRegularFile(path)) {
+              Map<String, Object> map = loadHdf5File(path);
+              entries.add(map);
+            } else {
+              throw new RuntimeException("not a supported file or directory: " + path);
+            }
+          }
+        }
+
+      } catch (IOException e) {
+        throw new RuntimeException(e);
       }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
     }
     return entries;
   }
 
-  private static Map<String, Object> loadFile(Path path) {
+  private static Map<String, Object> loadDatasetYaml(Path layoutPath) {
+    TestGroupLayout layout = TestGroupLayout.load(layoutPath);
+    return Map.of("layout",layout.toData(),"path",layoutPath.getParent().toString());
+  }
+
+  private static Map<String, Object> loadHdf5File(Path path) {
     try {
       //      String summary = jsonSummarizer.apply(path);
       Map<String, Object> map = jsonSummarizer.describeFile(path);
@@ -104,7 +123,8 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   }
 
   /// save the catalog to a file
-  /// @param path the path to the file to save to
+  /// @param path
+  ///     the path to the file to save to
   public void save(Path path) {
     try {
       Files.writeString(path, gson.toJson(this));

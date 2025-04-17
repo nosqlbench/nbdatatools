@@ -144,4 +144,20 @@ public record MerkleNode(
 
         return null;
     }
+
+    /// Updates the hash value of this node.
+    ///
+    /// @param newHash The new hash value to set
+    /// @throws IllegalArgumentException if the hash length is invalid
+    public void updateHash(byte[] newHash) {
+        if (newHash.length != HASH_SIZE) {
+            throw new IllegalArgumentException(
+                "Invalid hash length: expected " + HASH_SIZE +
+                ", got " + newHash.length
+            );
+        }
+
+        // Copy the new hash to the existing hash array
+        System.arraycopy(newHash, 0, hash, 0, HASH_SIZE);
+    }
 }

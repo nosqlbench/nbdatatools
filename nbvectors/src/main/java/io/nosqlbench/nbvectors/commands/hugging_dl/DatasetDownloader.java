@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.commands.hugging_dl;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -37,10 +37,8 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Handles downloading of datasets from Hugging Face.
- * Manages authentication, metadata fetching, and actual file downloads.
- */
+/// Handles downloading of datasets from Hugging Face.
+/// Manages authentication, metadata fetching, and actual file downloads.
 public class DatasetDownloader implements AutoCloseable {
   private static final String HF_API_URL = "https://huggingface.co/api/datasets/";
   private static final String HF_VIEWER_API =
@@ -78,13 +76,11 @@ public class DatasetDownloader implements AutoCloseable {
     }
   }
 
-  /**
-   * Creates a new dataset downloader
-   * @param token Hugging Face API token
-   * @param dsName Name of dataset to download
-   * @param target Target directory to save downloaded files
-   * @throws IOException If target directory cannot be created
-   */
+  /// Creates a new dataset downloader
+  /// @param token Hugging Face API token
+  /// @param dsName Name of dataset to download
+  /// @param target Target directory to save downloaded files
+  /// @throws IOException If target directory cannot be created
   public DatasetDownloader(String token, String dsName, Path target) throws IOException {
     this.dsName = dsName;
     this.target = target;
@@ -156,7 +152,7 @@ public class DatasetDownloader implements AutoCloseable {
       }
 
       CompletableFuture.allOf(tasks.toArray(new CompletableFuture[0])).join();
-      
+
       // Display final statistics
       display.setStatus("Download complete");
       display.setAction("");
@@ -167,7 +163,7 @@ public class DatasetDownloader implements AutoCloseable {
           stats.getFailedFiles(),
           stats.getTotalFiles());
       display.updateDisplay();
-      
+
       // Now stop the display thread
       running = false;
       executor.shutdown();
@@ -186,12 +182,10 @@ public class DatasetDownloader implements AutoCloseable {
     }
   }
 
-  /**
-   * Fetches dataset metadata from Hugging Face API
-   * @param datasetName Name of dataset to fetch metadata for
-   * @return List of parquet file metadata
-   * @throws Exception If API request fails
-   */
+  /// Fetches dataset metadata from Hugging Face API
+  /// @param datasetName Name of dataset to fetch metadata for
+  /// @return List of parquet file metadata
+  /// @throws Exception If API request fails
   private List<ParquetFileData> fetchFileList(String datasetName) throws Exception {
     display.setStatus("Fetching dataset parquet metadata");
     display.setAction("Connecting to Hugging Face Dataset Viewer API");

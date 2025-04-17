@@ -21,8 +21,15 @@ package io.nosqlbench.vectordata.download;
 //  face, but should warn if there are multiple
 
 
+import com.google.gson.reflect.TypeToken;
+import io.nosqlbench.vectordata.SHARED;
 import io.nosqlbench.vectordata.download.chunker.ChunkedDownloader;
+import io.nosqlbench.vectordata.layout.manifest.DSProfile;
+import io.nosqlbench.vectordata.layout.manifest.DSProfileGroup;
+import io.nosqlbench.vectordata.layout.manifest.DSView;
 
+import java.lang.reflect.Type;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.Map;
@@ -33,17 +40,47 @@ public record DatasetEntry(
     String name,
     URL url,
     Map<String, String> attributes,
-    Map<String, Map<String, Object>> datasets,
-    Map<String, String> tokens,
+    DSProfileGroup profiles,
     Map<String, String> tags
-) {
-    public DownloadProgress download(Path target) {
-        return download(target, false);
+)
+{
+  public static DatasetEntry fromData(Object entryObj) {
+    Map<String, ?> entry = null;
+    if (entryObj instanceof CharSequence cs) {
+      entry = SHARED.mapFromJson(entryObj.toString());
+    } else if (entryObj instanceof Map<?, ?> mapObj) {
+      entry = (Map<String, Object>) entryObj;
+    } else {
+      throw new RuntimeException("invalid dataset entry format:" + entryObj);
     }
 
-    public DownloadProgress download(Path target, boolean force) {
-        ChunkedDownloader downloader = new ChunkedDownloader(url, name, 1024 * 1024 *10, 1,
-            new StdoutDownloadEventSink());
-        return downloader.download(target, force);
+    String name = entry.containsKey("name") ? entry.get("name").toString() : null;
+
+    URL url = null;
+    try {
+      url = new URL(entry.get("url").toString());
+    } catch (MalformedURLException e) {
+      throw new RuntimeException(e);
     }
+
+    Map<String, String> attributes = (Map<String, String>) entry.get("attributes");
+    Map<String, String> tokens = (Map<String, String>) entry.get("tokens");
+    Map<String, String> tags = (Map<String, String>) entry.get("tags");
+
+    DSProfileGroup profileGroup = new DSProfileGroup();
+    if (entry.containsKey("profiles")) {
+      profileGroup = DSProfileGroup.fromData(entry.get("profiles"));
+    }
+    return new DatasetEntry(name, url, attributes, profileGroup, tags);
+  }
+
+  public DownloadProgress download(Path target) {
+    return download(target, false);
+  }
+
+  public DownloadProgress download(Path target, boolean force) {
+    ChunkedDownloader downloader =
+        new ChunkedDownloader(url, name, 1024 * 1024 * 10, 1, new StdoutDownloadEventSink());
+    return downloader.download(target, force);
+  }
 }
