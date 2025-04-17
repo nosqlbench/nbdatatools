@@ -1,0 +1,195 @@
+package io.nosqlbench.vectordata.download.merkle;
+
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+public class MerklePainterAsyncTest {
+
+    @TempDir
+    Path tempDir;
+
+    /**
+     * Test that MerklePainter can asynchronously download and submit chunks.
+     * This test will:
+     * 1. Create a MerklePainter with a local path and remote URL
+     * 2. Call paintAsync to download a range of chunks
+     * 3. Verify that the download is in progress
+     * 4. Wait for the download to complete
+     * 5. Verify that the chunks are intact
+     *
+     * Note: This test is tagged as "integration" since it requires internet access
+     * and downloads real data, which may take longer than a typical unit test.
+     */
+    @Test
+    @Tag("integration")
+    void testPaintAsync() throws Exception {
+        // Define the remote URL for the dataset
+        String remoteUrl = "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/bigann_query.bvecs";
+
+        // Create a local file path for the data
+        Path localPath = tempDir.resolve("bigann_query_async.bvecs");
+
+        try {
+            // Create a MerklePainter instance
+            MerklePainter painter = new MerklePainter(localPath, remoteUrl);
+
+            // Verify that the files exist
+            assertTrue(Files.exists(localPath), "Local file should exist");
+            Path merklePath = localPath.resolveSibling(localPath.getFileName().toString() + ".mrkl");
+            assertTrue(Files.exists(merklePath), "Merkle file should exist");
+            Path referenceTreePath = localPath.resolveSibling(localPath.getFileName().toString() + ".mref");
+            assertTrue(Files.exists(referenceTreePath), "Reference merkle file should exist");
+
+            // Get the MerklePane from the painter
+            MerklePane pane = painter.pane();
+
+            // Define a range to download
+            long startPosition = 0;
+            long endPosition = 1024; // Download first 1KB
+
+            // Start the asynchronous download
+            CompletableFuture<Void> future = painter.paintAsync(startPosition, endPosition);
+
+            // Give the download a moment to start
+            Thread.sleep(100);
+
+            // Verify that the download is in progress
+            assertTrue(painter.isDownloadInProgress(startPosition, endPosition),
+                "Download should be in progress");
+
+            // Get the in-progress chunks
+            Set<Integer> inProgressChunks = painter.getInProgressChunks();
+            assertFalse(inProgressChunks.isEmpty(), "There should be chunks in progress");
+
+            // Wait for the download to complete (with timeout)
+            future.get(30, TimeUnit.SECONDS);
+
+            // Verify that the download is no longer in progress
+            assertFalse(painter.isDownloadInProgress(startPosition, endPosition),
+                "Download should no longer be in progress");
+
+            // Verify that the chunks are intact
+            MerkleTree merkleTree = pane.getMerkleTree();
+            int startChunk = merkleTree.getChunkIndexForPosition(startPosition);
+            int endChunk = merkleTree.getChunkIndexForPosition(endPosition - 1);
+
+            for (int i = startChunk; i <= endChunk; i++) {
+                assertTrue(pane.isChunkIntact(i), "Chunk " + i + " should be intact");
+
+                // Read the chunk and verify it has data
+                ByteBuffer chunk = pane.readChunk(i);
+                assertTrue(chunk.remaining() > 0, "Chunk " + i + " should have data");
+            }
+
+            // Clean up
+            painter.close();
+
+            System.out.println("Successfully tested MerklePainter.paintAsync");
+        } catch (java.io.FileNotFoundException e) {
+            // This might happen if the remote file doesn't exist
+            System.out.println("Remote file not found: " + e.getMessage());
+            // Skip the test rather than fail it
+            assumeTrue(false, "Remote file not available");
+        } catch (java.io.IOException e) {
+            System.out.println("Error during test: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Test that MerklePainter properly deduplicates download tasks.
+     * This test will:
+     * 1. Create a MerklePainter with a local path and remote URL
+     * 2. Start two overlapping downloads
+     * 3. Verify that the overlapping chunks are only downloaded once
+     *
+     * Note: This test is tagged as "integration" since it requires internet access
+     * and downloads real data, which may take longer than a typical unit test.
+     */
+    @Test
+    @Tag("integration")
+    void testTaskDeduplication() throws Exception {
+        // Define the remote URL for the dataset
+        String remoteUrl = "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/bigann_query.bvecs";
+
+        // Create a local file path for the data
+        Path localPath = tempDir.resolve("bigann_query_dedup.bvecs");
+
+        try {
+            // Create a MerklePainter instance
+            MerklePainter painter = new MerklePainter(localPath, remoteUrl);
+
+            // Define two overlapping ranges
+            long startPosition1 = 0;
+            long endPosition1 = 2048; // 2KB
+            long startPosition2 = 1024;
+            long endPosition2 = 3072; // 3KB
+
+            // Start the first download
+            CompletableFuture<Void> future1 = painter.paintAsync(startPosition1, endPosition1);
+
+            // Give the download a moment to start
+            Thread.sleep(100);
+
+            // Record the in-progress chunks after the first download starts
+            Set<Integer> inProgressChunks1 = painter.getInProgressChunks();
+
+            // Start the second download
+            CompletableFuture<Void> future2 = painter.paintAsync(startPosition2, endPosition2);
+
+            // Give the download a moment to start
+            Thread.sleep(100);
+
+            // Record the in-progress chunks after the second download starts
+            Set<Integer> inProgressChunks2 = painter.getInProgressChunks();
+
+            // The second set should not be much larger than the first if deduplication is working
+            // (it should only add chunks that weren't already being downloaded)
+            MerkleTree merkleTree = painter.pane().getMerkleTree();
+            int startChunk1 = merkleTree.getChunkIndexForPosition(startPosition1);
+            int endChunk1 = merkleTree.getChunkIndexForPosition(endPosition1 - 1);
+            int startChunk2 = merkleTree.getChunkIndexForPosition(startPosition2);
+            int endChunk2 = merkleTree.getChunkIndexForPosition(endPosition2 - 1);
+
+            int expectedOverlap = Math.max(0, Math.min(endChunk1, endChunk2) - Math.max(startChunk1, startChunk2) + 1);
+            int expectedTotalChunks = (endChunk1 - startChunk1 + 1) + (endChunk2 - startChunk2 + 1) - expectedOverlap;
+
+            // The total number of in-progress chunks should be approximately equal to the expected total
+            assertTrue(Math.abs(inProgressChunks2.size() - expectedTotalChunks) <= 1,
+                "Number of in-progress chunks should match expected total");
+
+            // Wait for both downloads to complete
+            CompletableFuture.allOf(future1, future2).get(60, TimeUnit.SECONDS);
+
+            // Verify that all chunks in both ranges are intact
+            for (int i = startChunk1; i <= endChunk2; i++) {
+                assertTrue(painter.pane().isChunkIntact(i), "Chunk " + i + " should be intact");
+            }
+
+            // Clean up
+            painter.close();
+
+            System.out.println("Successfully tested MerklePainter task deduplication");
+        } catch (java.io.FileNotFoundException e) {
+            // This might happen if the remote file doesn't exist
+            System.out.println("Remote file not found: " + e.getMessage());
+            // Skip the test rather than fail it
+            assumeTrue(false, "Remote file not available");
+        } catch (java.io.IOException e) {
+            System.out.println("Error during test: " + e.getMessage());
+            throw e;
+        }
+    }
+}

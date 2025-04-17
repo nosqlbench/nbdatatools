@@ -7,12 +7,16 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -32,6 +36,9 @@ public class MerklePainter implements Closeable {
 
   // Thread pool for parallel downloads
   private final ExecutorService downloadExecutor;
+
+  // Map to track in-progress download tasks by chunk index
+  private final Map<Integer, CompletableFuture<Boolean>> downloadTasks = new ConcurrentHashMap<>();
 
   /// Creates a new MerklePainter for the given local file and source URL
   /// @param localPath
@@ -154,28 +161,58 @@ public class MerklePainter implements Closeable {
 
   /**
    * Ensures that all chunks in the specified range are downloaded and verified.
-   * This method is non-blocking if all chunks are already intact.
+   * This method blocks until all chunks are available.
    *
    * @param startPosition The start position in the file
    * @param endPosition The end position in the file (exclusive)
    * @throws IOException If there's an error downloading or verifying the chunks
    */
   public void paint(long startPosition, long endPosition) throws IOException {
-    // Get the merkle tree
-    MerkleTree merkleTree = pane.getMerkleTree();
-
-    // Calculate the chunk indices for the range
-    int startChunk = merkleTree.getChunkIndexForPosition(startPosition);
-    int endChunk = merkleTree.getChunkIndexForPosition(Math.min(endPosition - 1, merkleTree.totalSize() - 1));
-
-    // Create a list of chunk indices to check
-    List<Integer> chunkIndices = new ArrayList<>();
-    for (int i = startChunk; i <= endChunk; i++) {
-      chunkIndices.add(i);
+    try {
+      // Wait for the asynchronous paint operation to complete
+      paintAsync(startPosition, endPosition).join();
+    } catch (Exception e) {
+      // Unwrap the exception if it's an IOException
+      Throwable cause = e.getCause();
+      if (cause instanceof IOException) {
+        throw (IOException) cause;
+      } else {
+        throw new IOException("Failed to paint range", e);
+      }
     }
+  }
 
-    // Download chunks if needed
-    downloadChunksIfNeeded(chunkIndices);
+  /**
+   * Asynchronously ensures that all chunks in the specified range are downloaded and verified.
+   * This method returns immediately with a CompletableFuture that completes when all chunks are available.
+   *
+   * @param startPosition The start position in the file
+   * @param endPosition The end position in the file (exclusive)
+   * @return A CompletableFuture that completes when all chunks are available
+   */
+  public CompletableFuture<Void> paintAsync(long startPosition, long endPosition) {
+    try {
+      // Get the merkle tree
+      MerkleTree merkleTree = pane.getMerkleTree();
+
+      // Calculate the chunk indices for the range
+      int startChunk = merkleTree.getChunkIndexForPosition(startPosition);
+      int endChunk = merkleTree.getChunkIndexForPosition(Math.min(endPosition - 1, merkleTree.totalSize() - 1));
+
+      // Create a list of chunk indices to check
+      List<Integer> chunkIndices = new ArrayList<>();
+      for (int i = startChunk; i <= endChunk; i++) {
+        chunkIndices.add(i);
+      }
+
+      // Download chunks if needed asynchronously
+      return downloadChunksIfNeededAsync(chunkIndices).thenApply(result -> null);
+    } catch (Exception e) {
+      // If there's an exception, return a failed future
+      CompletableFuture<Void> future = new CompletableFuture<>();
+      future.completeExceptionally(e);
+      return future;
+    }
   }
 
   /**
@@ -242,8 +279,27 @@ public class MerklePainter implements Closeable {
    * @throws IOException If there's an error downloading or processing the chunks
    */
   public List<Integer> downloadAndSubmitChunks(List<Integer> chunkIndices) throws IOException {
+    try {
+      return downloadAndSubmitChunksAsync(chunkIndices).join();
+    } catch (CompletionException e) {
+      if (e.getCause() instanceof IOException) {
+        throw (IOException) e.getCause();
+      } else {
+        throw new IOException("Failed to download chunks", e);
+      }
+    }
+  }
+
+  /**
+   * Asynchronously downloads multiple chunks in parallel and submits them to the MerklePane.
+   * This automatically updates the merkle tree for each chunk.
+   *
+   * @param chunkIndices The indices of the chunks to download
+   * @return A CompletableFuture that completes with a list of chunk indices that were successfully downloaded and processed
+   */
+  public CompletableFuture<List<Integer>> downloadAndSubmitChunksAsync(List<Integer> chunkIndices) {
     if (chunkIndices.isEmpty()) {
-      return new ArrayList<>();
+      return CompletableFuture.completedFuture(new ArrayList<>());
     }
 
     // Filter out chunks that are already intact
@@ -255,47 +311,48 @@ public class MerklePainter implements Closeable {
     }
 
     if (chunksToDownload.isEmpty()) {
-      return new ArrayList<>(chunkIndices); // All chunks are already intact
+      return CompletableFuture.completedFuture(new ArrayList<>(chunkIndices)); // All chunks are already intact
     }
 
     // Download chunks in parallel
     List<CompletableFuture<Boolean>> futures = new ArrayList<>();
 
     for (int chunkIndex : chunksToDownload) {
-      CompletableFuture<Boolean> future = CompletableFuture.supplyAsync(() -> {
-        try {
-          return downloadAndSubmitChunk(chunkIndex);
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }, downloadExecutor);
+      // Get or create a future for this chunk
+      CompletableFuture<Boolean> future = downloadTasks.computeIfAbsent(chunkIndex, idx -> {
+        return CompletableFuture.supplyAsync(() -> {
+          try {
+            boolean result = downloadAndSubmitChunk(idx);
+            // Remove the task from the map when it completes
+            downloadTasks.remove(idx);
+            return result;
+          } catch (IOException e) {
+            throw new CompletionException(e);
+          }
+        }, downloadExecutor);
+      });
 
       futures.add(future);
     }
 
-    // Wait for all downloads to complete
-    try {
-      CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-      // Collect successful chunk indices
-      List<Integer> successfulChunks = new ArrayList<>();
-      for (int i = 0; i < chunkIndices.size(); i++) {
-        int chunkIndex = chunkIndices.get(i);
-        boolean success = futures.get(i).get();
-
-        if (success) {
-          successfulChunks.add(chunkIndex);
+    // Return a future that completes when all downloads are done
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+      .thenApply(v -> {
+        // Collect successful chunk indices
+        List<Integer> successfulChunks = new ArrayList<>();
+        for (int i = 0; i < chunksToDownload.size(); i++) {
+          int chunkIndex = chunksToDownload.get(i);
+          try {
+            boolean success = futures.get(i).get();
+            if (success) {
+              successfulChunks.add(chunkIndex);
+            }
+          } catch (InterruptedException | ExecutionException e) {
+            // Skip this chunk if there was an error
+          }
         }
-      }
-
-      return successfulChunks;
-    } catch (Exception e) {
-      if (e.getCause() instanceof IOException) {
-        throw (IOException) e.getCause();
-      } else {
-        throw new IOException("Failed to download chunks", e);
-      }
-    }
+        return successfulChunks;
+      });
   }
 
   /// Gets the path to the local merkle tree file
@@ -318,68 +375,148 @@ public class MerklePainter implements Closeable {
    * @throws IOException If there's an error downloading or verifying the chunks
    */
   public List<Integer> downloadChunksIfNeeded(List<Integer> chunkIndices) throws IOException {
+    try {
+      // Wait for the asynchronous operation to complete
+      return downloadChunksIfNeededAsync(chunkIndices).join();
+    } catch (Exception e) {
+      // Unwrap the exception if it's an IOException
+      Throwable cause = e.getCause();
+      if (cause instanceof IOException) {
+        throw (IOException) cause;
+      } else {
+        throw new IOException("Failed to download chunks", e);
+      }
+    }
+  }
+
+  /**
+   * Asynchronously downloads multiple chunks if they haven't been downloaded yet or if verification fails.
+   *
+   * @param chunkIndices The indices of the chunks to download
+   * @return A CompletableFuture that completes with a list of chunk indices that were successfully downloaded or were already intact
+   */
+  public CompletableFuture<List<Integer>> downloadChunksIfNeededAsync(List<Integer> chunkIndices) {
     if (chunkIndices.isEmpty()) {
-      return new ArrayList<>();
+      return CompletableFuture.completedFuture(new ArrayList<>());
     }
 
-    // Check which chunks need to be downloaded
-    List<Integer> chunksToDownload = new ArrayList<>();
-    List<Integer> intactChunks = new ArrayList<>();
+    // Create a future for the final result
+    CompletableFuture<List<Integer>> resultFuture = new CompletableFuture<>();
 
-    for (int chunkIndex : chunkIndices) {
-      if (pane.isChunkIntact(chunkIndex)) {
-        intactChunks.add(chunkIndex);
-      } else {
-        // Check if the chunk has data and can be verified
-        MerkleTree merkleTree = pane.getMerkleTree();
-        MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
-        long start = bounds.start();
-        long end = bounds.end();
+    // Process the chunks asynchronously
+    CompletableFuture.runAsync(() -> {
+      try {
+        // Check which chunks need to be downloaded
+        List<Integer> chunksToDownload = new ArrayList<>();
+        List<Integer> intactChunks = new ArrayList<>();
 
-        boolean hasData = false;
-        try {
-          // Open the file for reading
-          try (FileChannel channel = FileChannel.open(localPath, StandardOpenOption.READ)) {
-            // Seek to the start of the chunk
-            channel.position(start);
-            // Read a small portion of the chunk to check if it has data
-            ByteBuffer buffer = ByteBuffer.allocate(Math.min(1024, (int)(end - start)));
-            int bytesRead = channel.read(buffer);
-            if (bytesRead > 0) {
-              buffer.flip();
-              for (int i = 0; i < buffer.limit(); i++) {
-                if (buffer.get(i) != 0) {
-                  hasData = true;
-                  break;
+        for (int chunkIndex : chunkIndices) {
+          if (pane.isChunkIntact(chunkIndex)) {
+            intactChunks.add(chunkIndex);
+          } else {
+            // Check if the chunk has data and can be verified
+            MerkleTree merkleTree = pane.getMerkleTree();
+            MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
+            long start = bounds.start();
+            long end = bounds.end();
+
+            boolean hasData = false;
+            try {
+              // Open the file for reading
+              try (FileChannel channel = FileChannel.open(localPath, StandardOpenOption.READ)) {
+                // Seek to the start of the chunk
+                channel.position(start);
+                // Read a small portion of the chunk to check if it has data
+                ByteBuffer buffer = ByteBuffer.allocate(Math.min(1024, (int)(end - start)));
+                int bytesRead = channel.read(buffer);
+                if (bytesRead > 0) {
+                  buffer.flip();
+                  for (int i = 0; i < buffer.limit(); i++) {
+                    if (buffer.get(i) != 0) {
+                      hasData = true;
+                      break;
+                    }
+                  }
                 }
               }
+            } catch (IOException e) {
+              // Ignore exceptions when checking for data
+            }
+
+            // If the chunk has data, verify it
+            if (hasData && pane.verifyChunk(chunkIndex)) {
+              intactChunks.add(chunkIndex);
+            } else {
+              chunksToDownload.add(chunkIndex);
             }
           }
-        } catch (IOException e) {
-          // Ignore exceptions when checking for data
         }
 
-        // If the chunk has data, verify it
-        if (hasData && pane.verifyChunk(chunkIndex)) {
-          intactChunks.add(chunkIndex);
-        } else {
-          chunksToDownload.add(chunkIndex);
+        // If all chunks are intact, return them
+        if (chunksToDownload.isEmpty()) {
+          resultFuture.complete(intactChunks);
+          return;
         }
+
+        // Download the chunks that need to be downloaded
+        downloadAndSubmitChunksAsync(chunksToDownload).thenAccept(downloadedChunks -> {
+          // Combine the intact chunks with the downloaded chunks
+          List<Integer> result = new ArrayList<>(intactChunks);
+          result.addAll(downloadedChunks);
+          resultFuture.complete(result);
+        }).exceptionally(ex -> {
+          resultFuture.completeExceptionally(ex);
+          return null;
+        });
+      } catch (Exception e) {
+        resultFuture.completeExceptionally(e);
+      }
+    }, downloadExecutor).exceptionally(ex -> {
+      resultFuture.completeExceptionally(ex);
+      return null;
+    });
+
+    return resultFuture;
+  }
+
+  /**
+   * Checks if a download task is in progress for the specified chunk.
+   *
+   * @param chunkIndex The index of the chunk to check
+   * @return true if a download task is in progress for the chunk, false otherwise
+   */
+  public boolean isDownloadInProgress(int chunkIndex) {
+    return downloadTasks.containsKey(chunkIndex);
+  }
+
+  /**
+   * Checks if any download tasks are in progress for the specified range.
+   *
+   * @param startPosition The start position in the file
+   * @param endPosition The end position in the file (exclusive)
+   * @return true if any download tasks are in progress for the range, false otherwise
+   */
+  public boolean isDownloadInProgress(long startPosition, long endPosition) {
+    MerkleTree merkleTree = pane.getMerkleTree();
+    int startChunk = merkleTree.getChunkIndexForPosition(startPosition);
+    int endChunk = merkleTree.getChunkIndexForPosition(Math.min(endPosition - 1, merkleTree.totalSize() - 1));
+
+    for (int i = startChunk; i <= endChunk; i++) {
+      if (isDownloadInProgress(i)) {
+        return true;
       }
     }
 
-    // If all chunks are intact, return them
-    if (chunksToDownload.isEmpty()) {
-      return intactChunks;
-    }
+    return false;
+  }
 
-    // Download the chunks that need to be downloaded
-    List<Integer> downloadedChunks = downloadAndSubmitChunks(chunksToDownload);
-
-    // Combine the intact chunks with the downloaded chunks
-    List<Integer> result = new ArrayList<>(intactChunks);
-    result.addAll(downloadedChunks);
-    return result;
+  /**
+   * Gets a set of chunk indices that are currently being downloaded.
+   *
+   * @return A set of chunk indices that are currently being downloaded
+   */
+  public Set<Integer> getInProgressChunks() {
+    return downloadTasks.keySet();
   }
 
   @Override
