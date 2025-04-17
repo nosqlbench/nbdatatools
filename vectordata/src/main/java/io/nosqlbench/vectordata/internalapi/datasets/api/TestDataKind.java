@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets;
+package io.nosqlbench.vectordata.internalapi.datasets.api;
 
 /*
  * Copyright (c) nosqlbench
@@ -25,8 +25,12 @@ import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborIndicesAttrib
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.QueryPredicatesAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.QueryVectorsAttributes;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /// The datasets that are part of the vector test data format spec
 public enum TestDataKind {
@@ -89,10 +93,12 @@ public enum TestDataKind {
   private final Class<? extends Record> attributesClass;
 
   /// Creates a new TestDataKind enum value
-  ///
-  /// @param path The path to the dataset in the HDF5 file
-  /// @param description The description of the dataset
-  /// @param attributesClass The class of attributes required for this dataset, or null if none
+  /// @param path
+  ///     The path to the dataset in the HDF5 file
+  /// @param description
+  ///     The description of the dataset
+  /// @param attributesClass
+  ///     The class of attributes required for this dataset, or null if none
   TestDataKind(String path, String description, Class<? extends Record> attributesClass)
   {
     this.path = path;
@@ -121,8 +127,8 @@ public enum TestDataKind {
   /// Converts a string to a TestDataKind, returning an Optional
   ///
   /// This method handles both canonical names and alternative names defined in OtherNames.
-  ///
-  /// @param kind The string to convert
+  /// @param kind
+  ///     The string to convert
   /// @return An Optional containing the TestDataKind, or empty if not found
   public static Optional<TestDataKind> fromOptionalString(String kind) {
     for (TestDataKind value : values()) {
@@ -138,11 +144,20 @@ public enum TestDataKind {
     return Optional.empty();
   }
 
+  public Set<String> getAllNames() {
+    Set<String> names = new LinkedHashSet<>();
+    names.add(name());
+    Arrays.stream(OtherNames.values()).filter(o -> o.canonical == this).map(OtherNames::name)
+        .forEach(names::add);
+   return names;
+  }
+
   /// Converts a string to a TestDataKind, throwing an exception if not found
-  ///
-  /// @param kind The string to convert
+  /// @param kind
+  ///     The string to convert
   /// @return The TestDataKind
-  /// @throws IllegalArgumentException If the string is not a valid TestDataKind
+  /// @throws IllegalArgumentException
+  ///     If the string is not a valid TestDataKind
   public static TestDataKind fromString(String kind) {
     return fromOptionalString(kind).orElseThrow(() -> new IllegalArgumentException(
         "kind '" + kind + "' is not a valid dataset kind: " + Arrays.toString(values())));
@@ -167,8 +182,8 @@ public enum TestDataKind {
     public final TestDataKind canonical;
 
     /// Creates a new OtherNames enum value
-    ///
-    /// @param testDataKind The canonical TestDataKind
+    /// @param testDataKind
+    ///     The canonical TestDataKind
     OtherNames(TestDataKind testDataKind) {
       this.canonical = testDataKind;
     }

@@ -1,6 +1,5 @@
 package io.nosqlbench.vectordata.download.merkle;
 
-import java.io.Closeable;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,52 +10,62 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
-import java.util.Arrays;
+import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
-import io.nosqlbench.vectordata.download.merkle.MerkleBits;
 
-/// Provides windowed access to a file along with its associated Merkle tree.
-/// Maintains an open random access channel to the file for efficient reading.
-/// This class is primarily used to maintain a cohesive view of file state and associated merkle
-/// tree state.
-///
-/// Apart form the initialization, during which it fetches a reference merkle tree,
-/// It is effectively a passive data structure used by other classes to perform
-/// more complex operations.
-public class MerklePane implements Closeable {
-  /// The merkle tree file extension for reference data, or the correct
-  /// hash tree for the data, presumably fetched from remote first.
-  public static final String MREF = ".mref";
-  /// The merkle tree file extension for locally computed data
-  /// that captures changing state and true-up status with respect to the reference.
+/**
+ * MerklePane provides a window into a file with Merkle tree verification.
+ * It allows for efficient random access to chunks of data with integrity checking.
+ */
+public class MerklePane implements AutoCloseable {
+  // File extensions for merkle tree files
   public static final String MRKL = ".mrkl";
+  public static final String MREF = ".mref";
 
-  /// Path to the data file
-  private final Path filePath;
-  /// Path to the merkle tree file
-  private final Path merklePath;
-  /// The merkle tree for the file
+  // The merkle tree for this pane
   private final MerkleTree merkleTree;
-  /// The file channel for reading the data file
+
+  // The data file and its channel
+  private final Path filePath;
+  private final Path merklePath;
   private final FileChannel channel;
-  /// The size of the data file
   private final long fileSize;
 
-  /// Track which chunks are intact (downloaded and verified)
+  // Tracking which chunks are intact (verified)
   private final BitSet intactChunks;
-
-  /// Listeners for changes to the intact chunks
-  private final List<Consumer<BitSet>> intactChunksListeners = new CopyOnWriteArrayList<>();
   private final MerkleBits merkleBits;
 
-  /// A merkle pane is a windowed view of a file and its associated merkle tree.
+  /// Creates a new MerklePane for the given file
   /// @param filePath
-  ///     The path to the data file
+  ///     Path to the data file
   public MerklePane(Path filePath) {
-    this(filePath, filePath.resolveSibling(filePath.getFileName().toString() + MRKL));
+    // For backward compatibility, throw an exception if the file doesn't exist
+    if (!Files.exists(filePath)) {
+      throw new RuntimeException("Data file does not exist: " + filePath);
+    }
+
+    // Initialize with default values for merklePath, referenceTreePath, and sourceUrl
+    Path merklePath = filePath.resolveSibling(filePath.getFileName().toString() + MRKL);
+
+    // Initialize fields
+    this.filePath = filePath;
+    this.merklePath = merklePath;
+
+    // Initialize the merkle tree
+    this.merkleTree = initializePane(filePath, merklePath, null, null);
+
+    try {
+      // Open the data file for reading and writing
+      this.channel = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE);
+      this.fileSize = channel.size();
+
+      // Initialize the intact chunks tracking
+      int numChunks = (int) Math.ceil((double) merkleTree.totalSize() / merkleTree.getChunkSize());
+      this.intactChunks = new BitSet(numChunks);
+      this.merkleBits = new MerkleBits(intactChunks);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /// Creates a new MerklePane for the given file and its associated Merkle tree
@@ -65,11 +74,28 @@ public class MerklePane implements Closeable {
   /// @param merklePath
   ///     Path to the Merkle tree file
   public MerklePane(Path filePath, Path merklePath) {
-    this(filePath, merklePath, null);
+    // Initialize fields
+    this.filePath = filePath;
+    this.merklePath = merklePath;
+
+    // Initialize the merkle tree
+    this.merkleTree = initializePane(filePath, merklePath, null, null);
+
+    try {
+      // Open the data file for reading and writing
+      this.channel = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE);
+      this.fileSize = channel.size();
+
+      // Initialize the intact chunks tracking
+      int numChunks = (int) Math.ceil((double) merkleTree.totalSize() / merkleTree.getChunkSize());
+      this.intactChunks = new BitSet(numChunks);
+      this.merkleBits = new MerkleBits(intactChunks);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  /// Creates a new MerklePane for the given file and its associated Merkle tree,
-  /// with an optional reference merkle tree for initialization
+  /// Creates a new MerklePane for the given file and its associated Merkle tree
   /// @param filePath
   ///     Path to the data file
   /// @param merklePath
@@ -77,7 +103,25 @@ public class MerklePane implements Closeable {
   /// @param referenceTreePath
   ///     Path to the reference merkle tree file (may be null)
   public MerklePane(Path filePath, Path merklePath, Path referenceTreePath) {
-    this(filePath, merklePath, referenceTreePath, null);
+    // Initialize fields
+    this.filePath = filePath;
+    this.merklePath = merklePath;
+
+    // Initialize the merkle tree
+    this.merkleTree = initializePane(filePath, merklePath, referenceTreePath, null);
+
+    try {
+      // Open the data file for reading and writing
+      this.channel = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE);
+      this.fileSize = channel.size();
+
+      // Initialize the intact chunks tracking
+      int numChunks = (int) Math.ceil((double) merkleTree.totalSize() / merkleTree.getChunkSize());
+      this.intactChunks = new BitSet(numChunks);
+      this.merkleBits = new MerkleBits(intactChunks);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /// Creates a new MerklePane for the given file and its associated Merkle tree,
@@ -91,25 +135,14 @@ public class MerklePane implements Closeable {
   /// @param sourceUrl
   ///     Source URL for downloading the reference merkle tree (may be null)
   public MerklePane(Path filePath, Path merklePath, Path referenceTreePath, String sourceUrl) {
+    // Initialize fields
     this.filePath = filePath;
     this.merklePath = merklePath;
+
+    // Initialize the merkle tree
+    this.merkleTree = initializePane(filePath, merklePath, referenceTreePath, sourceUrl);
+
     try {
-      // Download reference merkle tree if needed
-      if (sourceUrl != null && (referenceTreePath == null || !Files.exists(referenceTreePath))) {
-        referenceTreePath = downloadReferenceMerkleTree(sourceUrl, filePath);
-      }
-
-      // Initialize files if needed
-      initializeFiles(filePath, merklePath, referenceTreePath);
-
-      // Load the merkle tree first
-      this.merkleTree = MerkleTree.load(merklePath);
-
-      // Create the data file if it doesn't exist
-      if (!Files.exists(filePath)) {
-        Files.createFile(filePath);
-      }
-
       // Open the data file for reading and writing
       this.channel = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE);
       this.fileSize = channel.size();
@@ -118,91 +151,137 @@ public class MerklePane implements Closeable {
       int numChunks = (int) Math.ceil((double) merkleTree.totalSize() / merkleTree.getChunkSize());
       this.intactChunks = new BitSet(numChunks);
       this.merkleBits = new MerkleBits(intactChunks);
-
-      // We no longer require the data file to match the merkle tree size
-      // This allows for lazy loading of data
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
-  /// Downloads a reference merkle tree file from a source URL
-  /// @param sourceUrl
-  ///     The source URL to download from
-  /// @param filePath
-  ///     The path to the data file (used to determine the reference tree path)
-  /// @return The path to the downloaded reference merkle tree file
-  /// @throws IOException
-  ///     If there's an error downloading the file
-  private Path downloadReferenceMerkleTree(String sourceUrl, Path filePath) throws IOException {
-    // Determine the reference tree path
-    Path referenceTreePath = filePath.resolveSibling(filePath.getFileName().toString() + MREF);
-
-    // Create the URL for the merkle tree file
-    URL merkleUrl;
+  /**
+   * Initializes the MerklePane with the given parameters.
+   * This method contains the common initialization logic for all constructors.
+   *
+   * @param filePath Path to the data file
+   * @param merklePath Path to the merkle tree file
+   * @param referenceTreePath Path to the reference merkle tree file (may be null)
+   * @param sourceUrl Source URL for downloading the reference merkle tree (may be null)
+   * @return The initialized MerkleTree
+   */
+  private MerkleTree initializePane(Path filePath, Path merklePath, Path referenceTreePath, String sourceUrl) {
     try {
-      merkleUrl = new URL(sourceUrl + MRKL);
-    } catch (java.net.MalformedURLException e) {
-      throw new IOException("Invalid source URL: " + sourceUrl, e);
-    }
+      if (filePath==null) {
+        throw new IOException("Data file path cannot be null");
+      }
+      Files.createDirectories(filePath.getParent());
 
-    // Download the file
-    try {
-      // Create parent directories if needed
+      if (merklePath==null) {
+        throw new IOException("Merkle tree path cannot be null");
+      }
+      Files.createDirectories(merklePath.getParent());
+
+      if (referenceTreePath==null) {
+        throw new IOException("Reference tree path cannot be null");
+      }
       Files.createDirectories(referenceTreePath.getParent());
 
-      // Download the file
-      try (InputStream in = merkleUrl.openStream();
-           FileOutputStream out = new FileOutputStream(referenceTreePath.toFile()))
-      {
-        in.transferTo(out);
-      }
-    } catch (IOException e) {
-      throw new IOException("Failed to download reference merkle tree from " + merkleUrl, e);
-    }
+      // Rule 1: Ensure that the local reference merkle tree (MREF file) is current with the remote reference merkle tree file.
+      Path actualReferenceTreePath = referenceTreePath;
+      if (sourceUrl != null && (actualReferenceTreePath == null || !Files.exists(actualReferenceTreePath))) {
+        // Determine the reference tree path if not provided
+        if (actualReferenceTreePath == null) {
+          actualReferenceTreePath = filePath.resolveSibling(filePath.getFileName().toString() + MREF);
+        }
 
-    return referenceTreePath;
-  }
+        // Download the reference tree
+        URL merkleUrl;
+        try {
+          merkleUrl = new URL(sourceUrl + MRKL);
+        } catch (java.net.MalformedURLException e) {
+          throw new IOException("Invalid source URL: " + sourceUrl, e);
+        }
 
-  /// Initializes the necessary files for the MerklePane
-  /// @param filePath
-  ///     Path to the data file
-  /// @param merklePath
-  ///     Path to the merkle tree file
-  /// @param referenceTreePath
-  ///     Path to the reference merkle tree file (may be null)
-  /// @throws IOException
-  ///     If there's an error initializing the files
-  private void initializeFiles(Path filePath, Path merklePath, Path referenceTreePath)
-      throws IOException
-  {
-    // If we have a reference tree, use it to initialize the merkle file and data file
-    if (referenceTreePath != null && Files.exists(referenceTreePath)) {
-      // Create an empty merkle tree file if it doesn't exist or is empty
-      if (!Files.exists(merklePath) || Files.size(merklePath) == 0) {
-        // Create an empty merkle tree file with the same structure as the reference file
-        MerkleTree.createEmptyTreeLike(referenceTreePath, merklePath);
+        // Create parent directories if needed
+        Files.createDirectories(actualReferenceTreePath.getParent());
+
+        // Download the file
+        try (InputStream in = merkleUrl.openStream();
+             FileOutputStream out = new FileOutputStream(actualReferenceTreePath.toFile()))
+        {
+          in.transferTo(out);
+        } catch (IOException e) {
+          throw new IOException("Failed to download reference merkle tree from " + merkleUrl, e);
+        }
       }
 
-      // Get the total size from the reference merkle tree
-      MerkleTree refTree = MerkleTree.load(referenceTreePath);
-      long totalSize = refTree.totalSize();
+      // Rule 2: Ensure that the local merkle tree file is present, or if it is not, create one with the createEmptyTreeLike(...) method
+      if (actualReferenceTreePath != null && Files.exists(actualReferenceTreePath)) {
+        if (!Files.exists(merklePath) || Files.size(merklePath) == 0) {
+          // Create an empty merkle tree file with the same structure as the reference file
+          MerkleTree.createEmptyTreeLike(actualReferenceTreePath, merklePath);
+        }
+      } else if (!Files.exists(merklePath)) {
+        // If no reference tree is available and the merkle tree doesn't exist, throw an error
+        throw new IOException("Merkle tree file does not exist and no reference tree available: " + merklePath);
+      }
 
-      // Create the data file if it doesn't exist, but don't resize it
-      // We no longer need to pre-allocate the entire file size
+      // Rule 3: Ensure that at least the first chunk of the content file exists.
+      // If the content file is not present, create an empty file for it.
       if (!Files.exists(filePath)) {
         Files.createFile(filePath);
-      }
-    } else {
-      // Without a reference tree, just check that the required files exist
-      if (!Files.exists(filePath)) {
-        throw new IOException("Data file does not exist: " + filePath);
+      } else {
+        // If the content file exists, check its timestamp relative to the merkle tree file
+        long contentLastModified = Files.getLastModifiedTime(filePath).toMillis();
+        long merkleLastModified = Files.getLastModifiedTime(merklePath).toMillis();
+
+        // If content file is newer than the merkle tree file, refresh the merkle tree file
+        if (contentLastModified > merkleLastModified) {
+          // Load the reference tree to get chunk size and total size
+          MerkleTree refTree = null;
+          if (actualReferenceTreePath != null && Files.exists(actualReferenceTreePath)) {
+            refTree = MerkleTree.load(actualReferenceTreePath);
+          } else {
+            // If no reference tree, use the existing merkle tree
+            refTree = MerkleTree.load(merklePath);
+          }
+
+          long chunkSize = refTree.getChunkSize();
+          long totalSize = refTree.totalSize();
+
+          // Create a new merkle tree from the content file
+          try (FileChannel contentChannel = FileChannel.open(filePath, StandardOpenOption.READ)) {
+            long fileSize = contentChannel.size();
+            // Use the smaller of the file size or the total size from the reference tree
+            long effectiveSize = Math.min(fileSize, totalSize);
+
+            // Map the file into memory for efficient reading
+            ByteBuffer fileData = ByteBuffer.allocate((int)effectiveSize);
+            contentChannel.read(fileData);
+            fileData.flip();
+
+            // Create a new merkle tree from the file data
+            MerkleTree newTree = MerkleTree.fromData(fileData, chunkSize, new MerkleRange(0, effectiveSize));
+
+            // Save the new tree to the merkle file
+            newTree.save(merklePath);
+          }
+        }
+        // If content file is same timestamp or older than merkle tree file, just load them both as is
       }
 
-      if (!Files.exists(merklePath)) {
-        throw new IOException("Merkle tree file does not exist: " + merklePath);
-      }
+      // Load the merkle tree
+      MerkleTree merkleTree = MerkleTree.load(merklePath);
+
+      // We no longer require the data file to match the merkle tree size
+      // This allows for lazy loading of data
+      return merkleTree;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
+  }
+
+  /// Gets the Merkle tree associated with this window
+  /// @return The MerkleTree instance
+  public MerkleTree getMerkleTree() {
+    return merkleTree;
   }
 
   /// Gets the Merkle tree associated with this window
@@ -211,251 +290,282 @@ public class MerklePane implements Closeable {
     return merkleTree;
   }
 
-  /// Gets the total size of the file
-  /// @return The file size in bytes
-  public long fileSize() {
-    return fileSize;
-  }
-
-  /// Gets the path to the file
-  /// @return The file path
-  public Path filePath() {
+  /// Gets the data file path
+  /// @return The data file path
+  public Path getFilePath() {
     return filePath;
   }
 
-  /// Reads a chunk of data from the file
-  /// @param chunkIndex
-  ///     The index of the chunk to read
-  /// @return ByteBuffer containing the chunk data
-  /// @throws IOException
-  ///     If there's an error reading the file
-  /// @throws IllegalArgumentException
-  ///     If the chunk index is invalid
-  public ByteBuffer readChunk(int chunkIndex) throws IOException {
-    MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
-    long chunkSize = bounds.end() - bounds.start();
-
-    // Check if the chunk is beyond the current file size
-    if (bounds.start() >= fileSize) {
-      // Return an empty buffer filled with zeros
-      return ByteBuffer.allocate((int) chunkSize);
-    }
-
-    // Determine how much of the chunk we can actually read
-    long availableBytes = Math.min(chunkSize, fileSize - bounds.start());
-
-    // Create a buffer for the full chunk size
-    ByteBuffer buffer = ByteBuffer.allocate((int) chunkSize);
-
-    // Read the available data
-    channel.position(bounds.start());
-    channel.read(buffer.slice(0, (int) availableBytes));
-
-    // The rest of the buffer remains filled with zeros
-    buffer.position(0);
-    buffer.limit((int) chunkSize);
-
-    return buffer;
-  }
-
-  /// Reads a range of bytes from the file
-  /// @param start
-  ///     Starting byte offset
-  /// @param length
-  ///     Number of bytes to read
-  /// @return ByteBuffer containing the requested data
-  /// @throws IOException
-  ///     If there's an error reading the file
-  /// @throws IllegalArgumentException
-  ///     If the range is invalid
-  public ByteBuffer readRange(long start, int length) throws IOException {
-    // Check for negative values
-    if (start < 0) {
-      throw new IllegalArgumentException(String.format(
-          "Invalid negative start position: %d",
-          start
-      ));
-    }
-
-    if (length < 0) {
-      throw new IllegalArgumentException(String.format("Invalid negative length: %d", length));
-    }
-
-    // Check if the range extends beyond the current file size
-    // This maintains compatibility with existing tests
-    if (start + length > fileSize) {
-      throw new IllegalArgumentException(String.format(
-          "Invalid range [%d, %d] for file of size %d",
-          start,
-          start + length,
-          fileSize
-      ));
-    }
-
-    // Create a buffer for the requested length
-    ByteBuffer buffer = ByteBuffer.allocate(length);
-
-    // Read the data
-    channel.position(start);
-    channel.read(buffer);
-    buffer.flip();
-
-    return buffer;
-  }
-
-  /// Verifies a specific chunk against the Merkle tree
-  /// @param chunkIndex
-  ///     The index of the chunk to verify
-  /// @return true if the chunk matches the Merkle tree, false otherwise
-  /// @throws IOException
-  ///     If there's an error reading the file
-  public boolean verifyChunk(int chunkIndex) throws IOException {
-    ByteBuffer chunkData = readChunk(chunkIndex);
-
-    // Hash the chunk data
-    MessageDigest digest = merkleTree.getDigest();
-    digest.reset();
-    digest.update(chunkData);
-    byte[] chunkHash = digest.digest();
-
-    // Compare with the stored hash in the Merkle tree
-    byte[] storedHash = merkleTree.getHashForLeaf(chunkIndex);
-
-    boolean matches = Arrays.equals(chunkHash, storedHash);
-
-    // If the chunk matches, mark it as intact
-    if (matches) {
-      synchronized (intactChunks) {
-        intactChunks.set(chunkIndex);
-      }
-
-      // Notify listeners of the change
-      notifyIntactChunksListeners();
-    }
-
-    return matches;
-  }
-
-  @Override
-  public void close() throws IOException {
-    channel.close();
-  }
-
-  /**
-   Gets the merkle tree associated with this pane.
-   @return The merkle tree
-   */
-  public MerkleTree getMerkleTree() {
-    return merkleTree;
-  }
-
-  /**
-   Gets the path to the merkle tree file.
-   @return The path to the merkle tree file
-   */
+  /// Gets the merkle tree file path
+  /// @return The merkle tree file path
   public Path getMerklePath() {
     return merklePath;
   }
 
-  /**
-   Accepts a chunk of data for a specific index and updates the merkle tree.
-   This method writes the chunk data to the file and updates the merkle tree hash.
-   @param chunkIndex
-   The index of the chunk
-   @param chunkData
-   The data for the chunk
-   @throws IOException
-   If there's an error writing the data or updating the merkle tree
-   */
-  public void submitChunk(int chunkIndex, ByteBuffer chunkData) throws IOException {
+  /// Gets the file channel for the data file
+  /// @return The file channel
+  public FileChannel getChannel() {
+    return channel;
+  }
+
+  /// Gets the size of the data file
+  /// @return The file size
+  public long getFileSize() {
+    return fileSize;
+  }
+
+  /// Gets the size of the data file (alias for getFileSize)
+  /// @return The file size
+  public long fileSize() {
+    return fileSize;
+  }
+
+  /// Gets the data file path (alias for getFilePath)
+  /// @return The data file path
+  public Path filePath() {
+    return filePath;
+  }
+
+  /// Gets the BitSet tracking which chunks are intact
+  /// @return The intact chunks BitSet
+  public BitSet getIntactChunks() {
+    return intactChunks;
+  }
+
+  /// Gets the MerkleBits wrapper for the intact chunks BitSet
+  /// @return The MerkleBits wrapper
+  public MerkleBits getMerkleBits() {
+    return merkleBits;
+  }
+
+  /// Checks if a chunk is intact (verified)
+  /// @param chunkIndex The index of the chunk to check
+  /// @return true if the chunk is intact, false otherwise
+  public boolean isChunkIntact(int chunkIndex) {
+    return intactChunks.get(chunkIndex);
+  }
+
+  /// Reads a range of bytes from the data file
+  /// @param start The starting position
+  /// @param length The number of bytes to read
+  /// @return A ByteBuffer containing the data
+  /// @throws IOException If there's an error reading the data
+  /// @throws IllegalArgumentException If the range is invalid
+  public ByteBuffer readRange(int start, int length) throws IOException {
+    // Validate the range
+    if (length < 0) {
+      throw new IllegalArgumentException("Range length cannot be negative: " + length);
+    }
+
+    if (start < 0) {
+      throw new IllegalArgumentException("Range start cannot be negative: " + start);
+    }
+
+    if (start + length > fileSize) {
+      throw new IllegalArgumentException("Range extends beyond file size: " + (start + length) + " > " + fileSize);
+    }
+
+    // Allocate a buffer for the data
+    ByteBuffer buffer = ByteBuffer.allocate(length);
+
+    // Read the data from the file
+    channel.position(start);
+    int bytesRead = channel.read(buffer);
+
+    // Check if we read the expected number of bytes
+    if (bytesRead < length) {
+      // If the file is smaller than expected, pad with zeros
+      buffer.position(bytesRead);
+      buffer.put(new byte[length - bytesRead]);
+    }
+
+    // Prepare the buffer for reading
+    buffer.flip();
+    return buffer;
+  }
+
+  /// Reads a chunk from the data file
+  /// @param chunkIndex The index of the chunk to read
+  /// @return A ByteBuffer containing the chunk data
+  /// @throws IOException If there's an error reading the chunk
+  public ByteBuffer readChunk(int chunkIndex) throws IOException {
     // Get the chunk boundaries
     MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
     long start = bounds.start();
     long end = bounds.end();
-    int length = (int) (end - start);
+    int chunkSize = (int) (end - start);
 
-    // Ensure we got the expected amount of data
-    if (chunkData.remaining() != length) {
-      throw new IOException(
-          "Chunk data size (" + chunkData.remaining() + ") does not match expected size (" + length
-          + ")");
+    // Allocate a buffer for the chunk
+    ByteBuffer buffer = ByteBuffer.allocate(chunkSize);
+
+    // Read the chunk from the file
+    channel.position(start);
+    int bytesRead = channel.read(buffer);
+
+    // Check if we read the expected number of bytes
+    if (bytesRead < chunkSize) {
+      // If the file is smaller than expected, pad with zeros
+      buffer.position(bytesRead);
+      buffer.put(new byte[chunkSize - bytesRead]);
     }
 
-    // Make a copy of the data for hashing (since we'll be writing it to the file)
-    ByteBuffer hashData = ByteBuffer.allocate(chunkData.remaining());
-    int originalPosition = chunkData.position();
-    hashData.put(chunkData);
-    chunkData.position(originalPosition); // Reset position for writing
-    hashData.flip();
+    // Prepare the buffer for reading
+    buffer.flip();
+    return buffer;
+  }
 
-    // Write the chunk data to the file
-    try (FileChannel writeChannel = FileChannel.open(filePath, StandardOpenOption.WRITE)) {
-      writeChannel.position(start);
-      writeChannel.write(chunkData);
+  /// Verifies a chunk against its hash in the merkle tree
+  /// @param chunkIndex The index of the chunk to verify
+  /// @return true if the chunk is valid, false otherwise, or if the chunk hasn't been loaded yet
+  /// @throws IOException If there's an error reading or verifying the chunk
+  public boolean verifyChunk(int chunkIndex) throws IOException {
+    // If the chunk is already marked as intact, return true
+    if (intactChunks.get(chunkIndex)) {
+      return true;
     }
 
-    // Hash the chunk data
-    MessageDigest digest = merkleTree.getDigest();
-    digest.reset();
-    digest.update(hashData);
-    byte[] chunkHash = digest.digest();
+    // Get the chunk boundaries
+    MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
+    long start = bounds.start();
+    long end = bounds.end();
 
-    // Update the merkle tree with the new hash
-    merkleTree.updateLeafHash(chunkIndex, chunkHash, merklePath);
+    // If the chunk extends beyond the file size, it hasn't been loaded yet
+    if (start >= fileSize || end > fileSize) {
+      return false;
+    }
+
+    try {
+      // Read the chunk
+      ByteBuffer chunkData = readChunk(chunkIndex);
+
+      // Get the expected hash from the merkle tree
+      byte[] expectedHash = merkleTree.getHashForLeaf(chunkIndex);
+
+      // Calculate the hash of the chunk
+      byte[] actualHash;
+      try {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(chunkData.duplicate());
+        actualHash = digest.digest();
+      } catch (NoSuchAlgorithmException e) {
+        return false; // If we can't calculate the hash, the chunk isn't valid
+      }
+
+      // Compare the hashes
+      boolean valid = MessageDigest.isEqual(expectedHash, actualHash);
+
+      // If the chunk is valid, mark it as intact
+      if (valid) {
+        intactChunks.set(chunkIndex);
+      }
+
+      return valid;
+    } catch (Exception e) {
+      // If there's any error reading or verifying the chunk, it hasn't been loaded properly
+      return false;
+    }
+  }
+
+  /// Writes a chunk to the data file and updates its hash in the merkle tree
+  /// @param chunkIndex The index of the chunk to write
+  /// @param data The data to write
+  /// @throws IOException If there's an error writing the chunk
+  public void writeChunk(int chunkIndex, ByteBuffer data) throws IOException {
+    submitChunk(chunkIndex, data);
+  }
+
+  /// Submits a chunk to the data file and updates its hash in the merkle tree
+  /// This is an alias for writeChunk for backward compatibility
+  /// @param chunkIndex The index of the chunk to submit
+  /// @param data The data to submit
+  /// @throws IOException If there's an error submitting the chunk
+  public void submitChunk(int chunkIndex, ByteBuffer data) throws IOException {
+    // Get the chunk boundaries
+    MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
+    long start = bounds.start();
+    long end = bounds.end();
+    int chunkSize = (int) (end - start);
+
+    // Check if the data size matches the chunk size
+    if (data.remaining() != chunkSize) {
+      throw new IOException("Data size does not match chunk size: " + data.remaining() + " != " + chunkSize);
+    }
+
+    // Write the data to the file
+    channel.position(start);
+    channel.write(data.duplicate());
+
+    // Calculate the hash of the chunk
+    byte[] hash;
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      digest.update(data.duplicate());
+      hash = digest.digest();
+    } catch (NoSuchAlgorithmException e) {
+      throw new IOException("Failed to create message digest", e);
+    }
+
+    // Update the hash in the merkle tree
+    merkleTree.updateLeafHash(chunkIndex, hash, merklePath);
 
     // Mark the chunk as intact
-    synchronized (intactChunks) {
-      intactChunks.set(chunkIndex);
-    }
-
-    // Notify listeners of the change
-    notifyIntactChunksListeners();
+    intactChunks.set(chunkIndex);
   }
 
-  /// Gets a reference view of the intact chunks. This object may and should be retained and
-  /// used, as it is a read-only view of the intact chunks and will be updated as needed.
-  public BitSet getIntactChunks() {
-    return merkleBits;
-  }
-
-  /**
-   Checks if a specific chunk is intact (downloaded and verified).
-   @param chunkIndex
-   The index of the chunk to check
-   @return true if the chunk is intact, false otherwise
-   */
-  public boolean isChunkIntact(int chunkIndex) {
-    synchronized (intactChunks) {
-      return intactChunks.get(chunkIndex);
+  /// Closes this MerklePane and releases any system resources associated with it
+  /// @throws IOException If an I/O error occurs
+  @Override
+  public void close() throws IOException {
+    if (channel != null && channel.isOpen()) {
+      channel.close();
     }
   }
 
-  /**
-   Adds a listener for changes to the intact chunks.
-   @param listener
-   The listener to add
-   */
-  public void addIntactChunksListener(Consumer<BitSet> listener) {
-    intactChunksListeners.add(listener);
-    // Notify the listener of the current state
-    listener.accept(getIntactChunks());
+
+
+  /// Returns the MerklePane as a string
+  /// @return A string representation of the MerklePane
+  @Override
+  public String toString() {
+    return "MerklePane{" +
+        "filePath=" + filePath +
+        ", merklePath=" + merklePath +
+        ", fileSize=" + fileSize +
+        ", merkleTree=" + merkleTree +
+        '}';
   }
 
-  /**
-   Removes a listener for changes to the intact chunks.
-   @param listener
-   The listener to remove
-   */
-  public void removeIntactChunksListener(Consumer<BitSet> listener) {
-    intactChunksListeners.remove(listener);
-  }
+  /// A wrapper around a BitSet for tracking intact chunks
+  public static class MerkleBits {
+    private final BitSet bits;
 
-  /**
-   Notifies all listeners of changes to the intact chunks.
-   */
-  private void notifyIntactChunksListeners() {
-    for (Consumer<BitSet> listener : intactChunksListeners) {
-      listener.accept(merkleBits);
+    public MerkleBits(BitSet bits) {
+      this.bits = bits;
+    }
+
+    public boolean get(int index) {
+      return bits.get(index);
+    }
+
+    public void set(int index) {
+      bits.set(index);
+    }
+
+    public void clear(int index) {
+      bits.clear(index);
+    }
+
+    public int cardinality() {
+      return bits.cardinality();
+    }
+
+    public int size() {
+      return bits.size();
+    }
+
+    @Override
+    public String toString() {
+      return bits.toString();
     }
   }
 }

@@ -30,14 +30,13 @@ import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewLanterna
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewNoOp;
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewRouter;
 import io.nosqlbench.nbvectors.commands.verify_knn.statusview.StatusViewStdout;
-import io.nosqlbench.vectordata.ProfileDataView;
 import io.nosqlbench.vectordata.TestDataGroup;
 import io.nosqlbench.vectordata.TestDataView;
-import io.nosqlbench.vectordata.internalapi.datasets.FloatVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.api.FloatVectors;
 import io.nosqlbench.vectordata.api.Indexed;
-import io.nosqlbench.vectordata.internalapi.datasets.IntVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.api.IntVectors;
 import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborDistances;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborDistances;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -182,7 +181,7 @@ public class CMD_verify_knn implements Callable<Integer> {
       for (Path hdfpath : hdfpaths) {
 
         try (StatusView view = getStatusView(); TestDataGroup datag = new TestDataGroup(hdfpath)) {
-          TestDataView data = datag.getProfile("default");
+          TestDataView data = datag.profile("default");
 
 
           List<String> configs = new ArrayList<>();

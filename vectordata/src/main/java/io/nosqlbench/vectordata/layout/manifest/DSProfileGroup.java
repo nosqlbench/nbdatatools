@@ -41,7 +41,10 @@ public class DSProfileGroup extends LinkedHashMap<String, DSProfile> {
     }
     DSProfileGroup profileGroup = new DSProfileGroup();
     profilesMap.forEach((k, v) -> {
-      profileGroup.addProfile(k, DSProfile.fromData((Map<String, Object>) v));
+      DSProfile profile = DSProfile.fromData((Map<String, Object>) v);
+      profile.setName(k);
+      profileGroup.addProfile(k, profile);
+
     });
     return profileGroup;
   }

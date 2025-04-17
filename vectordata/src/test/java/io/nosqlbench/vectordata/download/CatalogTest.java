@@ -18,41 +18,55 @@ package io.nosqlbench.vectordata.download;
  */
 
 
+import io.nosqlbench.vectordata.ProfileSelector;
+import io.nosqlbench.vectordata.TestDataGroup;
 import io.nosqlbench.vectordata.TestDataSources;
+import io.nosqlbench.vectordata.TestDataView;
+import io.nosqlbench.vectordata.internalapi.datasets.api.BaseVectors;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class CatalogTest {
 
+  private static TestDataSources sources = TestDataSources.ofUrl(
+      "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/");
+
   @Test
   public void testLayoutDownloadAndRealization() {
-    TestDataSources sources = TestDataSources.ofUrl(
-        "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/");
     Catalog catalog = sources.catalog();
     List<DatasetEntry> dsentries = catalog.datasets();
     dsentries.forEach(System.out::println);
     Optional<DatasetEntry> dsOpt = catalog.findExact("ANN_SIFT1B");
-    dsOpt.ifPresent(ds -> {
-      System.out.println("Found dataset: " + ds.name());
-      System.out.println("Attributes: " + ds.attributes());
-    });
+    if (!dsOpt.isPresent()) {
+      throw new RuntimeException("Dataset not found");
+    }
+    DatasetEntry ds = dsOpt.get();
+
+    System.out.println("Found dataset: " + ds.name());
+    System.out.println("Attributes: " + ds.attributes());
+    ProfileSelector profiles = ds.select();
+    TestDataView d1m = profiles.profile("1M");
+    BaseVectors basev =
+        d1m.getBaseVectors().orElseThrow(() -> new RuntimeException("base vectors not found"));
+    int count = basev.getCount();
+    System.out.println("count:" + count);
+    float[] floats = basev.get(0);
+    System.out.println("floats:" + Arrays.toString(floats));
 
 
   }
 
-
   @Disabled
   @Test
   public void testDatasetDownload() {
-    TestDataSources sources =
-        TestDataSources.ofUrl("https://jvector-datasets-public.s3.us-east-1.amazonaws.com/");
     Catalog catalog = sources.catalog();
     List<DatasetEntry> datasets = catalog.datasets();
     DatasetEntry datasetEntry = datasets.get(0);

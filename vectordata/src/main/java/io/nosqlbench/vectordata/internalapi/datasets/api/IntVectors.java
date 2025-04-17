@@ -1,14 +1,14 @@
-package io.nosqlbench.vectordata.internalapi.datasets;
+package io.nosqlbench.vectordata.internalapi.datasets.api;
 
 /*
  * Copyright (c) nosqlbench
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * 
  *   http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -18,15 +18,14 @@ package io.nosqlbench.vectordata.internalapi.datasets;
  */
 
 
-import io.jhdf.api.Dataset;
-import io.nosqlbench.vectordata.layout.FWindow;
+import java.util.List;
+import java.util.Set;
 
 /// a dataset consisting of arrays of float values
-public class FloatVectorsImpl extends CoreDatasetViewMethods<float[]> implements FloatVectors {
-  /// create a new float vectors dataset
-  /// @param dataset the dataset to wrap
-  /// @see FloatVectors
-  public FloatVectorsImpl(Dataset dataset, FWindow window) {
-    super(dataset, window);
-  }
+public interface IntVectors extends DatasetView<int[]> {
+
+  /// get the vectors as a list of sets
+  /// @return the vectors as a list of sets
+  List<Set<Integer>> asSets();
 }
+

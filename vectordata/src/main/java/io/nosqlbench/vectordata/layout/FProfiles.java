@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.layout;
  */
 
 
-import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
+import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets;
+package io.nosqlbench.vectordata.internalapi.datasets.impl.hdf5;
 
 /*
  * Copyright (c) nosqlbench
@@ -20,6 +20,7 @@ package io.nosqlbench.vectordata.internalapi.datasets;
 
 import io.jhdf.api.Dataset;
 import io.nosqlbench.vectordata.api.Indexed;
+import io.nosqlbench.vectordata.internalapi.datasets.api.DatasetView;
 import io.nosqlbench.vectordata.layout.FWindow;
 import org.jetbrains.annotations.NotNull;
 
@@ -69,7 +70,7 @@ import java.util.stream.IntStream;
 /// initialization.
 ///
 /// @see DatasetView
-public abstract class CoreDatasetViewMethods<T> implements DatasetView<T> {
+public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
 
   /// the dataset to wrap
   protected final Dataset dataset;
@@ -78,7 +79,7 @@ public abstract class CoreDatasetViewMethods<T> implements DatasetView<T> {
   /// create a dataset view
   /// @param dataset
   ///     the dataset to view
-  public CoreDatasetViewMethods(Dataset dataset, FWindow window) {
+  public CoreHdf5DatasetViewMethods(Dataset dataset, FWindow window) {
     this.dataset = dataset;
     this.window = validateWindow(window);
   }
@@ -221,7 +222,7 @@ public abstract class CoreDatasetViewMethods<T> implements DatasetView<T> {
   /// @param endExclusive
   ///     the ordinal of the last object to get
   /// @return the objects
-  protected Indexed<T>[] sliceIndexed1D(long startInclusive, long endExclusive) {
+  public Indexed<T>[] sliceIndexed1D(long startInclusive, long endExclusive) {
     T[] slices = sliceRange(startInclusive, endExclusive);
     Indexed<T>[] indexed = new Indexed[slices.length];
     for (int i = 0; i < slices.length; i++) {

@@ -20,19 +20,14 @@ package io.nosqlbench.vectordata.layout;
 
 import io.nosqlbench.vectordata.TestDataGroup;
 import io.nosqlbench.vectordata.TestDataView;
-import io.nosqlbench.vectordata.internalapi.datasets.views.BaseVectors;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
-import org.assertj.core.util.URLs;
+import io.nosqlbench.vectordata.internalapi.datasets.api.BaseVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborIndices;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

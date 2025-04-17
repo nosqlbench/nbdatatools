@@ -25,12 +25,10 @@ import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 import io.nosqlbench.vectordata.SHARED;
-import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
+import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
 import io.nosqlbench.vectordata.internalapi.predicates.PNode;
-import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 import java.lang.reflect.Type;

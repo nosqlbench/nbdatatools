@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets.views;
+package io.nosqlbench.vectordata.internalapi.datasets.api;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,11 +17,9 @@ package io.nosqlbench.vectordata.internalapi.datasets.views;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.internalapi.datasets.FloatVectors;
-
 /// A view of data consisting of neighbor indices
-public interface BaseVectors extends FloatVectors {
+public interface NeighborIndices extends IntVectors {
   /// get the maximum number of neighbors provided for each query vector
   /// @return the maximum number of neighbors provided for each query vector
-  int getCount();
+  int getMaxK();
 }

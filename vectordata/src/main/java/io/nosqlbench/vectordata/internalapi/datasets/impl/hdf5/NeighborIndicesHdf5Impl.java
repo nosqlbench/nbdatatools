@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets.impl;
+package io.nosqlbench.vectordata.internalapi.datasets.impl.hdf5;
 
 /*
  * Copyright (c) nosqlbench
@@ -20,17 +20,16 @@ package io.nosqlbench.vectordata.internalapi.datasets.impl;
 
 import io.jhdf.api.Dataset;
 import io.nosqlbench.vectordata.layout.FWindow;
-import io.nosqlbench.vectordata.internalapi.datasets.IntVectorsImpl;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborIndices;
 
 /// A view of neighbor indices data
-public class NeighborIndicesImpl extends IntVectorsImpl implements NeighborIndices {
+public class NeighborIndicesHdf5Impl extends IntVectorsHdf5Impl implements NeighborIndices {
 
   /// create a new neighbor indices view
   /// @param dataset the dataset to view
   /// @param window the window to view
   /// @see NeighborIndices
-  public NeighborIndicesImpl(Dataset dataset, FWindow window) {
+  public NeighborIndicesHdf5Impl(Dataset dataset, FWindow window) {
     super(dataset, window);
   }
 

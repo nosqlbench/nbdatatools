@@ -20,9 +20,10 @@ package io.nosqlbench.vectordata.internalapi.datasets;
 
 import io.jhdf.api.Dataset;
 import io.nosqlbench.vectordata.api.Indexed;
+import io.nosqlbench.vectordata.internalapi.datasets.impl.hdf5.CoreHdf5DatasetViewMethods;
 import io.nosqlbench.vectordata.layout.FWindow;
 
-public class CoreDatasetViewFixture<T> extends CoreDatasetViewMethods<T>{
+public class CoreDatasetViewFixture<T> extends CoreHdf5DatasetViewMethods<T> {
   public CoreDatasetViewFixture(Dataset dataset, FWindow window) {
     super(dataset, window);
   }

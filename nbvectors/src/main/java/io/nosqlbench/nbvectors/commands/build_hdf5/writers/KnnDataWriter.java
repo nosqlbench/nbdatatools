@@ -22,9 +22,7 @@ import com.google.gson.Gson;
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.api.WritableDataset;
-import io.jhdf.api.WritableGroup;
 import io.jhdf.api.WritableNode;
-import io.nosqlbench.nbvectors.common.adapters.DataSourceAdapter;
 import io.nosqlbench.vectordata.TestDataGroup;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.BaseVectorAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborDistancesAttributes;
@@ -39,7 +37,7 @@ import io.nosqlbench.nbvectors.common.FilePaths;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDataset;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDatasetImpl;
 import io.nosqlbench.vectordata.internalapi.tokens.SpecDataSource;
-import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
+import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

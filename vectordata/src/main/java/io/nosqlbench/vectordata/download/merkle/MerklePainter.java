@@ -90,15 +90,20 @@ public class MerklePainter implements Closeable {
     // Initialize the download executor with a fixed thread pool
     this.downloadExecutor = Executors.newFixedThreadPool(Math.min(8, Runtime.getRuntime().availableProcessors()));
 
-    // Initialize the chunked downloader
-    try {
-      URL url = new URL(sourcePath);
-      String fileName = localPath.getFileName().toString();
-      // Use a chunk size of 1MB and parallelism based on available processors
-      int parallelism = Math.min(8, Runtime.getRuntime().availableProcessors());
-      this.chunkedDownloader = new ChunkedDownloader(url, fileName, 1024 * 1024, parallelism, eventSink);
-    } catch (MalformedURLException e) {
-      throw new RuntimeException("Invalid source URL: " + sourcePath, e);
+    // Initialize the chunked downloader if a source path is provided
+    if (sourcePath != null) {
+      try {
+        URL url = new URL(sourcePath);
+        String fileName = localPath.getFileName().toString();
+        // Use a chunk size of 1MB and parallelism based on available processors
+        int parallelism = Math.min(8, Runtime.getRuntime().availableProcessors());
+        this.chunkedDownloader = new ChunkedDownloader(url, fileName, 1024 * 1024, parallelism, eventSink);
+      } catch (MalformedURLException e) {
+        throw new RuntimeException("Invalid source URL: " + sourcePath, e);
+      }
+    } else {
+      // No source path provided, so no chunked downloader
+      this.chunkedDownloader = null;
     }
   }
 
@@ -134,13 +139,19 @@ public class MerklePainter implements Closeable {
 
   /**
    * Downloads a range of data from the remote source using ChunkedDownloader.
+   * If no source path is available, returns an empty buffer.
    *
    * @param start The starting position
    * @param length The number of bytes to download
-   * @return A ByteBuffer containing the downloaded data
+   * @return A ByteBuffer containing the downloaded data, or an empty buffer if no source path is available
    * @throws IOException If there's an error downloading the data
    */
   public ByteBuffer downloadRange(long start, long length) throws IOException {
+    // If no source path is available, return an empty buffer
+    if (sourcePath == null) {
+      return ByteBuffer.allocate(0);
+    }
+
     // Create a temporary file to download the range
     Path tempFile = Files.createTempFile("merkle-range-", ".tmp");
     try {

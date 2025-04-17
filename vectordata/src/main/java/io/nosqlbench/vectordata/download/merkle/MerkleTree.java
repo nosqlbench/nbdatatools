@@ -624,7 +624,7 @@ public class MerkleTree {
         return node.hash();
     }
 
-    /// Updates the hash for a specific leaf node.
+    /// Updates the hash for a specific leaf node and propagates changes up the tree.
     ///
     /// @param leafIndex The index of the leaf node
     /// @param newHash The new hash for the leaf node
@@ -634,11 +634,15 @@ public class MerkleTree {
             throw new IllegalArgumentException("Invalid leaf index: " + leafIndex);
         }
 
+        // Find the path from root to the leaf node
+        List<MerkleNode> pathToLeaf = new ArrayList<>();
         MerkleNode node = root;
+        pathToLeaf.add(node);
+
         int currentIndex = leafIndex;
         int totalLeaves = getNumberOfLeaves();
 
-        // Navigate down to the leaf node
+        // Navigate down to the leaf node, recording the path
         while (!node.isLeaf()) {
             int leftSubtreeSize = totalLeaves / 2;
             if (currentIndex < leftSubtreeSize) {
@@ -649,13 +653,53 @@ public class MerkleTree {
                 currentIndex -= leftSubtreeSize;
                 totalLeaves -= leftSubtreeSize;
             }
+            pathToLeaf.add(node);
         }
 
         // Update the leaf node hash
         node.updateHash(newHash);
+
+        // Propagate changes up the tree
+        updateParentHashes(pathToLeaf);
     }
 
-    /// Updates the hash for a specific leaf node and writes it to the file.
+    /// Updates the hashes of parent nodes after a leaf node has been updated.
+    ///
+    /// @param pathToLeaf The path from root to the updated leaf node
+    private void updateParentHashes(List<MerkleNode> pathToLeaf) {
+        // Start from the second-to-last node (parent of the leaf) and work up to the root
+        for (int i = pathToLeaf.size() - 2; i >= 0; i--) {
+            MerkleNode parent = pathToLeaf.get(i);
+            MerkleNode left = parent.left();
+            MerkleNode right = parent.right();
+
+            // Recalculate the parent's hash based on its children
+            byte[] leftHash = left.hash();
+            byte[] rightHash = right != null ? right.hash() : null;
+
+            // Combine and hash the child hashes
+            byte[] combinedHash;
+            synchronized (DIGEST) {
+                if (rightHash != null) {
+                    // Concatenate the hashes before digesting
+                    byte[] combined = new byte[HASH_SIZE * 2];
+                    System.arraycopy(leftHash, 0, combined, 0, HASH_SIZE);
+                    System.arraycopy(rightHash, 0, combined, HASH_SIZE, HASH_SIZE);
+                    DIGEST.reset();
+                    combinedHash = DIGEST.digest(combined);
+                } else {
+                    // If no right hash, hash the left hash alone
+                    DIGEST.reset();
+                    combinedHash = DIGEST.digest(leftHash);
+                }
+            }
+
+            // Update the parent's hash
+            parent.updateHash(combinedHash);
+        }
+    }
+
+    /// Updates the hash for a specific leaf node and writes all updated hashes to the file.
     ///
     /// @param leafIndex The index of the leaf node
     /// @param newHash The new hash for the leaf node
@@ -663,7 +707,29 @@ public class MerkleTree {
     /// @throws IllegalArgumentException if the leaf index is invalid
     /// @throws IOException if there's an error writing to the file
     public void updateLeafHash(int leafIndex, byte[] newHash, Path filePath) throws IOException {
-        // Update the in-memory hash
+        // Find the path from root to the leaf node before updating
+        List<MerkleNode> pathToLeaf = new ArrayList<>();
+        MerkleNode node = root;
+        pathToLeaf.add(node);
+
+        int currentIndex = leafIndex;
+        int totalLeaves = getNumberOfLeaves();
+
+        // Navigate down to the leaf node, recording the path
+        while (!node.isLeaf()) {
+            int leftSubtreeSize = totalLeaves / 2;
+            if (currentIndex < leftSubtreeSize) {
+                node = node.left();
+                totalLeaves = leftSubtreeSize;
+            } else {
+                node = node.right();
+                currentIndex -= leftSubtreeSize;
+                totalLeaves -= leftSubtreeSize;
+            }
+            pathToLeaf.add(node);
+        }
+
+        // Update the in-memory hash (this will also update parent hashes)
         updateLeafHash(leafIndex, newHash);
 
         // Update the merkle tree file on disk
@@ -672,6 +738,25 @@ public class MerkleTree {
             ByteBuffer buffer = ByteBuffer.wrap(newHash);
             channel.position(leafIndex * HASH_SIZE);
             channel.write(buffer);
+
+            // Now update all the parent nodes in the file
+            // We need to calculate their positions in the file
+            int numLeaves = getNumberOfLeaves();
+
+            // Start from the second-to-last node (parent of the leaf) and work up to the root
+            for (int i = pathToLeaf.size() - 2; i >= 0; i--) {
+                MerkleNode parent = pathToLeaf.get(i);
+
+                // Calculate the position of this node in the file
+                // The leaves are stored first, followed by internal nodes in level order
+                int nodeIndex = parent.index();
+                long position = numLeaves * HASH_SIZE + (nodeIndex - numLeaves) * HASH_SIZE;
+
+                // Write the updated parent hash
+                buffer = ByteBuffer.wrap(parent.hash());
+                channel.position(position);
+                channel.write(buffer);
+            }
         }
     }
 

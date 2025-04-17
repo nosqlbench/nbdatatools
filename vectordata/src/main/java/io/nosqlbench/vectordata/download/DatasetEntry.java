@@ -22,6 +22,7 @@ package io.nosqlbench.vectordata.download;
 
 
 import com.google.gson.reflect.TypeToken;
+import io.nosqlbench.vectordata.ProfileSelector;
 import io.nosqlbench.vectordata.SHARED;
 import io.nosqlbench.vectordata.download.chunker.ChunkedDownloader;
 import io.nosqlbench.vectordata.layout.manifest.DSProfile;
@@ -58,7 +59,7 @@ public record DatasetEntry(
 
     URL url = null;
     try {
-      url = new URL(entry.get("url").toString());
+      url = entry.containsKey("url") ? new URL(entry.get("url").toString()) : null;
     } catch (MalformedURLException e) {
       throw new RuntimeException(e);
     }
@@ -82,5 +83,9 @@ public record DatasetEntry(
     ChunkedDownloader downloader =
         new ChunkedDownloader(url, name, 1024 * 1024 * 10, 1, new StdoutDownloadEventSink());
     return downloader.download(target, force);
+  }
+
+  public ProfileSelector select() {
+    return new VirtualProfileSelector(this);
   }
 }

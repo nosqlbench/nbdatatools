@@ -20,20 +20,19 @@ package io.nosqlbench.vectordata;
 
 import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
+import io.nosqlbench.vectordata.internalapi.datasets.impl.hdf5.NeighborIndicesHdf5Impl;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
-import io.nosqlbench.vectordata.internalapi.datasets.impl.BaseVectorsImpl;
-import io.nosqlbench.vectordata.internalapi.datasets.impl.NeighborDistancesImpl;
-import io.nosqlbench.vectordata.internalapi.datasets.impl.NeighborIndicesImpl;
-import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
-import io.nosqlbench.vectordata.internalapi.datasets.impl.QueryVectorsImpl;
-import io.nosqlbench.vectordata.internalapi.datasets.views.BaseVectors;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborDistances;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
-import io.nosqlbench.vectordata.internalapi.datasets.views.QueryVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.impl.hdf5.BaseVectorsHdf5Impl;
+import io.nosqlbench.vectordata.internalapi.datasets.impl.hdf5.NeighborDistancesHdf5Impl;
+import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
+import io.nosqlbench.vectordata.internalapi.datasets.impl.hdf5.QueryVectorsHdf5Impl;
+import io.nosqlbench.vectordata.internalapi.datasets.api.BaseVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborDistances;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborIndices;
+import io.nosqlbench.vectordata.internalapi.datasets.api.QueryVectors;
 import io.nosqlbench.vectordata.internalapi.tokens.SpecToken;
 import io.nosqlbench.vectordata.internalapi.tokens.Templatizer;
-import io.nosqlbench.vectordata.layout.FSource;
 import io.nosqlbench.vectordata.layout.FView;
 
 import java.net.URL;
@@ -68,7 +67,7 @@ public class ProfileDataView implements TestDataView {
     FView baseView = profile.views().get(TestDataKind.base_vectors.name());
     String dsname = baseView.source().inpath();
     Optional<Dataset> dataset = datagroup.getFirstDataset(dsname, "/sources/" + dsname);
-    return dataset.map(n -> new BaseVectorsImpl(
+    return dataset.map(n -> new BaseVectorsHdf5Impl(
         (Dataset) n,
         profile.views().get(TestDataKind.base_vectors.name()).window()
     ));
@@ -88,7 +87,7 @@ public class ProfileDataView implements TestDataView {
     FView baseView = profile.views().get(TestDataKind.query_vectors.name());
     String dsname = baseView.source().inpath();
     Optional<Dataset> dataset = datagroup.getFirstDataset(dsname, "/sources/" + dsname);
-    return dataset.map(n -> new QueryVectorsImpl(
+    return dataset.map(n -> new QueryVectorsHdf5Impl(
         (Dataset) n,
         profile.views().get(TestDataKind.query_vectors.name()).window()
     ));
@@ -107,7 +106,7 @@ public class ProfileDataView implements TestDataView {
     FView baseView = profile.views().get(TestDataKind.neighbor_indices.name());
     String dsname = baseView.source().inpath();
     Optional<Dataset> dataset = datagroup.getFirstDataset(dsname, "/sources/" + dsname);
-    return dataset.map(n -> new NeighborIndicesImpl(
+    return dataset.map(n -> new NeighborIndicesHdf5Impl(
         (Dataset) n,
         profile.views().get(TestDataKind.neighbor_indices.name()).window()
     ));
@@ -128,7 +127,7 @@ public class ProfileDataView implements TestDataView {
     FView baseView = profile.views().get(TestDataKind.neighbor_indices.name());
     String dsname = baseView.source().inpath();
     Optional<Dataset> dataset = datagroup.getFirstDataset(dsname, "/sources/" + dsname);
-    return dataset.map(n -> new NeighborDistancesImpl(
+    return dataset.map(n -> new NeighborDistancesHdf5Impl(
         (Dataset) n,
         profile.views().get(TestDataKind.neighbor_indices.name()).window()
     ));

@@ -19,8 +19,8 @@ package io.nosqlbench.vectordata.internalapi.tokens;
 
 
 import io.nosqlbench.vectordata.TestDataView;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
-import io.nosqlbench.vectordata.internalapi.datasets.DatasetView;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborIndices;
+import io.nosqlbench.vectordata.internalapi.datasets.api.DatasetView;
 
 import java.util.ArrayList;
 import java.util.Arrays;

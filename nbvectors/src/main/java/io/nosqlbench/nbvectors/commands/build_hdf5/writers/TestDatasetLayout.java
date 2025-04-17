@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.writers;
  */
 
 
-import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
+import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;

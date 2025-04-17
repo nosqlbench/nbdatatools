@@ -17,7 +17,7 @@ package io.nosqlbench.vectordata.api;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.internalapi.datasets.DatasetView;
+import io.nosqlbench.vectordata.internalapi.datasets.api.DatasetView;
 
 /// An indexed type. The index is an associated id or ordinal
 /// @param index the index of the value

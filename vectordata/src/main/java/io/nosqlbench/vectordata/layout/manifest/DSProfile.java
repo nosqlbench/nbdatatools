@@ -7,6 +7,7 @@ import java.util.Map;
 /// Extends LinkedHashMap to store views by name.
 public class DSProfile extends LinkedHashMap<String, DSView> {
 
+  private String name;
   /// Creates an empty profile with no views.
   public DSProfile() {
   }
@@ -14,6 +15,11 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
   /// @param views The map of views to include in this profile
   public DSProfile(Map<String, DSView> views) {
     super(views);
+  }
+
+  public DSProfile(String name, Map<String, DSView> views) {
+    super(views);
+    this.name = name;
   }
 
   /// Adds a new view with the specified name to this profile.
@@ -51,4 +57,12 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
     return new DSProfile(viewMap);
   }
 
+  public String getName() {
+    return this.name;
+  }
+
+  public DSProfile setName(String name) {
+    this.name = name;
+    return this;
+  }
 }

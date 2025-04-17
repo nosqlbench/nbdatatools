@@ -19,18 +19,14 @@ package io.nosqlbench.vectordata;
 
 
 import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
-import io.nosqlbench.vectordata.internalapi.datasets.FloatVectors;
-import io.nosqlbench.vectordata.internalapi.datasets.FloatVectorsImpl;
-import io.nosqlbench.vectordata.internalapi.datasets.IntVectorConfigs;
-import io.nosqlbench.vectordata.internalapi.datasets.IntVectors;
-import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
-import io.nosqlbench.vectordata.internalapi.datasets.views.BaseVectors;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborDistances;
-import io.nosqlbench.vectordata.internalapi.datasets.views.NeighborIndices;
-import io.nosqlbench.vectordata.internalapi.datasets.views.QueryVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.api.BaseVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborDistances;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborIndices;
+import io.nosqlbench.vectordata.internalapi.datasets.api.QueryVectors;
 import io.nosqlbench.vectordata.internalapi.tokens.SpecToken;
 
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 

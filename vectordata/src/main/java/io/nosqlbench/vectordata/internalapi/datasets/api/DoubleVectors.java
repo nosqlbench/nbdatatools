@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets;
+package io.nosqlbench.vectordata.internalapi.datasets.api;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,14 +18,17 @@ package io.nosqlbench.vectordata.internalapi.datasets;
  */
 
 
-import java.util.List;
-import java.util.Set;
-
 /// a dataset consisting of arrays of float values
-public interface IntVectors extends DatasetView<int[]> {
+public interface DoubleVectors extends DatasetView<double[]> {
+  /// get a vector by its ordinal
+  /// @param ordinal the ordinal of the vector to get
+  /// @return the vector
+  public double[] getVector(long ordinal);
+  /// get a range of vectors by their ordinals
+  /// @param startInclusive the start ordinal, inclusive
+  /// @param endExclusive the end ordinal, exclusive
+  /// @return the vectors
+  public double[][] getVectors(long startInclusive, long endExclusive);
 
-  /// get the vectors as a list of sets
-  /// @return the vectors as a list of sets
-  List<Set<Integer>> asSets();
 }
 

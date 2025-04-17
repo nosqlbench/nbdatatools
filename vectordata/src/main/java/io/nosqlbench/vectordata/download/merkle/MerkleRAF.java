@@ -1,9 +1,12 @@
 package io.nosqlbench.vectordata.download.merkle;
 
+import io.nosqlbench.vectordata.layout.manifest.DSView;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.concurrent.CompletableFuture;
@@ -22,20 +25,26 @@ public class MerkleRAF extends RandomAccessFile {
    *
    * @param localPath Path where the local data file exists or will be stored
    * @param remoteUrl URL of the source data file
-   * @param deleteOnExit Whether to delete files on VM exit
    * @throws IOException If there's an error opening the files or downloading reference data
    */
-  public MerkleRAF(Path localPath, String remoteUrl, boolean deleteOnExit) throws IOException {
-    super(localPath.toString(), "rwd");
+  public MerkleRAF(Path localPath, String remoteUrl) throws IOException {
+    super(touch(localPath), "rwd");
     // Create a MerklePainter with the given parameters
     this.painter = new MerklePainter(localPath, remoteUrl);
     this.virtualSize = painter.totalSize();
 
     // No initialization needed for intact chunks tracking
+  }
 
-    // If deleteOnExit is requested, set up the file to be deleted on VM exit
-    if (deleteOnExit) {
-      localPath.toFile().deleteOnExit();
+  private static String touch(Path localPath) {
+    try {
+      Files.createDirectories(localPath.getParent());
+      if (!Files.exists(localPath)) {
+        Files.createFile(localPath);
+      }
+      return localPath.toString();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -44,10 +53,9 @@ public class MerkleRAF extends RandomAccessFile {
    * This may be different from the actual file length if not all chunks have been downloaded.
    *
    * @return The virtual length of the file
-   * @throws IOException If an I/O error occurs
    */
   @Override
-  public long length() throws IOException {
+  public long length() {
     return virtualSize;
   }
 

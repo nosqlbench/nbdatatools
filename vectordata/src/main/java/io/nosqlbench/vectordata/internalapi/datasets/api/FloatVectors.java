@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets;
+package io.nosqlbench.vectordata.internalapi.datasets.api;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,10 +18,8 @@ package io.nosqlbench.vectordata.internalapi.datasets;
  */
 
 
-import java.util.Map;
-
 /// a dataset consisting of arrays of float values
-public interface FloatVectorConfigs extends Map<TestDataKind,DatasetView<float[]>> {
+public interface FloatVectors extends DatasetView<float[]> {
 
 }
 

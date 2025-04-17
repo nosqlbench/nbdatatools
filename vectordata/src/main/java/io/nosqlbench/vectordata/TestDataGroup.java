@@ -24,7 +24,6 @@ import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 import io.jhdf.exceptions.HdfInvalidPathException;
 import io.nosqlbench.vectordata.internalapi.attributes.DistanceFunction;
-import io.nosqlbench.vectordata.internalapi.tokens.SpecDataSource;
 import io.nosqlbench.vectordata.internalapi.tokens.Templatizer;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FSource;
@@ -32,7 +31,7 @@ import io.nosqlbench.vectordata.layout.FView;
 import io.nosqlbench.vectordata.layout.FWindow;
 import io.nosqlbench.vectordata.layout.FGroup;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
-import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
+import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
 import io.nosqlbench.vectordata.internalapi.tokens.SpecToken;
 
@@ -51,7 +50,7 @@ import java.util.stream.Collectors;
 ///
 /// In a future edition, the documentation should be derived directly from this reference
 /// implementation and the accompanying Javadoc.
-public class TestDataGroup implements AutoCloseable {
+public class TestDataGroup implements AutoCloseable, ProfileSelector {
 
   /// The default profile name used when no specific profile is requested
   public static final String DEFAULT_PROFILE = "default";
@@ -71,6 +70,7 @@ public class TestDataGroup implements AutoCloseable {
   public static final String ATTACHMENTS_GROUP = "attachments";
   /// Name of the profiles attribute in the HDF5 file
   public static final String PROFILES_ATTR = "profiles";
+  private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "jvector");
 
   /// create a vector data reader
   /// @param path
@@ -180,7 +180,7 @@ public class TestDataGroup implements AutoCloseable {
   public Map<String, String> lookupTokens(String tokenName) {
     Map<String, String> tokens = new LinkedHashMap<>();
     for (String profile : getProfileNames()) {
-      tokens.put(profile, getProfile(profile).lookupToken(tokenName).orElse(null));
+      tokens.put(profile, profile(profile).lookupToken(tokenName).orElse(null));
     }
     return tokens;
   }
@@ -273,7 +273,7 @@ public class TestDataGroup implements AutoCloseable {
   /// @return the full set of standard config tokens
   public Map<String, String> getTokens(String profile) {
     Map<String, String> tokenMap = new LinkedHashMap<>();
-    TestDataView tokenProfile = getProfile(profile);
+    TestDataView tokenProfile = profile(profile);
     for (SpecToken specToken : SpecToken.values()) {
       specToken.apply(tokenProfile).ifPresent(t -> tokenMap.put(specToken.name(), t));
     }
@@ -323,16 +323,23 @@ public class TestDataGroup implements AutoCloseable {
   ///
   /// @return The default profile
   public TestDataView getDefaultProfile() {
-    return this.getProfile(DEFAULT_PROFILE);
+    return this.profile(DEFAULT_PROFILE);
   }
   /// Gets a profile by name, throwing an exception if not found.
   ///
   /// @param profileName The name of the profile to get
   /// @return The profile
   /// @throws IllegalArgumentException If the profile is not found
-  public TestDataView getProfile(String profileName) {
+  @Override
+  public TestDataView profile(String profileName) {
     return getProfileOptionally(profileName).orElseThrow(() -> new IllegalArgumentException(
         "profile '" + profileName + "' not found in " + this));
+  }
+
+  @Override
+  public ProfileSelector setCacheDir(String cacheDir) {
+    this.cacheDir = Path.of(cacheDir.replace("~", System.getProperty("user.home")));
+    return this;
   }
 
   /// Gets the set of all profile names available in this data group.
@@ -367,7 +374,7 @@ public class TestDataGroup implements AutoCloseable {
   public synchronized Map<String, TestDataView> getProfileCache() {
     if (profileCache.isEmpty()) {
       profileCache.putAll(getProfileNames().stream()
-          .collect(Collectors.toMap(p -> p, p -> getProfile(p))));
+          .collect(Collectors.toMap(p -> p, p -> profile(p))));
     }
     return profileCache;
   }

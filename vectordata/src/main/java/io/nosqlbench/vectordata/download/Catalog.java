@@ -127,7 +127,7 @@ public record Catalog(List<DatasetEntry> datasets) {
             remapped.put("profiles",layout.get("profiles"));
             remapped.put("tags",layout.get("tags"));
           } else {
-            remapped.putAll(entry);
+            remapped.putAll(entry); // name, attributes, datasets, tokens, tags?
           }
           DatasetEntry dsEntry = DatasetEntry.fromData(remapped);
           entries.add(dsEntry);

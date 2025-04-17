@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.internalapi.datasets.impl;
+package io.nosqlbench.vectordata.internalapi.datasets.impl.hdf5;
 
 /*
  * Copyright (c) nosqlbench
@@ -20,18 +20,22 @@ package io.nosqlbench.vectordata.internalapi.datasets.impl;
 
 import io.jhdf.api.Dataset;
 import io.nosqlbench.vectordata.layout.FWindow;
-import io.nosqlbench.vectordata.internalapi.datasets.FloatVectorsImpl;
-import io.nosqlbench.vectordata.internalapi.datasets.views.QueryVectors;
+import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborDistances;
+import io.nosqlbench.vectordata.internalapi.datasets.api.QueryVectors;
 
 /// A view of neighbor indices data
-public class QueryVectorsImpl extends FloatVectorsImpl implements QueryVectors {
+public class NeighborDistancesHdf5Impl extends FloatVectorsHdf5Impl implements NeighborDistances {
 
   /// create a new neighbor indices view
   /// @param dataset the dataset to view
   /// @param window the window to use
   /// @see QueryVectors
-  public QueryVectorsImpl(Dataset dataset, FWindow window) {
+  public NeighborDistancesHdf5Impl(Dataset dataset, FWindow window) {
     super(dataset, window);
   }
 
+  @Override
+  public int getMaxK() {
+    return dataset.getDimensions()[1];
+  }
 }

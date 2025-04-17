@@ -36,7 +36,7 @@ import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FSource;
 import io.nosqlbench.vectordata.layout.FView;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
-import io.nosqlbench.vectordata.internalapi.datasets.TestDataKind;
+import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.BaseVectorAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborDistancesAttributes;
 import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborIndicesAttributes;
