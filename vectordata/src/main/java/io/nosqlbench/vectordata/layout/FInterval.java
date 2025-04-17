@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.layout;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -58,7 +58,7 @@ public record FInterval(long minIncl, long maxExcl) {
   }
 
   public String toData() {
-    if (minIncl==-1L && maxExcl==-1L) {
+    if (minIncl == -1L && maxExcl == -1L) {
       return "";
     }
     return "(" + minIncl + ".." + maxExcl + ")";
@@ -85,7 +85,7 @@ public record FInterval(long minIncl, long maxExcl) {
       } else {
         throw new RuntimeException("invalid intervals format:" + o);
       }
-    } else{
+    } else {
       throw new RuntimeException("invalid intervals format:" + o);
     }
   }

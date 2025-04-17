@@ -85,6 +85,13 @@ public class MerkleTree {
         return totalSize;
     }
 
+    /// Gets the chunk size in bytes.
+    ///
+    /// @return The chunk size in bytes
+    public long getChunkSize() {
+        return chunkSize;
+    }
+
     /// Gets the range of data that this tree represents.
     ///
     /// @return The computed range

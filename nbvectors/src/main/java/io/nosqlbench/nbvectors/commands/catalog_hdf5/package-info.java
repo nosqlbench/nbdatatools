@@ -1,4 +1,4 @@
-/// the {@link io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog_hdf5} command
+/// the {@link io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog} command
 package io.nosqlbench.nbvectors.commands.catalog_hdf5;
 
 /*

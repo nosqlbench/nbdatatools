@@ -14,9 +14,7 @@ import java.security.MessageDigest;
  */
 public class MerkleRAF extends RandomAccessFile {
   private final MerklePainter painter;
-  private final MerkleTree merkleTree; // Reference to the merkle tree for size and chunk info
-  private final MerklePane pane; // Reference to the merkle pane for reading and verification
-  private long virtualSize; // The total size according to the merkle tree
+  private final long virtualSize; // The total size according to the merkle tree
 
   /**
    * Creates a new MerkleRAF with a local path and source URL.
@@ -30,89 +28,13 @@ public class MerkleRAF extends RandomAccessFile {
     super(localPath.toString(), "rwd");
     // Create a MerklePainter with the given parameters
     this.painter = new MerklePainter(localPath, remoteUrl);
-    this.pane = painter.pane();
-    this.merkleTree = pane.getMerkleTree();
-    this.virtualSize = merkleTree.totalSize();
+    this.virtualSize = painter.totalSize();
+
+    // No initialization needed for intact chunks tracking
 
     // If deleteOnExit is requested, set up the file to be deleted on VM exit
     if (deleteOnExit) {
       localPath.toFile().deleteOnExit();
-    }
-  }
-
-  /**
-   * Ensures that the chunk containing the specified position is downloaded and verified.
-   *
-   * @param position The file position
-   * @throws IOException If there's an error downloading or verifying the chunk
-   */
-  private void ensureChunkAvailable(long position) throws IOException {
-    // Find the chunk index for this position
-    int chunkIndex = merkleTree.getChunkIndexForPosition(position);
-
-    // Download the chunk if needed
-    downloadChunkIfNeeded(chunkIndex);
-  }
-
-  // Flag to indicate if we're in test mode
-  private boolean testMode = false;
-
-  /**
-   * Sets the test mode flag. In test mode, chunks are not downloaded from the remote source.
-   * This is useful for tests that write data and then read it back.
-   *
-   * @param testMode true to enable test mode, false to disable it
-   */
-  public void setTestMode(boolean testMode) {
-    this.testMode = testMode;
-  }
-
-  /**
-   * Downloads a chunk if it hasn't been downloaded yet or if verification fails.
-   *
-   * @param chunkIndex The index of the chunk to download
-   * @throws IOException If there's an error downloading or verifying the chunk
-   */
-  private void downloadChunkIfNeeded(int chunkIndex) throws IOException {
-    // In test mode, we don't download chunks at all
-    if (testMode) {
-      return;
-    }
-
-    // Get the chunk boundaries
-    MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
-    long start = bounds.start();
-    long end = bounds.end();
-
-    // Check if the chunk has any data (non-zero bytes)
-    boolean hasData = false;
-    try {
-      super.seek(start);
-      byte[] buffer = new byte[Math.min(1024, (int)(end - start))];
-      int bytesRead = super.read(buffer);
-      if (bytesRead > 0) {
-        for (int i = 0; i < bytesRead; i++) {
-          if (buffer[i] != 0) {
-            hasData = true;
-            break;
-          }
-        }
-      }
-    } catch (IOException e) {
-      // Ignore exceptions when checking for data
-    }
-
-    // If the chunk has data, don't download it
-    if (hasData) {
-      return;
-    }
-
-    // Check if the chunk needs to be downloaded
-    if (!pane.verifyChunk(chunkIndex)) {
-      // Chunk verification failed, download and submit it
-      if (!painter.downloadAndSubmitChunk(chunkIndex)) {
-        throw new IOException("Failed to download and submit chunk: " + chunkIndex);
-      }
     }
   }
 
@@ -146,7 +68,7 @@ public class MerkleRAF extends RandomAccessFile {
     }
 
     // Ensure the chunk containing this position is available
-    ensureChunkAvailable(pos);
+    painter.paint(pos, pos + 1);
 
     // Perform the seek operation
     super.seek(pos);
@@ -161,8 +83,11 @@ public class MerkleRAF extends RandomAccessFile {
    */
   @Override
   public int read() throws IOException {
-    // Ensure the chunk containing the current position is available
-    ensureChunkAvailable(getFilePointer());
+    // Get the current position
+    long pos = getFilePointer();
+
+    // Ensure the chunk containing this position is available
+    painter.paint(pos, pos + 1);
 
     // Perform the read operation
     return super.read();
@@ -197,13 +122,7 @@ public class MerkleRAF extends RandomAccessFile {
 
     // Ensure all chunks containing the requested data are available
     long endPos = currentPos + len - 1;
-    int startChunk = merkleTree.getChunkIndexForPosition(currentPos);
-    int endChunk = merkleTree.getChunkIndexForPosition(Math.min(endPos, virtualSize - 1));
-
-    // Download all needed chunks
-    for (int i = startChunk; i <= endChunk; i++) {
-      downloadChunkIfNeeded(i);
-    }
+    painter.paint(currentPos, endPos + 1);
 
     // Perform the read operation
     return super.read(b, off, len);

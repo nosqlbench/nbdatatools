@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.commands.hugging_dl;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -20,10 +20,8 @@ package io.nosqlbench.nbvectors.commands.hugging_dl;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Tracks download progress for a single file from Hugging Face datasets.
- * Provides methods to update and display download progress.
- */
+/// Tracks download progress for a single file from Hugging Face datasets.
+/// Provides methods to update and display download progress.
 public class FileProgress {
     final Path filename;
     final long totalSize;
@@ -32,11 +30,9 @@ public class FileProgress {
     volatile boolean failed = false;
     volatile String error = null;
 
-    /**
-     * Creates a new file progress tracker
-     * @param filename Path to the file being downloaded
-     * @param totalSize Total expected size in bytes
-     */
+    /// Creates a new file progress tracker
+    /// @param filename Path to the file being downloaded
+    /// @param totalSize Total expected size in bytes
     public FileProgress(Path filename, long totalSize) {
         this.filename = filename;
         this.totalSize = totalSize;
@@ -78,17 +74,15 @@ public class FileProgress {
         return error;
     }
 
-    /**
-     * Generates an ASCII progress bar showing download status
-     * @param width Total width of the progress bar in characters
-     * @return Formatted string containing filename, progress bar and percentage
-     */
+    /// Generates an ASCII progress bar showing download status
+    /// @param width Total width of the progress bar in characters
+    /// @return Formatted string containing filename, progress bar and percentage
     public String getProgressBar(int width) {
         int barWidth = width - filename.toString().length() - 15;
         long progress = currentBytes.get();
         float percentage = (float) progress / totalSize * 100;
         int completedWidth = (int) (barWidth * (progress / (float) totalSize));
-        
+
         StringBuilder bar = new StringBuilder();
         bar.append(filename).append(" [");
         for (int i = 0; i < barWidth; i++) {
@@ -101,13 +95,13 @@ public class FileProgress {
             }
         }
         bar.append(String.format("] %3.0f%%", percentage));
-        
+
         if (failed) {
             bar.append(" FAILED");
         } else if (completed) {
             bar.append(" DONE");
         }
-        
+
         return bar.toString();
     }
 }

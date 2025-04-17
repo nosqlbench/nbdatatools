@@ -40,8 +40,7 @@ public class MerkleRAFTest {
             // Create a MerkleRAF instance with its own internal MerklePainter
             // Use deleteOnExit=true for clean test execution
             try (MerkleRAF merkleRAF = new MerkleRAF(localPath, remoteUrl, true)) {
-                // Enable test mode to prevent downloading chunks
-                merkleRAF.setTestMode(true);
+                // No need to set test mode anymore
                 // Verify that the file exists
                 assertTrue(Files.exists(localPath), "Local file should exist");
 
