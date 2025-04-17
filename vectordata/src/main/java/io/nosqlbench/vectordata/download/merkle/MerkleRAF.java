@@ -6,6 +6,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A RandomAccessFile implementation that uses MerklePainter to verify and download data as needed.
@@ -126,6 +127,41 @@ public class MerkleRAF extends RandomAccessFile {
 
     // Perform the read operation
     return super.read(b, off, len);
+  }
+
+  /**
+   * Asynchronously prebuffers a range of bytes by ensuring all chunks containing the range are downloaded.
+   * This method does not block and returns immediately with a CompletableFuture that completes when
+   * all chunks in the range are available.
+   *
+   * @param position The starting position in the file
+   * @param length The number of bytes to prebuffer
+   * @return A CompletableFuture that completes when all chunks in the range are available
+   */
+  public CompletableFuture<Void> prebuffer(long position, long length) {
+    if (position < 0) {
+      CompletableFuture<Void> future = new CompletableFuture<>();
+      future.completeExceptionally(new IOException("Negative position: " + position));
+      return future;
+    }
+
+    if (length < 0) {
+      CompletableFuture<Void> future = new CompletableFuture<>();
+      future.completeExceptionally(new IOException("Negative length: " + length));
+      return future;
+    }
+
+    if (position >= virtualSize) {
+      CompletableFuture<Void> future = new CompletableFuture<>();
+      future.completeExceptionally(new IOException("Position beyond file size: " + position + " >= " + virtualSize));
+      return future;
+    }
+
+    // Adjust length if it would go beyond the end of the file
+    long endPosition = Math.min(position + length, virtualSize);
+
+    // Delegate to the painter's paintAsync method
+    return painter.paintAsync(position, endPosition);
   }
 
   /**

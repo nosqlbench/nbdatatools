@@ -1,5 +1,11 @@
 package io.nosqlbench.vectordata.download.merkle;
 
+import io.nosqlbench.vectordata.download.DownloadProgress;
+import io.nosqlbench.vectordata.download.DownloadResult;
+import io.nosqlbench.vectordata.download.NoOpDownloadEventSink;
+import io.nosqlbench.vectordata.download.chunker.ChunkedDownloader;
+import io.nosqlbench.vectordata.download.chunker.DownloadEventSink;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,7 +13,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static io.nosqlbench.vectordata.download.merkle.MerklePane.MREF;
 import static io.nosqlbench.vectordata.download.merkle.MerklePane.MRKL;
@@ -37,6 +47,10 @@ public class MerklePainter implements Closeable {
   // Thread pool for parallel downloads
   private final ExecutorService downloadExecutor;
 
+  // ChunkedDownloader for efficient downloads
+  private final ChunkedDownloader chunkedDownloader;
+  private final DownloadEventSink eventSink;
+
   // Map to track in-progress download tasks by chunk index
   private final Map<Integer, CompletableFuture<Boolean>> downloadTasks = new ConcurrentHashMap<>();
 
@@ -49,10 +63,25 @@ public class MerklePainter implements Closeable {
   /// @throws IOException
   ///     If there's an error opening the files or downloading reference data
   public MerklePainter(Path localPath, String sourcePath) {
+    this(localPath, sourcePath, new NoOpDownloadEventSink());
+  }
+
+  /// Creates a new MerklePainter for the given local file and source URL with a custom event sink
+  /// @param localPath
+  ///     Path where the local data file exists or will be stored
+  /// @param sourcePath
+  ///     URL of the source data file (merkle tree will be downloaded from
+  ///     sourcePath + [MerklePane#MRKL])
+  /// @param eventSink
+  ///     Event sink for logging download progress and events
+  /// @throws IOException
+  ///     If there's an error opening the files or downloading reference data
+  public MerklePainter(Path localPath, String sourcePath, DownloadEventSink eventSink) {
     this.localPath = localPath;
     this.sourcePath = sourcePath;
     this.merklePath = localPath.resolveSibling(localPath.getFileName().toString() + MRKL);
     this.referenceTreePath = localPath.resolveSibling(localPath.getFileName().toString() + MREF);
+    this.eventSink = eventSink;
 
     // Initialize the pane with local paths, reference tree path, and source URL
     // MerklePane will handle downloading the reference tree if needed
@@ -60,6 +89,17 @@ public class MerklePainter implements Closeable {
 
     // Initialize the download executor with a fixed thread pool
     this.downloadExecutor = Executors.newFixedThreadPool(Math.min(8, Runtime.getRuntime().availableProcessors()));
+
+    // Initialize the chunked downloader
+    try {
+      URL url = new URL(sourcePath);
+      String fileName = localPath.getFileName().toString();
+      // Use a chunk size of 1MB and parallelism based on available processors
+      int parallelism = Math.min(8, Runtime.getRuntime().availableProcessors());
+      this.chunkedDownloader = new ChunkedDownloader(url, fileName, 1024 * 1024, parallelism, eventSink);
+    } catch (MalformedURLException e) {
+      throw new RuntimeException("Invalid source URL: " + sourcePath, e);
+    }
   }
 
   /// Gets the source URL of the data file
@@ -93,7 +133,7 @@ public class MerklePainter implements Closeable {
   }
 
   /**
-   * Downloads a range of data from the remote source.
+   * Downloads a range of data from the remote source using ChunkedDownloader.
    *
    * @param start The starting position
    * @param length The number of bytes to download
@@ -101,36 +141,56 @@ public class MerklePainter implements Closeable {
    * @throws IOException If there's an error downloading the data
    */
   public ByteBuffer downloadRange(long start, long length) throws IOException {
-    // Create URL for the range request
-    URL url;
+    // Create a temporary file to download the range
+    Path tempFile = Files.createTempFile("merkle-range-", ".tmp");
     try {
-      url = new URL(sourcePath);
-    } catch (MalformedURLException e) {
-      throw new IOException("Invalid source URL: " + sourcePath, e);
-    }
-
-    // Open connection and set range header
-    java.net.URLConnection connection = url.openConnection();
-    if (connection instanceof java.net.HttpURLConnection) {
-      java.net.HttpURLConnection httpConnection = (java.net.HttpURLConnection) connection;
-      httpConnection.setRequestProperty("Range", "bytes=" + start + "-" + (start + length - 1));
-    }
-
-    // Download the data
-    try (InputStream in = connection.getInputStream()) {
-      ByteBuffer buffer = ByteBuffer.allocate((int) length);
-      byte[] temp = new byte[8192]; // 8KB buffer
-      int bytesRead;
-      int totalRead = 0;
-
-      while ((bytesRead = in.read(temp)) != -1 && totalRead < length) {
-        int bytesToCopy = (int) Math.min(bytesRead, length - totalRead);
-        buffer.put(temp, 0, bytesToCopy);
-        totalRead += bytesToCopy;
+      // Create a URL with range parameters
+      URL rangeUrl;
+      try {
+        // We'll handle the range in the request headers
+        rangeUrl = new URL(sourcePath);
+      } catch (MalformedURLException e) {
+        throw new IOException("Invalid source URL: " + sourcePath, e);
       }
 
-      buffer.flip();
-      return buffer;
+      // Use the chunked downloader to download the range
+      // We'll create a new downloader for each range to avoid conflicts
+      ChunkedDownloader rangeDownloader = new ChunkedDownloader(
+          rangeUrl,
+          tempFile.getFileName().toString(),
+          length, // Use the range length as the chunk size
+          1, // Single chunk download
+          eventSink
+      );
+
+      // Download the range to the temporary file
+      DownloadProgress progress = rangeDownloader.download(tempFile, true);
+
+      try {
+        // Wait for the download to complete
+        DownloadResult result = progress.get(30, TimeUnit.SECONDS);
+
+        if (!result.isSuccess()) {
+          throw new IOException("Failed to download range: " +
+              (result.error() != null ? result.error().getMessage() : "unknown error"));
+        }
+
+        // Read the downloaded data into a ByteBuffer
+        ByteBuffer buffer = ByteBuffer.allocate((int) length);
+        byte[] data = Files.readAllBytes(tempFile);
+        buffer.put(data, 0, Math.min(data.length, (int) length));
+        buffer.flip();
+        return buffer;
+      } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        throw new IOException("Failed to download range", e);
+      }
+    } finally {
+      // Clean up the temporary file
+      try {
+        Files.deleteIfExists(tempFile);
+      } catch (IOException e) {
+        // Ignore cleanup errors
+      }
     }
   }
 
