@@ -70,6 +70,10 @@ import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
         The Merkle tree file is created with the same name as the
         source file plus a .mrkl extension.
 
+        When creating Merkle files, files with existing up-to-date Merkle files
+        (where the Merkle file is newer than the source file) will be skipped
+        unless the --force option is used.
+
         Examples:
 
         # Create Merkle files for multiple files
@@ -120,7 +124,7 @@ public class CMD_merkle implements Callable<Integer> {
   )
   private long chunkSize;
 
-  @Option(names = {"-f", "--force"}, description = "Overwrite existing Merkle files")
+  @Option(names = {"-f", "--force"}, description = "Overwrite existing Merkle files, even if they are up-to-date")
   private boolean force = false;
 
   @Override

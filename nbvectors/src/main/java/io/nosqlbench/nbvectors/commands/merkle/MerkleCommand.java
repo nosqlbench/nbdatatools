@@ -132,10 +132,25 @@ public enum MerkleCommand {
                         }
 
                         Path merklePath = file.resolveSibling(file.getFileName() + MRKL);
-                        if (Files.exists(merklePath) && !force) {
-                            logger.error("Merkle file already exists for: {} (use --force to overwrite)", file);
-                            success = false;
-                            continue;
+                        if (Files.exists(merklePath)) {
+                            if (!force) {
+                                // Check if the Merkle file is newer than the source file
+                                long sourceLastModified = Files.getLastModifiedTime(file).toMillis();
+                                long merkleLastModified = Files.getLastModifiedTime(merklePath).toMillis();
+
+                                if (merkleLastModified >= sourceLastModified) {
+                                    // Merkle file is up-to-date, skip this file
+                                    logger.info("Skipping file as Merkle file is up-to-date: {}", file);
+                                    continue;
+                                } else {
+                                    // Merkle file exists but is older than the source file
+                                    logger.error("Merkle file exists but is outdated for: {} (use --force to overwrite)", file);
+                                    success = false;
+                                    continue;
+                                }
+                            }
+                            // If force is true, we'll proceed to recreate the Merkle file
+                            logger.info("Overwriting existing Merkle file for: {}", file);
                         }
 
                         // Call the existing createMerkleFile method from CMD_merkle
