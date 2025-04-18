@@ -32,12 +32,18 @@ import picocli.CommandLine.Parameters;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -80,6 +86,12 @@ import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
 
         # Display summary information about Merkle trees
         nbvectors merkle summary file1.hdf5 file2.hdf5
+
+        # Process all .hdf5 files in a directory and its subdirectories
+        nbvectors merkle create /path/to/directory .hdf5
+
+        # Process files with multiple extensions in a directory
+        nbvectors merkle create /path/to/directory .hdf5 .bin .dat
         """,
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
@@ -465,6 +477,91 @@ public class CMD_merkle implements Callable<Integer> {
       sb.append(String.format("%02x", b));
     }
     return sb.toString();
+  }
+
+  /**
+   * Processes a list of paths, expanding directories to find files with matching extensions.
+   * If a path is a directory and at least one extension is provided, it will be recursively
+   * traversed to find all files with the specified extensions.
+   *
+   * @param paths The list of paths to process
+   * @return A list of file paths to process
+   * @throws IOException If an error occurs while traversing directories
+   */
+  public static List<Path> expandDirectoriesWithExtensions(List<Path> paths) throws IOException {
+    // Separate directories, files, and extensions
+    List<Path> filesToProcess = new ArrayList<>();
+    List<Path> directories = new ArrayList<>();
+    Set<String> extensions = new HashSet<>();
+
+    // First pass: identify directories, files, and extensions
+    for (Path path : paths) {
+      String pathStr = path.toString();
+
+      // Check if it's an extension (starts with a dot)
+      if (pathStr.startsWith(".")) {
+        extensions.add(pathStr.toLowerCase());
+        continue;
+      }
+
+      // Check if it's a directory or a file
+      if (Files.isDirectory(path)) {
+        directories.add(path);
+      } else if (Files.isRegularFile(path)) {
+        filesToProcess.add(path);
+      }
+    }
+
+    // If we have directories and extensions, process them
+    if (!directories.isEmpty() && !extensions.isEmpty()) {
+      for (Path directory : directories) {
+        List<Path> matchingFiles = findFilesWithExtensions(directory, extensions);
+        filesToProcess.addAll(matchingFiles);
+      }
+    } else {
+      // If no extensions were specified, just add the directories as-is
+      filesToProcess.addAll(directories);
+    }
+
+    return filesToProcess;
+  }
+
+  /**
+   * Recursively finds all files with the specified extensions in a directory and its subdirectories.
+   *
+   * @param directory The directory to search
+   * @param extensions The set of file extensions to match (including the dot)
+   * @return A list of matching file paths
+   * @throws IOException If an error occurs while traversing the directory
+   */
+  private static List<Path> findFilesWithExtensions(Path directory, Set<String> extensions) throws IOException {
+    List<Path> matchingFiles = new ArrayList<>();
+
+    Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+        String fileName = file.getFileName().toString().toLowerCase();
+
+        // Check if the file has one of the specified extensions
+        for (String extension : extensions) {
+          if (fileName.endsWith(extension)) {
+            matchingFiles.add(file);
+            break;
+          }
+        }
+
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult visitFileFailed(Path file, IOException exc) {
+        // Log the error but continue traversing
+        LogManager.getLogger(CMD_merkle.class).warn("Failed to visit file: {}", file, exc);
+        return FileVisitResult.CONTINUE;
+      }
+    });
+
+    return matchingFiles;
   }
 
   /// Formats a byte size into a human-readable string.

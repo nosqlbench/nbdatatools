@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.commands.merkle;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -21,6 +21,7 @@ package io.nosqlbench.nbvectors.commands.merkle;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -111,28 +112,43 @@ public enum MerkleCommand {
         @Override
         public boolean execute(List<Path> files, long chunkSize, boolean force) {
             boolean success = true;
-            for (Path file : files) {
-                try {
-                    if (!Files.exists(file)) {
-                        logger.error("File not found: {}", file);
-                        success = false;
-                        continue;
-                    }
+            try {
+                // Expand directories with extensions
+                List<Path> expandedFiles = CMD_merkle.expandDirectoriesWithExtensions(files);
 
-                    Path merklePath = file.resolveSibling(file.getFileName() + MRKL);
-                    if (Files.exists(merklePath) && !force) {
-                        logger.error("Merkle file already exists for: {} (use --force to overwrite)", file);
-                        success = false;
-                        continue;
-                    }
-
-                    // Call the existing createMerkleFile method from CMD_merkle
-                    CMD_merkle cmd = new CMD_merkle();
-                    cmd.createMerkleFile(file, chunkSize);
-                } catch (Exception e) {
-                    logger.error("Error creating Merkle file for: {}", file, e);
-                    success = false;
+                if (expandedFiles.isEmpty()) {
+                    logger.warn("No files found to process");
+                    return true;
                 }
+
+                logger.info("Processing {} files", expandedFiles.size());
+
+                for (Path file : expandedFiles) {
+                    try {
+                        if (!Files.exists(file) || !Files.isRegularFile(file)) {
+                            logger.error("File not found or not a regular file: {}", file);
+                            success = false;
+                            continue;
+                        }
+
+                        Path merklePath = file.resolveSibling(file.getFileName() + MRKL);
+                        if (Files.exists(merklePath) && !force) {
+                            logger.error("Merkle file already exists for: {} (use --force to overwrite)", file);
+                            success = false;
+                            continue;
+                        }
+
+                        // Call the existing createMerkleFile method from CMD_merkle
+                        CMD_merkle cmd = new CMD_merkle();
+                        cmd.createMerkleFile(file, chunkSize);
+                    } catch (Exception e) {
+                        logger.error("Error creating Merkle file for: {}", file, e);
+                        success = false;
+                    }
+                }
+            } catch (IOException e) {
+                logger.error("Error expanding directories: {}", e.getMessage(), e);
+                success = false;
             }
             return success;
         }
