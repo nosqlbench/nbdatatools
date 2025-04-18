@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.merkle;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -266,8 +267,105 @@ public class MerklePainter implements Closeable {
   }
 
   /**
+   * Finds optimal Merkle nodes for downloading based on the current state of the tree.
+   * This method selects nodes at various levels of the tree to optimize transfer size.
+   *
+   * @param startChunk The starting chunk index
+   * @param endChunk The ending chunk index (inclusive)
+   * @param maxTransferSize The maximum number of chunks to include in a single transfer
+   * @return A list of NodeTransfer objects representing optimal transfers
+   */
+  private List<NodeTransfer> findOptimalTransfers(int startChunk, int endChunk, int maxTransferSize) {
+    List<NodeTransfer> transfers = new ArrayList<>();
+    MerkleTree merkleTree = pane.getMerkleTree();
+    MerkleNode root = merkleTree.root();
+    long chunkSize = merkleTree.chunkSize();
+    long totalSize = merkleTree.totalSize();
+
+    // Start with the range of chunks we need
+    findOptimalTransfersRecursive(root, startChunk, endChunk, maxTransferSize, transfers, chunkSize, totalSize);
+
+    return transfers;
+  }
+
+  /**
+   * Recursively finds optimal Merkle nodes for downloading.
+   *
+   * @param node The current node to examine
+   * @param startChunk The starting chunk index
+   * @param endChunk The ending chunk index (inclusive)
+   * @param maxTransferSize The maximum number of chunks to include in a single transfer
+   * @param transfers The list to add transfers to
+   * @param chunkSize The size of each chunk
+   * @param totalSize The total size of the file
+   */
+  private void findOptimalTransfersRecursive(MerkleNode node, int startChunk, int endChunk,
+                                            int maxTransferSize, List<NodeTransfer> transfers,
+                                            long chunkSize, long totalSize) {
+    // If this is a leaf node, add it directly if it's in our range
+    if (node.isLeaf()) {
+      int leafIndex = node.index();
+      if (leafIndex >= startChunk && leafIndex <= endChunk && !pane.isChunkIntact(leafIndex)) {
+        // This is a leaf node in our range that needs downloading
+        long start = node.startOffset(totalSize, chunkSize);
+        long end = node.endOffset(totalSize, chunkSize);
+        transfers.add(new NodeTransfer(node, start, end));
+      }
+      return;
+    }
+
+    // For internal nodes, we need to determine if this node covers chunks in our range
+    // and if all those chunks need downloading
+
+    // Find the range of chunks this node covers
+    long nodeStart = node.startOffset(totalSize, chunkSize);
+    long nodeEnd = node.endOffset(totalSize, chunkSize);
+    int nodeStartChunk = (int)(nodeStart / chunkSize);
+    int nodeEndChunk = (int)Math.min(nodeEnd / chunkSize, totalSize / chunkSize);
+
+    // Check if this node is completely outside our range
+    if (nodeEndChunk < startChunk || nodeStartChunk > endChunk) {
+      return;
+    }
+
+    // Calculate the intersection of this node's range with our target range
+    int intersectStart = Math.max(nodeStartChunk, startChunk);
+    int intersectEnd = Math.min(nodeEndChunk, endChunk);
+    int chunkCount = intersectEnd - intersectStart + 1;
+
+    // Check if all chunks in this node's range need downloading
+    boolean allNeedDownload = true;
+    for (int i = intersectStart; i <= intersectEnd; i++) {
+      if (pane.isChunkIntact(i)) {
+        allNeedDownload = false;
+        break;
+      }
+    }
+
+    // If all chunks need downloading and the size is appropriate, download the entire node
+    if (allNeedDownload && chunkCount <= maxTransferSize) {
+      // Calculate the actual byte range for this node
+      long start = Math.max(nodeStart, startChunk * chunkSize);
+      long end = Math.min(nodeEnd, (endChunk + 1) * chunkSize);
+      transfers.add(new NodeTransfer(node, start, end));
+    } else if (node.left() != null) {
+      // Otherwise, recurse into children
+      findOptimalTransfersRecursive(node.left(), startChunk, endChunk, maxTransferSize, transfers, chunkSize, totalSize);
+      if (node.right() != null) {
+        findOptimalTransfersRecursive(node.right(), startChunk, endChunk, maxTransferSize, transfers, chunkSize, totalSize);
+      }
+    }
+  }
+
+  /**
+   * Record class to represent a transfer of a Merkle node.
+   */
+  private record NodeTransfer(MerkleNode node, long start, long end) {}
+
+  /**
    * Asynchronously ensures that all chunks in the specified range are downloaded and verified.
    * This method returns immediately with a CompletableFuture that completes when all chunks are available.
+   * It uses the Merkle tree structure to optimize transfers.
    *
    * @param startPosition The start position in the file
    * @param endPosition The end position in the file (exclusive)
@@ -282,14 +380,28 @@ public class MerklePainter implements Closeable {
       int startChunk = merkleTree.getChunkIndexForPosition(startPosition);
       int endChunk = merkleTree.getChunkIndexForPosition(Math.min(endPosition - 1, merkleTree.totalSize() - 1));
 
-      // Create a list of chunk indices to check
-      List<Integer> chunkIndices = new ArrayList<>();
-      for (int i = startChunk; i <= endChunk; i++) {
-        chunkIndices.add(i);
+      // Determine optimal transfer size based on active transfers
+      int activeTransfers = downloadTasks.size();
+      int optimalTransferSize = activeTransfers > 0 ? (1 << Math.max(0, 16 - activeTransfers)) : 16;
+
+      // Find optimal transfers for this range
+      List<NodeTransfer> transfers = findOptimalTransfers(startChunk, endChunk, optimalTransferSize);
+
+      if (transfers.isEmpty()) {
+        // If no transfers needed, return completed future
+        return CompletableFuture.completedFuture(null);
       }
 
-      // Download chunks if needed asynchronously
-      return downloadChunksIfNeededAsync(chunkIndices).thenApply(result -> null);
+      // Create a list of futures for each transfer
+      List<CompletableFuture<Void>> transferFutures = new ArrayList<>();
+
+      for (NodeTransfer transfer : transfers) {
+        CompletableFuture<Void> future = downloadNodeTransferAsync(transfer);
+        transferFutures.add(future);
+      }
+
+      // Return a future that completes when all transfers are done
+      return CompletableFuture.allOf(transferFutures.toArray(new CompletableFuture[0]));
     } catch (Exception e) {
       // If there's an exception, return a failed future
       CompletableFuture<Void> future = new CompletableFuture<>();
@@ -591,6 +703,98 @@ public class MerklePainter implements Closeable {
     }
 
     return false;
+  }
+
+  /**
+   * Asynchronously downloads a node transfer and processes the chunks it contains.
+   *
+   * @param transfer The NodeTransfer to download
+   * @return A CompletableFuture that completes when the transfer is done
+   */
+  private CompletableFuture<Void> downloadNodeTransferAsync(NodeTransfer transfer) {
+    CompletableFuture<Void> future = new CompletableFuture<>();
+
+    // Calculate the length of the transfer
+    long start = transfer.start();
+    long end = transfer.end();
+    long length = end - start;
+
+    // Get the merkle tree
+    MerkleTree merkleTree = pane.getMerkleTree();
+    long chunkSize = merkleTree.chunkSize();
+
+    // Calculate the chunk range this transfer covers
+    int startChunk = (int)(start / chunkSize);
+    int endChunk = (int)((end - 1) / chunkSize);
+
+    // Create a set of chunk indices to track which chunks are being downloaded in this transfer
+    Set<Integer> chunkIndices = new HashSet<>();
+    for (int i = startChunk; i <= endChunk; i++) {
+      if (!pane.isChunkIntact(i)) {
+        chunkIndices.add(i);
+        // Register this chunk as being downloaded
+        downloadTasks.put(i, future.thenApply(v -> true));
+      }
+    }
+
+    if (chunkIndices.isEmpty()) {
+      // No chunks need downloading
+      future.complete(null);
+      return future;
+    }
+
+    // Log the transfer
+    eventSink.info("Downloading node transfer: level=" + transfer.node().level() +
+                   ", chunks=" + chunkIndices.size() + ", bytes=" + length);
+
+    // Download the range asynchronously
+    CompletableFuture.supplyAsync(() -> {
+      try {
+        // Download the range
+        ByteBuffer buffer = downloadRange(start, length);
+
+        // Process each chunk in the transfer
+        for (int chunkIndex : chunkIndices) {
+          // Calculate the chunk boundaries
+          MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
+          long chunkStart = bounds.start();
+          long chunkEnd = bounds.end();
+          int chunkLength = (int)(chunkEnd - chunkStart);
+
+          // Extract the chunk data from the buffer
+          ByteBuffer chunkBuffer = ByteBuffer.allocate(chunkLength);
+          int bufferPosition = (int)(chunkStart - start);
+          if (bufferPosition >= 0 && bufferPosition + chunkLength <= buffer.limit()) {
+            buffer.position(bufferPosition);
+            byte[] chunkData = new byte[chunkLength];
+            buffer.get(chunkData, 0, chunkLength);
+            chunkBuffer.put(chunkData);
+            chunkBuffer.flip();
+
+            // Submit the chunk to the MerklePane
+            pane.submitChunk(chunkIndex, chunkBuffer);
+          } else {
+            eventSink.error("Chunk " + chunkIndex + " is outside the downloaded range");
+          }
+        }
+
+        return null;
+      } catch (Exception e) {
+        throw new CompletionException(e);
+      } finally {
+        // Remove the download tasks
+        for (int chunkIndex : chunkIndices) {
+          downloadTasks.remove(chunkIndex);
+        }
+      }
+    }, downloadExecutor).thenAccept(v -> {
+      future.complete(null);
+    }).exceptionally(ex -> {
+      future.completeExceptionally(ex);
+      return null;
+    });
+
+    return future;
   }
 
   /**
