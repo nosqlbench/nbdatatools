@@ -63,6 +63,10 @@ public class ChunkedDownloader {
   private final OkHttpClient client;
   /// Event sink for logging and progress reporting
   private final EventSink eventSink;
+  /// Optional starting position for range downloads
+  private final long rangeStart;
+  /// Optional length for range downloads (negative means download to end)
+  private final long rangeLength;
 
   /// Creates a new chunked downloader with the specified parameters.
   ///
@@ -79,11 +83,35 @@ public class ChunkedDownloader {
       EventSink eventSink
   )
   {
+    this(url, name, chunkSize, parallelism, eventSink, 0, -1);
+  }
+
+  /// Creates a new chunked downloader with the specified parameters for downloading a specific range.
+  ///
+  /// @param url The URL to download from
+  /// @param name The name to use for the downloaded file if not specified in the target path
+  /// @param chunkSize The size of each chunk for parallel downloads (use 0 for default)
+  /// @param parallelism The number of parallel download threads to use (use 0 for default)
+  /// @param eventSink Event sink for logging and progress reporting
+  /// @param rangeStart The starting position for the range download
+  /// @param rangeLength The length of the range to download (negative means download to end)
+  public ChunkedDownloader(
+      URL url,
+      String name,
+      long chunkSize,
+      int parallelism,
+      EventSink eventSink,
+      long rangeStart,
+      long rangeLength
+  )
+  {
     this.url = url;
     this.name = name;
     this.chunkSize = chunkSize > 0 ? chunkSize : DEFAULT_CHUNK_SIZE;
     this.parallelism = parallelism > 0 ? parallelism : DEFAULT_PARALLELISM;
     this.eventSink = eventSink;
+    this.rangeStart = rangeStart;
+    this.rangeLength = rangeLength;
     this.client = new OkHttpClient.Builder().connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.MINUTES).writeTimeout(60, TimeUnit.SECONDS).followRedirects(true)
         .build();
@@ -170,32 +198,65 @@ public class ChunkedDownloader {
     AtomicLong totalBytesDownloaded = new AtomicLong(0);
     AtomicBoolean downloadFailed = new AtomicBoolean(false);
 
-    ExecutorService executor = Executors.newFixedThreadPool(parallelism);
+    ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     try {
       if (Files.exists(targetFile) && force) {
         Files.delete(targetFile);
       }
 
+      // Calculate the actual range to download
+      long effectiveRangeStart = rangeStart;
+      long effectiveRangeLength = rangeLength;
+
+      // If rangeLength is negative, download to the end of the file
+      if (effectiveRangeLength < 0) {
+        effectiveRangeLength = metadata.totalSize() - effectiveRangeStart;
+      }
+
+      // Ensure we don't try to download beyond the end of the file
+      if (effectiveRangeStart + effectiveRangeLength > metadata.totalSize()) {
+        effectiveRangeLength = metadata.totalSize() - effectiveRangeStart;
+      }
+
+      // Calculate the end position (inclusive)
+      long effectiveRangeEnd = effectiveRangeStart + effectiveRangeLength - 1;
+
+      // Log the effective range
+      eventSink.debug("Effective download range: bytes={}-{} (length={})",
+                    effectiveRangeStart, effectiveRangeEnd, effectiveRangeLength);
+
       try (RandomAccessFile raf = new RandomAccessFile(targetFile.toFile(), "rw")) {
-        raf.setLength(metadata.totalSize());
+        // Set the file length to match the range we're downloading
+        raf.setLength(effectiveRangeLength);
       } catch (IOException e) {
         executor.shutdown();
         return createFailedProgress(targetFile, e);
       }
 
       List<CompletableFuture<Void>> chunkFutures = new ArrayList<>();
-      for (long startByte = 0; startByte < metadata.totalSize(); startByte += chunkSize) {
+
+      // Start from the effective range start and go to the effective range end
+      for (long offset = 0; offset < effectiveRangeLength; offset += chunkSize) {
         if (downloadFailed.get())
           break;
 
-        long endByte = Math.min(startByte + chunkSize - 1, metadata.totalSize() - 1);
+        // Calculate the absolute start and end positions in the file
+        long absoluteStartByte = effectiveRangeStart + offset;
+        long absoluteEndByte = Math.min(absoluteStartByte + chunkSize - 1, effectiveRangeEnd);
+
+        // Calculate the relative position in the output file
+        long relativeStartByte = offset;
+        long relativeEndByte = relativeStartByte + (absoluteEndByte - absoluteStartByte);
+
+        eventSink.debug("Requesting chunk: bytes={}-{}", absoluteStartByte, absoluteEndByte);
         ChunkDownloadTask task = new ChunkDownloadTask(
             client,
             url,
             targetFile,
-            startByte,
-            endByte,
+            absoluteStartByte,  // Absolute position in the source file
+            absoluteEndByte,    // Absolute position in the source file
+            relativeStartByte,  // Relative position in the output file
             totalBytesDownloaded,
             downloadFailed,
             eventSink

@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.downloader;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -38,6 +38,7 @@ public class ChunkDownloadTask implements Runnable {
     private final Path targetFile;
     private final long startByte;
     private final long endByte;
+    private final long fileOffset; // Position in the output file
     private final AtomicLong totalBytesDownloaded;
     private final AtomicBoolean downloadFailed;
     private final EventSink eventSink;
@@ -48,16 +49,18 @@ public class ChunkDownloadTask implements Runnable {
     /// @param targetFile the file to write the downloaded chunk to
     /// @param startByte the start byte of the chunk to download
     /// @param endByte the end byte of the chunk to download
+    /// @param fileOffset the position in the output file to write the chunk to
     /// @param totalBytesDownloaded the total number of bytes downloaded so far
     /// @param downloadFailed a flag indicating whether the download has failed
     /// @param eventSink the event sink to use for logging
     public ChunkDownloadTask(OkHttpClient client, URL url, Path targetFile, long startByte, long endByte,
-                     AtomicLong totalBytesDownloaded, AtomicBoolean downloadFailed, EventSink eventSink) {
+                     long fileOffset, AtomicLong totalBytesDownloaded, AtomicBoolean downloadFailed, EventSink eventSink) {
         this.client = client;
         this.url = url;
         this.targetFile = targetFile;
         this.startByte = startByte;
         this.endByte = endByte;
+        this.fileOffset = fileOffset;
         this.totalBytesDownloaded = totalBytesDownloaded;
         this.downloadFailed = downloadFailed;
         this.eventSink = eventSink;
@@ -93,7 +96,7 @@ public class ChunkDownloadTask implements Runnable {
 
             // Write the received chunk to the correct position in the file
             try (RandomAccessFile raf = new RandomAccessFile(targetFile.toFile(), "rw")) {
-                writeChunkToFile(raf, body, startByte, totalBytesDownloaded);
+                writeChunkToFile(raf, body, fileOffset, totalBytesDownloaded);
             }
 
         } catch (Exception e) {

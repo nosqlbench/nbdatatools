@@ -21,6 +21,7 @@ package io.nosqlbench.vectordata.merkle;
 import io.nosqlbench.vectordata.downloader.DownloadProgress;
 import io.nosqlbench.vectordata.downloader.DownloadResult;
 import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
+import io.nosqlbench.vectordata.status.StdoutDownloadEventSink;
 import io.nosqlbench.vectordata.downloader.ChunkedDownloader;
 import io.nosqlbench.vectordata.status.EventSink;
 
@@ -78,7 +79,7 @@ public class MerklePainter implements Closeable {
   ///     URL of the source data file (merkle tree will be downloaded from
   ///     sourcePath + [MerklePane#MRKL])
   public MerklePainter(Path localPath, String sourcePath) {
-    this(localPath, sourcePath, new NoOpDownloadEventSink());
+    this(localPath, sourcePath, new StdoutDownloadEventSink());
   }
 
   /// Creates a new MerklePainter for the given local file and source URL with a custom event sink
@@ -100,8 +101,8 @@ public class MerklePainter implements Closeable {
     // MerklePane will handle downloading the reference tree if needed
     this.pane = new MerklePane(localPath, merklePath, referenceTreePath, sourcePath);
 
-    // Initialize the download executor with a fixed thread pool
-    this.downloadExecutor = Executors.newFixedThreadPool(Math.min(8, Runtime.getRuntime().availableProcessors()));
+    // Initialize the download executor with a virtual thread executor
+    this.downloadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     // Initialize the chunked downloader if a source path is provided
     if (sourcePath != null) {
@@ -165,13 +166,14 @@ public class MerklePainter implements Closeable {
       return ByteBuffer.allocate(0);
     }
 
+    eventSink.debug("Requesting range: bytes={}-{}", start, start + length - 1);
+
     // Create a temporary file to download the range
     Path tempFile = Files.createTempFile("merkle-range-", ".tmp");
     try {
       // Create a URL with range parameters
       URL rangeUrl;
       try {
-        // We'll handle the range in the request headers
         rangeUrl = new URL(sourcePath);
       } catch (MalformedURLException e) {
         throw new IOException("Invalid source URL: " + sourcePath, e);
@@ -184,7 +186,9 @@ public class MerklePainter implements Closeable {
           tempFile.getFileName().toString(),
           length, // Use the range length as the chunk size
           1, // Single chunk download
-          eventSink
+          eventSink,
+          start, // Starting position for the range
+          length // Length of the range
       );
 
       // Download the range to the temporary file
@@ -204,6 +208,10 @@ public class MerklePainter implements Closeable {
         byte[] data = Files.readAllBytes(tempFile);
         buffer.put(data, 0, Math.min(data.length, (int) length));
         buffer.flip();
+
+        eventSink.debug("Successfully downloaded range: bytes={}-{}, size={}",
+                      start, start + length - 1, buffer.remaining());
+
         return buffer;
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new IOException("Failed to download range", e);
@@ -344,10 +352,17 @@ public class MerklePainter implements Closeable {
 
     // If all chunks need downloading and the size is appropriate, download the entire node
     if (allNeedDownload && chunkCount <= maxTransferSize) {
-      // Calculate the actual byte range for this node
-      long start = Math.max(nodeStart, startChunk * chunkSize);
-      long end = Math.min(nodeEnd, (endChunk + 1) * chunkSize);
-      transfers.add(new NodeTransfer(node, start, end));
+        // Calculate the actual byte range for this node
+      // Ensure the range aligns with chunk boundaries
+      long start = Math.max(nodeStart, intersectStart * chunkSize);
+      long end = Math.min(nodeEnd, (intersectEnd + 1) * chunkSize);
+
+      // Verify that the range is at least one chunk in size
+      if (end - start >= chunkSize) {
+        transfers.add(new NodeTransfer(node, start, end));
+      } else {
+        eventSink.warn("Skipping transfer smaller than one chunk: {} bytes", end - start);
+      }
     } else if (node.left() != null) {
       // Otherwise, recurse into children
       findOptimalTransfersRecursive(node.left(), startChunk, endChunk, maxTransferSize, transfers, chunkSize, totalSize);
@@ -715,13 +730,46 @@ public class MerklePainter implements Closeable {
     CompletableFuture<Void> future = new CompletableFuture<>();
 
     // Calculate the length of the transfer
-    long start = transfer.start();
-    long end = transfer.end();
-    long length = end - start;
+    final long originalStart = transfer.start();
+    final long originalEnd = transfer.end();
 
     // Get the merkle tree
-    MerkleTree merkleTree = pane.getMerkleTree();
-    long chunkSize = merkleTree.chunkSize();
+    final MerkleTree merkleTree = pane.getMerkleTree();
+    final long chunkSize = merkleTree.chunkSize();
+
+    // Ensure the transfer aligns with chunk boundaries
+    final long alignedStart = (originalStart / chunkSize) * chunkSize;
+    final long alignedEnd = ((originalEnd + chunkSize - 1) / chunkSize) * chunkSize;
+
+    // Determine the final start and end values
+    final long start;
+    long end; // Not final because we might need to adjust it
+
+    // If the alignment changed the range, log a warning
+    if (alignedStart != originalStart || alignedEnd != originalEnd) {
+      eventSink.warn("Adjusting transfer range to align with chunk boundaries: [{}-{}] -> [{}-{}]",
+                     originalStart, originalEnd, alignedStart, alignedEnd);
+      start = alignedStart;
+      end = alignedEnd;
+    } else {
+      start = originalStart;
+      end = originalEnd;
+    }
+
+    // Calculate initial length
+    long length = end - start;
+
+    // Verify that the range is at least one chunk in size
+    if (length < chunkSize) {
+      eventSink.warn("Transfer size {} is smaller than chunk size {}, adjusting to one chunk",
+                   length, chunkSize);
+      end = start + chunkSize;
+      length = chunkSize;
+    }
+
+    // Now that we've finalized the end value, make it final for the lambda
+    final long finalEnd = end;
+    final long finalLength = length;
 
     // Calculate the chunk range this transfer covers
     int startChunk = (int)(start / chunkSize);
@@ -745,13 +793,13 @@ public class MerklePainter implements Closeable {
 
     // Log the transfer
     eventSink.info("Downloading node transfer: level=" + transfer.node().level() +
-                   ", chunks=" + chunkIndices.size() + ", bytes=" + length);
+                   ", chunks=" + chunkIndices.size() + ", bytes=" + finalLength);
 
     // Download the range asynchronously
     CompletableFuture.supplyAsync(() -> {
       try {
         // Download the range
-        ByteBuffer buffer = downloadRange(start, length);
+        ByteBuffer buffer = downloadRange(start, finalLength);
 
         // Process each chunk in the transfer
         for (int chunkIndex : chunkIndices) {
@@ -763,7 +811,7 @@ public class MerklePainter implements Closeable {
 
           // Extract the chunk data from the buffer
           ByteBuffer chunkBuffer = ByteBuffer.allocate(chunkLength);
-          int bufferPosition = (int)(chunkStart - start);
+          final int bufferPosition = (int)(chunkStart - start);
           if (bufferPosition >= 0 && bufferPosition + chunkLength <= buffer.limit()) {
             buffer.position(bufferPosition);
             byte[] chunkData = new byte[chunkLength];
