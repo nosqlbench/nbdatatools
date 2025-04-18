@@ -1,5 +1,23 @@
 package io.nosqlbench.vectordata.merkle;
 
+/*
+ * Copyright (c) nosqlbench
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+
 import io.nosqlbench.vectordata.status.EventSink;
 import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,12 +41,20 @@ class MerklePainterOptimizedDownloadTest {
 
     private Path testFile;
 
+    private Path merkleFile;
+
     @BeforeEach
     void setUp() throws IOException {
         // Create a test file
         testFile = tempDir.resolve("test.dat");
         byte[] data = new byte[1024 * 1024]; // 1MB of data
         Files.write(testFile, data);
+
+        // Create a merkle tree file
+        merkleFile = tempDir.resolve("test.dat.mrkl");
+        // Create a simple merkle tree file with some content
+        byte[] merkleData = new byte[1024]; // 1KB of data
+        Files.write(merkleFile, merkleData);
     }
 
     /**
@@ -55,7 +81,7 @@ class MerklePainterOptimizedDownloadTest {
 
         // Create our test MerklePainter
         EventSink eventSink = new NoOpDownloadEventSink();
-        TestMerklePainter testPainter = new TestMerklePainter(testPane, eventSink, testFile);
+        TestMerklePainter testPainter = new TestMerklePainter(testPane, eventSink, testFile, merkleFile);
 
         // Call paintAsync to download a range of data
         CompletableFuture<Void> future = testPainter.paintAsync(0, 1024 * 1024);
@@ -92,7 +118,7 @@ class MerklePainterOptimizedDownloadTest {
 
         // Create our test MerklePainter
         EventSink eventSink = new NoOpDownloadEventSink();
-        TestMerklePainter testPainter = new TestMerklePainter(testPane, eventSink, testFile);
+        TestMerklePainter testPainter = new TestMerklePainter(testPane, eventSink, testFile, merkleFile);
 
         // Call paintAsync to download a range of data
         CompletableFuture<Void> future = testPainter.paintAsync(0, 1024 * 1024);
@@ -126,7 +152,7 @@ class MerklePainterOptimizedDownloadTest {
 
         // Create our test MerklePainter
         EventSink eventSink = new NoOpDownloadEventSink();
-        TestMerklePainter testPainter = new TestMerklePainter(testPane, eventSink, testFile);
+        TestMerklePainter testPainter = new TestMerklePainter(testPane, eventSink, testFile, merkleFile);
 
         // Test with different numbers of active transfers
         int[] activeTransfers = {0, 4, 8, 12, 15};

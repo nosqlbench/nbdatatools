@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.merkle;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -423,6 +423,20 @@ public class MerkleTree {
     /// @return The loaded MerkleTree
     /// @throws IOException If there's an error reading the file or if the digest verification fails
     public static MerkleTree load(Path path) throws IOException {
+        return load(path, -1); // Use the totalSize from the footer
+    }
+
+    /// Loads a Merkle tree from a file with a specified virtual size.
+    ///
+    /// Reads the leaf node hashes and footer information to reconstruct the tree.
+    /// Also verifies the integrity of the tree data using the digest in the footer.
+    /// Uses the specified virtualSize instead of the totalSize from the footer.
+    ///
+    /// @param path The path to load the file from
+    /// @param virtualSize The virtual size to use instead of the totalSize from the footer (-1 to use the footer's totalSize)
+    /// @return The loaded MerkleTree
+    /// @throws IOException If there's an error reading the file or if the digest verification fails
+    public static MerkleTree load(Path path, long virtualSize) throws IOException {
         try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
             // Get file size
             long fileSize = channel.size();
@@ -431,7 +445,8 @@ public class MerkleTree {
             if (fileSize == 0) {
                 // Create an empty tree with default values
                 MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                return new MerkleTree(root, 4096, 0, new MerkleRange(0, 0));
+                long effectiveTotalSize = (virtualSize > 0) ? virtualSize : 0;
+                return new MerkleTree(root, 4096, effectiveTotalSize, new MerkleRange(0, effectiveTotalSize));
             }
 
             // Try to read the footer length byte (last byte of the file)
@@ -442,13 +457,15 @@ public class MerkleTree {
                 if (bytesRead != 1) {
                     // Couldn't read footer length, create a default footer
                     MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                    return new MerkleTree(root, 4096, fileSize, new MerkleRange(0, fileSize));
+                    long effectiveTotalSize = (virtualSize > 0) ? virtualSize : fileSize;
+                    return new MerkleTree(root, 4096, effectiveTotalSize, new MerkleRange(0, effectiveTotalSize));
                 }
                 footerLengthBuffer.flip();
             } catch (Exception e) {
                 // Error reading footer length, create a default footer
                 MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                return new MerkleTree(root, 4096, fileSize, new MerkleRange(0, fileSize));
+                long effectiveTotalSize = (virtualSize > 0) ? virtualSize : fileSize;
+                return new MerkleTree(root, 4096, effectiveTotalSize, new MerkleRange(0, effectiveTotalSize));
             }
 
             byte footerLength = footerLengthBuffer.get();
@@ -550,10 +567,8 @@ public class MerkleTree {
             }
 
             if (!isLegacyFile && !skipVerification && !footer.verifyDigest(treeData)) {
-                // Instead of throwing an exception, create a default tree
-                MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                return new MerkleTree(root, footer.chunkSize(), footer.totalSize(),
-                    new MerkleRange(0, footer.totalSize()));
+                // Throw an exception when digest verification fails
+                throw new IOException("Merkle tree digest verification failed");
             }
 
             // Create leaf nodes
@@ -572,8 +587,11 @@ public class MerkleTree {
             // Build tree from leaves
             MerkleNode root = buildTree(leaves, treeData, 0);
 
-            return new MerkleTree(root, chunkSize, totalSize,
-                new MerkleRange(0, totalSize));
+            // Use the virtual size if specified, otherwise use the totalSize from the footer
+            long effectiveTotalSize = (virtualSize > 0) ? virtualSize : totalSize;
+
+            return new MerkleTree(root, chunkSize, effectiveTotalSize,
+                new MerkleRange(0, effectiveTotalSize));
         }
     }
 

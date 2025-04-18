@@ -84,6 +84,14 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
     this.window = validateWindow(window);
   }
 
+  @Override
+  public void prebuffer(long startIncl, long endExcl) {
+  }
+
+  @Override
+  public void awaitPrebuffer(long minIncl, long maxExcl) {
+  }
+
   protected FWindow validateWindow(FWindow window) {
     FWindow valid = window;
     if (FWindow.ALL.equals(valid)) {

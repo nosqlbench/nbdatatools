@@ -93,6 +93,9 @@ import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
         # Display summary information about Merkle trees
         nbvectors merkle summary file1.hdf5 file2.hdf5
 
+        # Display summary information directly from Merkle files
+        nbvectors merkle summary file1.hdf5.mrkl file2.hdf5.mref
+
         # Process all .hdf5 files in a directory and its subdirectories
         nbvectors merkle create /path/to/directory .hdf5
 
@@ -113,7 +116,7 @@ import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
 public class CMD_merkle implements Callable<Integer> {
   // Default extensions to use when a single directory is provided and no extensions are specified
   private static final Set<String> DEFAULT_EXTENSIONS = Set.of(
-      ".ivec", ".ivecs", ".fvec", ".fvecs", ".bvec", ".bvecs", ".hdf5"
+      ".ivec", ".ivecs", ".fvec", ".fvecs", ".bvec", ".bvecs", ".hdf5", ".mrkl", ".mref"
   );
   private static final Logger logger = LogManager.getLogger(CMD_merkle.class);
 
@@ -404,6 +407,32 @@ public class CMD_merkle implements Callable<Integer> {
   public void displayMerkleSummary(Path merklePath) throws IOException {
     logger.info("Displaying summary for Merkle tree file: {}", merklePath);
 
+    String fileName = merklePath.getFileName().toString();
+    boolean isMerkleFile = fileName.endsWith(".mrkl") || fileName.endsWith(".mref");
+
+    // If this is a Merkle file, display its summary directly
+    if (isMerkleFile) {
+      displayMerkleFileSummary(merklePath);
+    } else {
+      // Otherwise, look for an associated Merkle file
+      Path mrklPath = merklePath.resolveSibling(fileName + ".mrkl");
+      Path mrefPath = merklePath.resolveSibling(fileName + ".mref");
+
+      if (Files.exists(mrklPath)) {
+        displayMerkleFileSummary(mrklPath);
+      } else if (Files.exists(mrefPath)) {
+        displayMerkleFileSummary(mrefPath);
+      } else {
+        logger.error("No Merkle file found for: {}", merklePath);
+      }
+    }
+  }
+
+  /// Displays a summary of a Merkle tree file.
+  ///
+  /// @param merklePath The path to the Merkle tree file
+  /// @throws IOException If there's an error reading the file
+  private void displayMerkleFileSummary(Path merklePath) throws IOException {
     // Load the Merkle tree from the file
     MerkleTree merkleTree = MerkleTree.load(merklePath);
 
@@ -413,9 +442,12 @@ public class CMD_merkle implements Callable<Integer> {
     // Read the footer directly from the file to get all footer data
     MerkleFooter footer = readMerkleFooter(merklePath);
 
+    // Determine the file type
+    String fileType = merklePath.getFileName().toString().endsWith(".mref") ? "MERKLE REFERENCE FILE" : "MERKLE TREE FILE";
+
     // Build the header for the summary
     StringBuilder summary = new StringBuilder();
-    summary.append("\nMERKLE TREE FILE SUMMARY\n");
+    summary.append("\n").append(fileType).append(" SUMMARY\n");
     summary.append("=======================\n");
     summary.append(String.format("File: %s\n", merklePath.toAbsolutePath()));
     summary.append(String.format("File Size: %s\n\n", formatByteSize(fileSize)));
@@ -429,6 +461,23 @@ public class CMD_merkle implements Callable<Integer> {
     summary.append(String.format("Total Size: %s\n", formatByteSize(footer.totalSize())));
     summary.append(String.format("Footer Length: %d bytes\n", footer.footerLength()));
     summary.append(String.format("Digest: %s\n", bytesToHex(footer.digest())));
+
+    // If this is a reference file, add information about the original file
+    if (merklePath.getFileName().toString().endsWith(".mref")) {
+      String originalFileName = merklePath.getFileName().toString().replace(".mref", "");
+      Path originalPath = merklePath.resolveSibling(originalFileName);
+
+      summary.append("\nReference Information:\n");
+      summary.append(String.format("Original File: %s\n", originalPath.toAbsolutePath()));
+
+      if (Files.exists(originalPath)) {
+        long originalSize = Files.size(originalPath);
+        summary.append(String.format("Original File Size: %s\n", formatByteSize(originalSize)));
+        summary.append(String.format("Size Ratio: %.2f%%\n", (double) fileSize / originalSize * 100));
+      } else {
+        summary.append("Original File: Not found\n");
+      }
+    }
 
     // Print the complete summary
     System.out.println(summary);

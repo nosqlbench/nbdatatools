@@ -29,6 +29,10 @@ import java.util.function.Function;
 /// @param <T> the type of the vector elements
 public interface DatasetView<T> extends Iterable<T>{
 
+  void prebuffer(long startIncl, long endExcl);
+  void awaitPrebuffer(long minIncl, long maxExcl);
+
+
   /// get the number of vectors in the dataset
   /// @return the number of vectors in the dataset
   public int getCount();
@@ -66,4 +70,5 @@ public interface DatasetView<T> extends Iterable<T>{
   /// @param <U> the type of the transformed vectors
   /// @return the list of all vectors, transformed
   <U> List<U> toList(Function<T, U> f);
+
 }

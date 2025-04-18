@@ -81,6 +81,16 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
     };
   }
 
+  @Override
+  public void prebuffer(long startIncl, long endExcl) {
+    randomio.prebuffer(startIncl, endExcl);
+  }
+
+  @Override
+  public void awaitPrebuffer(long minIncl, long maxExcl) {
+    randomio.awaitPrebuffer(minIncl, maxExcl);
+  }
+
   /**
    * Returns the number of bytes per component based on the data type.
    *

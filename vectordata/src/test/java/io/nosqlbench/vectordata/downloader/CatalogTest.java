@@ -58,8 +58,10 @@ public class CatalogTest {
         d1m.getBaseVectors().orElseThrow(() -> new RuntimeException("base vectors not found"));
     int count = basev.getCount();
     System.out.println("count:" + count);
-    float[] floats = basev.get(0);
-    System.out.println("floats:" + Arrays.toString(floats));
+    basev.prebuffer(0,1024*1024*100);
+    basev.awaitPrebuffer(1024*1024*100,1024*1024*200);
+///    Object values = basev.get(0);
+///    System.out.println("values:" + Arrays.toString(values));
 
 
   }

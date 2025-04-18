@@ -148,7 +148,7 @@ public class MerklePainter implements Closeable {
    * @return The total size in bytes
    */
   public long totalSize() {
-    return pane.getMerkleTree().totalSize();
+    return pane.getTotalSize();
   }
 
   /**
@@ -852,6 +852,91 @@ public class MerklePainter implements Closeable {
    */
   public Set<Integer> getInProgressChunks() {
     return downloadTasks.keySet();
+  }
+
+  /**
+   * Blocks the calling thread until all pending downloads have completed.
+   * This method waits for all download tasks that are currently in progress.
+   *
+   * @param timeout The maximum time to wait
+   * @param unit The time unit of the timeout argument
+   * @return true if all downloads completed, false if the timeout was reached
+   * @throws InterruptedException If the current thread was interrupted while waiting
+   */
+  public boolean awaitAllDownloads(long timeout, TimeUnit unit) throws InterruptedException {
+    long endTime = System.nanoTime() + unit.toNanos(timeout);
+
+    while (!downloadTasks.isEmpty()) {
+      // Create a copy of the current tasks to avoid ConcurrentModificationException
+      Set<CompletableFuture<Boolean>> tasks = new HashSet<>(downloadTasks.values());
+
+      if (tasks.isEmpty()) {
+        return true; // No tasks to wait for
+      }
+
+      // Create a combined future that completes when all tasks complete
+      CompletableFuture<Void> allTasks = CompletableFuture.allOf(
+          tasks.toArray(new CompletableFuture[0]));
+
+      try {
+        // Calculate remaining time
+        long remainingNanos = endTime - System.nanoTime();
+        if (remainingNanos <= 0) {
+          return false; // Timeout reached
+        }
+
+        // Wait for all tasks to complete or timeout
+        allTasks.get(remainingNanos, TimeUnit.NANOSECONDS);
+
+        // If we get here and downloadTasks is still not empty,
+        // it means new tasks were added while we were waiting
+        if (downloadTasks.isEmpty()) {
+          return true;
+        }
+      } catch (TimeoutException e) {
+        return false; // Timeout reached
+      } catch (ExecutionException e) {
+        // Log the error but continue waiting for other tasks
+        eventSink.error("Error while waiting for downloads: {}", e.getMessage());
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Blocks the calling thread until all pending downloads have completed.
+   * This method waits indefinitely for all download tasks that are currently in progress.
+   *
+   * @throws InterruptedException If the current thread was interrupted while waiting
+   */
+  public void awaitAllDownloads() throws InterruptedException {
+    while (!downloadTasks.isEmpty()) {
+      // Create a copy of the current tasks to avoid ConcurrentModificationException
+      Set<CompletableFuture<Boolean>> tasks = new HashSet<>(downloadTasks.values());
+
+      if (tasks.isEmpty()) {
+        return; // No tasks to wait for
+      }
+
+      // Create a combined future that completes when all tasks complete
+      CompletableFuture<Void> allTasks = CompletableFuture.allOf(
+          tasks.toArray(new CompletableFuture[0]));
+
+      try {
+        // Wait for all tasks to complete
+        allTasks.join();
+
+        // If we get here and downloadTasks is still not empty,
+        // it means new tasks were added while we were waiting
+        if (downloadTasks.isEmpty()) {
+          return;
+        }
+      } catch (Exception e) {
+        // Log the error but continue waiting for other tasks
+        eventSink.error("Error while waiting for downloads: {}", e.getMessage());
+      }
+    }
   }
 
   @Override

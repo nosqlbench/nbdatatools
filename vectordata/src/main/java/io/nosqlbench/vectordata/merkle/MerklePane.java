@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.merkle;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -33,11 +33,15 @@ import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
 import java.util.Arrays;
 
+import io.nosqlbench.vectordata.status.EventSink;
+import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
+
 /**
  * MerklePane provides a window into a file with Merkle tree verification.
  * It allows for efficient random access to chunks of data with integrity checking.
  */
 public class MerklePane implements AutoCloseable {
+  private final EventSink eventSink = new NoOpDownloadEventSink();
   // File extensions for merkle tree files
   /// File extension for merkle tree files
   public static final String MRKL = ".mrkl";
@@ -56,6 +60,7 @@ public class MerklePane implements AutoCloseable {
   // Tracking which chunks are intact (verified)
   private final BitSet intactChunks;
   private final MerkleBits merkleBits;
+  private MerkleTree refTree;
 
   /// Creates a new MerklePane for the given file
   /// @param filePath
@@ -249,8 +254,31 @@ public class MerklePane implements AutoCloseable {
         }
       }
 
+
       // Rule 2: Ensure that the local merkle tree file is present, or if it is not, create one with the createEmptyTreeLike(...) method
+      MerkleFooter refFooter = null;
       if (actualReferenceTreePath != null && Files.exists(actualReferenceTreePath)) {
+        // Read the reference tree footer to get the virtual size
+        try (FileChannel refChannel = FileChannel.open(actualReferenceTreePath, StandardOpenOption.READ)) {
+          long fileSize = refChannel.size();
+          // Read the footer length (last byte)
+          ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
+          refChannel.position(fileSize - 1);
+          refChannel.read(footerLengthBuffer);
+          footerLengthBuffer.flip();
+          byte footerLength = footerLengthBuffer.get();
+
+          // Read the entire footer
+          ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+          refChannel.position(fileSize - footerLength);
+          refChannel.read(footerBuffer);
+          footerBuffer.flip();
+
+          // Parse the footer
+          refFooter = MerkleFooter.fromByteBuffer(footerBuffer);
+          eventSink.debug("Reference tree footer: chunkSize={}, totalSize={}", refFooter.chunkSize(), refFooter.totalSize());
+        }
+
         if (!Files.exists(merklePath) || Files.size(merklePath) == 0) {
           // Create an empty merkle tree file with the same structure as the reference file
           MerkleTree.createEmptyTreeLike(actualReferenceTreePath, merklePath);
@@ -272,7 +300,6 @@ public class MerklePane implements AutoCloseable {
         // If content file is newer than the merkle tree file, refresh the merkle tree file
         if (contentLastModified > merkleLastModified) {
           // Load the reference tree to get chunk size and total size
-          MerkleTree refTree = null;
           if (actualReferenceTreePath != null && Files.exists(actualReferenceTreePath)) {
             refTree = MerkleTree.load(actualReferenceTreePath);
           } else {
@@ -305,7 +332,18 @@ public class MerklePane implements AutoCloseable {
       }
 
       // Load the merkle tree
-      MerkleTree merkleTree = MerkleTree.load(merklePath);
+      MerkleTree merkleTree;
+
+      // If we have a reference footer with a virtual size, use it
+      if (refFooter != null) {
+        // Load the merkle tree with the virtual size from the reference footer
+        merkleTree = MerkleTree.load(merklePath, refFooter.totalSize());
+        eventSink.debug("Loaded merkle tree with virtual size {} from reference footer", refFooter.totalSize());
+      } else {
+        // Load the merkle tree normally
+        merkleTree = MerkleTree.load(merklePath);
+        eventSink.debug("Loaded merkle tree with size {} from merkle file", merkleTree.totalSize());
+      }
 
       // We no longer require the data file to match the merkle tree size
       // This allows for lazy loading of data
@@ -768,6 +806,19 @@ public class MerklePane implements AutoCloseable {
         ", fileSize=" + fileSize +
         ", merkleTree=" + merkleTree +
         '}';
+  }
+
+
+  public long getTotalSize() {
+    // Use the reference tree's total size if available, otherwise use the local tree's total size
+    if (refTree != null) {
+      return refTree.totalSize();
+    } else if (merkleTree != null) {
+      return merkleTree.totalSize();
+    } else {
+      // If neither tree is available, return the file size
+      return fileSize;
+    }
   }
 
   /// A wrapper around BitSet for tracking which chunks have been downloaded.

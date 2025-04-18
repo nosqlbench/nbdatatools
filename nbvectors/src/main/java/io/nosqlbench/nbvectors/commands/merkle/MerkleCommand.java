@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 /**
@@ -47,8 +48,9 @@ public enum MerkleCommand {
      */
     SUMMARY("summary", "Display summary information about Merkle trees", new SummaryCommand());
 
-    // File extension for merkle tree files
+    // File extensions for merkle tree files
     public static final String MRKL = ".mrkl";
+    public static final String MREF = ".mref";
     private static final Logger logger = LogManager.getLogger(MerkleCommand.class);
     private final String name;
     private final String description;
@@ -116,6 +118,14 @@ public enum MerkleCommand {
             try {
                 // Expand directories with extensions
                 List<Path> expandedFiles = CMD_merkle.expandDirectoriesWithExtensions(files);
+
+                // Filter out Merkle files (.mrkl and .mref) when creating Merkle files
+                expandedFiles = expandedFiles.stream()
+                    .filter(path -> {
+                        String fileName = path.getFileName().toString().toLowerCase();
+                        return !fileName.endsWith(MRKL) && !fileName.endsWith(MREF);
+                    })
+                    .collect(Collectors.toList());
 
                 if (expandedFiles.isEmpty()) {
                     logger.warn("No files found to process");
@@ -264,7 +274,9 @@ public enum MerkleCommand {
                         continue;
                     }
 
-                    Path merklePath = file.resolveSibling(file.getFileName() + MRKL);
+                    // Determine the appropriate Merkle file path based on the file extension
+                    Path merklePath = determineMerklePath(file);
+
                     if (!Files.exists(merklePath)) {
                         logger.error("Merkle file not found for: {}", file);
                         success = false;
@@ -284,6 +296,36 @@ public enum MerkleCommand {
                 }
             }
             return success;
+        }
+
+        /**
+         * Determines the appropriate Merkle file path based on the file extension.
+         *
+         * @param file The input file path
+         * @return The path to the Merkle file
+         */
+        private Path determineMerklePath(Path file) {
+            String fileName = file.getFileName().toString();
+
+            // If the file is already a Merkle file (.mrkl or .mref), use it directly
+            if (fileName.endsWith(MRKL) || fileName.endsWith(MREF)) {
+                return file;
+            }
+
+            // Otherwise, look for an associated Merkle file
+            Path merklePath = file.resolveSibling(fileName + MRKL);
+            if (Files.exists(merklePath)) {
+                return merklePath;
+            }
+
+            // If .mrkl doesn't exist, try .mref
+            Path mrefPath = file.resolveSibling(fileName + MREF);
+            if (Files.exists(mrefPath)) {
+                return mrefPath;
+            }
+
+            // Default to .mrkl if neither exists
+            return merklePath;
         }
     }
 }

@@ -219,4 +219,13 @@ public class MerkleRAF extends RandomAccessFile {
       painter.close();
     }
   }
+
+  public void awaitPrebuffer(long minIncl, long maxExcl) {
+    prebuffer(minIncl, maxExcl - minIncl);
+    try {
+      painter.awaitAllDownloads();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
 }

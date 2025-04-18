@@ -265,4 +265,38 @@ public class CMD_merkleTest {
     Files.write(testFile, data);
     return testFile;
   }
+
+  @Test
+  public void testSummaryCommandWithMerkleFile() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
+
+    // Create a Merkle file for the test file
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, 1048576); // 1MB chunk size
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Create a reference file by copying the Merkle file
+    Path refFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MREF);
+    Files.copy(merkleFile, refFile);
+    assertTrue(Files.exists(refFile), "Reference file should be created");
+
+    // Test summary command with the original file
+    MerkleCommand summaryCommand = MerkleCommand.findByName("summary");
+    assertNotNull(summaryCommand, "Summary command should be found");
+
+    boolean success = summaryCommand.execute(List.of(testFile), 1048576, false, true);
+    assertTrue(success, "Summary command should succeed with original file");
+
+    // Test summary command with the Merkle file directly
+    success = summaryCommand.execute(List.of(merkleFile), 1048576, false, true);
+    assertTrue(success, "Summary command should succeed with Merkle file");
+
+    // Test summary command with the reference file directly
+    success = summaryCommand.execute(List.of(refFile), 1048576, false, true);
+    assertTrue(success, "Summary command should succeed with reference file");
+  }
 }

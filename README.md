@@ -118,3 +118,15 @@ Ideally, users of these tools should have an experience like this:
 * Simple parameterization of commands and features
 * User-friendly terminal output and status
 * Basic quality-of-life features, like auto-completion and similar
+
+
+----
+
+# TODO
+- make catalog do sanity checks on data
+- make catalog add size notes to sources
+- have chunksize added to logging details
+- remove static references from tests
+- ensure no special test cases in non-test code
+- save prompt notes into a file
+- 
