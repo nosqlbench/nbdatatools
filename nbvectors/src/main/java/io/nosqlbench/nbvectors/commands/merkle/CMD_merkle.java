@@ -92,6 +92,9 @@ import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
 
         # Process files with multiple extensions in a directory
         nbvectors merkle create /path/to/directory .hdf5 .bin .dat
+
+        # Process a directory with default extensions (.ivec, .ivecs, .fvec, .fvecs, .bvec, .bvecs, .hdf5)
+        nbvectors merkle create /path/to/directory
         """,
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
@@ -99,6 +102,10 @@ import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
     },
     subcommands = {CommandLine.HelpCommand.class})
 public class CMD_merkle implements Callable<Integer> {
+  // Default extensions to use when a single directory is provided and no extensions are specified
+  private static final Set<String> DEFAULT_EXTENSIONS = Set.of(
+      ".ivec", ".ivecs", ".fvec", ".fvecs", ".bvec", ".bvecs", ".hdf5"
+  );
   private static final Logger logger = LogManager.getLogger(CMD_merkle.class);
 
   @Parameters(index = "0", description = "Command to execute: create, verify, or summary", defaultValue = "create")
@@ -483,6 +490,8 @@ public class CMD_merkle implements Callable<Integer> {
    * Processes a list of paths, expanding directories to find files with matching extensions.
    * If a path is a directory and at least one extension is provided, it will be recursively
    * traversed to find all files with the specified extensions.
+   * If a single directory is provided and no extensions are specified, the default extensions
+   * will be used automatically.
    *
    * @param paths The list of paths to process
    * @return A list of file paths to process
@@ -512,15 +521,26 @@ public class CMD_merkle implements Callable<Integer> {
       }
     }
 
-    // If we have directories and extensions, process them
-    if (!directories.isEmpty() && !extensions.isEmpty()) {
-      for (Path directory : directories) {
-        List<Path> matchingFiles = findFilesWithExtensions(directory, extensions);
-        filesToProcess.addAll(matchingFiles);
+    // If we have directories, process them
+    if (!directories.isEmpty()) {
+      // If no extensions were specified and there's exactly one directory,
+      // use the default extensions
+      if (extensions.isEmpty() && directories.size() == 1) {
+        logger.info("Using default extensions for directory: {}", directories.get(0));
+        for (Path directory : directories) {
+          List<Path> matchingFiles = findFilesWithExtensions(directory, DEFAULT_EXTENSIONS);
+          filesToProcess.addAll(matchingFiles);
+        }
+      } else if (!extensions.isEmpty()) {
+        // If extensions were specified, use them
+        for (Path directory : directories) {
+          List<Path> matchingFiles = findFilesWithExtensions(directory, extensions);
+          filesToProcess.addAll(matchingFiles);
+        }
+      } else {
+        // If multiple directories and no extensions were specified, just add the directories as-is
+        filesToProcess.addAll(directories);
       }
-    } else {
-      // If no extensions were specified, just add the directories as-is
-      filesToProcess.addAll(directories);
     }
 
     return filesToProcess;
