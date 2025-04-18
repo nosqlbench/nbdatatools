@@ -18,6 +18,9 @@ package io.nosqlbench.vectordata;
  */
 
 
+import io.nosqlbench.vectordata.discovery.TestDataGroup;
+import io.nosqlbench.vectordata.discovery.TestDataSources;
+
 import java.nio.file.Path;
 
 /// Main entry point for accessing vector test data.

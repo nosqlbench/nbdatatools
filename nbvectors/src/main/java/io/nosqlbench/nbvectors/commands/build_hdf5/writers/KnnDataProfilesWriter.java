@@ -30,18 +30,18 @@ import io.nosqlbench.nbvectors.common.adapters.DataSourceAdapter;
 import io.nosqlbench.nbvectors.common.adapters.Sized;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDataset;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDatasetImpl;
-import io.nosqlbench.vectordata.SHARED;
-import io.nosqlbench.vectordata.TestDataGroup;
+import io.nosqlbench.vectordata.utils.SHARED;
+import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FSource;
 import io.nosqlbench.vectordata.layout.FView;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
-import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.BaseVectorAttributes;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborDistancesAttributes;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.NeighborIndicesAttributes;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.QueryVectorsAttributes;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+import io.nosqlbench.vectordata.spec.attributes.BaseVectorAttributes;
+import io.nosqlbench.vectordata.spec.attributes.NeighborDistancesAttributes;
+import io.nosqlbench.vectordata.spec.attributes.NeighborIndicesAttributes;
+import io.nosqlbench.vectordata.spec.attributes.QueryVectorsAttributes;
+import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -60,8 +60,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static io.nosqlbench.vectordata.TestDataGroup.PROFILES_ATTR;
-import static io.nosqlbench.vectordata.TestDataGroup.SOURCES_GROUP;
+import static io.nosqlbench.vectordata.discovery.TestDataGroup.PROFILES_ATTR;
+import static io.nosqlbench.vectordata.discovery.TestDataGroup.SOURCES_GROUP;
 import static io.nosqlbench.vectordata.layout.TestGroupLayout.ATTACHMENTS;
 
 /// A writer for KNN data in the HDF5 format

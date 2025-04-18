@@ -17,11 +17,11 @@ package io.nosqlbench.nbvectors.commands.merkle;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.download.merkle.MerkleFooter;
-import io.nosqlbench.vectordata.download.merkle.MerkleNode;
-import io.nosqlbench.vectordata.download.merkle.MerkleMismatch;
-import io.nosqlbench.vectordata.download.merkle.MerkleRange;
-import io.nosqlbench.vectordata.download.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merkle.MerkleFooter;
+import io.nosqlbench.vectordata.merkle.MerkleNode;
+import io.nosqlbench.vectordata.merkle.MerkleMismatch;
+import io.nosqlbench.vectordata.merkle.MerkleRange;
+import io.nosqlbench.vectordata.merkle.MerkleTree;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -33,7 +33,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
@@ -45,7 +44,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -103,6 +101,9 @@ import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
 
         # Process a directory with default extensions (.ivec, .ivecs, .fvec, .fvecs, .bvec, .bvecs, .hdf5)
         nbvectors merkle create /path/to/directory
+
+        # Show which files would be processed without actually creating Merkle files
+        nbvectors merkle create --dryrun /path/to/directory
         """,
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
@@ -131,6 +132,9 @@ public class CMD_merkle implements Callable<Integer> {
   @Option(names = {"-f", "--force"}, description = "Overwrite existing Merkle files, even if they are up-to-date")
   private boolean force = false;
 
+  @Option(names = {"--dryrun", "-n"}, description = "Show which files would be processed without actually creating Merkle files")
+  private boolean dryrun = false;
+
   @Override
   public Integer call() {
     // Validate chunk size is a power of 2
@@ -150,7 +154,7 @@ public class CMD_merkle implements Callable<Integer> {
     }
 
     // Execute the command
-    boolean success = command.execute(files, chunkSize, force);
+    boolean success = command.execute(files, chunkSize, force, dryrun);
     return success ? 0 : 1;
   }
 

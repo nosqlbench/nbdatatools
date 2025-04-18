@@ -19,7 +19,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
 
 import io.nosqlbench.nbvectors.commands.verify_knn.CMD_verify_knn;
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
-import io.nosqlbench.vectordata.api.Indexed;
+import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 
 /// status view eventing interface for [CMD_verify_knn]
 public interface StatusView extends AutoCloseable{

@@ -19,7 +19,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.binders.examples;
 
 
 import io.nosqlbench.nbvectors.commands.build_hdf5.binders.PredicateTemplatizer;
-import io.nosqlbench.vectordata.internalapi.predicates.PNode;
+import io.nosqlbench.vectordata.spec.predicates.PNode;
 
 
 import java.util.regex.Pattern;

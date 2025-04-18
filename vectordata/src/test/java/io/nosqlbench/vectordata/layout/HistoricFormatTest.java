@@ -18,10 +18,10 @@ package io.nosqlbench.vectordata.layout;
  */
 
 
-import io.nosqlbench.vectordata.TestDataGroup;
-import io.nosqlbench.vectordata.TestDataView;
-import io.nosqlbench.vectordata.internalapi.datasets.api.BaseVectors;
-import io.nosqlbench.vectordata.internalapi.datasets.api.NeighborIndices;
+import io.nosqlbench.vectordata.discovery.TestDataGroup;
+import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
+import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 

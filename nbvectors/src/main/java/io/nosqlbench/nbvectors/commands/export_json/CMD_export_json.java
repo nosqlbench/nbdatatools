@@ -18,28 +18,14 @@ package io.nosqlbench.nbvectors.commands.export_json;
  */
 
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import io.jhdf.HdfFile;
-import io.jhdf.api.Attribute;
-import io.jhdf.api.Dataset;
-import io.jhdf.api.Group;
-import io.jhdf.api.Node;
-import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
-import io.nosqlbench.vectordata.SHARED;
-import io.nosqlbench.vectordata.TestDataGroup;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 
 /// Show details of HDF5 vector data files

@@ -84,10 +84,11 @@ public enum MerkleCommand {
      * @param files     The list of files to process
      * @param chunkSize The chunk size to use for Merkle tree operations
      * @param force     Whether to force overwrite of existing files
+     * @param dryrun    Whether to only show what would be done without actually creating files
      * @return true if the operation was successful, false otherwise
      */
-    public boolean execute(List<Path> files, long chunkSize, boolean force) {
-        return command.execute(files, chunkSize, force);
+    public boolean execute(List<Path> files, long chunkSize, boolean force, boolean dryrun) {
+        return command.execute(files, chunkSize, force, dryrun);
     }
 
     /**
@@ -110,7 +111,7 @@ public enum MerkleCommand {
      */
     private static class CreateCommand implements MerkleSubCommand {
         @Override
-        public boolean execute(List<Path> files, long chunkSize, boolean force) {
+        public boolean execute(List<Path> files, long chunkSize, boolean force, boolean dryrun) {
             boolean success = true;
             try {
                 // Expand directories with extensions
@@ -121,7 +122,11 @@ public enum MerkleCommand {
                     return true;
                 }
 
-                logger.info("Processing {} files", expandedFiles.size());
+                if (dryrun) {
+                    logger.info("DRY RUN: Would process {} files", expandedFiles.size());
+                } else {
+                    logger.info("Processing {} files", expandedFiles.size());
+                }
 
                 for (Path file : expandedFiles) {
                     try {
@@ -140,7 +145,11 @@ public enum MerkleCommand {
 
                                 if (!isValid) {
                                     // Merkle file is corrupted, we need to recreate it
-                                    logger.warn("Merkle file is corrupted and will be recreated: {}", file);
+                                    if (dryrun) {
+                                        logger.info("DRY RUN: Would recreate corrupted Merkle file for: {}", file);
+                                    } else {
+                                        logger.warn("Merkle file is corrupted and will be recreated: {}", file);
+                                    }
                                 } else {
                                     // Merkle file is valid, now check if it's up-to-date
                                     long sourceLastModified = Files.getLastModifiedTime(file).toMillis();
@@ -148,25 +157,49 @@ public enum MerkleCommand {
 
                                     if (merkleLastModified >= sourceLastModified) {
                                         // Merkle file is up-to-date, skip this file
-                                        logger.info("Skipping file as Merkle file is up-to-date: {}", file);
+                                        if (dryrun) {
+                                            logger.info("DRY RUN: Would skip file as Merkle file is up-to-date: {}", file);
+                                        } else {
+                                            logger.info("Skipping file as Merkle file is up-to-date: {}", file);
+                                        }
                                         continue;
                                     } else {
                                         // Merkle file exists but is older than the source file
-                                        logger.error("Merkle file exists but is outdated for: {} (use --force to overwrite)", file);
-                                        success = false;
-                                        continue;
+                                        if (dryrun) {
+                                            if (force) {
+                                                logger.info("DRY RUN: Would recreate outdated Merkle file for: {}", file);
+                                            } else {
+                                                logger.error("DRY RUN: Would skip outdated Merkle file for: {} (use --force to overwrite)", file);
+                                                success = false;
+                                                continue;
+                                            }
+                                        } else {
+                                            logger.error("Merkle file exists but is outdated for: {} (use --force to overwrite)", file);
+                                            success = false;
+                                            continue;
+                                        }
                                     }
                                 }
+                            } else if (dryrun) {
+                                // If force is true and dryrun is true
+                                logger.info("DRY RUN: Would overwrite existing Merkle file for: {}", file);
+                            } else {
+                                // If force is true and dryrun is false
+                                logger.info("Overwriting existing Merkle file for: {}", file);
                             }
-                            // If force is true or the Merkle file is corrupted, we'll proceed to recreate it
-                            logger.info("Overwriting existing Merkle file for: {}", file);
+                        } else if (dryrun) {
+                            // No existing Merkle file and dryrun is true
+                            logger.info("DRY RUN: Would create new Merkle file for: {}", file);
+                            continue;
                         }
 
-                        // Call the existing createMerkleFile method from CMD_merkle
-                        CMD_merkle cmd = new CMD_merkle();
-                        cmd.createMerkleFile(file, chunkSize);
+                        // Call the existing createMerkleFile method from CMD_merkle if not in dryrun mode
+                        if (!dryrun) {
+                            CMD_merkle cmd = new CMD_merkle();
+                            cmd.createMerkleFile(file, chunkSize);
+                        }
                     } catch (Exception e) {
-                        logger.error("Error creating Merkle file for: {}", file, e);
+                        logger.error("Error {} Merkle file for: {}", dryrun ? "analyzing" : "creating", file, e);
                         success = false;
                     }
                 }
@@ -183,7 +216,7 @@ public enum MerkleCommand {
      */
     private static class VerifyCommand implements MerkleSubCommand {
         @Override
-        public boolean execute(List<Path> files, long chunkSize, boolean force) {
+        public boolean execute(List<Path> files, long chunkSize, boolean force, boolean dryrun) {
             boolean success = true;
             for (Path file : files) {
                 try {
@@ -200,9 +233,13 @@ public enum MerkleCommand {
                         continue;
                     }
 
-                    // Call the existing verifyFile method from CMD_merkle
-                    CMD_merkle cmd = new CMD_merkle();
-                    cmd.verifyFile(file, merklePath, chunkSize);
+                    if (dryrun) {
+                        logger.info("DRY RUN: Would verify file against its Merkle tree: {}", file);
+                    } else {
+                        // Call the existing verifyFile method from CMD_merkle
+                        CMD_merkle cmd = new CMD_merkle();
+                        cmd.verifyFile(file, merklePath, chunkSize);
+                    }
                 } catch (Exception e) {
                     logger.error("Error verifying file: {}", file, e);
                     success = false;
@@ -217,7 +254,7 @@ public enum MerkleCommand {
      */
     private static class SummaryCommand implements MerkleSubCommand {
         @Override
-        public boolean execute(List<Path> files, long chunkSize, boolean force) {
+        public boolean execute(List<Path> files, long chunkSize, boolean force, boolean dryrun) {
             boolean success = true;
             for (Path file : files) {
                 try {
@@ -234,9 +271,13 @@ public enum MerkleCommand {
                         continue;
                     }
 
-                    // Call the existing displayMerkleSummary method from CMD_merkle
-                    CMD_merkle cmd = new CMD_merkle();
-                    cmd.displayMerkleSummary(merklePath);
+                    if (dryrun) {
+                        logger.info("DRY RUN: Would display summary for Merkle file: {}", merklePath);
+                    } else {
+                        // Call the existing displayMerkleSummary method from CMD_merkle
+                        CMD_merkle cmd = new CMD_merkle();
+                        cmd.displayMerkleSummary(merklePath);
+                    }
                 } catch (Exception e) {
                     logger.error("Error displaying summary for: {}", file, e);
                     success = false;

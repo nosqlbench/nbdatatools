@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.layout;
  */
 
 
-import io.nosqlbench.vectordata.api.UnitConversions;
+import io.nosqlbench.vectordata.utils.UnitConversions;
 
 import java.util.Map;
 import java.util.regex.Matcher;

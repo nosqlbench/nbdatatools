@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.computation;
  */
 
 
-import io.nosqlbench.vectordata.api.Indexed;
+import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 
 import static io.nosqlbench.nbvectors.commands.verify_knn.statusview.Glyphs.braille;
 

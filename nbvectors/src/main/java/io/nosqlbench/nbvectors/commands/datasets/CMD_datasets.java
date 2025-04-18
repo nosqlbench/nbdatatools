@@ -18,19 +18,16 @@ package io.nosqlbench.nbvectors.commands.datasets;
  */
 
 import com.google.gson.Gson;
-import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
-import io.nosqlbench.vectordata.download.Catalog;
-import io.nosqlbench.vectordata.TestDataSources;
+import io.nosqlbench.vectordata.downloader.Catalog;
+import io.nosqlbench.vectordata.discovery.TestDataSources;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 

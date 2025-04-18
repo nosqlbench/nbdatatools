@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.writers;
  */
 
 
-import io.nosqlbench.vectordata.internalapi.datasets.api.TestDataKind;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 

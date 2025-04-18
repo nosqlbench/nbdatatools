@@ -19,7 +19,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
 
 
 import io.nosqlbench.nbvectors.commands.verify_knn.computation.NeighborhoodComparison;
-import io.nosqlbench.vectordata.api.Indexed;
+import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 
 /// a no-op status view
 public class StatusViewNoOp implements StatusView {

@@ -18,8 +18,10 @@ package io.nosqlbench.vectordata.internalapi.datasets.impl.xvec;
  */
 
 
-import io.nosqlbench.vectordata.download.merkle.MerkleRAF;
-import io.nosqlbench.vectordata.layout.manifest.DSWindow;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.merkle.MerkleRAF;
+import io.nosqlbench.vectordata.merkle.MerkleRange;
+import io.nosqlbench.vectordata.merkle.MerkleTree;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -28,7 +30,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -195,10 +196,10 @@ public class CoreXVecDatasetViewMethodsTest {
         minimalData.flip();
 
         // Create a merkle tree from the minimal data
-        io.nosqlbench.vectordata.download.merkle.MerkleTree tree =
-            io.nosqlbench.vectordata.download.merkle.MerkleTree.fromData(
+        MerkleTree tree =
+            MerkleTree.fromData(
                 minimalData, 1024,
-                new io.nosqlbench.vectordata.download.merkle.MerkleRange(0, 1)
+                new MerkleRange(0, 1)
             );
 
         // Save the tree to the file

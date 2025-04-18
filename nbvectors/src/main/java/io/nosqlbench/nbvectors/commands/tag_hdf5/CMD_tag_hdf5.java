@@ -20,7 +20,7 @@ package io.nosqlbench.nbvectors.commands.tag_hdf5;
 
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
-import io.nosqlbench.vectordata.internalapi.attributes.spec.AttrSet;
+import io.nosqlbench.vectordata.spec.attributes.syntax.AttrSet;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.HdfTraverser;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.filters.BaseHdfVisitorFilter;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.injectors.BaseHdfVisitorInjector;

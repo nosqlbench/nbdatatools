@@ -25,7 +25,7 @@ import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
-import io.nosqlbench.vectordata.TestDataGroup;
+import io.nosqlbench.vectordata.discovery.TestDataGroup;
 
 import java.nio.file.Path;
 import java.util.Arrays;

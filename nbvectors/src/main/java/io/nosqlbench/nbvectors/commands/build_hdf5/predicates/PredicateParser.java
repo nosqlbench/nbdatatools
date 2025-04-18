@@ -19,11 +19,11 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.predicates;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.nosqlbench.vectordata.internalapi.predicates.ConjugateNode;
-import io.nosqlbench.vectordata.internalapi.predicates.ConjugateType;
-import io.nosqlbench.vectordata.internalapi.predicates.PNode;
-import io.nosqlbench.vectordata.internalapi.predicates.OpType;
-import io.nosqlbench.vectordata.internalapi.predicates.PredicateNode;
+import io.nosqlbench.vectordata.spec.predicates.ConjugateNode;
+import io.nosqlbench.vectordata.spec.predicates.ConjugateType;
+import io.nosqlbench.vectordata.spec.predicates.PNode;
+import io.nosqlbench.vectordata.spec.predicates.OpType;
+import io.nosqlbench.vectordata.spec.predicates.PredicateNode;
 
 import java.util.ArrayList;
 import java.util.List;

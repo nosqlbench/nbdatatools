@@ -20,7 +20,7 @@ package io.nosqlbench.vectordata.internalapi.datasets;
 
 import io.jhdf.HdfFile;
 import io.jhdf.api.Dataset;
-import io.nosqlbench.vectordata.api.Indexed;
+import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 import io.nosqlbench.vectordata.layout.FWindow;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

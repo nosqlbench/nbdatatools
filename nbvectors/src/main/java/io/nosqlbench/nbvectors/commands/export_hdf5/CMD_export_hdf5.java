@@ -21,7 +21,7 @@ package io.nosqlbench.nbvectors.commands.export_hdf5;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.BasicTestDataSource;
 import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.ObjectLoader;
 import io.nosqlbench.nbvectors.commands.build_hdf5.writers.KnnDataWriter;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 import picocli.CommandLine;
 
 import java.nio.file.Path;

@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.layout;
 
 
 import com.google.gson.reflect.TypeToken;
-import io.nosqlbench.vectordata.SHARED;
+import io.nosqlbench.vectordata.utils.SHARED;
 
 import java.lang.reflect.Type;
 import java.util.LinkedHashMap;

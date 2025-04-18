@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.binders;
  */
 
 
-import io.nosqlbench.vectordata.internalapi.predicates.PNode;
+import io.nosqlbench.vectordata.spec.predicates.PNode;
 
 /// An adapter must have a way to enhance an object with predicate structure
 /// in order for predicates to be meshed with non-predicate operations.

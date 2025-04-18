@@ -21,6 +21,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -32,12 +34,15 @@ import java.util.concurrent.Callable;
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
-    description = "Create catalog views of HDF5 files and dataset directories.\n\n" +
-                 "When given a directory, it will be recursively traversed to find:\n" +
-                 "1. Directories containing a 'dataset.yaml' file (treated as dataset roots)\n" +
-                 "2. Individual .hdf5 files\n\n" +
-                 "Catalog files (catalog.json and catalog.yaml) will be created at each directory level,\n" +
-                 "with paths in each catalog being relative to the location of the catalog file.",
+    header="Create catalog views of HDF5 files and dataset directories",
+    description = """
+              When given a directory, it will be recursively traversed to find:
+              1. Directories containing a 'dataset.yaml' file (treated as dataset roots)
+              2. Individual .hdf5 files
+              Catalog files (catalog.json and catalog.yaml) will be created at
+              each directory level, with paths in each catalog being relative
+              to the location of the catalog file.
+              """,
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
@@ -80,6 +85,79 @@ public class CMD_catalog implements Callable<Integer> {
     System.exit(exitCode);
   }
 
+  /**
+   * Finds the common parent directory of all paths.
+   * If there is no common parent, returns the current directory.
+   *
+   * @param paths The paths to find the common parent for
+   * @return The common parent directory
+   */
+  private Path findCommonParentDirectory(List<Path> paths) {
+    if (paths.isEmpty()) {
+      return Path.of(".");
+    }
+
+    // Normalize all paths to absolute paths
+    List<Path> absolutePaths = paths.stream()
+        .map(p -> p.toAbsolutePath().normalize())
+        .toList();
+
+    // Start with the first path's parent (or the path itself if it's a directory)
+    Path firstPath = absolutePaths.get(0);
+    Path commonParent = Files.isDirectory(firstPath) ? firstPath : firstPath.getParent();
+
+    // If there's only one path, return its parent directory (or itself if it's a directory)
+    if (absolutePaths.size() == 1) {
+      return commonParent;
+    }
+
+    // For each additional path, find the common parent
+    for (int i = 1; i < absolutePaths.size(); i++) {
+      Path currentPath = absolutePaths.get(i);
+      Path currentParent = Files.isDirectory(currentPath) ? currentPath : currentPath.getParent();
+
+      // Find the common parent between the current common parent and this path's parent
+      commonParent = findCommonParent(commonParent, currentParent);
+    }
+
+    return commonParent;
+  }
+
+  /**
+   * Finds the common parent between two paths.
+   *
+   * @param path1 The first path
+   * @param path2 The second path
+   * @return The common parent path
+   */
+  private Path findCommonParent(Path path1, Path path2) {
+    // Convert paths to strings for easier comparison
+    String str1 = path1.toString();
+    String str2 = path2.toString();
+
+    // Find the common prefix
+    int commonPrefixLength = 0;
+    int minLength = Math.min(str1.length(), str2.length());
+
+    for (int i = 0; i < minLength; i++) {
+      if (str1.charAt(i) == str2.charAt(i)) {
+        commonPrefixLength++;
+      } else {
+        break;
+      }
+    }
+
+    // Find the last directory separator in the common prefix
+    int lastSeparatorPos = str1.substring(0, commonPrefixLength).lastIndexOf(File.separator);
+
+    if (lastSeparatorPos >= 0) {
+      return Path.of(str1.substring(0, lastSeparatorPos));
+    } else {
+      // If no common parent found, return the root directory
+      return Path.of("/");
+    }
+  }
+
   @Override
   public Integer call() {
     try {
@@ -94,10 +172,16 @@ public class CMD_catalog implements Callable<Integer> {
       }
 
       logger.info("Processing {} paths: {}", this.paths.size(), this.paths);
-      CatalogOut catalog = CatalogOut.loadAll(this.paths);
 
-      // Save the top-level catalog
-      Path catalogPath = Path.of(basename + ".json");
+      // Determine the common parent directory of all paths
+      Path commonParent = findCommonParentDirectory(this.paths);
+      logger.info("Using common parent directory: {}", commonParent);
+
+      // Load all entries and create catalogs
+      CatalogOut catalog = CatalogOut.loadAll(this.paths, commonParent);
+
+      // Save the top-level catalog in the common parent directory
+      Path catalogPath = commonParent.resolve(basename + ".json");
       catalog.save(catalogPath);
       logger.info("Created top-level catalog at {} with {} entries", catalogPath, catalog.size());
 

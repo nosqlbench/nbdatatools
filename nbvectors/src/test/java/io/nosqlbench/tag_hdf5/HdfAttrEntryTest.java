@@ -18,10 +18,10 @@ package io.nosqlbench.tag_hdf5;
  */
 
 
-import io.nosqlbench.vectordata.internalapi.attributes.spec.AttrValue;
-import io.nosqlbench.vectordata.internalapi.attributes.spec.AttrSet;
-import io.nosqlbench.vectordata.internalapi.attributes.spec.AttrSpec;
-import io.nosqlbench.vectordata.internalapi.attributes.spec.ValueType;
+import io.nosqlbench.vectordata.spec.attributes.syntax.AttrValue;
+import io.nosqlbench.vectordata.spec.attributes.syntax.AttrSet;
+import io.nosqlbench.vectordata.spec.attributes.syntax.AttrSpec;
+import io.nosqlbench.vectordata.spec.attributes.syntax.ValueType;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

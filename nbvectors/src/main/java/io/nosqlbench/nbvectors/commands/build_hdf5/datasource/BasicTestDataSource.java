@@ -19,11 +19,11 @@ package io.nosqlbench.nbvectors.commands.build_hdf5.datasource;
 
 
 import io.nosqlbench.nbvectors.commands.export_hdf5.DataGroupConfig;
-import io.nosqlbench.vectordata.internalapi.predicates.PNode;
+import io.nosqlbench.vectordata.spec.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.FvecToFloatArray;
 import io.nosqlbench.nbvectors.common.adapters.DataSourceAdapter;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
-import io.nosqlbench.vectordata.internalapi.tokens.SpecDataSource;
+import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
+import io.nosqlbench.vectordata.spec.tokens.SpecDataSource;
 
 import java.util.Optional;
 

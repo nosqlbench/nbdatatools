@@ -73,7 +73,7 @@ public class CMD_merkleTest {
 
     // Execute the command with force=false
     // The command should skip the file since the Merkle file is newer
-    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false);
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false, false);
     assertTrue(success, "Command should succeed even when skipping files");
 
     // The Merkle file's last modified time should not have changed
@@ -110,13 +110,52 @@ public class CMD_merkleTest {
 
     // Execute the command with force=true
     // The command should overwrite the file even though the Merkle file is newer
-    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, true);
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, true, false);
     assertTrue(success, "Command should succeed when forcing overwrite");
 
     // The Merkle file's last modified time should have changed
     long merkleLastModifiedAfter = Files.getLastModifiedTime(merkleFile).toMillis();
     assertTrue(merkleLastModifiedAfter > originalMerkleLastModified,
                "Merkle file should have been updated when using force option");
+  }
+
+  @Test
+  public void testDryRunOption() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
+
+    // Create a MerkleCommand to test the CreateCommand implementation
+    MerkleCommand createCommand = MerkleCommand.findByName("create");
+    assertNotNull(createCommand, "Create command should be found");
+
+    // Execute the command with dryrun=true
+    // The command should not create any Merkle files
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false, true);
+    assertTrue(success, "Command should succeed in dry run mode");
+
+    // Verify no Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertFalse(Files.exists(merkleFile), "Merkle file should not be created in dry run mode");
+
+    // Now run without dryrun to create the file
+    success = createCommand.execute(java.util.List.of(testFile), 1048576, false, false);
+    assertTrue(success, "Command should succeed");
+
+    // Verify the Merkle file was created
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Set the last modified time of the Merkle file to be 1 second later than the source file
+    long sourceLastModified = Files.getLastModifiedTime(testFile).toMillis();
+    Files.setLastModifiedTime(merkleFile, java.nio.file.attribute.FileTime.fromMillis(sourceLastModified + 1000));
+
+    // Run with dryrun again - should report that it would skip the file
+    success = createCommand.execute(java.util.List.of(testFile), 1048576, false, true);
+    assertTrue(success, "Command should succeed in dry run mode");
+
+    // The Merkle file's last modified time should not have changed
+    long merkleLastModifiedAfter = Files.getLastModifiedTime(merkleFile).toMillis();
+    assertEquals(sourceLastModified + 1000, merkleLastModifiedAfter,
+                "Merkle file should not have been updated in dry run mode");
   }
 
   @Test
@@ -154,7 +193,7 @@ public class CMD_merkleTest {
     // The command should recreate the file even though it's newer, because it's corrupted
     MerkleCommand createCommand = MerkleCommand.findByName("create");
     assertNotNull(createCommand, "Create command should be found");
-    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false);
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false,false);
     assertTrue(success, "Command should succeed when recreating corrupted Merkle file");
 
     // The Merkle file's last modified time should have changed

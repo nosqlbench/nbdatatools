@@ -20,8 +20,8 @@ package io.nosqlbench.vectordata.layout;
 
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
-import io.nosqlbench.vectordata.SHARED;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.utils.SHARED;
+import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 
 import java.io.IOException;
 import java.nio.file.Files;
