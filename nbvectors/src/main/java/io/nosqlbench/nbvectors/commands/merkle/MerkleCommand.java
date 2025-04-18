@@ -134,22 +134,31 @@ public enum MerkleCommand {
                         Path merklePath = file.resolveSibling(file.getFileName() + MRKL);
                         if (Files.exists(merklePath)) {
                             if (!force) {
-                                // Check if the Merkle file is newer than the source file
-                                long sourceLastModified = Files.getLastModifiedTime(file).toMillis();
-                                long merkleLastModified = Files.getLastModifiedTime(merklePath).toMillis();
+                                // First verify the integrity of the existing Merkle file
+                                CMD_merkle cmd = new CMD_merkle();
+                                boolean isValid = cmd.verifyMerkleFileIntegrity(merklePath);
 
-                                if (merkleLastModified >= sourceLastModified) {
-                                    // Merkle file is up-to-date, skip this file
-                                    logger.info("Skipping file as Merkle file is up-to-date: {}", file);
-                                    continue;
+                                if (!isValid) {
+                                    // Merkle file is corrupted, we need to recreate it
+                                    logger.warn("Merkle file is corrupted and will be recreated: {}", file);
                                 } else {
-                                    // Merkle file exists but is older than the source file
-                                    logger.error("Merkle file exists but is outdated for: {} (use --force to overwrite)", file);
-                                    success = false;
-                                    continue;
+                                    // Merkle file is valid, now check if it's up-to-date
+                                    long sourceLastModified = Files.getLastModifiedTime(file).toMillis();
+                                    long merkleLastModified = Files.getLastModifiedTime(merklePath).toMillis();
+
+                                    if (merkleLastModified >= sourceLastModified) {
+                                        // Merkle file is up-to-date, skip this file
+                                        logger.info("Skipping file as Merkle file is up-to-date: {}", file);
+                                        continue;
+                                    } else {
+                                        // Merkle file exists but is older than the source file
+                                        logger.error("Merkle file exists but is outdated for: {} (use --force to overwrite)", file);
+                                        success = false;
+                                        continue;
+                                    }
                                 }
                             }
-                            // If force is true, we'll proceed to recreate the Merkle file
+                            // If force is true or the Merkle file is corrupted, we'll proceed to recreate it
                             logger.info("Overwriting existing Merkle file for: {}", file);
                         }
 

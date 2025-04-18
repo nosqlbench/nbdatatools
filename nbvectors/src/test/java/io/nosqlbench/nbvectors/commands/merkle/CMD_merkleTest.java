@@ -120,6 +120,53 @@ public class CMD_merkleTest {
   }
 
   @Test
+  public void testCorruptedMerkleFileIsRecreated() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
+
+    // Create a Merkle file for the test file
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, 1048576); // 1MB chunk size
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Ensure the Merkle file is newer than the source file
+    // Set the last modified time of the Merkle file to be 1 second later than the source file
+    long sourceLastModified = Files.getLastModifiedTime(testFile).toMillis();
+    Files.setLastModifiedTime(merkleFile, java.nio.file.attribute.FileTime.fromMillis(sourceLastModified + 1000));
+    long originalMerkleLastModified = Files.getLastModifiedTime(merkleFile).toMillis();
+
+    // Corrupt the Merkle file by writing random data to it
+    byte[] corruptData = new byte[100];
+    java.util.Random random = new java.util.Random();
+    random.nextBytes(corruptData);
+    Files.write(merkleFile, corruptData);
+
+    // Verify the file is now corrupted
+    assertFalse(cmd.verifyMerkleFileIntegrity(merkleFile), "Merkle file should be detected as corrupted");
+
+    // Add a small delay to ensure the timestamp will be different
+    Thread.sleep(1500);
+
+    // Execute the command with force=false
+    // The command should recreate the file even though it's newer, because it's corrupted
+    MerkleCommand createCommand = MerkleCommand.findByName("create");
+    assertNotNull(createCommand, "Create command should be found");
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false);
+    assertTrue(success, "Command should succeed when recreating corrupted Merkle file");
+
+    // The Merkle file's last modified time should have changed
+    long merkleLastModifiedAfter = Files.getLastModifiedTime(merkleFile).toMillis();
+    assertTrue(merkleLastModifiedAfter > originalMerkleLastModified,
+               "Merkle file should have been updated when corrupted");
+
+    // Verify the file is now valid
+    assertTrue(cmd.verifyMerkleFileIntegrity(merkleFile), "Recreated Merkle file should be valid");
+  }
+
+  @Test
   public void testExpandDirectoriesWithDefaultExtensions() throws IOException {
     // Create test files with various extensions
     Path ivecFile = tempDir.resolve("test.ivec");

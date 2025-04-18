@@ -74,6 +74,10 @@ import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
         (where the Merkle file is newer than the source file) will be skipped
         unless the --force option is used.
 
+        Before skipping a file, the integrity of its Merkle file is verified by
+        checking the internal digest. If the Merkle file is corrupted, it will
+        be recreated even if it's newer than the source file.
+
         Examples:
 
         # Create Merkle files for multiple files
@@ -424,6 +428,84 @@ public class CMD_merkle implements Callable<Integer> {
 
     // Print the complete summary
     System.out.println(summary);
+  }
+
+  /**
+   * Verifies the integrity of a Merkle tree file by checking its internal digest.
+   *
+   * @param merklePath The path to the Merkle tree file
+   * @return true if the file is valid, false if it's corrupted or invalid
+   */
+  public boolean verifyMerkleFileIntegrity(Path merklePath) {
+    try {
+      // Get file size
+      long fileSize = Files.size(merklePath);
+
+      // File too small to be valid
+      if (fileSize < MerkleFooter.FIXED_FOOTER_SIZE + MerkleFooter.DIGEST_SIZE) {
+        logger.debug("Merkle file too small to be valid: {}", merklePath);
+        return false;
+      }
+
+      try (FileChannel channel = FileChannel.open(merklePath, StandardOpenOption.READ)) {
+        // Read the footer length (last byte)
+        ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
+        channel.position(fileSize - 1);
+        int bytesRead = channel.read(footerLengthBuffer);
+        if (bytesRead != 1) {
+          logger.debug("Failed to read footer length from Merkle file: {}", merklePath);
+          return false;
+        }
+        footerLengthBuffer.flip();
+        byte footerLength = footerLengthBuffer.get();
+
+        // Validate footer length
+        if (footerLength <= 0 || footerLength > fileSize) {
+          logger.debug("Invalid footer length in Merkle file: {}", merklePath);
+          return false;
+        }
+
+        // Read the entire footer
+        ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+        channel.position(fileSize - footerLength);
+        bytesRead = channel.read(footerBuffer);
+        if (bytesRead != footerLength) {
+          logger.debug("Failed to read footer from Merkle file: {}", merklePath);
+          return false;
+        }
+        footerBuffer.flip();
+
+        // Parse the footer
+        MerkleFooter footer = MerkleFooter.fromByteBuffer(footerBuffer);
+
+        // Calculate the tree data size (everything before the footer)
+        long treeDataSize = fileSize - footerLength;
+        if (treeDataSize <= 0) {
+          logger.debug("Invalid tree data size in Merkle file: {}", merklePath);
+          return false;
+        }
+
+        // Read the tree data
+        ByteBuffer treeData = ByteBuffer.allocate((int) Math.min(treeDataSize, Integer.MAX_VALUE));
+        channel.position(0);
+        bytesRead = channel.read(treeData);
+        if (bytesRead <= 0) {
+          logger.debug("Failed to read tree data from Merkle file: {}", merklePath);
+          return false;
+        }
+        treeData.flip();
+
+        // Verify the digest
+        boolean isValid = footer.verifyDigest(treeData);
+        if (!isValid) {
+          logger.debug("Digest verification failed for Merkle file: {}", merklePath);
+        }
+        return isValid;
+      }
+    } catch (Exception e) {
+      logger.debug("Error verifying Merkle file integrity: {}", merklePath, e);
+      return false;
+    }
   }
 
   /**
