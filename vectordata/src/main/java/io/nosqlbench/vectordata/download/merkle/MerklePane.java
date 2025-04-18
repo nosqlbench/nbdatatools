@@ -3,6 +3,7 @@ package io.nosqlbench.vectordata.download.merkle;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -12,6 +13,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.BitSet;
+import java.util.Arrays;
 
 /**
  * MerklePane provides a window into a file with Merkle tree verification.
@@ -178,19 +180,34 @@ public class MerklePane implements AutoCloseable {
       }
       Files.createDirectories(merklePath.getParent());
 
-      if (referenceTreePath==null) {
-        throw new IOException("Reference tree path cannot be null");
+      // Only create directories for the reference tree path if it's not null
+      if (referenceTreePath != null) {
+        Files.createDirectories(referenceTreePath.getParent());
       }
-      Files.createDirectories(referenceTreePath.getParent());
 
       // Rule 1: Ensure that the local reference merkle tree (MREF file) is current with the remote reference merkle tree file.
       Path actualReferenceTreePath = referenceTreePath;
+      boolean needToDownload = false;
+
       if (sourceUrl != null && (actualReferenceTreePath == null || !Files.exists(actualReferenceTreePath))) {
         // Determine the reference tree path if not provided
         if (actualReferenceTreePath == null) {
           actualReferenceTreePath = filePath.resolveSibling(filePath.getFileName().toString() + MREF);
         }
+        needToDownload = true;
+      } else if (sourceUrl != null && actualReferenceTreePath != null && Files.exists(actualReferenceTreePath)) {
+        // Check if the local file is up-to-date with the remote file
+        try {
+          if (!isLocalMerkleTreeUpToDate(actualReferenceTreePath, sourceUrl)) {
+            needToDownload = true;
+          }
+        } catch (Exception e) {
+          // If there's any error during the comparison, download the file to be safe
+          needToDownload = true;
+        }
+      }
 
+      if (needToDownload && sourceUrl != null) {
         // Download the reference tree
         URL merkleUrl;
         try {
@@ -522,6 +539,204 @@ public class MerklePane implements AutoCloseable {
   }
 
 
+
+  /**
+   * Checks if the local merkle tree file is up-to-date with the remote merkle tree file.
+   * This is done by comparing the footers of both files.
+   *
+   * @param localMerklePath The path to the local merkle tree file
+   * @param sourceUrl The URL of the remote merkle tree file
+   * @return true if the local file is up-to-date, false otherwise
+   * @throws IOException If there's an error reading the files or connecting to the remote server
+   */
+  private boolean isLocalMerkleTreeUpToDate(Path localMerklePath, String sourceUrl) throws IOException {
+    if (!Files.exists(localMerklePath)) {
+      return false;
+    }
+
+    try {
+      // Create the URL for the remote merkle tree file
+      URL merkleUrl = new URL(sourceUrl + MRKL);
+      HttpURLConnection connection = (HttpURLConnection) merkleUrl.openConnection();
+
+      // Set up the connection for a HEAD request to get the file size
+      connection.setRequestMethod("HEAD");
+      connection.setConnectTimeout(5000); // 5 second timeout
+      connection.setReadTimeout(5000);    // 5 second timeout
+      connection.connect();
+
+      // Get the remote file size
+      long remoteFileSize = connection.getContentLengthLong();
+      if (remoteFileSize <= 0) {
+        // If we can't determine the remote file size, assume it's not up-to-date
+        return false;
+      }
+
+      // Get the local file size
+      long localFileSize = Files.size(localMerklePath);
+      if (localFileSize != remoteFileSize) {
+        // If the file sizes are different, the local file is not up-to-date
+        return false;
+      }
+
+      // For small files (less than 1MB), just compare the file sizes
+      // This is a performance optimization to avoid unnecessary footer comparison
+      if (localFileSize < 1024 * 1024) {
+        return true;
+      }
+
+      // Read the footer from the local file
+      MerkleFooter localFooter = readMerkleFooter(localMerklePath);
+      if (localFooter == null) {
+        return false;
+      }
+
+      // Read the footer from the remote file
+      MerkleFooter remoteFooter = readRemoteMerkleFooter(merkleUrl, remoteFileSize);
+      if (remoteFooter == null) {
+        return false;
+      }
+
+      // Compare the footers
+      return compareFooters(localFooter, remoteFooter);
+    } catch (Exception e) {
+      // If there's any error, assume the local file is not up-to-date
+      return false;
+    }
+  }
+
+  /**
+   * Reads the footer from a local merkle tree file.
+   *
+   * @param merklePath The path to the merkle tree file
+   * @return The MerkleFooter, or null if it couldn't be read
+   */
+  private MerkleFooter readMerkleFooter(Path merklePath) {
+    try {
+      // Get the file size
+      long fileSize = Files.size(merklePath);
+      if (fileSize < MerkleFooter.FIXED_FOOTER_SIZE + MerkleFooter.DIGEST_SIZE) {
+        // File is too small to have a valid footer
+        return null;
+      }
+
+      // Read the footer length (last byte)
+      byte footerLength;
+      try (FileChannel channel = FileChannel.open(merklePath, StandardOpenOption.READ)) {
+        ByteBuffer lengthBuffer = ByteBuffer.allocate(1);
+        channel.position(fileSize - 1);
+        channel.read(lengthBuffer);
+        lengthBuffer.flip();
+        footerLength = lengthBuffer.get();
+      }
+
+      // Read the entire footer
+      ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+      try (FileChannel channel = FileChannel.open(merklePath, StandardOpenOption.READ)) {
+        channel.position(fileSize - footerLength);
+        channel.read(footerBuffer);
+        footerBuffer.flip();
+      }
+
+      // Parse the footer
+      return MerkleFooter.fromByteBuffer(footerBuffer);
+    } catch (Exception e) {
+      // If there's any error, return null
+      return null;
+    }
+  }
+
+  /**
+   * Reads the footer from a remote merkle tree file.
+   *
+   * @param merkleUrl The URL of the merkle tree file
+   * @param remoteFileSize The size of the remote file
+   * @return The MerkleFooter, or null if it couldn't be read
+   */
+  private MerkleFooter readRemoteMerkleFooter(URL merkleUrl, long remoteFileSize) {
+    try {
+      // Determine how much of the file to read
+      // We'll read the last 1KB or the entire file, whichever is smaller
+      int readSize = (int) Math.min(1024, remoteFileSize);
+      long startPosition = remoteFileSize - readSize;
+
+      // Set up the connection for a ranged GET request
+      HttpURLConnection connection = (HttpURLConnection) merkleUrl.openConnection();
+      connection.setRequestMethod("GET");
+      connection.setRequestProperty("Range", "bytes=" + startPosition + "-" + (remoteFileSize - 1));
+      connection.setConnectTimeout(5000); // 5 second timeout
+      connection.setReadTimeout(5000);    // 5 second timeout
+      connection.connect();
+
+      // Check if the server supports range requests
+      int responseCode = connection.getResponseCode();
+      if (responseCode != 206) { // 206 Partial Content
+        // Server doesn't support range requests or there was an error
+        return null;
+      }
+
+      // Read the data
+      ByteBuffer buffer = ByteBuffer.allocate(readSize);
+      try (InputStream in = connection.getInputStream()) {
+        byte[] temp = new byte[readSize];
+        int bytesRead = in.read(temp);
+        if (bytesRead > 0) {
+          buffer.put(temp, 0, bytesRead);
+        }
+      }
+      buffer.flip();
+
+      // Make sure we read enough data
+      if (buffer.remaining() < MerkleFooter.FIXED_FOOTER_SIZE + MerkleFooter.DIGEST_SIZE) {
+        return null;
+      }
+
+      // Read the footer length (last byte)
+      buffer.position(buffer.limit() - 1);
+      byte footerLength = buffer.get();
+      buffer.position(0);
+
+      // Validate the footer length
+      if (footerLength <= 0 || footerLength > readSize) {
+        // Invalid footer length
+        return null;
+      }
+
+      // Position the buffer to the start of the footer
+      buffer.position(readSize - footerLength);
+      ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+      footerBuffer.put(buffer);
+      footerBuffer.flip();
+
+      // Parse the footer
+      return MerkleFooter.fromByteBuffer(footerBuffer);
+    } catch (Exception e) {
+      // If there's any error, return null
+      return null;
+    }
+  }
+
+  /**
+   * Compares two MerkleFooter objects to see if they represent the same merkle tree.
+   *
+   * @param localFooter The local merkle tree footer
+   * @param remoteFooter The remote merkle tree footer
+   * @return true if the footers match, false otherwise
+   */
+  private boolean compareFooters(MerkleFooter localFooter, MerkleFooter remoteFooter) {
+    if (localFooter == null || remoteFooter == null) {
+      return false;
+    }
+
+    // Compare chunk size and total size
+    if (localFooter.chunkSize() != remoteFooter.chunkSize() ||
+        localFooter.totalSize() != remoteFooter.totalSize()) {
+      return false;
+    }
+
+    // Compare digests
+    return Arrays.equals(localFooter.digest(), remoteFooter.digest());
+  }
 
   /// Returns the MerklePane as a string
   /// @return A string representation of the MerklePane

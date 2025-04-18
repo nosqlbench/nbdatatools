@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.download;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -40,6 +40,7 @@ public class CatalogTest {
       "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/");
 
   @Test
+  @Disabled("Requires internet access and real data")
   public void testLayoutDownloadAndRealization() {
     Catalog catalog = sources.catalog();
     List<DatasetEntry> dsentries = catalog.datasets();

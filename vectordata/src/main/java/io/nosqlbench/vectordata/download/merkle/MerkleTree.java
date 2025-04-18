@@ -263,7 +263,7 @@ public class MerkleTree {
     /// Saves the Merkle tree to a file, including the footer.
     ///
     /// The file format consists of all leaf node hashes followed by a footer
-    /// containing the chunk size and total size.
+    /// containing the chunk size, total size, digest of the tree data, and footer length.
     ///
     /// @param path The path to save the file to
     /// @throws IOException If there's an error writing to the file
@@ -283,15 +283,17 @@ public class MerkleTree {
             collectLeafHashes(root, treeData);
             treeData.flip();
 
+            // Calculate the digest of the tree data
+            byte[] digest = MerkleFooter.calculateDigest(treeData);
+
+            // Create the footer
+            MerkleFooter footer = MerkleFooter.create(chunkSize, totalSize, digest);
+            ByteBuffer footerBuffer = footer.toByteBuffer();
+
             // Write tree data
-            channel.write(treeData);
+            channel.write(treeData.duplicate()); // Use duplicate to avoid affecting position
 
             // Write footer
-            ByteBuffer footerBuffer = ByteBuffer.allocate(Long.BYTES * 2);
-            footerBuffer.putLong(chunkSize);
-            footerBuffer.putLong(totalSize);
-            footerBuffer.flip();
-
             channel.write(footerBuffer);
         }
     }
@@ -324,19 +326,34 @@ public class MerkleTree {
              FileChannel outputChannel = FileChannel.open(outputPath,
                  StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
 
-            // Read footer from reference file
+            // Read the footer length byte (last byte of the file)
             long referenceSize = referenceChannel.size();
-            ByteBuffer footerBuffer = ByteBuffer.allocate(Long.BYTES * 2);
-            referenceChannel.position(referenceSize - footerBuffer.capacity());
+            ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
+            referenceChannel.position(referenceSize - 1);
+            referenceChannel.read(footerLengthBuffer);
+            footerLengthBuffer.flip();
+            byte footerLength = footerLengthBuffer.get();
+
+            // Read the entire footer
+            ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+            referenceChannel.position(referenceSize - footerLength);
             referenceChannel.read(footerBuffer);
             footerBuffer.flip();
 
-            // Get chunk size and total size
-            long chunkSize = footerBuffer.getLong();
-            long totalSize = footerBuffer.getLong();
+            // Parse the footer
+            MerkleFooter footer = MerkleFooter.fromByteBuffer(footerBuffer);
+
+            // Get chunk size and total size from the footer
+            long chunkSize = footer.chunkSize();
+            long totalSize = footer.totalSize();
 
             // Calculate number of leaves
             int numLeaves = (int)((totalSize + chunkSize - 1) / chunkSize);
+
+            // Ensure numLeaves is positive
+            if (numLeaves <= 0) {
+                numLeaves = 1; // At least one leaf
+            }
 
             // Create empty leaf hashes (all zeros)
             ByteBuffer emptyTreeData = ByteBuffer.allocate(numLeaves * HASH_SIZE);
@@ -355,49 +372,95 @@ public class MerkleTree {
                 emptyTreeData.flip();
             }
 
-            // Write empty tree data
-            outputChannel.write(emptyTreeData);
+            // Calculate the digest of the empty tree data
+            byte[] digest = MerkleFooter.calculateDigest(emptyTreeData);
 
-            // Write the same footer as the reference file
-            footerBuffer.flip();
-            outputChannel.write(footerBuffer);
+            // Create a new footer with the same chunk size and total size, but with the new digest
+            MerkleFooter newFooter = MerkleFooter.create(chunkSize, totalSize, digest);
+            ByteBuffer newFooterBuffer = newFooter.toByteBuffer();
+
+            // Write empty tree data
+            outputChannel.write(emptyTreeData.duplicate()); // Use duplicate to avoid affecting position
+
+            // Write the new footer
+            outputChannel.write(newFooterBuffer);
         }
     }
 
     /// Loads a Merkle tree from a file.
     ///
     /// Reads the leaf node hashes and footer information to reconstruct the tree.
+    /// Also verifies the integrity of the tree data using the digest in the footer.
     ///
     /// @param path The path to load the file from
     /// @return The loaded MerkleTree
-    /// @throws IOException If there's an error reading the file
+    /// @throws IOException If there's an error reading the file or if the digest verification fails
     public static MerkleTree load(Path path) throws IOException {
         try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
-            // Read footer
+            // Get file size
             long fileSize = channel.size();
-            ByteBuffer footerBuffer = ByteBuffer.allocate(Long.BYTES * 2);
-            channel.position(fileSize - footerBuffer.capacity());
+
+            // Read the footer length byte (last byte of the file)
+            ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
+            channel.position(fileSize - 1);
+            channel.read(footerLengthBuffer);
+            footerLengthBuffer.flip();
+            byte footerLength = footerLengthBuffer.get();
+
+            // Read the entire footer
+            ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+            channel.position(fileSize - footerLength);
             channel.read(footerBuffer);
             footerBuffer.flip();
 
-            // Get chunk size and total size
-            long chunkSize = footerBuffer.getLong();
-            long totalSize = footerBuffer.getLong();
+            // Parse the footer
+            MerkleFooter footer = MerkleFooter.fromByteBuffer(footerBuffer);
+
+            // Get chunk size and total size from the footer
+            long chunkSize = footer.chunkSize();
+            long totalSize = footer.totalSize();
 
             // Calculate number of leaves
             int numLeaves = (int)((totalSize + chunkSize - 1) / chunkSize);
+
+            // Ensure numLeaves is positive to avoid allocation errors
+            if (numLeaves <= 0) {
+                numLeaves = 1;
+            }
 
             // Read tree data
             ByteBuffer treeData = ByteBuffer.allocate(numLeaves * HASH_SIZE);
             channel.position(0);
             int bytesRead = channel.read(treeData);
+
+            // Handle case where file is too small
             if (bytesRead < HASH_SIZE) {
-                throw new IOException("Failed to read tree data");
+                // Create a default hash for empty files
+                treeData = ByteBuffer.allocate(HASH_SIZE);
+                // Fill with zeros
+                treeData.position(HASH_SIZE);
+                treeData.flip();
+            } else {
+                treeData.flip();
             }
-            treeData.flip();
+
+            // Verify the digest of the tree data if it's not a legacy file
+            // Legacy files have all zeros in the digest
+            boolean isLegacyFile = true;
+            for (byte b : footer.digest()) {
+                if (b != 0) {
+                    isLegacyFile = false;
+                    break;
+                }
+            }
+
+            if (!isLegacyFile && !footer.verifyDigest(treeData)) {
+                throw new IOException("Merkle tree data integrity check failed: digest mismatch");
+            }
 
             // Create leaf nodes
             List<MerkleNode> leaves = new ArrayList<>(numLeaves);
+            treeData.position(0); // Reset position after verification
             for (int i = 0; i < numLeaves && treeData.remaining() >= HASH_SIZE; i++) {
                 byte[] hash = new byte[HASH_SIZE];
                 treeData.get(hash);
