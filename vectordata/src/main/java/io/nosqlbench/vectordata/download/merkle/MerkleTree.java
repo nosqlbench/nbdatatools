@@ -193,6 +193,10 @@ public class MerkleTree {
             throw new IllegalArgumentException("Data buffer cannot be null or empty");
         }
 
+        if (chunkSize <= 0) {
+            throw new IllegalArgumentException("Chunk size must be positive, got: " + chunkSize);
+        }
+
         List<MerkleNode> leaves = new ArrayList<>();
         long totalSize = data.capacity();
         int numLeaves = (int)((totalSize + chunkSize - 1) / chunkSize);

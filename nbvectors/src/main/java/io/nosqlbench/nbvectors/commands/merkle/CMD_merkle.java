@@ -17,6 +17,7 @@ package io.nosqlbench.nbvectors.commands.merkle;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.download.merkle.MerkleFooter;
 import io.nosqlbench.vectordata.download.merkle.MerkleNode;
 import io.nosqlbench.vectordata.download.merkle.MerkleMismatch;
 import io.nosqlbench.vectordata.download.merkle.MerkleRange;
@@ -45,7 +46,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static io.nosqlbench.vectordata.download.merkle.MerklePane.MRKL;
+import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
 
 @Command(name = "merkle",
     headerHeading = "Usage:%n%n",
@@ -66,19 +67,19 @@ import static io.nosqlbench.vectordata.download.merkle.MerklePane.MRKL;
         Examples:
 
         # Create Merkle files for multiple files
-        nbvectors merkle file1.hdf5 file2.hdf5
+        nbvectors merkle create file1.hdf5 file2.hdf5
 
         # Create with custom chunk size (must be power of 2)
-        nbvectors merkle --chunk-size 1048576 bigfile.hdf5
+        nbvectors merkle create --chunk-size 1048576 bigfile.hdf5
 
         # Verify files against their Merkle trees
-        nbvectors merkle -v file1.hdf5 file2.hdf5
+        nbvectors merkle verify file1.hdf5 file2.hdf5
 
         # Force overwrite of existing Merkle files
-        nbvectors merkle -f file1.hdf5
+        nbvectors merkle create -f file1.hdf5
 
-        # Dump details of merkle trees for related files
-        nbvectors merkle -d file1.hdf5 file2.hdf5
+        # Display summary information about Merkle trees
+        nbvectors merkle summary file1.hdf5 file2.hdf5
         """,
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
@@ -88,16 +89,11 @@ import static io.nosqlbench.vectordata.download.merkle.MerklePane.MRKL;
 public class CMD_merkle implements Callable<Integer> {
   private static final Logger logger = LogManager.getLogger(CMD_merkle.class);
 
-  @Parameters(description = "Files to process", arity = "1..*")
+  @Parameters(index = "0", description = "Command to execute: create, verify, or summary", defaultValue = "create")
+  private String commandName = "create";
+
+  @Parameters(index = "1..*", description = "Files to process")
   private List<Path> files = new ArrayList<>();
-
-  @Option(names = {"-v", "--verify"},
-      description = "Verify existing Merkle files instead of creating new ones")
-  private boolean verify = false;
-
-  @Option(names = {"-s", "--summary"},
-      description = "Display summary information about existing Merkle files instead of creating new ones")
-  private boolean summary = false;
 
   @Option(names = {"--chunk-size"},
       description = "Chunk size in bytes (must be a power of 2, default: ${DEFAULT-VALUE})",
@@ -116,51 +112,24 @@ public class CMD_merkle implements Callable<Integer> {
       return 1;
     }
 
-    boolean hasErrors = false;
-
-    for (Path file : files) {
-      try {
-        if (!Files.exists(file)) {
-          logger.error("File not found: {}", file);
-          hasErrors = true;
-          continue;
-        }
-
-        // Construct the merkle file path by appending .merkle to the original file name
-        Path merklePath = file.resolveSibling(file.getFileName() + MRKL);
-
-        if (summary) {
-          if (!Files.exists(merklePath)) {
-            logger.error("Merkle file not found for: {}", file);
-            hasErrors = true;
-            continue;
-          }
-          displayMerkleSummary(merklePath);
-        } else if (verify) {
-          if (!Files.exists(merklePath)) {
-            logger.error("Merkle file not found for: {}", file);
-            hasErrors = true;
-            continue;
-          }
-          verifyFile(file, merklePath);
-        } else {
-          if (Files.exists(merklePath) && !force) {
-            logger.error("Merkle file already exists for: {} (use --force to overwrite)", file);
-            hasErrors = true;
-            continue;
-          }
-          createMerkleFile(file);
-        }
-      } catch (Exception e) {
-        logger.error("Error processing file: {}", file, e);
-        hasErrors = true;
-      }
+    // Find the command to execute
+    MerkleCommand command = MerkleCommand.findByName(commandName);
+    if (command == null) {
+      logger.error("Unknown command: {}", commandName);
+      logger.info("Available commands: {}", Arrays.stream(MerkleCommand.values())
+          .map(MerkleCommand::getName)
+          .collect(Collectors.joining(", ")));
+      return 1;
     }
 
-    return hasErrors ? 1 : 0;
+    // Execute the command
+    boolean success = command.execute(files, chunkSize, force);
+    return success ? 0 : 1;
   }
 
-  private void createMerkleFile(Path file) throws Exception {
+  public void createMerkleFile(Path file, long chunkSize) throws Exception {
+    // Set the class field to the provided chunk size
+    this.chunkSize = chunkSize;
     try (MerkleConsoleDisplay display = new MerkleConsoleDisplay(file)) {
       display.setStatus("Preparing to compute Merkle tree");
       display.startProgressThread();
@@ -250,9 +219,9 @@ public class CMD_merkle implements Callable<Integer> {
   /// @return The chunk processing result
   private ChunkResult processChunk(Path file, MerkleRange range, AtomicLong bytesProcessed,
                                   long totalSize, MerkleConsoleDisplay display) throws IOException {
-    // Calculate chunk size
-    long chunkSize = range.size();
-    int bufferSize = (int) Math.min(chunkSize, Integer.MAX_VALUE);
+    // Calculate actual chunk size for this range
+    long actualChunkSize = range.size();
+    int bufferSize = (int) Math.min(actualChunkSize, Integer.MAX_VALUE);
 
     // Read the chunk from the file
     ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
@@ -261,13 +230,17 @@ public class CMD_merkle implements Callable<Integer> {
       channel.read(buffer);
       buffer.flip();
 
+      // Always use the original chunk size (power of 2) for the MerkleTree constructor
+      // This fixes the issue with the last chunk which might not be a power of 2
+      long chunkSizeForTree = this.chunkSize; // Use the original chunk size from the class field
+
       // Create a MerkleTree from this chunk
-      MerkleTree chunkTree = MerkleTree.fromData(buffer, chunkSize, range);
+      MerkleTree chunkTree = MerkleTree.fromData(buffer, chunkSizeForTree, range);
 
       // Update progress
-      long newBytesProcessed = bytesProcessed.addAndGet(chunkSize);
-      int sectionsCompleted = (int) (newBytesProcessed / chunkSize);
-      int totalSections = (int) ((totalSize + chunkSize - 1) / chunkSize);
+      long newBytesProcessed = bytesProcessed.addAndGet(actualChunkSize);
+      int sectionsCompleted = (int) (newBytesProcessed / this.chunkSize);
+      int totalSections = (int) ((totalSize + this.chunkSize - 1) / this.chunkSize);
       display.updateProgress(newBytesProcessed, totalSize, sectionsCompleted, totalSections);
 
       // Return the result
@@ -397,7 +370,7 @@ public class CMD_merkle implements Callable<Integer> {
   ///
   /// @param merklePath The path to the Merkle tree file
   /// @throws IOException If there's an error reading the file
-  private void displayMerkleSummary(Path merklePath) throws IOException {
+  public void displayMerkleSummary(Path merklePath) throws IOException {
     logger.info("Displaying summary for Merkle tree file: {}", merklePath);
 
     // Load the Merkle tree from the file
@@ -405,6 +378,9 @@ public class CMD_merkle implements Callable<Integer> {
 
     // Get the file size
     long fileSize = Files.size(merklePath);
+
+    // Read the footer directly from the file to get all footer data
+    MerkleFooter footer = readMerkleFooter(merklePath);
 
     // Build the header for the summary
     StringBuilder summary = new StringBuilder();
@@ -416,8 +392,79 @@ public class CMD_merkle implements Callable<Integer> {
     // Append the Merkle tree's toString output
     summary.append(merkleTree.toString());
 
+    // Add footer information
+    summary.append("\nFooter Information:\n");
+    summary.append(String.format("Chunk Size: %s\n", formatByteSize(footer.chunkSize())));
+    summary.append(String.format("Total Size: %s\n", formatByteSize(footer.totalSize())));
+    summary.append(String.format("Footer Length: %d bytes\n", footer.footerLength()));
+    summary.append(String.format("Digest: %s\n", bytesToHex(footer.digest())));
+
     // Print the complete summary
     System.out.println(summary);
+  }
+
+  /**
+   * Reads the MerkleFooter from a Merkle tree file.
+   *
+   * @param path The path to the Merkle tree file
+   * @return The MerkleFooter object
+   * @throws IOException If there's an error reading the file
+   */
+  private MerkleFooter readMerkleFooter(Path path) throws IOException {
+    try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+      // Get file size
+      long fileSize = channel.size();
+
+      // Handle empty or very small files
+      if (fileSize == 0) {
+        // Return a default footer
+        return MerkleFooter.create(4096, 0, new byte[MerkleFooter.DIGEST_SIZE]);
+      }
+
+      // Try to read the footer length byte (last byte of the file)
+      ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
+      channel.position(fileSize - 1);
+      int bytesRead = channel.read(footerLengthBuffer);
+      if (bytesRead != 1) {
+        // Couldn't read footer length, create a default footer
+        return MerkleFooter.create(4096, fileSize, new byte[MerkleFooter.DIGEST_SIZE]);
+      }
+      footerLengthBuffer.flip();
+      byte footerLength = footerLengthBuffer.get();
+
+      // Validate footer length
+      if (footerLength <= 0 || footerLength > fileSize) {
+        // Invalid footer length, create a default footer
+        return MerkleFooter.create(4096, fileSize, new byte[MerkleFooter.DIGEST_SIZE]);
+      }
+
+      // Read the entire footer
+      ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+      channel.position(fileSize - footerLength);
+      bytesRead = channel.read(footerBuffer);
+      if (bytesRead != footerLength) {
+        // Couldn't read full footer, create a default footer
+        return MerkleFooter.create(4096, fileSize, new byte[MerkleFooter.DIGEST_SIZE]);
+      }
+      footerBuffer.flip();
+
+      // Parse and return the footer
+      return MerkleFooter.fromByteBuffer(footerBuffer);
+    }
+  }
+
+  /**
+   * Converts a byte array to a hex string
+   *
+   * @param bytes The byte array to convert
+   * @return A hex string representation
+   */
+  private String bytesToHex(byte[] bytes) {
+    StringBuilder sb = new StringBuilder();
+    for (byte b : bytes) {
+      sb.append(String.format("%02x", b));
+    }
+    return sb.toString();
   }
 
   /// Formats a byte size into a human-readable string.
@@ -436,7 +483,7 @@ public class CMD_merkle implements Callable<Integer> {
     }
   }
 
-  private void verifyFile(Path file, Path merklePath) throws Exception {
+  public void verifyFile(Path file, Path merklePath, long chunkSize) throws Exception {
     logger.info("Verifying file against Merkle tree: {}", file);
 
     // Load the original Merkle tree from file
@@ -470,6 +517,8 @@ public class CMD_merkle implements Callable<Integer> {
 
         // Update the tree with this chunk
         if (bytesRead > 0) {
+          // Always use the original chunk size (power of 2) for the MerkleTree constructor
+          // This fixes the issue with the last chunk which might not be a power of 2
           currentTree = MerkleTree.fromData(buffer, chunkSize, nextRange);
         }
       }

@@ -172,6 +172,9 @@ public class MerkleConsoleDisplay implements AutoCloseable {
             }
         }
         try {
+            // Make the cursor visible again before closing
+            terminal.puts(InfoCmp.Capability.cursor_visible);
+            terminal.writer().flush();
             terminal.close();
         } catch (IOException e) {
             // Ignore closing errors

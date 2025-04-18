@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.commands.hugging_dl;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -108,7 +108,7 @@ public class ConsoleDisplay implements AutoCloseable {
         String message = String.format("[%s] %s",
             LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")),
             String.format(format, args));
-        
+
         // Keep exactly 3 messages in the queue
         while (logMessages.size() >= 3) {
             logMessages.poll();
@@ -121,16 +121,16 @@ public class ConsoleDisplay implements AutoCloseable {
         synchronized (terminalLock) {
             int width = terminal.getWidth();
             int height = terminal.getHeight();
-            
+
             // Clear screen and move cursor to top
             terminal.writer().print("\033[2J\033[H");
-            
+
             if (stats.getTotalFiles() == 0) {
                 displayPreDownloadInfo(width);
             } else {
                 displayDownloadProgress(width, height);
             }
-            
+
             terminal.writer().flush();
         }
     }
@@ -145,7 +145,7 @@ public class ConsoleDisplay implements AutoCloseable {
             terminal.writer().println("Action: " + currentAction);
         }
         terminal.writer().println();
-        
+
         if (!preDownloadInfo.isEmpty()) {
             terminal.writer().println("Dataset Information:");
             terminal.writer().println("─".repeat(width));
@@ -158,7 +158,7 @@ public class ConsoleDisplay implements AutoCloseable {
                 }
             });
         }
-        
+
         displayLogMessages(width);
     }
 
@@ -166,50 +166,50 @@ public class ConsoleDisplay implements AutoCloseable {
         // Reserve space for header, overall progress, and log messages
         int reservedLines = 8; // Header(1) + Progress(2) + Separator(1) + Log header(1) + Log lines(3)
         int maxFileProgressLines = Math.max(1, height - reservedLines);
-        
+
         // Overall progress
         float percentage = (float) stats.getCompletedFiles() / stats.getTotalFiles() * 100;
         long downloadedMB = stats.getDownloadedBytes() / (1024 * 1024);
         long totalMB = stats.getTotalBytes() / (1024 * 1024);
-        
+
         terminal.writer().println(String.format("Dataset: %s", dsName));
         terminal.writer().println(String.format("Overall Progress: %d/%d files (%3.0f%%) - %d/%d MB",
             stats.getCompletedFiles(), stats.getTotalFiles(), percentage, downloadedMB, totalMB));
         terminal.writer().println("─".repeat(width));
-        
+
         // File progress bars - show only active or recent files
         List<FileProgress> activeFiles = fileProgresses.values().stream()
             .filter(p -> !p.isCompleted() || p.isFailed())
             .limit(maxFileProgressLines)
             .toList();
-        
+
         if (activeFiles.isEmpty() && !fileProgresses.isEmpty()) {
             // Show last completed file if no active files
             activeFiles = fileProgresses.values().stream()
                 .limit(1)
                 .toList();
         }
-        
+
         activeFiles.forEach(progress -> {
             terminal.writer().println(progress.getProgressBar(width));
         });
-        
+
         displayLogMessages(width);
     }
 
     private void displayLogMessages(int width) {
         terminal.writer().println("─".repeat(width));
         terminal.writer().println("Recent Events:");
-        
+
         // Create an array of fixed size for log lines
         LogEntry[] logLines = new LogEntry[3];
         Iterator<LogEntry> logIter = logMessages.iterator();
-        
+
         // Fill the array with the most recent messages
         for (int i = 0; i < 3 && logIter.hasNext(); i++) {
             logLines[i] = logIter.next();
         }
-        
+
         // Display each line, using empty string if no message exists
         for (int i = 0; i < 3; i++) {
             if (logLines[i] != null) {
@@ -218,7 +218,7 @@ public class ConsoleDisplay implements AutoCloseable {
                 terminal.writer().println();
             }
         }
-        
+
         // Add extra blank line after the events
         terminal.writer().println();
     }
@@ -254,6 +254,9 @@ public class ConsoleDisplay implements AutoCloseable {
             }
         }
         try {
+            // Make the cursor visible again before closing
+            terminal.puts(InfoCmp.Capability.cursor_visible);
+            terminal.writer().flush();
             terminal.close();
         } catch (IOException e) {
             // Log or handle terminal closing error
