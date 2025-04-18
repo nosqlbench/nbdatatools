@@ -36,6 +36,12 @@ public class MerkleRAF extends RandomAccessFile {
     // No initialization needed for intact chunks tracking
   }
 
+  /**
+   * Creates the file and parent directories if they don't exist.
+   *
+   * @param localPath The path to the file to touch
+   * @return The string representation of the path
+   */
   private static String touch(Path localPath) {
     try {
       Files.createDirectories(localPath.getParent());
@@ -66,6 +72,12 @@ public class MerkleRAF extends RandomAccessFile {
    * @param pos The offset position, measured in bytes from the beginning of the file
    * @throws IOException If an I/O error occurs or if pos is less than 0
    */
+  /**
+   * Sets the file pointer to the specified position.
+   *
+   * @param pos The position to set the file pointer to
+   * @throws IOException If there's an error setting the file pointer
+   */
   @Override
   public void seek(long pos) throws IOException {
     if (pos < 0) {
@@ -89,6 +101,12 @@ public class MerkleRAF extends RandomAccessFile {
    *
    * @return The next byte of data, or -1 if the end of the file is reached
    * @throws IOException If an I/O error occurs
+   */
+  /**
+   * Reads a byte from the file at the current position.
+   *
+   * @return The byte read, or -1 if the end of the file is reached
+   * @throws IOException If there's an error reading from the file
    */
   @Override
   public int read() throws IOException {

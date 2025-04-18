@@ -60,8 +60,6 @@ public class MerklePainter implements Closeable {
   /// @param sourcePath
   ///     URL of the source data file (merkle tree will be downloaded from
   ///     sourcePath + [MerklePane#MRKL])
-  /// @throws IOException
-  ///     If there's an error opening the files or downloading reference data
   public MerklePainter(Path localPath, String sourcePath) {
     this(localPath, sourcePath, new NoOpDownloadEventSink());
   }
@@ -74,8 +72,6 @@ public class MerklePainter implements Closeable {
   ///     sourcePath + [MerklePane#MRKL])
   /// @param eventSink
   ///     Event sink for logging download progress and events
-  /// @throws IOException
-  ///     If there's an error opening the files or downloading reference data
   public MerklePainter(Path localPath, String sourcePath, DownloadEventSink eventSink) {
     this.localPath = localPath;
     this.sourcePath = sourcePath;

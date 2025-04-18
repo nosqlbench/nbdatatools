@@ -37,6 +37,17 @@ import java.util.Map;
 //import org.apache.logging.log4j.LogManager;
 //import org.apache.logging.log4j.Logger;
 
+/// Represents an entry in a dataset catalog.
+///
+/// A dataset entry contains metadata about a dataset, including its name, URL,
+/// attributes, profiles, and tags. It provides methods for downloading the dataset
+/// and selecting profiles for use.
+///
+/// @param name The name of the dataset
+/// @param url The URL where the dataset can be downloaded from
+/// @param attributes Additional attributes associated with the dataset
+/// @param profiles The profiles available for this dataset
+/// @param tags Tags associated with the dataset for categorization
 public record DatasetEntry(
     String name,
     URL url,
@@ -45,6 +56,10 @@ public record DatasetEntry(
     Map<String, String> tags
 )
 {
+  /// Creates a DatasetEntry from a data object.
+  ///
+  /// @param entryObj The object containing dataset entry data
+  /// @return A new DatasetEntry instance
   public static DatasetEntry fromData(Object entryObj) {
     Map<String, ?> entry = null;
     if (entryObj instanceof CharSequence cs) {
@@ -75,16 +90,28 @@ public record DatasetEntry(
     return new DatasetEntry(name, url, attributes, profileGroup, tags);
   }
 
+  /// Downloads the dataset to the specified target path.
+  ///
+  /// @param target The path where the dataset should be downloaded
+  /// @return A DownloadProgress object to track the download
   public DownloadProgress download(Path target) {
     return download(target, false);
   }
 
+  /// Downloads the dataset to the specified target path with an option to force download.
+  ///
+  /// @param target The path where the dataset should be downloaded
+  /// @param force Whether to force download even if the file already exists
+  /// @return A DownloadProgress object to track the download
   public DownloadProgress download(Path target, boolean force) {
     ChunkedDownloader downloader =
         new ChunkedDownloader(url, name, 1024 * 1024 * 10, 1, new StdoutDownloadEventSink());
     return downloader.download(target, force);
   }
 
+  /// Creates a ProfileSelector for selecting profiles from this dataset.
+  ///
+  /// @return A ProfileSelector for this dataset
   public ProfileSelector select() {
     return new VirtualProfileSelector(this);
   }

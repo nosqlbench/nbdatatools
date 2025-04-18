@@ -21,7 +21,9 @@ import java.util.Arrays;
  */
 public class MerklePane implements AutoCloseable {
   // File extensions for merkle tree files
+  /// File extension for merkle tree files
   public static final String MRKL = ".mrkl";
+  /// File extension for reference merkle tree files
   public static final String MREF = ".mref";
 
   // The merkle tree for this pane
@@ -750,30 +752,52 @@ public class MerklePane implements AutoCloseable {
         '}';
   }
 
-  /// A wrapper around a BitSet for tracking intact chunks
+  /// A wrapper around BitSet for tracking which chunks have been downloaded.
+  ///
+  /// This class provides methods for getting, setting, and clearing bits in a BitSet,
+  /// as well as for checking the cardinality and size of the BitSet.
   public static class MerkleBits {
     private final BitSet bits;
 
+    /// Creates a new MerkleBits with the given BitSet.
+    ///
+    /// @param bits The BitSet to wrap
     public MerkleBits(BitSet bits) {
       this.bits = bits;
     }
 
+    /// Gets the value of the bit at the specified index.
+    ///
+    /// @param index The index of the bit to get
+    /// @return true if the bit is set, false otherwise
     public boolean get(int index) {
       return bits.get(index);
     }
 
+    /// Sets the bit at the specified index to true.
+    ///
+    /// @param index The index of the bit to set
     public void set(int index) {
       bits.set(index);
     }
 
+    /// Sets the bit at the specified index to false.
+    ///
+    /// @param index The index of the bit to clear
     public void clear(int index) {
       bits.clear(index);
     }
 
+    /// Returns the number of bits set to true in this BitSet.
+    ///
+    /// @return The number of bits set to true
     public int cardinality() {
       return bits.cardinality();
     }
 
+    /// Returns the number of bits in this BitSet.
+    ///
+    /// @return The number of bits
     public int size() {
       return bits.size();
     }

@@ -24,6 +24,13 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/// Represents an interval with inclusive minimum and exclusive maximum bounds.
+///
+/// This class is used to define ranges of data to be processed, with a minimum value
+/// that is included in the range and a maximum value that is excluded.
+///
+/// @param minIncl The inclusive minimum bound of the interval
+/// @param maxExcl The exclusive maximum bound of the interval
 public record FInterval(long minIncl, long maxExcl) {
   public final static Pattern PATTERN = Pattern.compile(
       """
@@ -35,6 +42,13 @@ public record FInterval(long minIncl, long maxExcl) {
           """, Pattern.COMMENTS | Pattern.DOTALL
   );
 
+  /// Parses an interval from a string representation.
+  ///
+  /// The string format is "[min,max)" where min is inclusive and max is exclusive.
+  /// For example, "[0,100)" represents the interval from 0 (inclusive) to 100 (exclusive).
+  ///
+  /// @param interval The string representation of the interval
+  /// @return The parsed FInterval
   public static FInterval parse(String interval) {
     Matcher matcher = PATTERN.matcher(interval);
     if (matcher.matches()) {
@@ -57,6 +71,9 @@ public record FInterval(long minIncl, long maxExcl) {
 
   }
 
+  /// Converts this interval to a string representation.
+  ///
+  /// @return The string representation of this interval in the format "[min,max)"
   public String toData() {
     if (minIncl == -1L && maxExcl == -1L) {
       return "";
@@ -64,10 +81,17 @@ public record FInterval(long minIncl, long maxExcl) {
     return "(" + minIncl + ".." + maxExcl + ")";
   }
 
+  /// Returns the number of elements in this interval.
+  ///
+  /// @return The count of elements in this interval (maxExcl - minIncl)
   public int count() {
     return (int) (maxExcl - minIncl);
   }
 
+  /// Creates an FInterval from an object representation.
+  ///
+  /// @param o The object to convert to an FInterval
+  /// @return The created FInterval
   public static FInterval fromObject(Object o) {
     if (o instanceof String s) {
       return parse(s);

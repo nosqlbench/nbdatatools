@@ -17,6 +17,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
 
+/// Core implementation of DatasetView for xvec file formats.
+///
+/// This class provides methods for accessing vector data stored in xvec files,
+/// which are binary files containing vectors of various types (float, int, byte, etc.).
+/// It supports different vector formats based on file extensions.
+///
+/// @param <T> The type of vector returned by this view (e.g., float[], int[], byte[])
 public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
 
   private final MerkleRAF randomio;
@@ -28,6 +35,12 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   private int componentBytes;
 
 
+  /// Creates a new CoreXVecDatasetViewMethods instance.
+  ///
+  /// @param randomio The random access file to read from
+  /// @param sourceSize The size of the source file in bytes
+  /// @param window The window to use for accessing the data
+  /// @param extension The file extension indicating the vector format
   public CoreXVecDatasetViewMethods(
       MerkleRAF randomio,
       long sourceSize,

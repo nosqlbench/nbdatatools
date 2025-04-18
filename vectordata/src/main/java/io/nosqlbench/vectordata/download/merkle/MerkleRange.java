@@ -25,8 +25,9 @@ public record MerkleRange(long start, long end) {
         return !(end <= other.start || start >= other.end);
     }
 
-    /// Returns the size of this range in bytes
-    /// @return The size of this range in bytes
+    /// Returns the size of this range in bytes.
+    ///
+    /// @return The size of this range (end - start)
     public long size() {
         return end - start;
     }

@@ -99,7 +99,9 @@ public class MerkleTree {
         return computedRange;
     }
 
-    /// Returns the total number of leaf nodes in the complete tree
+    /// Returns the number of leaf nodes in the tree.
+    ///
+    /// @return The number of leaf nodes
     public int getNumberOfLeaves() {
         return (int) ((totalSize + chunkSize - 1) >>> getChunkSizePower());
     }
@@ -146,7 +148,10 @@ public class MerkleTree {
         return (int)(position >> getChunkSizePower());
     }
 
-    /// Represents the boundaries of a specific chunk in the tree
+    /// Represents the boundaries of a node in the Merkle tree.
+    ///
+    /// @param start The start position of the node's data in the file
+    /// @param end The end position of the node's data in the file
     public record NodeBoundary(long start, long end) {}
 
     /// Creates a new tree with an updated range

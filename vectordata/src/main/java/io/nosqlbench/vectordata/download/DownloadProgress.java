@@ -22,24 +22,52 @@ import java.nio.file.Path;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
+/// Represents the progress of a dataset download operation.
+///
+/// This class provides methods to track the progress of a download, check if it's complete,
+/// and retrieve the result when finished.
+///
+/// @param targetPath The path where the file is being downloaded
+/// @param totalBytes The total number of bytes to download
+/// @param currentBytes The current number of bytes downloaded
+/// @param future The CompletableFuture that will complete when the download is done
 public record DownloadProgress(
     Path targetPath,
     long totalBytes,
     AtomicLong currentBytes,
     CompletableFuture<DownloadResult> future
 ) {
+    /// Checks if the download is complete.
+    ///
+    /// @return true if the download is complete, false otherwise
     public boolean isDone() {
         return future.isDone();
     }
 
+    /// Gets the current progress of the download.
+    ///
+    /// @return A value between 0.0 and 1.0 indicating the download progress
     public double getProgress() {
         return totalBytes > 0 ? (double) currentBytes.get() / totalBytes : 0.0;
     }
 
+    /// Gets the download result, blocking until the download is complete.
+    ///
+    /// @return The download result
+    /// @throws InterruptedException If the current thread is interrupted while waiting
+    /// @throws ExecutionException If the download fails
     public DownloadResult get() throws InterruptedException, ExecutionException {
         return future.get();
     }
 
+    /// Gets the download result, blocking until the download is complete or the timeout expires.
+    ///
+    /// @param timeout The maximum time to wait
+    /// @param unit The time unit of the timeout argument
+    /// @return The download result
+    /// @throws InterruptedException If the current thread is interrupted while waiting
+    /// @throws ExecutionException If the download fails
+    /// @throws TimeoutException If the wait timed out
     public DownloadResult get(long timeout, TimeUnit unit)
         throws InterruptedException, ExecutionException, TimeoutException {
         return future.get(timeout, unit);

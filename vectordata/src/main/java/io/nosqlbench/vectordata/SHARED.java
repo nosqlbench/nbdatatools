@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -34,7 +34,9 @@ import org.snakeyaml.engine.v2.representer.StandardRepresenter;
 import java.lang.reflect.Type;
 import java.util.Map;
 
-/// shared serdes helpers
+/// Utility class for shared functionality.
+///
+/// This class provides utility methods for working with JSON data and other shared functionality.
 public class SHARED {
   /// gson instance
   public final static Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -50,6 +52,10 @@ public class SHARED {
   /// yaml dumper instance
   public final static Dump yamlDumper = new Dump(dumpSettings, representer);
 
+  /// Converts a JSON string to a Map.
+  ///
+  /// @param profilesData The JSON string to convert
+  /// @return A Map containing the parsed JSON data
   public static Map<String,?> mapFromJson(String profilesData) {
     Type type = new TypeToken<Map<String,?>>(){}.getType();
     Map<String,?> map = gson.fromJson(profilesData, type);

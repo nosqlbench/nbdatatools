@@ -25,7 +25,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/// a window is a list of intervals
+/// Represents a window of intervals for accessing data.
+///
+/// A window consists of a list of intervals that define which portions of the data
+/// should be accessed. This is used to limit or filter the data that is processed.
+///
+/// @param intervals The list of intervals that make up this window
 public record FWindow(List<FInterval> intervals) {
 
   /// the pattern for parsing a window spec
