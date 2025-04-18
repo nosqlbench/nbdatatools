@@ -40,7 +40,7 @@ public class CatalogTest {
       "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/");
 
   @Test
-  @Disabled("Requires internet access and real data")
+//  @Disabled("Requires internet access and real data")
   public void testLayoutDownloadAndRealization() {
     Catalog catalog = sources.catalog();
     List<DatasetEntry> dsentries = catalog.datasets();

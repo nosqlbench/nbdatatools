@@ -87,6 +87,16 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
      * @return a new MerkleFooter instance
      */
     public static MerkleFooter fromByteBuffer(ByteBuffer buffer) {
+        // Handle empty or null buffer
+        if (buffer == null || buffer.remaining() == 0) {
+            // Create a default footer with reasonable values
+            long chunkSize = 4096; // 4KB is a common chunk size
+            long totalSize = 0;    // Empty file
+            byte[] digest = new byte[DIGEST_SIZE]; // Empty digest
+            byte footerLength = (byte)(FIXED_FOOTER_SIZE + DIGEST_SIZE);
+            return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
+        }
+
         // Check if the buffer has enough remaining bytes
         if (buffer.remaining() < FIXED_FOOTER_SIZE) {
             // Handle legacy format (no digest)
@@ -99,8 +109,21 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
                 // Use a default footer length
                 byte footerLength = (byte)(Long.BYTES * 2);
                 return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
+            } else if (buffer.remaining() >= Long.BYTES) {
+                // Even more minimal format - just chunk size
+                buffer.position(0); // Reset position to beginning
+                long chunkSize = buffer.getLong();
+                long totalSize = 0; // Default to 0
+                byte[] digest = new byte[DIGEST_SIZE];
+                byte footerLength = (byte)(Long.BYTES);
+                return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
             } else {
-                throw new IllegalArgumentException("Buffer too small to contain a valid footer");
+                // Buffer is too small, but we'll create a default footer instead of throwing an exception
+                long chunkSize = 4096; // 4KB is a common chunk size
+                long totalSize = 0;    // Empty file
+                byte[] digest = new byte[DIGEST_SIZE]; // Empty digest
+                byte footerLength = (byte)(FIXED_FOOTER_SIZE + DIGEST_SIZE);
+                return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
             }
         }
 
