@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.merkle;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -134,10 +134,18 @@ public class TestMerklePainter extends MerklePainter {
     public CompletableFuture<Void> paintAsync(long startPosition, long endPosition) {
         // Get the merkle tree
         MerkleTree merkleTree = testPane.getMerkleTree();
+        if (merkleTree == null) {
+            return CompletableFuture.completedFuture(null);
+        }
 
         // Calculate the chunk indices for the range
+        long totalSize = merkleTree.totalSize();
+        if (totalSize <= 0) {
+            return CompletableFuture.completedFuture(null);
+        }
+
         int startChunk = merkleTree.getChunkIndexForPosition(startPosition);
-        int endChunk = merkleTree.getChunkIndexForPosition(Math.min(endPosition - 1, merkleTree.totalSize() - 1));
+        int endChunk = merkleTree.getChunkIndexForPosition(Math.min(endPosition - 1, totalSize - 1));
 
         // Optimize downloads by combining adjacent chunks
         int i = startChunk;

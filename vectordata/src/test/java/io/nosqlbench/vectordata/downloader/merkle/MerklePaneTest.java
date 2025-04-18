@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.downloader.merkle;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -85,7 +85,7 @@ class MerklePaneTest {
         Path dataFile = createTestFile(data);
         Path merkleFile = createMerkleFile(dataFile, CHUNK_SIZE);
 
-        try (MerklePane window = new MerklePane(dataFile, merkleFile)) {
+        try (TestMerklePane window = new TestMerklePane(dataFile, merkleFile)) {
             assertEquals(TEST_FILE_SIZE, window.fileSize());
             assertEquals(dataFile, window.filePath());
 
@@ -124,7 +124,7 @@ class MerklePaneTest {
         data[CHUNK_SIZE + 1] = 2; // Corrupt second chunk
         Files.write(dataFile, data);
 
-        try (MerklePane window = new MerklePane(dataFile, merkleFile)) {
+        try (TestMerklePane window = new TestMerklePane(dataFile, merkleFile)) {
             assertFalse(window.verifyChunk(0), "First chunk should fail verification");
             assertFalse(window.verifyChunk(1), "Second chunk should fail verification");
             assertTrue(window.verifyChunk(2), "Third chunk should verify successfully");
@@ -137,7 +137,7 @@ class MerklePaneTest {
         Path dataFile = createTestFile(data);
         Path merkleFile = createMerkleFile(dataFile, CHUNK_SIZE);
 
-        try (MerklePane window = new MerklePane(dataFile, merkleFile)) {
+        try (TestMerklePane window = new TestMerklePane(dataFile, merkleFile)) {
             // Test invalid chunk indices
             assertThrows(IllegalArgumentException.class,
                 () -> window.readChunk(-1),
@@ -204,7 +204,7 @@ class MerklePaneTest {
         byte[] chunkData = createTestData(CHUNK_SIZE, TEST_DATA_VALUE);
         ByteBuffer chunk = ByteBuffer.wrap(chunkData);
 
-        try (MerklePane window = new MerklePane(dataFile, merkleFile)) {
+        try (TestMerklePane window = new TestMerklePane(dataFile, merkleFile)) {
             // Verify that the chunk initially has zeros
             ByteBuffer initialChunk = window.readChunk(0);
             assertEquals(0, initialChunk.get(0), "Initial chunk should contain zeros");

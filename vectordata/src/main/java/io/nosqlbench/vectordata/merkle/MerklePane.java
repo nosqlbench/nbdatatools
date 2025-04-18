@@ -494,6 +494,16 @@ public class MerklePane implements AutoCloseable {
   /// @return true if the chunk is valid, false otherwise, or if the chunk hasn't been loaded yet
   /// @throws IOException If there's an error reading or verifying the chunk
   public boolean verifyChunk(int chunkIndex) throws IOException {
+    // If the merkle tree hasn't been loaded, we can't verify the chunk
+    if (merkleTree == null) {
+      return false;
+    }
+
+    // If the reference tree is not available, we can't verify the chunk
+    if (refTree == null) {
+      return false;
+    }
+
     // If the chunk is already marked as intact, return true
     if (intactChunks.get(chunkIndex)) {
       return true;
@@ -809,15 +819,18 @@ public class MerklePane implements AutoCloseable {
   }
 
 
+  /**
+   * Gets the total size of the data represented by this MerklePane.
+   * The only definitive reference for the total size is the reference merkle data.
+   *
+   * @return The total size in bytes, or -1 if no reference tree is available
+   */
   public long getTotalSize() {
-    // Use the reference tree's total size if available, otherwise use the local tree's total size
+    // Use the reference tree's total size if available, otherwise return -1
     if (refTree != null) {
       return refTree.totalSize();
-    } else if (merkleTree != null) {
-      return merkleTree.totalSize();
     } else {
-      // If neither tree is available, return the file size
-      return fileSize;
+      return -1; // No reference tree available
     }
   }
 
