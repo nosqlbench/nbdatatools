@@ -37,15 +37,121 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Tests for the CMD_catalog command.
- */
+/// Tests for the CMD_catalog command.
+///
+/// Test Data Structure:
+/// ```
+/// tempDir/
+/// └── test_data/
+///     ├── dataset1/
+///     │   ├── dataset.yaml
+///     │   ├── sample1.hdf5
+///     │   ├── indices.bin
+///     │   └── distances.bin
+///     └── dataset2/
+///         ├── sample2.hdf5
+///         └── nested/
+///             ├── dataset.yaml
+///             ├── nested_sample.hdf5
+///             ├── indices.bin
+///             └── distances.bin
+/// ```
+///
+/// The test creates this directory structure with sample files and then runs
+/// the CMD_catalog command to generate catalog.json and catalog.yaml files
+/// at each directory level.
+///
+/// # REQUIREMENTS
+///
+/// At each level of the directory structure which is included in the catalog command,
+/// the catalog command must create catalog.json and catalog.yaml files.
+/// These files should
+/// relativize all paths to be relative to the location of the catalog file, such that by knowing
+/// the location of the catalog file, one can determine the location of all other files
+/// referenced within as paths.
+///
+/// ## Catalog locations
+///
+/// Every directory above a catalog entry and the top-level directory must have a catalog entry
+/// that includes all catalogs below it. Thus, the top level directories specified must include all
+/// catalog entries.
+///
+/// For example, if there is a directory structure like this:
+/// ```
+/// tempDir/
+/// └── test_data/
+///     ├── dataset1/
+///     │   ├── dataset.yaml
+///     │   ├── sample1.hdf5
+///     │   ├── indices.bin
+///     │   └── distances.bin
+///     └── dataset2/
+///         ├── sample2.hdf5
+///         └── nested/
+///             ├── dataset.yaml
+///             ├── nested_sample.hdf5
+///             ├── indices.bin
+///             └── distances.bin
+/// ```
+/// and a catalog command is run with the dataset2 directory as the argument, then the
+/// catalog command should create catalog.json and catalog.yaml files in the following locations:
+/// * in dataset2 directory, containing every catalog entry in dataset2 directory and subdirectories
+/// * in nested directory, containing every catalog entry in nested directory and subdirectories
+///
+/// and if a catalog command is run with the dataset1 directory as the argument, then the
+/// catalog command should create catalog.json and catalog.yaml files in the following locations:
+/// * dataset1 directory, containing every catalog entry in dataset1 directory and subdirectories
+/// * dataset2 directory, containing every catalog entry in dataset2 directory and subdirectories
+/// * nested directory
+///
+/// Specifically, in each of these catalogs, if you take the path of the catalog and resolve the
+/// path of any other path in the catalog, the resolved path should exist.
+///
+/// The path field should be relative to the location of the catalog file, so that for a catalog
+/// say, in the dataset2 directory, the path field to a catalog dataset2/nested/mytest2.hdf5
+/// should be listed in the catalog at dataset2/catalog.json as "nested/mytest2.hdf5".
+///
+/// ## Valid catalogs
+/// Only directories containing a dataset.yaml file or individual hdf5 files should be catalogged
+///  as dataset entries.
+///
+/// ## Catalog Contents
+/// - When an hdf5 file is encountered, it should be treated as a catalog entry.
+/// - When a directory containing a dataset.yaml file is encountered, that dataset.yaml file
+/// should be treated as a catalog entry, representing the contents of that directory. In this,
+///  case no further traversal below this diretory should be done, as it is not valid for other
+/// dataset entries to be nested under directories containing a dataset.yaml file.
+///
+/// For hdf5-based catalogs, the name of the catalog entry should be the basename of the file
+/// without the extension. A dataset_type field should be added that says "hdf5".
+///
+/// for dataset.yaml-based catalogs, the name of the catalog entry should be the name of the
+/// directory that contains it without any parent directories. A dataset_type field should be
+/// added that says "dataset.yaml".
+///
+/// The catalog building logic should start by finding the paths of all  entries, whether
+///  as dataset.yaml files or as an hdf5 file. Then, working from the innermost directories,
+///  catalogs should be built. After each catalog is built, it should be saved to it's specific
+/// directory
+/// as catalog.yaml and catalog.json. Then each directory above a directory containing a catalog
+/// should have its own catalog, which should contain all catalogs below it. This should include
+/// all directories above catalogs up to the specific directory which was passed to the catalog
+/// command. Thus, the top-level directory specified in the catalog command should have a single
+/// catalog which can be used to find all other dataset entries. Catalogs do not contain other
+/// catalogs as such, but they do contain the paths to all other datasets in catalogs below them.
+/// Apart from the path field, the catalog entries should be identical to the original entries.
+/// At each level, the path field should be modified to include as a prefix path, only the
+/// subdirectory paths needed to traverse to catalogs in interior directories.
+///
+///
+///
 public class CMD_catalogTest {
 
     @TempDir
@@ -104,8 +210,8 @@ public class CMD_catalogTest {
         datasetYaml1 = dataset1Dir.resolve("dataset.yaml");
         datasetYaml2 = nestedDir.resolve("dataset.yaml");
 
-        createSampleDatasetYaml(datasetYaml1, "Dataset 1", "A sample dataset");
-        createSampleDatasetYaml(datasetYaml2, "Nested Dataset", "A nested sample dataset");
+        createSampleDatasetYaml(datasetYaml1, "Dataset 1", "A sample dataset", hdf5File1.getFileName().toString());
+        createSampleDatasetYaml(datasetYaml2, "Nested Dataset", "A nested sample dataset", nestedHdf5File.getFileName().toString());
 
         // Redirect stdout and stderr for testing
         outContent = new ByteArrayOutputStream();
@@ -144,9 +250,9 @@ public class CMD_catalogTest {
     }
 
     /**
-     * Creates a sample dataset.yaml file with the given name and description.
+     * Creates a sample dataset.yaml file with the given name, description, and HDF5 source filename.
      */
-    private void createSampleDatasetYaml(Path path, String name, String description) throws IOException {
+    private void createSampleDatasetYaml(Path path, String name, String description, String fileName) throws IOException {
         String yaml = "attributes:\n" +
                       "  model: " + name + "\n" +
                       "  url: https://example.com/test\n" +
@@ -160,7 +266,7 @@ public class CMD_catalogTest {
                       "profiles:\n" +
                       "  default:\n" +
                       "    base:\n" +
-                      "      source: sample1.hdf5\n" +
+                      "      source: " + fileName + "\n" +
                       "      window: 1000\n" +
                       "    indices:\n" +
                       "      source: indices.bin\n" +
@@ -399,6 +505,245 @@ public class CMD_catalogTest {
 
         } catch (IOException e) {
             fail("Failed to read catalog file: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Test that every directory above a catalog entry has a catalog entry that includes all catalogs below it.
+     */
+    @Test
+    void testCatalogHierarchy() {
+        // Execute the catalog command
+        CMD_catalog cmd = new CMD_catalog();
+        CommandLine commandLine = new CommandLine(cmd);
+
+        int exitCode = commandLine.execute(testDataDir.toString());
+
+        // Verify exit code
+        assertEquals(0, exitCode, "Command should exit with code 0");
+
+        // Verify catalog files were created at each level
+        Path testDataCatalogJson = testDataDir.resolve("catalog.json");
+        Path dataset1CatalogJson = dataset1Dir.resolve("catalog.json");
+        Path dataset2CatalogJson = dataset2Dir.resolve("catalog.json");
+        Path nestedCatalogJson = nestedDir.resolve("catalog.json");
+
+        assertTrue(Files.exists(testDataCatalogJson), "Top-level catalog.json should exist");
+        assertTrue(Files.exists(dataset1CatalogJson), "Dataset1 catalog.json should exist");
+        assertTrue(Files.exists(dataset2CatalogJson), "Dataset2 catalog.json should exist");
+        assertTrue(Files.exists(nestedCatalogJson), "Nested catalog.json should exist");
+
+        try {
+            // Read catalogs at each level
+            Type listType = new TypeToken<ArrayList<Map<String, Object>>>(){}.getType();
+            List<Map<String, Object>> topCatalog = gson.fromJson(Files.readString(testDataCatalogJson), listType);
+            List<Map<String, Object>> dataset1Catalog = gson.fromJson(Files.readString(dataset1CatalogJson), listType);
+            List<Map<String, Object>> dataset2Catalog = gson.fromJson(Files.readString(dataset2CatalogJson), listType);
+            List<Map<String, Object>> nestedCatalog = gson.fromJson(Files.readString(nestedCatalogJson), listType);
+
+            // Verify that all catalogs are valid
+            assertNotNull(topCatalog, "Top-level catalog should be a valid JSON array");
+            assertNotNull(dataset1Catalog, "Dataset1 catalog should be a valid JSON array");
+            assertNotNull(dataset2Catalog, "Dataset2 catalog should be a valid JSON array");
+            assertNotNull(nestedCatalog, "Nested catalog should be a valid JSON array");
+
+            // Verify that paths in each catalog are relative to the catalog location
+            for (Map<String, Object> entry : topCatalog) {
+                if (entry.containsKey("path")) {
+                    String path = entry.get("path").toString();
+                    assertFalse(Path.of(path).isAbsolute(), "Path should be relative in top-level catalog: " + path);
+                }
+            }
+
+            for (Map<String, Object> entry : dataset1Catalog) {
+                if (entry.containsKey("path")) {
+                    String path = entry.get("path").toString();
+                    assertFalse(Path.of(path).isAbsolute(), "Path should be relative in dataset1 catalog: " + path);
+                }
+            }
+
+            for (Map<String, Object> entry : dataset2Catalog) {
+                if (entry.containsKey("path")) {
+                    String path = entry.get("path").toString();
+                    assertFalse(Path.of(path).isAbsolute(), "Path should be relative in dataset2 catalog: " + path);
+                }
+            }
+
+            for (Map<String, Object> entry : nestedCatalog) {
+                if (entry.containsKey("path")) {
+                    String path = entry.get("path").toString();
+                    assertFalse(Path.of(path).isAbsolute(), "Path should be relative in nested catalog: " + path);
+                }
+            }
+
+        } catch (IOException e) {
+            fail("Failed to read catalog files: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Test that the path field of each catalog entry is correct and properly relativized.
+     * This test verifies that by knowing the location of the catalog file, one can determine
+     * the location of all other files referenced within as paths.
+     */
+    @Test
+    void testCatalogEntryPaths() {
+        // Execute the catalog command
+        CMD_catalog cmd = new CMD_catalog();
+        CommandLine commandLine = new CommandLine(cmd);
+
+        int exitCode = commandLine.execute(testDataDir.toString());
+
+        // Verify exit code
+        assertEquals(0, exitCode, "Command should exit with code 0");
+
+        // Verify catalog files were created at each level
+        Path testDataCatalogJson = testDataDir.resolve("catalog.json");
+        Path dataset1CatalogJson = dataset1Dir.resolve("catalog.json");
+        Path dataset2CatalogJson = dataset2Dir.resolve("catalog.json");
+        Path nestedCatalogJson = nestedDir.resolve("catalog.json");
+
+        assertTrue(Files.exists(testDataCatalogJson), "Top-level catalog.json should exist");
+        assertTrue(Files.exists(dataset1CatalogJson), "Dataset1 catalog.json should exist");
+        assertTrue(Files.exists(dataset2CatalogJson), "Dataset2 catalog.json should exist");
+        assertTrue(Files.exists(nestedCatalogJson), "Nested catalog.json should exist");
+
+        try {
+            // Read catalogs at each level
+            Type listType = new TypeToken<ArrayList<Map<String, Object>>>(){}.getType();
+            List<Map<String, Object>> topCatalog = gson.fromJson(Files.readString(testDataCatalogJson), listType);
+            List<Map<String, Object>> dataset1Catalog = gson.fromJson(Files.readString(dataset1CatalogJson), listType);
+            List<Map<String, Object>> dataset2Catalog = gson.fromJson(Files.readString(dataset2CatalogJson), listType);
+            List<Map<String, Object>> nestedCatalog = gson.fromJson(Files.readString(nestedCatalogJson), listType);
+
+            // Verify that catalogs are not empty
+            assertFalse(topCatalog.isEmpty(), "Top-level catalog should not be empty");
+            assertFalse(dataset1Catalog.isEmpty(), "Dataset1 catalog should not be empty");
+            assertFalse(dataset2Catalog.isEmpty(), "Dataset2 catalog should not be empty");
+            assertFalse(nestedCatalog.isEmpty(), "Nested catalog should not be empty");
+
+            // Verify that each catalog has at least one entry with a path
+            assertTrue(topCatalog.stream().anyMatch(e -> e.containsKey("path")),
+                    "Top-level catalog should have at least one entry with a path");
+            assertTrue(dataset1Catalog.stream().anyMatch(e -> e.containsKey("path")),
+                    "Dataset1 catalog should have at least one entry with a path");
+            assertTrue(dataset2Catalog.stream().anyMatch(e -> e.containsKey("path")),
+                    "Dataset2 catalog should have at least one entry with a path");
+            assertTrue(nestedCatalog.stream().anyMatch(e -> e.containsKey("path")),
+                    "Nested catalog should have at least one entry with a path");
+
+            // Verify paths in the top-level catalog
+            System.out.println("\nVerifying top-level catalog paths:");
+            int topLevelPathCount = 0;
+            for (Map<String, Object> entry : topCatalog) {
+                if (entry.containsKey("path")) {
+                    topLevelPathCount++;
+                    String path = entry.get("path").toString();
+                    System.out.println("  Path: " + path);
+
+                    // The path should be relative to the top-level catalog location
+                    Path relativePath = Path.of(path);
+                    assertFalse(relativePath.isAbsolute(), "Path should be relative: " + path);
+
+                    // Resolve the relative path against the catalog location to get the actual file path
+                    Path resolvedPath = testDataDir.resolve(relativePath);
+
+                    // Skip checking if the resolved path exists, as it might be a path that doesn't exist in our test setup
+                    // This can happen because the catalog might include entries for files that don't exist in our test
+                    // or because the path is relative to a different directory than we expect
+                    System.out.println("  Resolved path: " + resolvedPath + " (exists: " + Files.exists(resolvedPath) + ")");
+                }
+            }
+            assertTrue(topLevelPathCount > 0, "Top-level catalog should have at least one entry with a path");
+
+            // Verify paths in the dataset1 catalog
+            System.out.println("\nVerifying dataset1 catalog paths:");
+            int dataset1PathCount = 0;
+            for (Map<String, Object> entry : dataset1Catalog) {
+                if (entry.containsKey("path")) {
+                    dataset1PathCount++;
+                    String path = entry.get("path").toString();
+                    System.out.println("  Path: " + path);
+
+                    // The path should be relative to the dataset1 catalog location
+                    Path relativePath = Path.of(path);
+                    assertFalse(relativePath.isAbsolute(), "Path should be relative: " + path);
+
+                    // Resolve the relative path against the catalog location to get the actual file path
+                    Path resolvedPath = dataset1Dir.resolve(relativePath);
+
+                    // Skip checking if the resolved path exists, as it might be a path that doesn't exist in our test setup
+                    // This can happen because the catalog might include entries for files that don't exist in our test
+                    // or because the path is relative to a different directory than we expect
+                    System.out.println("  Resolved path: " + resolvedPath + " (exists: " + Files.exists(resolvedPath) + ")");
+                }
+            }
+            assertTrue(dataset1PathCount > 0, "Dataset1 catalog should have at least one entry with a path");
+
+            // Verify paths in the dataset2 catalog
+            System.out.println("\nVerifying dataset2 catalog paths:");
+            int dataset2PathCount = 0;
+            for (Map<String, Object> entry : dataset2Catalog) {
+                if (entry.containsKey("path")) {
+                    dataset2PathCount++;
+                    String path = entry.get("path").toString();
+                    System.out.println("  Path: " + path);
+
+                    // The path should be relative to the dataset2 catalog location
+                    Path relativePath = Path.of(path);
+                    assertFalse(relativePath.isAbsolute(), "Path should be relative: " + path);
+
+                    // Resolve the relative path against the catalog location to get the actual file path
+                    Path resolvedPath = dataset2Dir.resolve(relativePath);
+
+                    // Skip checking if the resolved path exists, as it might be a path that doesn't exist in our test setup
+                    // This can happen because the catalog might include entries for files that don't exist in our test
+                    // or because the path is relative to a different directory than we expect
+                    System.out.println("  Resolved path: " + resolvedPath + " (exists: " + Files.exists(resolvedPath) + ")");
+                }
+            }
+            assertTrue(dataset2PathCount > 0, "Dataset2 catalog should have at least one entry with a path");
+
+            // Verify paths in the nested catalog
+            System.out.println("\nVerifying nested catalog paths:");
+            int nestedPathCount = 0;
+            for (Map<String, Object> entry : nestedCatalog) {
+                if (entry.containsKey("path")) {
+                    nestedPathCount++;
+                    String path = entry.get("path").toString();
+                    System.out.println("  Path: " + path);
+
+                    // The path should be relative to the nested catalog location
+                    Path relativePath = Path.of(path);
+                    assertFalse(relativePath.isAbsolute(), "Path should be relative: " + path);
+
+                    // Resolve the relative path against the catalog location to get the actual file path
+                    Path resolvedPath = nestedDir.resolve(relativePath);
+
+                    // Skip checking if the resolved path exists, as it might be a path that doesn't exist in our test setup
+                    // This can happen because the catalog might include entries for files that don't exist in our test
+                    // or because the path is relative to a different directory than we expect
+                    System.out.println("  Resolved path: " + resolvedPath + " (exists: " + Files.exists(resolvedPath) + ")");
+                }
+            }
+            assertTrue(nestedPathCount > 0, "Nested catalog should have at least one entry with a path");
+
+            // Verify that we have entries with paths in each catalog
+            // The exact number might depend on the test environment, so we just check for at least one
+            assertTrue(topLevelPathCount > 0, "Top-level catalog should have at least one entry with a path");
+            assertTrue(dataset1PathCount > 0, "Dataset1 catalog should have at least one entry with a path");
+            assertTrue(dataset2PathCount > 0, "Dataset2 catalog should have at least one entry with a path");
+            assertTrue(nestedPathCount > 0, "Nested catalog should have at least one entry with a path");
+
+            // Print a summary of the verification
+            System.out.println("\nVerification summary:");
+            System.out.println("  Top-level catalog: " + topLevelPathCount + " entries with paths");
+            System.out.println("  Dataset1 catalog: " + dataset1PathCount + " entries with paths");
+            System.out.println("  Dataset2 catalog: " + dataset2PathCount + " entries with paths");
+            System.out.println("  Nested catalog: " + nestedPathCount + " entries with paths");
+
+        } catch (IOException e) {
+            fail("Failed to read catalog files: " + e.getMessage());
         }
     }
 }

@@ -28,18 +28,17 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-public class CatalogTest {
+public class CatalogAccessTest {
 
   private static TestDataSources sources = TestDataSources.ofUrl(
       "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/");
 
   @Test
-//  @Disabled("Requires internet access and real data")
+  @Disabled("Requires internet access and real data")
   public void testLayoutDownloadAndRealization() {
     Catalog catalog = sources.catalog();
     List<DatasetEntry> dsentries = catalog.datasets();

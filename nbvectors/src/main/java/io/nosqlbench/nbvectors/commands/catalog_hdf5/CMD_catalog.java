@@ -24,7 +24,9 @@ import picocli.CommandLine;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 /// Create catalog views of HDF5 files and dataset directories
@@ -177,13 +179,23 @@ public class CMD_catalog implements Callable<Integer> {
       Path commonParent = findCommonParentDirectory(this.paths);
       logger.info("Using common parent directory: {}", commonParent);
 
-      // Load all entries and create catalogs
-      CatalogOut catalog = CatalogOut.loadAll(this.paths, commonParent);
+      // Process each path individually
+      List<Map<String, Object>> allEntries = new ArrayList<>();
+      for (Path path : this.paths) {
+        if (!Files.exists(path)) {
+          logger.error("Path does not exist: {}", path);
+          return 1;
+        }
 
-      // Save the top-level catalog in the common parent directory
-      Path catalogPath = commonParent.resolve(basename + ".json");
-      catalog.save(catalogPath);
-      logger.info("Created top-level catalog at {} with {} entries", catalogPath, catalog.size());
+        logger.info("Processing path: {}", path);
+
+        // Create catalog for this path and all subdirectories
+        List<Map<String, Object>> entries = CatalogBuilder.buildCatalogs(path, basename, commonParent);
+        allEntries.addAll(entries);
+      }
+
+      // Create a catalog at the common parent directory
+      CatalogBuilder.saveCatalog(allEntries, commonParent, basename);
 
       return 0;
     } catch (Exception e) {

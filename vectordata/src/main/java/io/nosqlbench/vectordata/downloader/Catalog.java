@@ -159,6 +159,9 @@ public record Catalog(List<DatasetEntry> datasets) {
 
   private static String dirNameOfPath(URL path) {
     String[] parts = path.toString().split("/");
+    if (parts[parts.length - 1].equalsIgnoreCase("dataset.yaml")) {
+      return parts[parts.length - 2];
+    }
     return parts[parts.length - 1];
   }
 

@@ -1,30 +1,35 @@
-# I keep having to tell the agent to stop putting special handling into non-test code for tests.
-# I see the agent remove methods which I have added which are very specifically the point of
-# certain design decisions. This is frustrating.
-# When the agent is no longer able to continue due to contest length, or prompt, or whatever,
-# resuming state in a new session is very painful.
-# I should be able to have a file at the root of the project that the agent consults by default to 
-# include my own directives. I would put things like this.
-#
-# UI
-# Lack of responsiveness in the Augment chat panel is *extremely* annoying. I tend to move rather
-# quickly and use many features of the IDE. It's like a suit of armor. So having a piece of it fail
-# in such a way is worse than not having it. At least I could continue working on my own.
-#
-# In general the speed of processing *when the agent knows what it wants to do* is still quite bad.
-# It may be that you have to put more state handling into the client side to delegate basic
-#  edits, chunking, etc to if these are round-tripping to the server endpoint now.
-#
-# `The selected text exceeds the allowable limit. Please reduce the amount of text and try again.`
-# - really freakin annoying, hope the fix promised in the next version works well
+- |
+  These directions are to be followed by any agent acting on this project directory. 
+  These directions apply to any and all files, projects, or modules contained within 
+  this directory.
 
+- |
+  Do not add extra features or fields to non-test classes which are not needed to meet 
+  requirements, when specified in this way. Do not assume that new features are needed 
+  unless they are directly specified or strongly implied by related requirements, 
+  whether given in requirements comments or in chat.
 - |
   When you see an double slash comment starting with the word REQUIREMENT, interpret it as a hard
   and absolute requirement. Do not implement any other code or test which violates the requirement.
 - |
+  When you see a section in any Java test files with the section or heading named 
+  requirement or requirements, take it as a hard and absolute requirement. Do not implement any 
+  other code or test which violates the requirement.
+- |
+  Do not remove any comment or line which contains the word REQUIREMENT. Do not remove 
+  any documentation section named requirement or similar terms. Do not remove any 
+  related subsections or sub-headings.
+- |
   When adding javadoc, always use markdown style comments with triple-slashes. Do not mix 
   classic javadoc format and markdown style comments. Only modify or add javadoc to public 
   members which are supposed to be documented. Do not reformat ad-hoc comments on private elements.
+- |
+  When requirements are found and tests are created for requirements, ensure that each 
+  and every requirement is tested.
+- |
+  Favor building native test fixtures in the code base rather than pulling in Mockito 
+  for tests. Only use mockito for things which are difficult to test because fixtures 
+  require remote system views, like wire protocols or other complex testing scenarios.
 - |
   Assume that maven is being used.
 - |

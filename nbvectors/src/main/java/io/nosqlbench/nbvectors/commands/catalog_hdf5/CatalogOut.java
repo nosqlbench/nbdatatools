@@ -74,9 +74,15 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   ///     the files and directories to load
   /// @param commonParent
   ///     the common parent directory to use for path relativization
+  /// @param basename
+  ///     the basename to use for catalog files (default: "catalog")
   /// @return a catalog
-  public static CatalogOut loadAll(List<Path> paths, Path commonParent) {
-    List<Map<String, Object>> entries = new ArrayList<>();
+  public static CatalogOut loadAll(List<Path> paths, Path commonParent, String basename) {
+    if (basename == null || basename.isEmpty()) {
+      basename = "catalog";
+    }
+
+    // Map to store catalog entries by directory
     Map<Path, List<Map<String, Object>>> catalogsByDirectory = new HashMap<>();
 
     // Process each path
@@ -91,11 +97,13 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
       } else if (Files.isRegularFile(path) && path.toString().endsWith(".hdf5")) {
         // Add HDF5 file to the catalog
         Map<String, Object> fileEntry = loadHdf5File(path);
-        entries.add(fileEntry);
 
         // Add to the parent directory's catalog
         Path parentDir = path.getParent();
         catalogsByDirectory.computeIfAbsent(parentDir, k -> new ArrayList<>()).add(fileEntry);
+
+        // Add to all parent directories' catalogs
+        addEntryToParentCatalogs(parentDir, fileEntry, catalogsByDirectory);
       } else {
         throw new RuntimeException("not a file or directory: " + path);
       }
@@ -109,19 +117,29 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
       // Create and save catalog for this directory
       CatalogOut dirCatalog = new CatalogOut(dirEntries);
       try {
-        dirCatalog.save(directory.resolve("catalog.json"));
+        // Save with the specified basename
+        dirCatalog.save(directory.resolve(basename + ".json"));
       } catch (Exception e) {
         logger.warn("Failed to save catalog for directory: {}", directory, e);
       }
     }
 
+    // Get the entries for the common parent directory
+    List<Map<String, Object>> topLevelEntries = catalogsByDirectory.getOrDefault(commonParent, new ArrayList<>());
+
     // Return the top-level catalog
-    return new CatalogOut(entries);
+    return new CatalogOut(topLevelEntries);
+  }
+
+  /// Overloaded method for backward compatibility
+  public static CatalogOut loadAll(List<Path> paths, Path commonParent) {
+    return loadAll(paths, commonParent, "catalog");
   }
 
   /**
    * Recursively processes a directory to find dataset.yaml files and .hdf5 files.
    * If a directory contains a dataset.yaml file, it's treated as a dataset root and not traversed further.
+   * Creates catalog entries for each directory level.
    *
    * @param directory The directory to process
    * @param catalogsByDirectory Map to store catalog entries by directory
@@ -131,6 +149,14 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   private static List<Map<String, Object>> processDirectoryRecursively(Path directory,
                                                                      Map<Path, List<Map<String, Object>>> catalogsByDirectory) throws IOException {
     List<Map<String, Object>> entries = new ArrayList<>();
+
+    // Ensure the directory exists
+    if (!Files.exists(directory)) {
+      throw new RuntimeException("not a file or directory: " + directory);
+    }
+
+    // Ensure this directory has an entry in the catalogs map
+    catalogsByDirectory.computeIfAbsent(directory, k -> new ArrayList<>());
 
     // Check if this directory contains a dataset.yaml file
     Path datasetYamlPath = directory.resolve("dataset.yaml");
@@ -143,12 +169,10 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
       catalogsByDirectory.computeIfAbsent(directory, k -> new ArrayList<>()).add(datasetEntry);
 
       // Add to parent directories' catalogs
-      Path commonParent = findCommonParent(catalogsByDirectory.keySet());
       addEntryToParentCatalogs(directory, datasetEntry, catalogsByDirectory);
     } else {
       // This is not a dataset root, traverse it to find .hdf5 files and subdirectories
       final List<Map<String, Object>> dirEntries = new ArrayList<>();
-      final Map<Path, List<Map<String, Object>>> subdirCatalogs = new HashMap<>();
 
       Files.walkFileTree(directory, Set.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
         @Override
@@ -157,6 +181,9 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
           if (dir.equals(directory)) {
             return FileVisitResult.CONTINUE;
           }
+
+          // Ensure this directory has an entry in the catalogs map
+          catalogsByDirectory.computeIfAbsent(dir, k -> new ArrayList<>());
 
           // Check if this directory contains a dataset.yaml file
           Path datasetYaml = dir.resolve("dataset.yaml");
@@ -169,7 +196,6 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
             catalogsByDirectory.computeIfAbsent(dir, k -> new ArrayList<>()).add(datasetEntry);
 
             // Add to parent directories' catalogs
-            Path commonParent = findCommonParent(catalogsByDirectory.keySet());
             addEntryToParentCatalogs(dir, datasetEntry, catalogsByDirectory);
 
             // Don't traverse further into this directory
@@ -190,7 +216,6 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
             catalogsByDirectory.computeIfAbsent(parentDir, k -> new ArrayList<>()).add(fileEntry);
 
             // Add to parent directories' catalogs
-            Path commonParent = findCommonParent(catalogsByDirectory.keySet());
             addEntryToParentCatalogs(parentDir, fileEntry, catalogsByDirectory);
           }
           return FileVisitResult.CONTINUE;
@@ -198,12 +223,8 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
 
         @Override
         public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-          // After visiting a directory, create a catalog for it if it has entries
-          List<Map<String, Object>> dirCatalog = catalogsByDirectory.get(dir);
-          if (dirCatalog != null && !dirCatalog.isEmpty()) {
-            // Store this directory's catalog for later reference
-            subdirCatalogs.put(dir, new ArrayList<>(dirCatalog));
-          }
+          // Ensure all directories have an entry in the catalogs map, even if empty
+          catalogsByDirectory.computeIfAbsent(dir, k -> new ArrayList<>());
           return FileVisitResult.CONTINUE;
         }
 
@@ -215,7 +236,14 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
       });
 
       entries.addAll(dirEntries);
+
+      // Add all entries to this directory's catalog
       catalogsByDirectory.computeIfAbsent(directory, k -> new ArrayList<>()).addAll(dirEntries);
+
+      // Also add all entries to parent directories' catalogs
+      for (Map<String, Object> entry : dirEntries) {
+        addEntryToParentCatalogs(directory, entry, catalogsByDirectory);
+      }
     }
 
     return entries;
@@ -223,7 +251,7 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
 
   /**
    * Adds an entry to all parent directories' catalogs with properly relativized paths.
-   * Only adds to parent directories that are at or below the common parent directory.
+   * Adds to all parent directories up to the root.
    *
    * @param entryDir The directory containing the entry
    * @param entry The entry to add to parent catalogs
@@ -234,65 +262,58 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
     // Start with the parent of the entry directory
     Path currentDir = entryDir.getParent();
 
-    // Get the common parent directory (the first key in the map that is not a child of any other key)
-    Path commonParent = findCommonParent(catalogsByDirectory.keySet());
-
-    // If no common parent is found, use the root directory
-    if (commonParent == null) {
-      commonParent = Path.of("/");
+    // If there's no parent directory, we're done
+    if (currentDir == null) {
+      return;
     }
 
-    // Normalize paths for comparison
-    Path normalizedCommonParent = commonParent.toAbsolutePath().normalize();
+    // Determine the target path (what we need to relativize)
+    Path targetPath;
+    if (entry.containsKey("path")) {
+      // If the entry has a path, use it to determine the target
+      String pathStr = entry.get("path").toString();
+      Path entryPath = Path.of(pathStr);
 
-    while (currentDir != null) {
-      // Only add to parent directories that are at or below the common parent
-      Path normalizedCurrentDir = currentDir.toAbsolutePath().normalize();
-      if (!isSubPathOf(normalizedCurrentDir, normalizedCommonParent)) {
-        // We've gone above the common parent, stop
-        break;
-      }
-      // Create a copy of the entry for this directory level
-      Map<String, Object> relativizedEntry = new HashMap<>(entry);
-
-      // Determine the target path (what we need to relativize)
-      Path targetPath;
-      if (entry.containsKey("path")) {
-        // If the entry has a path, use it to determine the target
-        String pathStr = entry.get("path").toString();
-        Path entryPath = Path.of(pathStr);
-
-        if (entryPath.isAbsolute()) {
-          // If the path is absolute, use it directly
-          targetPath = entryPath;
-        } else {
-          // If the path is relative, resolve it against the entry directory
-          targetPath = entryDir.resolve(entryPath);
-        }
+      if (entryPath.isAbsolute()) {
+        // If the path is absolute, use it directly
+        targetPath = entryPath;
       } else {
-        // If there's no path, use the entry directory itself
-        targetPath = entryDir;
+        // If the path is relative, resolve it against the entry directory
+        targetPath = entryDir.resolve(entryPath);
       }
+    } else {
+      // If there's no path, use the entry directory itself
+      targetPath = entryDir;
+    }
 
+    // Make the target path absolute for consistent relativization
+    Path absoluteTargetPath = targetPath.toAbsolutePath().normalize();
+
+    // Add to each parent directory up to the root
+    while (currentDir != null) {
       try {
-        // Make both paths absolute to ensure proper relativization
+        // Create a copy of the entry for this directory level
+        Map<String, Object> relativizedEntry = new HashMap<>(entry);
+
+        // Make the current directory absolute for consistent relativization
         Path absoluteCurrentDir = currentDir.toAbsolutePath().normalize();
-        Path absoluteTargetPath = targetPath.toAbsolutePath().normalize();
 
-        // Determine if the target is directly in the current directory or in a subdirectory
-        Path parent = absoluteTargetPath.getParent();
-
-        if (parent != null && parent.equals(absoluteCurrentDir)) {
-          // If the target is directly in the current directory, use just the filename
-          relativizedEntry.put("path", absoluteTargetPath.getFileName().toString());
-        } else {
-          // If the target is in a subdirectory, use the relative path from the current directory
-          Path relativePath = absoluteCurrentDir.relativize(absoluteTargetPath);
-          relativizedEntry.put("path", relativePath.toString());
-        }
+        // Relativize the target path against the current directory
+        Path relativePath = absoluteCurrentDir.relativize(absoluteTargetPath);
+        relativizedEntry.put("path", relativePath.toString());
 
         // Add the relativized entry to the current directory's catalog
-        catalogsByDirectory.computeIfAbsent(currentDir, k -> new ArrayList<>()).add(relativizedEntry);
+        // Use computeIfAbsent to ensure the directory has an entry in the map
+        List<Map<String, Object>> dirEntries = catalogsByDirectory.computeIfAbsent(currentDir, k -> new ArrayList<>());
+
+        // Check if an entry with the same path already exists to avoid duplicates
+        boolean entryExists = dirEntries.stream()
+            .anyMatch(e -> e.containsKey("path") &&
+                     e.get("path").equals(relativizedEntry.get("path")));
+
+        if (!entryExists) {
+            dirEntries.add(relativizedEntry);
+        }
       } catch (IllegalArgumentException e) {
         // If relativization fails, log and skip this entry for this directory
         logger.debug("Could not relativize path for parent catalog: {} -> {}", currentDir, targetPath, e);
@@ -419,19 +440,23 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
 
   private static Map<String, Object> loadDatasetYaml(Path layoutPath) {
     TestGroupLayout layout = TestGroupLayout.load(layoutPath);
-    return Map.of("layout",layout.toData(),"path",layoutPath.getParent().toString());
+    // Use the parent directory name as the path, not the full path
+    // The path will be properly relativized later in addEntryToParentCatalogs and save methods
+    return Map.of("layout",layout.toData(),"path",layoutPath.toString());
   }
 
   private static Map<String, Object> loadHdf5File(Path path) {
     try {
       Map<String, Object> map = jsonSummarizer.describeFile(path);
       // Add the path to the map for reference
+      // The path will be properly relativized later in addEntryToParentCatalogs and save methods
       map.put("path", path.toString());
       return map;
     } catch (Exception e) {
       // For invalid HDF5 files, create a minimal entry instead of failing
       logger.warn("Could not read HDF5 file as valid HDF5: {} ({})", path, e.getMessage());
       Map<String, Object> map = new HashMap<>();
+      // The path will be properly relativized later in addEntryToParentCatalogs and save methods
       map.put("path", path.toString());
       map.put("error", "Invalid HDF5 file: " + e.getMessage());
       try {
@@ -458,19 +483,17 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
       // Get the absolute path of the catalog directory
       Path absoluteCatalogDir = catalogDir != null ? catalogDir.toAbsolutePath().normalize() : Path.of(".").toAbsolutePath().normalize();
 
-      // Remove duplicate entries by using a Map with path as the key
-      Map<String, Map<String, Object>> uniqueEntries = new HashMap<>();
+      // Create a new list for relativized entries
+      List<Map<String, Object>> relativeEntries = new ArrayList<>();
 
       // Process all entries to ensure paths are correctly relativized
       for (Map<String, Object> entry : this) {
+        // Create a copy of the entry for relativization
+        Map<String, Object> relativizedEntry = new HashMap<>(entry);
+
         if (entry.containsKey("path")) {
           String pathStr = entry.get("path").toString();
-
-          // Create a path object from the path string
           Path entryPath = Path.of(pathStr);
-
-          // Create a copy of the entry for relativization
-          Map<String, Object> relativizedEntry = new HashMap<>(entry);
 
           // Determine the absolute path of the entry
           Path absoluteEntryPath;
@@ -479,7 +502,6 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
             absoluteEntryPath = entryPath.normalize();
           } else {
             // If the path is relative, resolve it against the catalog directory
-            // This handles the case where the entry path is already relative to the catalog directory
             absoluteEntryPath = absoluteCatalogDir.resolve(entryPath).normalize();
           }
 
@@ -488,21 +510,15 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
             Path relativePath = absoluteCatalogDir.relativize(absoluteEntryPath);
             relativizedEntry.put("path", relativePath.toString());
           } catch (IllegalArgumentException e) {
-            // If relativization fails, keep the original path
-            logger.debug("Could not relativize path: {} against catalog directory: {}", absoluteEntryPath, absoluteCatalogDir, e);
+            // If relativization fails, keep the original path but log a warning
+            logger.warn("Could not relativize path: {} against catalog directory: {}", absoluteEntryPath, absoluteCatalogDir);
             relativizedEntry.put("path", pathStr);
           }
-
-          // Add the entry to the unique entries map using the path as the key
-          uniqueEntries.put(relativizedEntry.get("path").toString(), relativizedEntry);
-        } else {
-          // If the entry doesn't have a path, add it as is
-          uniqueEntries.put("entry_" + uniqueEntries.size(), entry);
         }
-      }
 
-      // Convert the unique entries map to a list
-      List<Map<String, Object>> relativeEntries = new ArrayList<>(uniqueEntries.values());
+        // Add the relativized entry to the list
+        relativeEntries.add(relativizedEntry);
+      }
 
       // Create a new CatalogOut with the relativized entries
       CatalogOut relativeCatalog = new CatalogOut(relativeEntries);
