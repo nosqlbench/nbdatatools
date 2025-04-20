@@ -85,16 +85,6 @@ public class TestMerklePainter extends MerklePainter {
             }
 
             @Override
-            public BitSet getIntactChunks() {
-                return testPaneImpl.getIntactChunks();
-            }
-
-            @Override
-            public MerklePane.MerkleBits getMerkleBits() {
-                return testPaneImpl.getMerkleBits();
-            }
-
-            @Override
             public ByteBuffer readChunk(int chunkIndex) throws IOException {
                 return testPaneImpl.readChunk(chunkIndex);
             }

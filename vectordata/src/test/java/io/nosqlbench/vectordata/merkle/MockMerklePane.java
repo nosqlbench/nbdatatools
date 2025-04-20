@@ -100,16 +100,6 @@ public class MockMerklePane extends MerklePane {
     }
 
     @Override
-    public BitSet getIntactChunks() {
-        return new BitSet(); // Not used in tests
-    }
-
-    @Override
-    public MerkleBits getMerkleBits() {
-        return new MerkleBits(new BitSet()); // Not used in tests
-    }
-
-    @Override
     public ByteBuffer readChunk(int chunkIndex) throws IOException {
         // Create a mock chunk
         MerkleTree.NodeBoundary bounds = testPane.getMerkleTree().getBoundariesForLeaf(chunkIndex);

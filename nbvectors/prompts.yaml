@@ -1,0 +1,46 @@
+# I keep having to tell the agent to stop putting special handling into non-test code for tests.
+# I see the agent remove methods which I have added which are very specifically the point of
+# certain design decisions. This is frustrating.
+# When the agent is no longer able to continue due to contest length, or prompt, or whatever,
+# resuming state in a new session is very painful.
+# I should be able to have a file at the root of the project that the agent consults by default to 
+# include my own directives. I would put things like this.
+#
+# UI
+# Lack of responsiveness in the Augment chat panel is *extremely* annoying. I tend to move rather
+# quickly and use many features of the IDE. It's like a suit of armor. So having a piece of it fail
+# in such a way is worse than not having it. At least I could continue working on my own.
+#
+# In general the speed of processing *when the agent knows what it wants to do* is still quite bad.
+# It may be that you have to put more state handling into the client side to delegate basic
+#  edits, chunking, etc to if these are round-tripping to the server endpoint now.
+#
+# `The selected text exceeds the allowable limit. Please reduce the amount of text and try again.`
+# - really freakin annoying, hope the fix promised in the next version works well
+
+- |
+  When you see an double slash comment starting with the word REQUIREMENT, interpret it as a hard
+  and absolute requirement. Do not implement any other code or test which violates the requirement.
+- |
+  When adding javadoc, always use markdown style comments with triple-slashes. Do not mix 
+  classic javadoc format and markdown style comments. Only modify or add javadoc to public 
+  members which are supposed to be documented. Do not reformat ad-hoc comments on private elements.
+- |
+  Assume that maven is being used.
+- |
+  Assume that the latest version of any dependency is being used. Do not use old or stale 
+  information when determining how to use a version of a library dependency.
+- |
+  Do not add special code to non-test classes to make a test pass. This is in violation of 
+  basic testing principles.
+- |
+  Changing non-test code to make a test pass is only valid if it constitutes a design change or 
+  implementation fix. Anything that is a major change should be confirmed wiht me first.
+- |
+  When a file needs to be created as a testing asset, it should always go under the 
+  src/test/resource path, and any tests associated with it should presume that as the logical 
+  root of tests. Access to these files should be granted via the system class loader as a resource
+  stream.
+- |
+  Do not assume that slf4j is in use. Actually assume it is not in use and do not add any slf4j 
+  code to this project.

@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.merkle;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -18,6 +18,10 @@ package io.nosqlbench.vectordata.merkle;
  */
 
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -182,5 +186,113 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
             }
         }
         return true;
+    }
+
+    /**
+     * Reads a MerkleFooter from a remote URL.
+     *
+     * @param url The URL to read from
+     * @return The MerkleFooter
+     * @throws IOException If there's an error reading the footer
+     */
+    public static MerkleFooter fromRemoteUrl(URL url) throws IOException {
+
+        // Step 1: Get the size of the remote file using a HEAD request
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("HEAD");
+        connection.setConnectTimeout(5000); // 5 second timeout
+        connection.setReadTimeout(5000);    // 5 second timeout
+        connection.connect();
+
+        // Check if the request was successful
+        int responseCode = connection.getResponseCode();
+        if (responseCode != HttpURLConnection.HTTP_OK) {
+            throw new IOException("Failed to get file size: HTTP " + responseCode);
+        }
+
+        // Get the file size
+        long remoteFileSize = connection.getContentLengthLong();
+        if (remoteFileSize <= 0) {
+            throw new IOException("Invalid file size: " + remoteFileSize);
+        }
+
+        // Step 2: Read the last 1KB of the file (or the entire file if it's smaller than 1KB)
+        int readSize = (int) Math.min(1024, remoteFileSize);
+        long startPosition = remoteFileSize - readSize;
+
+        // Set up the connection for a ranged GET request
+        connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Range", "bytes=" + startPosition + "-" + (remoteFileSize - 1));
+        connection.setConnectTimeout(5000); // 5 second timeout
+        connection.setReadTimeout(5000);    // 5 second timeout
+        connection.connect();
+
+        // Check if the server supports range requests
+        responseCode = connection.getResponseCode();
+        ByteBuffer buffer;
+
+        if (responseCode == HttpURLConnection.HTTP_PARTIAL) {
+            // Range request succeeded
+            try (InputStream inputStream = connection.getInputStream()) {
+                buffer = ByteBuffer.allocate(readSize);
+                byte[] bytes = new byte[readSize];
+                int bytesRead = inputStream.read(bytes);
+                if (bytesRead > 0) {
+                    buffer.put(bytes, 0, bytesRead);
+                }
+                buffer.flip();
+            }
+        } else {
+            // Range request failed, read the entire file
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000); // 5 second timeout
+            connection.setReadTimeout(5000);    // 5 second timeout
+            connection.connect();
+
+            responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                throw new IOException("Failed to read file: HTTP " + responseCode);
+            }
+
+            try (InputStream inputStream = connection.getInputStream()) {
+                // Read the entire file into memory
+                byte[] bytes = inputStream.readAllBytes();
+                // If the file is larger than 1KB, only keep the last 1KB
+                if (bytes.length > 1024) {
+                    buffer = ByteBuffer.allocate(1024);
+                    buffer.put(bytes, bytes.length - 1024, 1024);
+                } else {
+                    buffer = ByteBuffer.allocate(bytes.length);
+                    buffer.put(bytes);
+                }
+                buffer.flip();
+            }
+        }
+
+        // Step 3: Read the footer length from the last byte
+        if (buffer.remaining() == 0) {
+            throw new IOException("Empty buffer read from URL");
+        }
+
+        // Get the last byte which contains the footer length
+        byte footerLength = buffer.get(buffer.limit() - 1);
+
+        // Step 4: Extract the footer data based on the footer length
+        if (footerLength <= 0 || footerLength > buffer.remaining()) {
+            // Invalid footer length, try to create a default footer
+            return fromByteBuffer(buffer);
+        }
+
+        // Create a new buffer with just the footer data
+        ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+        int startPos = buffer.limit() - footerLength;
+        buffer.position(startPos);
+        footerBuffer.put(buffer);
+        footerBuffer.flip();
+
+        // Step 5: Create a new MerkleFooter object from the extracted data
+        return fromByteBuffer(footerBuffer);
     }
 }

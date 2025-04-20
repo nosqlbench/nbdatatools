@@ -53,8 +53,6 @@ import static io.nosqlbench.vectordata.merkle.MerklePane.MRKL;
 
 /// MerklePainter is an active wrapper around a MerklePane which knows how
 /// to download and submit ("paint") chunks to the MerklePane as needed.
-/// It relays minimal from MerklePane in the form of the intact chunks bitset.
-/// This provides a simple and complete view of chunk state for callers.
 public class MerklePainter implements Closeable {
   private final MerklePane pane;
   private final String sourcePath;

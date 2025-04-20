@@ -34,7 +34,6 @@ public class TestMerklePaneImpl {
     private final Path merklePath;
     private final MerkleTree merkleTree;
     private final BitSet intactChunks;
-    private final MerklePane.MerkleBits merkleBits;
 
     public TestMerklePaneImpl(TestMerklePane testPane, Path dataPath, Path merklePath) {
         this.testPane = testPane;
@@ -42,7 +41,6 @@ public class TestMerklePaneImpl {
         this.merklePath = merklePath;
         this.merkleTree = testPane.getMerkleTree();
         this.intactChunks = new BitSet();
-        this.merkleBits = new MerklePane.MerkleBits(intactChunks);
     }
 
     public MerkleTree getMerkleTree() {
@@ -79,10 +77,6 @@ public class TestMerklePaneImpl {
 
     public BitSet getIntactChunks() {
         return intactChunks;
-    }
-
-    public MerklePane.MerkleBits getMerkleBits() {
-        return merkleBits;
     }
 
     public ByteBuffer readChunk(int chunkIndex) throws IOException {

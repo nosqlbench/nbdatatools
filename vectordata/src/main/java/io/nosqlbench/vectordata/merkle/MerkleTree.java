@@ -18,9 +18,14 @@ package io.nosqlbench.vectordata.merkle;
  */
 
 
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
@@ -426,6 +431,124 @@ public class MerkleTree {
         return load(path, -1); // Use the totalSize from the footer
     }
 
+    /// Synchronizes a local file with a remote URL and returns the MerkleTree.
+    ///
+    /// This method ensures that the local path contains the same contents as the remote
+    /// by comparing the sizes and merkle footers. If they don't match, it downloads the entire file.
+    ///
+    /// @param remoteUrl The URL of the remote file to sync with
+    /// @param localPath The path where the local file should be stored
+    /// @return The MerkleTree for the synchronized file
+    /// @throws IOException If there's an error during synchronization
+    public static MerkleTree sync(URL remoteUrl, Path localPath) throws IOException {
+        // Create parent directories if they don't exist
+        Files.createDirectories(localPath.getParent());
+
+        // Derive the merkle file paths
+        String fileName = localPath.getFileName().toString();
+        Path localMerklePath = localPath.resolveSibling(fileName + ".mrkl");
+
+        // Get the remote merkle tree URL
+        URL remoteMerkleUrl = new URL(remoteUrl.toString() + ".mrkl");
+
+        // Get the remote merkle footer
+        MerkleFooter remoteFooter;
+        try {
+            remoteFooter = MerkleFooter.fromRemoteUrl(remoteMerkleUrl);
+        } catch (IOException e) {
+            throw new IOException("Failed to get remote merkle footer: " + e.getMessage(), e);
+        }
+
+        // Check if the local files exist
+        boolean localFileExists = Files.exists(localPath);
+        boolean localMerkleExists = Files.exists(localMerklePath);
+        boolean needsDownload = true;
+
+        // If both local files exist, check if they match the remote
+        if (localFileExists && localMerkleExists) {
+            try {
+                // Check if the file sizes match
+                long localFileSize = Files.size(localPath);
+
+                if (localFileSize == remoteFooter.totalSize()) {
+                    // Load the local merkle tree
+                    MerkleTree localTree = load(localMerklePath);
+
+                    // Get the footer from the local merkle file
+                    MerkleFooter localFooter = null;
+                    try (FileChannel channel = FileChannel.open(localMerklePath, StandardOpenOption.READ)) {
+                        long fileSize = channel.size();
+                        if (fileSize > 0) {
+                            // Read the footer length (last byte)
+                            ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
+                            channel.position(fileSize - 1);
+                            channel.read(footerLengthBuffer);
+                            footerLengthBuffer.flip();
+                            byte footerLength = footerLengthBuffer.get();
+
+                            // Read the footer
+                            if (footerLength > 0 && footerLength <= fileSize) {
+                                ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+                                channel.position(fileSize - footerLength);
+                                channel.read(footerBuffer);
+                                footerBuffer.flip();
+                                localFooter = MerkleFooter.fromByteBuffer(footerBuffer);
+                            }
+                        }
+                    }
+
+                    // Compare the footers
+                    if (localFooter != null &&
+                        localFooter.chunkSize() == remoteFooter.chunkSize() &&
+                        localFooter.totalSize() == remoteFooter.totalSize() &&
+                        Arrays.equals(localFooter.digest(), remoteFooter.digest())) {
+                        // Files are identical, load and return the local tree
+                        needsDownload = false;
+                    }
+                }
+            } catch (IOException e) {
+                // Error checking local files, proceed with download
+            }
+        }
+
+        // Download the file if needed
+        if (needsDownload) {
+            downloadFile(remoteUrl, localPath);
+            downloadFile(remoteMerkleUrl, localMerklePath);
+        }
+
+        // Load and return the merkle tree
+        return load(localMerklePath);
+    }
+
+    /// Downloads a file from a URL to a local path.
+    ///
+    /// @param url The URL of the file to download
+    /// @param localPath The path where the file should be saved
+    /// @throws IOException If there's an error downloading the file
+    private static void downloadFile(URL url, Path localPath) throws IOException {
+
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.connect();
+
+        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+            throw new IOException("Failed to download file: HTTP " + connection.getResponseCode());
+        }
+
+        // Create parent directories if they don't exist
+        Files.createDirectories(localPath.getParent());
+
+        // Download the file
+        try (InputStream in = connection.getInputStream();
+             FileOutputStream out = new FileOutputStream(localPath.toFile())) {
+            byte[] buffer = new byte[8192]; // 8KB buffer
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1) {
+                out.write(buffer, 0, bytesRead);
+            }
+        }
+    }
+
     /// Loads a Merkle tree from a file with a specified virtual size.
     ///
     /// Reads the leaf node hashes and footer information to reconstruct the tree.
@@ -698,6 +821,92 @@ public class MerkleTree {
         return mismatches;
     }
 
+    /**
+     * Compares this tree with another within a specific range of chunk indexes and returns
+     * an array of chunk indexes that don't match.
+     *
+     * Uses the Merkle tree structure to efficiently identify differences without
+     * comparing all chunks individually.
+     *
+     * @param other The tree to compare against
+     * @param startChunkIndex The start of the chunk index range (inclusive)
+     * @param endChunkIndex The end of the chunk index range (exclusive)
+     * @return Array of chunk indexes that don't match
+     * @throws IllegalArgumentException if trees have incompatible properties or if the index range is invalid
+     */
+    public int[] findMismatchedChunksInRange(MerkleTree other, int startChunkIndex, int endChunkIndex) {
+        // Validate compatibility
+        if (this.chunkSize != other.chunkSize) {
+            throw new IllegalArgumentException(
+                "Cannot compare trees with different chunk sizes: " + this.chunkSize + " vs "
+                + other.chunkSize);
+        }
+        if (this.totalSize != other.totalSize) {
+            throw new IllegalArgumentException(
+                "Cannot compare trees with different total sizes: " + this.totalSize + " vs "
+                + other.totalSize);
+        }
+
+        // Validate chunk index range
+        if (startChunkIndex < 0) {
+            throw new IllegalArgumentException("Start chunk index must be non-negative");
+        }
+        if (endChunkIndex <= startChunkIndex) {
+            throw new IllegalArgumentException("End chunk index must be greater than start chunk index");
+        }
+
+        // Calculate the maximum possible chunk index
+        int maxChunkIndex = (int) ((totalSize + chunkSize - 1) / chunkSize);
+        if (startChunkIndex >= maxChunkIndex) {
+            throw new IllegalArgumentException(
+                "Start chunk index " + startChunkIndex + " is out of range (max: " + (maxChunkIndex - 1) + ")");
+        }
+
+        // Adjust endChunkIndex if it exceeds the maximum
+        if (endChunkIndex > maxChunkIndex) {
+            endChunkIndex = maxChunkIndex;
+        }
+
+        // Check if the ranges overlap
+        MerkleRange commonRange = computedRange.intersection(other.computedRange());
+        if (commonRange == null) {
+            // No overlap, all chunks in the specified range that are within this tree's range differ
+            // Calculate the range of chunks that are in both the specified range and this tree's range
+            int treeStartChunk = getLeafIndex(computedRange.start());
+            int treeEndChunk = getLeafIndex(computedRange.end() - 1) + 1;
+
+            // Find the intersection of the specified range and this tree's range
+            int intersectStart = Math.max(startChunkIndex, treeStartChunk);
+            int intersectEnd = Math.min(endChunkIndex, treeEndChunk);
+
+            // If there's no intersection, return an empty array
+            if (intersectStart >= intersectEnd) {
+                return new int[0];
+            }
+
+            // Create an array with the mismatched chunks
+            int[] result = new int[intersectEnd - intersectStart];
+            for (int i = 0; i < result.length; i++) {
+                result[i] = intersectStart + i;
+            }
+            return result;
+        }
+
+        // Compare nodes recursively starting from roots, but only for the specified range
+        List<Integer> mismatches = new ArrayList<>();
+        compareTreesInRange(this.root, other.root, mismatches, startChunkIndex, endChunkIndex);
+
+        // Convert list to array
+        int[] result = new int[mismatches.size()];
+        for (int i = 0; i < mismatches.size(); i++) {
+            result[i] = mismatches.get(i);
+        }
+
+        // Sort the array for consistent output
+        Arrays.sort(result);
+        return result;
+    }
+
     /// Recursively compares two subtrees and collects mismatched chunks.
     ///
     /// @param node1 The first node to compare
@@ -757,6 +966,126 @@ public class MerkleTree {
 
         collectLeafMismatches(node.left(), mismatches);
         collectLeafMismatches(node.right(), mismatches);
+    }
+
+    /// Recursively compares two subtrees and collects mismatched chunks within a specific range.
+    ///
+    /// @param node1 The first node to compare
+    /// @param node2 The second node to compare
+    /// @param mismatches The list to collect mismatches in
+    /// @param startChunkIndex The start of the chunk index range (inclusive)
+    /// @param endChunkIndex The end of the chunk index range (exclusive)
+    private void compareTreesInRange(MerkleNode node1, MerkleNode node2, List<Integer> mismatches,
+                                    int startChunkIndex, int endChunkIndex) {
+        // If either node is null, consider their subtrees as mismatched
+        if (node1 == null || node2 == null) {
+            if (node1 != null) {
+                collectLeafMismatchesInRange(node1, mismatches, startChunkIndex, endChunkIndex);
+            }
+            if (node2 != null) {
+                collectLeafMismatchesInRange(node2, mismatches, startChunkIndex, endChunkIndex);
+            }
+            return;
+        }
+
+        // If hashes match, subtrees are identical
+        if (Arrays.equals(node1.hash(), node2.hash())) {
+            return;
+        }
+
+        // If we reach leaves, check if they're in the specified range
+        if (node1.isLeaf() && node2.isLeaf()) {
+            int index = node1.index();
+            if (index >= startChunkIndex && index < endChunkIndex) {
+                mismatches.add(index);
+            }
+            return;
+        }
+
+        // Check if this subtree could contain chunks in our range
+        boolean couldContainRange = false;
+
+        // For internal nodes, we need to determine if they could contain chunks in our range
+        if (node1.left() != null) {
+            // Find the min and max leaf indexes in this subtree
+            int minLeafIndex = findMinLeafIndex(node1);
+            int maxLeafIndex = findMaxLeafIndex(node1);
+
+            // Check if there's any overlap with our range
+            if (maxLeafIndex >= startChunkIndex && minLeafIndex < endChunkIndex) {
+                couldContainRange = true;
+            }
+        } else if (node1.isLeaf()) {
+            // For leaf nodes, just check if they're in range
+            int index = node1.index();
+            couldContainRange = (index >= startChunkIndex && index < endChunkIndex);
+        }
+
+        // Only recurse if this subtree could contain chunks in our range
+        if (couldContainRange) {
+            // Recurse into children
+            compareTreesInRange(node1.left(), node2.left(), mismatches, startChunkIndex, endChunkIndex);
+            compareTreesInRange(node1.right(), node2.right(), mismatches, startChunkIndex, endChunkIndex);
+        }
+    }
+
+    /// Collects all leaf mismatches from a subtree within a specific range.
+    ///
+    /// @param node The node to collect mismatches from
+    /// @param mismatches The list to collect mismatches in
+    /// @param startChunkIndex The start of the chunk index range (inclusive)
+    /// @param endChunkIndex The end of the chunk index range (exclusive)
+    private void collectLeafMismatchesInRange(MerkleNode node, List<Integer> mismatches,
+                                             int startChunkIndex, int endChunkIndex) {
+        if (node == null) {
+            return;
+        }
+
+        if (node.isLeaf()) {
+            int index = node.index();
+            if (index >= startChunkIndex && index < endChunkIndex) {
+                mismatches.add(index);
+            }
+            return;
+        }
+
+        collectLeafMismatchesInRange(node.left(), mismatches, startChunkIndex, endChunkIndex);
+        collectLeafMismatchesInRange(node.right(), mismatches, startChunkIndex, endChunkIndex);
+    }
+
+    /// Finds the minimum leaf index in a subtree.
+    ///
+    /// @param node The root of the subtree
+    /// @return The minimum leaf index in the subtree
+    private int findMinLeafIndex(MerkleNode node) {
+        if (node == null) {
+            return Integer.MAX_VALUE;
+        }
+
+        if (node.isLeaf()) {
+            return node.index();
+        }
+
+        return findMinLeafIndex(node.left());
+    }
+
+    /// Finds the maximum leaf index in a subtree.
+    ///
+    /// @param node The root of the subtree
+    /// @return The maximum leaf index in the subtree
+    private int findMaxLeafIndex(MerkleNode node) {
+        if (node == null) {
+            return Integer.MIN_VALUE;
+        }
+
+        if (node.isLeaf()) {
+            return node.index();
+        }
+
+        int leftMax = findMaxLeafIndex(node.left());
+        int rightMax = findMaxLeafIndex(node.right());
+
+        return Math.max(leftMax, rightMax);
     }
 
     /// Returns a new MessageDigest instance for SHA-256.
