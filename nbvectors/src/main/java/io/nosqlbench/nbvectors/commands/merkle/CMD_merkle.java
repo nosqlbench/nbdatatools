@@ -135,9 +135,8 @@ public class CMD_merkle implements Callable<Integer> {
       int numChunks = (int) ((fileSize + chunkSize - 1) / chunkSize);
       display.log("Processing file in %d chunks", numChunks);
 
-      // Create a thread pool with a reasonable number of threads
-      int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), numChunks);
-      display.log("Using %d threads for parallel processing", numThreads);
+      // Use virtual threads for per-task execution
+      display.log("Using virtual threads per task executor");
 
       // Estimate Merkle tree file size
       // Each leaf node has a 32-byte hash, and we need one leaf per chunk
@@ -174,9 +173,9 @@ public class CMD_merkle implements Callable<Integer> {
       
       // Create an empty Merkle tree for the file size and chunk size
       MerkleTree merkleTree = MerkleTree.createEmpty(fileSize, chunkSize);
-      // Concurrently compute leaf hashes
+      // Concurrently compute leaf hashes using virtual threads
       display.setStatus("Hashing chunks");
-      ExecutorService executor = Executors.newFixedThreadPool(Math.min(Runtime.getRuntime().availableProcessors(), numChunks));
+      ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
       AtomicInteger chunksDone = new AtomicInteger(0);
       byte[][] leafHashes = new byte[numChunks][];
       for (int i = 0; i < numChunks; i++) {
@@ -197,7 +196,10 @@ public class CMD_merkle implements Callable<Integer> {
             leafHashes[idx] = h;
             int done = chunksDone.incrementAndGet();
             display.setAction(String.format("Hashed %d/%d chunks", done, numChunks));
-            display.updateProgress(done, numChunks, done, numChunks);
+            // Update byte-level progress: accumulate actual bytes hashed and use file size for total
+            long chunkBytes = buf.limit();
+            long bp = bytesProcessed.addAndGet(chunkBytes);
+            display.updateProgress(bp, fileSize, done, numChunks);
           } catch (Exception e) {
             display.log("Error hashing chunk %d: %s", idx, e.getMessage());
           }
@@ -211,7 +213,8 @@ public class CMD_merkle implements Callable<Integer> {
       for (int idx = 0; idx < numChunks; idx++) {
         display.setAction(String.format("Updating tree %d/%d", idx + 1, numChunks));
         merkleTree.updateLeafHash(idx, leafHashes[idx]);
-        display.updateProgress(idx + 1, numChunks, idx + 1, numChunks);
+        // During tree update, show full byte progress and section progress
+        display.updateProgress(bytesProcessed.get(), fileSize, idx + 1, numChunks);
       }
       display.setAction("");
       
