@@ -52,7 +52,7 @@ public record FInterval(long minIncl, long maxExcl) {
   public static FInterval parse(String interval) {
     Matcher matcher = PATTERN.matcher(interval);
     if (matcher.matches()) {
-      String u1 = matcher.group("start").replaceAll("_", "");
+      String u1 = matcher.group("startInclusive").replaceAll("_", "");
       long start = UnitConversions.longCountFor(u1)
           .orElseThrow(() -> new RuntimeException("invalid intervals format:" + interval));
       if (matcher.group("end") == null) {
@@ -64,7 +64,7 @@ public record FInterval(long minIncl, long maxExcl) {
           .orElseThrow(() -> new RuntimeException("invalid " + "intervals format:" + interval));
       return new FInterval(start, end);
     }
-    throw new RuntimeException("invalid intervals format:" + interval + ", expected [start..end] "
+    throw new RuntimeException("invalid intervals format:" + interval + ", expected [startInclusive..end] "
                                + "or any similar pattern with optional ( or [, digits, .. or - or "
                                + "→, digits, and optional ) or ], like '[10..1000)', or '10 → 20' "
                                + "for example.");

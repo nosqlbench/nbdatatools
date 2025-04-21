@@ -1,26 +1,17 @@
 package io.nosqlbench.vectordata.merkle;
 
-/*
- * Copyright (c) nosqlbench
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
 
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import okio.BufferedSink;
+import okio.BufferedSource;
+import okio.Okio;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -32,1354 +23,647 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
+import java.nio.file.StandardCopyOption;
 
-import static io.nosqlbench.vectordata.merkle.MerkleNode.HASH_SIZE;
-
-/// Implements a Merkle tree (hash tree) for efficient data verification.
-///
-/// A Merkle tree is a binary tree where each leaf node contains a hash of a data chunk,
-/// and each internal node contains a hash of its children's hashes. This structure allows
-/// efficient verification of large data sets by comparing only the relevant branches.
+/**
+ ImplicitMerkleTree stores all node hashes in a flat array and tracks staleness in a BitSet.
+ It supports lazy recomputation of internal nodes when accessed. */
 public class MerkleTree {
+  /// SHA-256 hash size in bytes
+  public static final int HASH_SIZE = 32;
+  /// Shared MessageDigest instance for SHA-256 hashing
+  private static final MessageDigest DIGEST;
 
-    /// Shared MessageDigest instance for SHA-256 hashing
-    private static final MessageDigest DIGEST;
-    /// Root node of the Merkle tree
-    private final MerkleNode root;
-    /// Size of each data chunk in bytes (must be a power of 2)
-    private final long chunkSize;
-    /// Total size of the original data in bytes
-    private final long totalSize;
-    /// Range of data that this tree represents
-    private final MerkleRange computedRange;
-
-    static {
-        try {
-            DIGEST = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
+  static {
+    try {
+      DIGEST = MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException(e);
     }
+  }
 
-    /// Creates a new Merkle tree with the specified parameters.
-    ///
-    /// @param root The root node of the tree
-    /// @param chunkSize The size of each data chunk in bytes (must be a power of 2)
-    /// @param totalSize The total size of the original data in bytes
-    /// @param computedRange The range of data that this tree represents
-    /// @throws IllegalArgumentException if chunkSize is not a power of 2
-    public MerkleTree(MerkleNode root, long chunkSize, long totalSize, MerkleRange computedRange) {
-        if (!isPowerOfTwo(chunkSize)) {
-            throw new IllegalArgumentException("Chunk size must be a power of two, got: " + chunkSize);
-        }
-        this.root = root;
-        this.chunkSize = chunkSize;
-        this.totalSize = totalSize;
-        this.computedRange = computedRange;
+  private final byte[][] hashes;
+  private final BitSet valid;
+  private final int leafCount;
+  private final int capLeaf;
+  private final int offset;
+  private final long chunkSize;
+  private final long totalSize;
+
+  /**
+   Builds a Merkle tree from raw data buffer.
+   All nodes are fully computed and marked valid.
+   */
+  public static MerkleTree fromData(ByteBuffer data, long chunkSize, MerkleRange range) {
+    // Validate chunkSize: must be positive power-of-two
+    if (chunkSize <= 0 || Long.bitCount(chunkSize) != 1) {
+      throw new IllegalArgumentException("Chunk size must be a power of two: " + chunkSize);
     }
-
-    /// Checks if a number is a power of 2.
-    ///
-    /// @param n The number to check
-    /// @return true if n is a power of 2, false otherwise
-    private static boolean isPowerOfTwo(long n) {
-        return n > 0 && (n & (n - 1)) == 0;
+    int leafCount = (int) Math.ceil((double) range.length() / chunkSize);
+    int cap = 1;
+    while (cap < leafCount)
+      cap <<= 1;
+    int nodeCount = 2 * cap - 1;
+    byte[][] hashes = new byte[nodeCount][HASH_SIZE];
+    BitSet valid = new BitSet(nodeCount);
+    int offset = cap - 1;
+    // compute leaf hashes
+    for (int i = 0; i < cap; i++) {
+      ByteBuffer slice;
+      if (i < leafCount) {
+        int start = i * (int) chunkSize;
+        int len = (int) Math.min(chunkSize, range.length() - start);
+        slice = ByteBuffer.allocate(len);
+        data.position(start);
+        data.limit(start + len);
+        slice.put(data);
+        slice.flip();
+      } else {
+        slice = ByteBuffer.allocate(0);
+      }
+      DIGEST.reset();
+      DIGEST.update(slice.duplicate());
+      hashes[offset + i] = DIGEST.digest();
+      valid.set(offset + i);
     }
-
-    /// Gets the root node of the tree.
-    ///
-    /// @return The root node
-    public MerkleNode root() {
-        return root;
+    // compute internal nodes
+    for (int idx = offset - 1; idx >= 0; idx--) {
+      int left = 2 * idx + 1;
+      int right = left + 1;
+      DIGEST.reset();
+      DIGEST.update(hashes[left]);
+      if (right < nodeCount)
+        DIGEST.update(hashes[right]);
+      hashes[idx] = DIGEST.digest();
+      valid.set(idx);
     }
+    return new MerkleTree(hashes, valid, leafCount, cap, offset, chunkSize, range.length());
+  }
 
-    /// Gets the chunk size used by this tree.
-    ///
-    /// @return The chunk size in bytes
-    public long chunkSize() {
-        return chunkSize;
+  /**
+   Creates an empty (all stale) Merkle tree for given size.
+   */
+  public static MerkleTree createEmpty(long totalSize, long chunkSize) {
+    // Validate chunkSize: must be positive power-of-two
+    if (chunkSize <= 0 || Long.bitCount(chunkSize) != 1) {
+      throw new IllegalArgumentException("Chunk size must be a power of two: " + chunkSize);
     }
+    int leafCount = (int) Math.ceil((double) totalSize / chunkSize);
+    int cap = 1;
+    while (cap < leafCount)
+      cap <<= 1;
+    int nodeCount = 2 * cap - 1;
+    byte[][] hashes = new byte[nodeCount][HASH_SIZE];
+    BitSet valid = new BitSet(nodeCount);
+    int offset = cap - 1;
+    return new MerkleTree(hashes, valid, leafCount, cap, offset, chunkSize, totalSize);
+  }
 
-    /// Gets the total size of the original data.
-    ///
-    /// @return The total size in bytes
-    public long totalSize() {
-        return totalSize;
-    }
+  private MerkleTree(
+      byte[][] hashes,
+      BitSet valid,
+      int leafCount,
+      int capLeaf,
+      int offset,
+      long chunkSize,
+      long totalSize
+  )
+  {
+    this.hashes = hashes;
+    this.valid = valid;
+    this.leafCount = leafCount;
+    this.capLeaf = capLeaf;
+    this.offset = offset;
+    this.chunkSize = chunkSize;
+    this.totalSize = totalSize;
+  }
 
-    /// Gets the chunk size in bytes.
-    ///
-    /// @return The chunk size in bytes
-    public long getChunkSize() {
-        return chunkSize;
-    }
+  /**
+   Creates a new empty Merkle tree file with the same structure (chunk size and total size)
+   as an existing Merkle tree file.
+   @param merkleFile
+   The source Merkle tree file to copy structure from
+   @param emptyMerkleFile
+   The path where the new empty Merkle tree file will be created
+   @throws IOException
+   If there is an error reading the source file or writing the target file
+   */
+  public static void createEmptyTreeLike(Path merkleFile, Path emptyMerkleFile) throws IOException {
+    // Read the footer from the source file to get chunk size and total size
+    long fileSize = Files.size(merkleFile);
+    ByteBuffer footerBuffer = readFooterBuffer(merkleFile, fileSize);
 
-    /// Gets the range of data that this tree represents.
-    ///
-    /// @return The computed range
-    public MerkleRange computedRange() {
-        return computedRange;
-    }
+    // Create a MerkleFooter object from the buffer
+    MerkleFooter footer = MerkleFooter.fromByteBuffer(footerBuffer);
 
-    /// Returns the number of leaf nodes in the tree.
-    ///
-    /// @return The number of leaf nodes
-    public int getNumberOfLeaves() {
-        return (int) ((totalSize + chunkSize - 1) >>> getChunkSizePower());
-    }
+    // Extract chunk size and total size
+    long chunkSize = footer.chunkSize();
+    long totalSize = footer.totalSize();
 
-    /// Converts a byte offset into its corresponding leaf node index
-    /// @param offset The byte offset to convert
-    /// @return The leaf node index
-    public int getLeafIndex(long offset) {
-        return (int) (offset >>> getChunkSizePower());
-    }
+    // Create a new empty tree with the same parameters
+    MerkleTree emptyTree = createEmpty(totalSize, chunkSize);
 
-    /// Returns the power of two for the chunk size
-    private int getChunkSizePower() {
-        return Long.numberOfTrailingZeros(chunkSize);
-    }
+    // Save the empty tree to the target file
+    emptyTree.save(emptyMerkleFile);
+  }
 
-    /// Returns the byte boundaries for a specific leaf node
-    /// @param leafIndex The index of the leaf node
-    /// @return The byte boundaries for the leaf node
-    public NodeBoundary getBoundariesForLeaf(int leafIndex) {
-        int numberOfLeaves = getNumberOfLeaves();
-        if (leafIndex < 0 || leafIndex >= numberOfLeaves) {
-            throw new IllegalArgumentException("Invalid leaf index: " + leafIndex);
-        }
+  /// This method is used to fetch a remote merkle tree file from a url
+  /// to a local file. It occurs in a few steps:
+  /// 1. The size of the remote merkle tree is determined by a head request with okhttp
+  /// 2. The last up to 1k of the tree is fetched, and the end is decoded as a [MerkleFooter]
+  /// 3. If the local file exists already and has the same size and has the same footer
+  /// contents (determined by MerkleFooter.equals), then the local file is left as is.
+  /// 4. In all other cases, the local file is downloaded again.
+  public static MerkleTree syncFromRemote(URL merkleUrl, Path localPath) throws IOException {
+    // Create OkHttp client
+    OkHttpClient client = new OkHttpClient();
 
-        long start = (long) leafIndex << getChunkSizePower();
-        long end = Math.min(totalSize, ((long) (leafIndex + 1) << getChunkSizePower()));
+    // Check if we need to download the merkle tree file
+    boolean downloadMerkleTree = true;
+    long remoteSize = 0;
+    MerkleFooter remoteFooter = null;
 
-        return new NodeBoundary(start, end);
-    }
+    // Send HEAD request to get merkle file size
+    Request headRequest = new Request.Builder().url(merkleUrl.toString()).head().build();
 
-    /// Gets the leaf index (chunk index) for a given position in the file.
-    ///
-    /// @param position The position in the file
-    /// @return The index of the leaf node (chunk) containing the position
-    /// @throws IllegalArgumentException if the position is invalid
-    public int getChunkIndexForPosition(long position) {
-        if (position < 0 || position >= totalSize) {
-            throw new IllegalArgumentException(
-                "Invalid position: " + position + ", valid range is [0, " + (totalSize - 1) + "]"
-            );
-        }
+    try (Response headResponse = client.newCall(headRequest).execute()) {
+      if (headResponse.isSuccessful()) {
+        // Get content length
+        String contentLength = headResponse.header("Content-Length");
+        if (contentLength != null) {
+          remoteSize = Long.parseLong(contentLength);
 
-        return (int)(position >> getChunkSizePower());
-    }
+          // If remote size is known and local file exists, check if they match
+          if (remoteSize > 0 && Files.exists(localPath) && Files.size(localPath) == remoteSize) {
 
-    /// Represents the boundaries of a node in the Merkle tree.
-    ///
-    /// @param start The start position of the node's data in the file
-    /// @param end The end position of the node's data in the file
-    public record NodeBoundary(long start, long end) {}
+            // Read the remote footer
+            remoteFooter = readRemoteMerkleFooter(client, merkleUrl.toString(), remoteSize);
 
-    /// Creates a new tree with an updated range
-    /// @param newRange The new range to set for the tree
-    /// @param treeData The raw data to build the tree from
-    /// @return A new MerkleTree instance
-    /// @throws IllegalArgumentException if the new range is invalid
-    public MerkleTree withRange(MerkleRange newRange, ByteBuffer treeData) {
-        if (computedRange.contains(newRange)) {
-            return this;
-        }
+            // Read the local footer
+            MerkleFooter localFooter = readLocalMerkleFooter(localPath);
 
-        treeData = treeData.duplicate();
-
-        // Calculate leaf node indices for the new range
-        int startLeaf = getLeafIndex(newRange.start());
-        int endLeaf = getLeafIndex(newRange.end() - 1) + 1;
-
-        // Create new leaf nodes for the range
-        List<MerkleNode> leaves = new ArrayList<>(endLeaf - startLeaf);
-        for (int i = startLeaf; i < endLeaf; i++) {
-            treeData.position(i * HASH_SIZE);
-            byte[] hash = new byte[HASH_SIZE];
-            treeData.get(hash);
-            leaves.add(MerkleNode.leaf(i - startLeaf, hash));
-        }
-
-        MerkleNode newRoot = buildTree(leaves, treeData, startLeaf);
-        return new MerkleTree(newRoot, chunkSize, totalSize, newRange);
-    }
-
-    /// Builds a new tree from raw data
-    /// @param data The raw data to build the tree from
-    /// @param chunkSize The size of each data chunk in bytes (must be a power of 2)
-    /// @param range The range of data that this tree represents
-    /// @return A new MerkleTree instance
-    public static MerkleTree fromData(ByteBuffer data, long chunkSize, MerkleRange range) {
-        if (data == null || data.remaining() == 0) {
-            throw new IllegalArgumentException("Data buffer cannot be null or empty");
-        }
-
-        if (chunkSize <= 0) {
-            throw new IllegalArgumentException("Chunk size must be positive, got: " + chunkSize);
-        }
-
-        List<MerkleNode> leaves = new ArrayList<>();
-        long totalSize = data.capacity();
-        int numLeaves = (int)((totalSize + chunkSize - 1) / chunkSize);
-
-        // Create a duplicate to avoid modifying the original buffer
-        ByteBuffer workingBuffer = data.duplicate();
-        ByteBuffer treeData = ByteBuffer.allocate(numLeaves * HASH_SIZE);
-
-        synchronized (DIGEST) {
-            for (int leafIndex = 0; leafIndex < numLeaves; leafIndex++) {
-                int bufsize = (int)Math.min(workingBuffer.remaining(), chunkSize);
-                if (bufsize <= 0) break;
-
-                byte[] chunk = new byte[bufsize];
-                workingBuffer.get(chunk);
-
-                DIGEST.reset();
-                DIGEST.update(chunk);
-                byte[] hash = DIGEST.digest();
-
-                treeData.put(hash);
-                leaves.add(MerkleNode.leaf(leafIndex, hash));
+            // If footers match, no need to download
+            if (localFooter != null && remoteFooter != null && localFooter.equals(remoteFooter)) {
+              downloadMerkleTree = false;
             }
+          }
         }
-
-        if (leaves.isEmpty()) {
-            throw new IllegalArgumentException("No leaf nodes created from input data");
-        }
-
-        MerkleNode root = buildTree(leaves);
-        if (root == null) {
-            throw new IllegalStateException("Failed to build tree: root node is null");
-        }
-
-        return new MerkleTree(root, chunkSize, totalSize, range);
+      }
     }
 
-    /// Recursively builds a balanced binary tree from a list of nodes
-    /// @param leaves The list of leaf nodes to build the tree from
-    /// @return The root node of the built tree
-    /// @throws IllegalArgumentException if the list of leaves is null or empty
-    private static MerkleNode buildTree(List<MerkleNode> leaves) {
-        if (leaves == null || leaves.isEmpty()) {
-            return null;
+    // Download the merkle tree file if needed
+    if (downloadMerkleTree) {
+      // Create parent directories if needed
+      Files.createDirectories(localPath.getParent());
+
+      // Download the merkle tree file
+      downloadFile(client, merkleUrl.toString(), localPath);
+
+      // Derive data file URL by removing .mrkl extension and derive data file path
+      String merkleUrlString = merkleUrl.toString();
+      if (merkleUrlString.endsWith(".mrkl")) {
+        String dataUrl = merkleUrlString.substring(0, merkleUrlString.length() - 5);
+        // The data file path is derived by removing .mrkl from the localPath if it exists
+        String localPathStr = localPath.toString();
+        if (localPathStr.endsWith(".mrkl")) {
+          Path dataPath = Path.of(localPathStr.substring(0, localPathStr.length() - 5));
+          // Download the data file
+          downloadFile(client, dataUrl, dataPath);
         }
-
-        if (leaves.size() == 1) {
-            return leaves.get(0);
-        }
-
-        List<MerkleNode> parents = new ArrayList<>((leaves.size() + 1) / 2);
-
-        for (int i = 0; i < leaves.size(); i += 2) {
-            MerkleNode left = leaves.get(i);
-            MerkleNode right = (i + 1 < leaves.size()) ? leaves.get(i + 1) : null;
-
-            parents.add(MerkleNode.internal(
-                parents.size(),
-                left.hash(),
-                right != null ? right.hash() : null,
-                left,
-                right
-            ));
-        }
-
-        return buildTree(parents);
+      }
     }
 
-    private static MerkleNode buildTree(List<MerkleNode> leaves, ByteBuffer treeData, int startLeaf) {
-        return buildTree(leaves);  // Delegate to the simpler buildTree method
+    // Load and return the merkle tree
+    return MerkleTree.load(localPath);
+  }
+
+  /**
+   Reads the footer from a remote merkle tree file using OkHttp.
+   @param client
+   The OkHttp client
+   @param merkleUrl
+   The URL of the merkle tree file
+   @param fileSize
+   The size of the file
+   @return The MerkleFooter or null if it couldn't be read
+   */
+  private static MerkleFooter readRemoteMerkleFooter(
+      OkHttpClient client,
+      String merkleUrl,
+      long fileSize
+  ) throws IOException
+  {
+    // Determine how much to read from the end (up to 1KB)
+    long footerReadSize = Math.min(1024, fileSize);
+    long rangeStart = fileSize - footerReadSize;
+
+    // Build a request with the range header
+    Request request = new Request.Builder().url(merkleUrl)
+        .header("Range", "bytes=" + rangeStart + "-" + (fileSize - 1)).build();
+
+    try (Response response = client.newCall(request).execute()) {
+      if (response.isSuccessful() && response.body() != null) {
+        // Read the bytes
+        byte[] buffer = response.body().bytes();
+
+        // The last bytes contain the footer
+        return MerkleFooter.fromByteBuffer(ByteBuffer.wrap(buffer));
+      }
+    }
+    return null;
+  }
+
+  /**
+   Reads the footer from a local merkle tree file.
+   @param merklePath
+   The path to the local merkle tree file
+   @return The MerkleFooter or null if it couldn't be read
+   */
+  private static MerkleFooter readLocalMerkleFooter(Path merklePath) throws IOException {
+    if (!Files.exists(merklePath) || Files.size(merklePath) == 0) {
+      return null;
     }
 
-    /// Saves the Merkle tree to a file, including the footer.
-    ///
-    /// The file format consists of all leaf node hashes followed by a footer
-    /// containing the chunk size, total size, digest of the tree data, and footer length.
-    ///
-    /// @param path The path to save the file to
-    /// @throws IOException If there's an error writing to the file
-    public void save(Path path) throws IOException {
-        try (FileChannel channel = FileChannel.open(path,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.WRITE,
-            StandardOpenOption.TRUNCATE_EXISTING)) {
+    try (FileChannel channel = FileChannel.open(merklePath, StandardOpenOption.READ)) {
+      long fileSize = channel.size();
 
-            // Get number of leaves
-            int numLeaves = getNumberOfLeaves();
+      // Read up to the last 1KB
+      long footerReadSize = Math.min(1024, fileSize);
+      long position = fileSize - footerReadSize;
 
-            // Allocate buffer for all leaf hashes
-            ByteBuffer treeData = ByteBuffer.allocate(numLeaves * HASH_SIZE);
+      ByteBuffer buffer = ByteBuffer.allocate((int) footerReadSize);
+      channel.position(position);
+      channel.read(buffer);
+      buffer.flip();
 
-            // Collect all leaf hashes in order
-            collectLeafHashes(root, treeData);
-            treeData.flip();
+      return MerkleFooter.fromByteBuffer(buffer);
+    } catch (IOException e) {
+      return null;
+    }
+  }
 
-            // Calculate the digest of the tree data
-            byte[] digest = MerkleFooter.calculateDigest(treeData);
+  /**
+   Downloads a file from a URL to a local path using OkHttp.
+   @param client
+   The OkHttp client
+   @param url
+   The URL to download from
+   @param localPath
+   The path to save the file to
+   @throws IOException
+   If an I/O error occurs
+   */
+  private static void downloadFile(OkHttpClient client, String url, Path localPath)
+      throws IOException
+  {
+    // Create the request
+    Request request = new Request.Builder().url(url).build();
 
-            // Create the footer
-            MerkleFooter footer = MerkleFooter.create(chunkSize, totalSize, digest);
-            ByteBuffer footerBuffer = footer.toByteBuffer();
+    // Execute the request
+    try (Response response = client.newCall(request).execute()) {
+      if (!response.isSuccessful() || response.body() == null) {
+        throw new IOException(
+            "Failed to download file: " + url + ", HTTP response code: " + response.code());
+      }
 
-            // Write tree data
-            channel.write(treeData.duplicate()); // Use duplicate to avoid affecting position
+      // Create parent directories if needed
+      Files.createDirectories(localPath.getParent());
 
-            // Write footer
-            channel.write(footerBuffer);
-        }
+      // Download the file
+      try (ResponseBody body = response.body();
+           BufferedSource source = body.source();
+           BufferedSink sink = Okio.buffer(Okio.sink(localPath)))
+      {
+        sink.writeAll(source);
+      }
+    }
+  }
+
+  public long getChunkSize() {
+    return chunkSize;
+  }
+
+  public long totalSize() {
+    return totalSize;
+  }
+
+  public int getNumberOfLeaves() {
+    return leafCount;
+  }
+
+  public MerkleMismatch getBoundariesForLeaf(int leafIndex) {
+    long start = leafIndex * chunkSize;
+    long end = Math.min(start + chunkSize, totalSize);
+    long length = end - start;
+    return new MerkleMismatch(leafIndex, start, length);
+  }
+
+  /**
+   Retrieves the hash for any node in the tree, computing it if necessary.
+   This is package-private to allow tests to access internal nodes, including the root.
+   @param idx
+   The index of the node in the hashes array
+   @return The hash value for the node
+   */
+  byte[] getHash(int idx) {
+    if (valid.get(idx))
+      return hashes[idx];
+    // compute children
+    int left = 2 * idx + 1, right = left + 1;
+    DIGEST.reset();
+    // include left child if present
+    if (left < hashes.length) {
+      DIGEST.update(getHash(left));
+    }
+    // include right child if present
+    if (right < hashes.length) {
+      DIGEST.update(getHash(right));
+    }
+    hashes[idx] = DIGEST.digest();
+    valid.set(idx);
+    return hashes[idx];
+  }
+
+  /**
+   Returns the hash for a leaf, computing internals lazily.
+   */
+  public byte[] getHashForLeaf(int leafIndex) {
+    if (leafIndex < 0 || leafIndex >= leafCount)
+      throw new IllegalArgumentException("Invalid leaf index");
+    return getHash(offset + leafIndex);
+  }
+
+  /**
+   Marks and recomputes a leaf hash, invalidating ancestors.
+   */
+  public void updateLeafHash(int leafIndex, byte[] newHash) {
+    int idx = offset + leafIndex;
+    hashes[idx] = newHash;
+    valid.set(idx);
+    // invalidate ancestors
+    idx = (idx - 1) / 2;
+    while (idx >= 0) {
+      valid.clear(idx);
+      if (idx == 0)
+        break;
+      idx = (idx - 1) / 2;
+    }
+    // recompute root lazily
+    getHash(0);
+  }
+
+  /**
+   Updates a leaf hash and persists the tree to disk.
+   */
+  public void updateLeafHash(int leafIndex, byte[] newHash, Path filePath) throws IOException {
+    updateLeafHash(leafIndex, newHash);
+    save(filePath);
+  }
+
+  /**
+   Saves hashes and footer to file.
+   */
+  public void save(Path path) throws IOException {
+    int numLeaves = capLeaf;
+    try (FileChannel ch = FileChannel.open(
+        path,
+        StandardOpenOption.CREATE,
+        StandardOpenOption.WRITE,
+        StandardOpenOption.TRUNCATE_EXISTING
+    ))
+    {
+      // write real leafCount leaves
+      for (int i = 0; i < leafCount; i++)
+        ch.write(ByteBuffer.wrap(hashes[offset + i]));
+      // write padded leaves
+      byte[] zero = new byte[HASH_SIZE];
+      for (int i = leafCount; i < capLeaf; i++)
+        ch.write(ByteBuffer.wrap(zero));
+      // write internals
+      for (int i = 0; i < offset; i++)
+        ch.write(ByteBuffer.wrap(hashes[i]));
+      // write footer
+      MerkleFooter footer = MerkleFooter.create(chunkSize, totalSize, calculateDigest());
+      ch.write(footer.toByteBuffer());
+    }
+    // verify written file and handle corruption
+    try {
+      verifyWrittenMerkleFile(path);
+    } catch (IOException ioe) {
+      // rename corrupted file
+      Path corrupted = path.resolveSibling(path.getFileName().toString() + ".corrupted");
+      Files.move(path, corrupted, StandardCopyOption.REPLACE_EXISTING);
+      throw ioe;
+    }
+  }
+
+  private byte[] calculateDigest() {
+    // digest over all tree data region in file order (leaves then internals)
+    int totalLeaves = capLeaf;
+    int offsetIndex = offset;
+    int totalBytes = (totalLeaves + offsetIndex) * HASH_SIZE;
+    ByteBuffer buf = ByteBuffer.allocate(totalBytes);
+    // leaves region
+    for (int i = offsetIndex; i < offsetIndex + totalLeaves; i++) {
+      buf.put(hashes[i]);
+    }
+    // internal nodes region
+    for (int i = 0; i < offsetIndex; i++) {
+      buf.put(hashes[i]);
+    }
+    buf.flip();
+    DIGEST.reset();
+    DIGEST.update(buf);
+    return DIGEST.digest();
+  }
+
+  /**
+   Loads a tree from file, marking all nodes valid.
+   */
+  public static MerkleTree load(Path path) throws IOException {
+    long fileSize = Files.size(path);
+    // read footer
+    MerkleFooter footer = MerkleFooter.fromByteBuffer(readFooterBuffer(path, fileSize));
+    long chunkSize = footer.chunkSize();
+    long totalSize = footer.totalSize();
+    int leafCount = (int) Math.ceil((double) totalSize / chunkSize);
+    int cap = 1;
+    while (cap < leafCount)
+      cap <<= 1;
+    int offset = cap - 1;
+    int nodeCount = 2 * cap - 1;
+    byte[][] hashes = new byte[nodeCount][HASH_SIZE];
+    BitSet valid = new BitSet(nodeCount);
+    try (FileChannel ch = FileChannel.open(path, StandardOpenOption.READ)) {
+      // read all tree data (leaves then internals)
+      int capLeaf = cap;
+      int footerRegion = offset * HASH_SIZE + capLeaf * HASH_SIZE;
+      ByteBuffer buf = ByteBuffer.allocate(footerRegion);
+      ch.position(0);
+      ch.read(buf);
+      buf.flip();
+      // load leaves (including padded leaves)
+      for (int i = 0; i < capLeaf; i++) {
+        buf.position(i * HASH_SIZE);
+        buf.get(hashes[offset + i]);
+      }
+      // load internal nodes
+      for (int i = 0; i < offset; i++) {
+        buf.position(capLeaf * HASH_SIZE + i * HASH_SIZE);
+        buf.get(hashes[i]);
+      }
+      // mark all valid
+      valid.set(0, nodeCount);
+    }
+    // verify integrity of loaded file
+    verifyWrittenMerkleFile(path);
+    return new MerkleTree(hashes, valid, leafCount, cap, offset, chunkSize, totalSize);
+  }
+
+  private static ByteBuffer readFooterBuffer(Path path, long fileSize) throws IOException {
+    try (FileChannel ch = FileChannel.open(path, StandardOpenOption.READ)) {
+      ByteBuffer len = ByteBuffer.allocate(1);
+      ch.position(fileSize - 1);
+      ch.read(len);
+      len.flip();
+      byte fl = len.get();
+      ByteBuffer buf = ByteBuffer.allocate(fl);
+      ch.position(fileSize - fl);
+      ch.read(buf);
+      buf.flip();
+      return buf;
+    }
+  }
+  /**
+   * Verifies the integrity of a written Merkle tree file by checking its footer digest.
+   * Throws IOException if the file is empty, truncated, or the digest does not match.
+   */
+  private static void verifyWrittenMerkleFile(Path path) throws IOException {
+    // Ensure file exists and is non-empty
+    long fileSize = Files.size(path);
+    if (fileSize == 0) {
+      throw new IOException("File is empty");
+    }
+    // Read footer buffer
+    ByteBuffer footerBuf;
+    try {
+      footerBuf = readFooterBuffer(path, fileSize);
+    } catch (IOException | RuntimeException e) {
+      throw new IOException("Verification failed: Merkle tree digest verification failed", e);
+    }
+    MerkleFooter footer;
+    try {
+      footer = MerkleFooter.fromByteBuffer(footerBuf);
+    } catch (IllegalArgumentException e) {
+      throw new IOException("Verification failed: Merkle tree digest verification failed", e);
+    }
+    // Read tree data region (excluding footer)
+    int fl = footer.footerLength();
+    long dataSize = fileSize - fl;
+    ByteBuffer dataBuf = ByteBuffer.allocate((int) dataSize);
+    try (FileChannel ch = FileChannel.open(path, StandardOpenOption.READ)) {
+      ch.position(0);
+      ch.read(dataBuf);
+      dataBuf.flip();
+    }
+    // Verify digest
+    if (!footer.verifyDigest(dataBuf)) {
+      throw new IOException("Verification failed: Merkle tree digest verification failed");
+    }
+  }
+
+  /**
+   Finds all mismatched chunks between this tree and another tree.
+   @param otherTree
+   The tree to compare against
+   @return List of MerkleMismatch objects representing the mismatched chunks
+   */
+  public List<MerkleMismatch> findMismatchedChunks(MerkleTree otherTree) {
+    // Validate that trees are comparable
+    if (this.chunkSize != otherTree.chunkSize) {
+      throw new IllegalArgumentException(
+          "Cannot compare trees with different chunk sizes: " + this.chunkSize + " vs "
+          + otherTree.chunkSize);
     }
 
-    /// Recursively collects all leaf node hashes in order.
-    ///
-    /// @param node The current node to process
-    /// @param buffer The buffer to store the hashes in
-    private void collectLeafHashes(MerkleNode node, ByteBuffer buffer) {
-        if (node == null) return;
+    // Get the list of mismatched chunk indexes
+    int[] mismatchedIndexes =
+        findMismatchedChunksInRange(otherTree, 0, Math.min(this.leafCount, otherTree.leafCount));
 
-        if (node.isLeaf()) {
-            buffer.put(node.hash());
-            return;
-        }
+    // Convert indexes to MerkleMismatch objects
+    List<MerkleMismatch> mismatches = new ArrayList<>(mismatchedIndexes.length);
+    for (int index : mismatchedIndexes) {
+      // Calculate the range for this chunk
+      long startOffset = (long) index * chunkSize;
+      long length = Math.min(chunkSize, totalSize - startOffset);
 
-        collectLeafHashes(node.left(), buffer);
-        collectLeafHashes(node.right(), buffer);
+      // Create MerkleMismatch object and add to list
+      mismatches.add(new MerkleMismatch(index, startOffset, length));
     }
 
-    /// Creates an empty merkle tree file with the same structure as a reference merkle tree file.
-    /// The empty tree will have the same chunk size and total size as the reference tree,
-    /// but all leaf node hashes will be initialized to zero bytes.
-    ///
-    /// @param referencePath The path to the reference merkle tree file
-    /// @param outputPath The path where the empty merkle tree file will be created
-    /// @throws IOException If there's an error reading or writing the files
-    public static void createEmptyTreeLike(Path referencePath, Path outputPath) throws IOException {
-        try (FileChannel referenceChannel = FileChannel.open(referencePath, StandardOpenOption.READ);
-             FileChannel outputChannel = FileChannel.open(outputPath,
-                 StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+    return mismatches;
+  }
 
-            // Read the footer length byte (last byte of the file)
-            long referenceSize = referenceChannel.size();
-            ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
-            referenceChannel.position(referenceSize - 1);
-            referenceChannel.read(footerLengthBuffer);
-            footerLengthBuffer.flip();
-            byte footerLength = footerLengthBuffer.get();
-
-            // Read the entire footer
-            ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
-            referenceChannel.position(referenceSize - footerLength);
-            referenceChannel.read(footerBuffer);
-            footerBuffer.flip();
-
-            // Parse the footer
-            MerkleFooter footer = MerkleFooter.fromByteBuffer(footerBuffer);
-
-            // Get chunk size and total size from the footer
-            long chunkSize = footer.chunkSize();
-            long totalSize = footer.totalSize();
-
-            // Calculate number of leaves
-            int numLeaves = (int)((totalSize + chunkSize - 1) / chunkSize);
-
-            // Ensure numLeaves is positive
-            if (numLeaves <= 0) {
-                numLeaves = 1; // At least one leaf
-            }
-
-            // Create empty leaf hashes (all zeros)
-            ByteBuffer emptyTreeData = ByteBuffer.allocate(numLeaves * HASH_SIZE);
-
-            // Fill with zeros (already zeroed by default in Java)
-            // But we need to make sure we have at least one hash
-            if (numLeaves > 0) {
-                // Create a non-zero hash for the first leaf to ensure it can be read
-                byte[] nonZeroHash = new byte[HASH_SIZE];
-                for (int i = 0; i < HASH_SIZE; i++) {
-                    nonZeroHash[i] = (byte) (i + 1); // Simple non-zero pattern
-                }
-                emptyTreeData.put(nonZeroHash);
-
-                // Reset position to beginning for writing
-                emptyTreeData.flip();
-            }
-
-            // Calculate the digest of the empty tree data
-            byte[] digest = MerkleFooter.calculateDigest(emptyTreeData);
-
-            // Create a new footer with the same chunk size and total size, but with the new digest
-            MerkleFooter newFooter = MerkleFooter.create(chunkSize, totalSize, digest);
-            ByteBuffer newFooterBuffer = newFooter.toByteBuffer();
-
-            // Write empty tree data
-            outputChannel.write(emptyTreeData.duplicate()); // Use duplicate to avoid affecting position
-
-            // Write the new footer
-            outputChannel.write(newFooterBuffer);
-        }
+  /**
+   Finds all mismatched chunk indexes within a specified range.
+   This method compares leaf hashes between the two trees and returns indexes where they differ.
+   @param otherTree
+   The tree to compare against
+   @param startIndex
+   The starting chunk index (inclusive)
+   @param endIndex
+   The ending chunk index (exclusive)
+   @return Array of chunk indexes that differ between the trees
+   */
+  public int[] findMismatchedChunksInRange(MerkleTree otherTree, int startIndex, int endIndex) {
+    // Validate matching chunk size
+    if (this.chunkSize != otherTree.chunkSize) {
+      throw new IllegalArgumentException(
+          "Cannot compare trees with different chunk sizes: " + this.chunkSize + " vs "
+          + otherTree.chunkSize);
+    }
+    // Validate matching total size
+    if (this.totalSize != otherTree.totalSize) {
+      throw new IllegalArgumentException(
+          "Cannot compare trees with different total sizes: " + this.totalSize + " vs "
+          + otherTree.totalSize);
+    }
+    // Clamp end index to available leaves
+    int maxLeaf = Math.min(this.leafCount, otherTree.leafCount);
+    int effectiveEnd = Math.min(endIndex, maxLeaf);
+    // Validate start index
+    if (startIndex < 0 || startIndex >= effectiveEnd) {
+      throw new IllegalArgumentException("Invalid range: " + startIndex + " to " + endIndex);
     }
 
-    /// Loads a Merkle tree from a file.
-    ///
-    /// Reads the leaf node hashes and footer information to reconstruct the tree.
-    /// Also verifies the integrity of the tree data using the digest in the footer.
-    ///
-    /// @param path The path to load the file from
-    /// @return The loaded MerkleTree
-    /// @throws IOException If there's an error reading the file or if the digest verification fails
-    public static MerkleTree load(Path path) throws IOException {
-        return load(path, -1); // Use the totalSize from the footer
+    // If the root hashes match and both trees are valid, there are no mismatches
+    if (Arrays.equals(this.getHash(0), otherTree.getHash(0)) && this.valid.get(0)
+        && otherTree.valid.get(0))
+    {
+      return new int[0];
     }
 
-    /// Synchronizes a local file with a remote URL and returns the MerkleTree.
-    ///
-    /// This method ensures that the local path contains the same contents as the remote
-    /// by comparing the sizes and merkle footers. If they don't match, it downloads the entire file.
-    ///
-    /// @param remoteUrl The URL of the remote file to sync with
-    /// @param localPath The path where the local file should be stored
-    /// @return The MerkleTree for the synchronized file
-    /// @throws IOException If there's an error during synchronization
-    public static MerkleTree sync(URL remoteUrl, Path localPath) throws IOException {
-        // Create parent directories if they don't exist
-        Files.createDirectories(localPath.getParent());
+    // Use a list to collect mismatched indexes
+    List<Integer> mismatches = new ArrayList<>();
 
-        // Derive the merkle file paths
-        String fileName = localPath.getFileName().toString();
-        Path localMerklePath = localPath.resolveSibling(fileName + ".mrkl");
+    // Compare each leaf hash in the specified range
+    for (int i = startIndex; i < effectiveEnd; i++) {
+      byte[] thisHash = this.getHashForLeaf(i);
+      byte[] otherHash = otherTree.getHashForLeaf(i);
 
-        // Get the remote merkle tree URL
-        URL remoteMerkleUrl = new URL(remoteUrl.toString() + ".mrkl");
-
-        // Get the remote merkle footer
-        MerkleFooter remoteFooter;
-        try {
-            remoteFooter = MerkleFooter.fromRemoteUrl(remoteMerkleUrl);
-        } catch (IOException e) {
-            throw new IOException("Failed to get remote merkle footer: " + e.getMessage(), e);
-        }
-
-        // Check if the local files exist
-        boolean localFileExists = Files.exists(localPath);
-        boolean localMerkleExists = Files.exists(localMerklePath);
-        boolean needsDownload = true;
-
-        // If both local files exist, check if they match the remote
-        if (localFileExists && localMerkleExists) {
-            try {
-                // Check if the file sizes match
-                long localFileSize = Files.size(localPath);
-
-                if (localFileSize == remoteFooter.totalSize()) {
-                    // Load the local merkle tree
-                    MerkleTree localTree = load(localMerklePath);
-
-                    // Get the footer from the local merkle file
-                    MerkleFooter localFooter = null;
-                    try (FileChannel channel = FileChannel.open(localMerklePath, StandardOpenOption.READ)) {
-                        long fileSize = channel.size();
-                        if (fileSize > 0) {
-                            // Read the footer length (last byte)
-                            ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
-                            channel.position(fileSize - 1);
-                            channel.read(footerLengthBuffer);
-                            footerLengthBuffer.flip();
-                            byte footerLength = footerLengthBuffer.get();
-
-                            // Read the footer
-                            if (footerLength > 0 && footerLength <= fileSize) {
-                                ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
-                                channel.position(fileSize - footerLength);
-                                channel.read(footerBuffer);
-                                footerBuffer.flip();
-                                localFooter = MerkleFooter.fromByteBuffer(footerBuffer);
-                            }
-                        }
-                    }
-
-                    // Compare the footers
-                    if (localFooter != null &&
-                        localFooter.chunkSize() == remoteFooter.chunkSize() &&
-                        localFooter.totalSize() == remoteFooter.totalSize() &&
-                        Arrays.equals(localFooter.digest(), remoteFooter.digest())) {
-                        // Files are identical, load and return the local tree
-                        needsDownload = false;
-                    }
-                }
-            } catch (IOException e) {
-                // Error checking local files, proceed with download
-            }
-        }
-
-        // Download the file if needed
-        if (needsDownload) {
-            downloadFile(remoteUrl, localPath);
-            downloadFile(remoteMerkleUrl, localMerklePath);
-        }
-
-        // Load and return the merkle tree
-        return load(localMerklePath);
+      if (!Arrays.equals(thisHash, otherHash)) {
+        mismatches.add(i);
+      }
     }
 
-    /// Downloads a file from a URL to a local path.
-    ///
-    /// @param url The URL of the file to download
-    /// @param localPath The path where the file should be saved
-    /// @throws IOException If there's an error downloading the file
-    private static void downloadFile(URL url, Path localPath) throws IOException {
-
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.connect();
-
-        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-            throw new IOException("Failed to download file: HTTP " + connection.getResponseCode());
-        }
-
-        // Create parent directories if they don't exist
-        Files.createDirectories(localPath.getParent());
-
-        // Download the file
-        try (InputStream in = connection.getInputStream();
-             FileOutputStream out = new FileOutputStream(localPath.toFile())) {
-            byte[] buffer = new byte[8192]; // 8KB buffer
-            int bytesRead;
-            while ((bytesRead = in.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
-            }
-        }
+    // Convert list to array
+    int[] result = new int[mismatches.size()];
+    for (int i = 0; i < mismatches.size(); i++) {
+      result[i] = mismatches.get(i);
     }
 
-    /// Loads a Merkle tree from a file with a specified virtual size.
-    ///
-    /// Reads the leaf node hashes and footer information to reconstruct the tree.
-    /// Also verifies the integrity of the tree data using the digest in the footer.
-    /// Uses the specified virtualSize instead of the totalSize from the footer.
-    ///
-    /// @param path The path to load the file from
-    /// @param virtualSize The virtual size to use instead of the totalSize from the footer (-1 to use the footer's totalSize)
-    /// @return The loaded MerkleTree
-    /// @throws IOException If there's an error reading the file or if the digest verification fails
-    public static MerkleTree load(Path path, long virtualSize) throws IOException {
-        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
-            // Get file size
-            long fileSize = channel.size();
-
-            // Handle empty or very small files
-            if (fileSize == 0) {
-                // Create an empty tree with default values
-                MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                long effectiveTotalSize = (virtualSize > 0) ? virtualSize : 0;
-                return new MerkleTree(root, 4096, effectiveTotalSize, new MerkleRange(0, effectiveTotalSize));
-            }
-
-            // Try to read the footer length byte (last byte of the file)
-            ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
-            try {
-                channel.position(fileSize - 1);
-                int bytesRead = channel.read(footerLengthBuffer);
-                if (bytesRead != 1) {
-                    // Couldn't read footer length, create a default footer
-                    MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                    long effectiveTotalSize = (virtualSize > 0) ? virtualSize : fileSize;
-                    return new MerkleTree(root, 4096, effectiveTotalSize, new MerkleRange(0, effectiveTotalSize));
-                }
-                footerLengthBuffer.flip();
-            } catch (Exception e) {
-                // Error reading footer length, create a default footer
-                MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                long effectiveTotalSize = (virtualSize > 0) ? virtualSize : fileSize;
-                return new MerkleTree(root, 4096, effectiveTotalSize, new MerkleRange(0, effectiveTotalSize));
-            }
-
-            byte footerLength = footerLengthBuffer.get();
-
-            // Validate footer length
-            if (footerLength <= 0 || footerLength > fileSize) {
-                // Invalid footer length, create a default footer
-                MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                return new MerkleTree(root, 4096, fileSize, new MerkleRange(0, fileSize));
-            }
-
-            // Read the entire footer
-            ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
-            try {
-                channel.position(fileSize - footerLength);
-                int bytesRead = channel.read(footerBuffer);
-                if (bytesRead != footerLength) {
-                    // Couldn't read full footer, create a default footer
-                    MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                    return new MerkleTree(root, 4096, fileSize, new MerkleRange(0, fileSize));
-                }
-                footerBuffer.flip();
-            } catch (Exception e) {
-                // Error reading footer, create a default footer
-                MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                return new MerkleTree(root, 4096, fileSize, new MerkleRange(0, fileSize));
-            }
-
-            // Parse the footer
-            MerkleFooter footer = MerkleFooter.fromByteBuffer(footerBuffer);
-
-            // Get chunk size and total size from the footer
-            long chunkSize = footer.chunkSize();
-            long totalSize = footer.totalSize();
-
-            // Calculate number of leaves
-            int numLeaves = (int)((totalSize + chunkSize - 1) / chunkSize);
-
-            // Ensure numLeaves is positive to avoid allocation errors
-            if (numLeaves <= 0) {
-                numLeaves = 1;
-            }
-
-            // Calculate the tree data size (everything before the footer)
-            long treeDataSize = fileSize - footerLength;
-
-            // Validate tree data size
-            if (treeDataSize < 0) {
-                // Invalid tree data size, create a default tree
-                MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                return new MerkleTree(root, footer.chunkSize(), footer.totalSize(),
-                    new MerkleRange(0, footer.totalSize()));
-            }
-
-            // Read tree data
-            ByteBuffer treeData;
-            try {
-                // Limit the size to avoid OutOfMemoryError
-                long allocSize = Math.min(treeDataSize, 1024 * 1024 * 10); // Max 10MB
-                treeData = ByteBuffer.allocate((int)allocSize);
-                channel.position(0);
-                int bytesRead = channel.read(treeData);
-
-                // Handle case where file is too small
-                if (bytesRead < HASH_SIZE) {
-                    // Create a default hash for empty files
-                    treeData = ByteBuffer.allocate(HASH_SIZE);
-                    // Fill with zeros
-                    treeData.position(HASH_SIZE);
-                    treeData.flip();
-                } else {
-                    treeData.flip();
-                }
-            } catch (Exception e) {
-                // Error reading tree data, create a default tree
-                MerkleNode root = MerkleNode.leaf(0, new byte[HASH_SIZE]);
-                return new MerkleTree(root, footer.chunkSize(), footer.totalSize(),
-                    new MerkleRange(0, footer.totalSize()));
-            }
-
-            // Verify the digest of the tree data if it's not a legacy file
-            // Legacy files have all zeros in the digest
-            boolean isLegacyFile = true;
-            for (byte b : footer.digest()) {
-                if (b != 0) {
-                    isLegacyFile = false;
-                    break;
-                }
-            }
-
-            // Skip digest verification for CatalogTest
-            boolean skipVerification = false;
-            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-            for (StackTraceElement element : stackTrace) {
-                if (element.getClassName().contains("CatalogTest")) {
-                    skipVerification = true;
-                    break;
-                }
-            }
-
-            if (!isLegacyFile && !skipVerification && !footer.verifyDigest(treeData)) {
-                // Throw an exception when digest verification fails
-                throw new IOException("Merkle tree digest verification failed");
-            }
-
-            // Create leaf nodes
-            List<MerkleNode> leaves = new ArrayList<>(numLeaves);
-            treeData.position(0); // Reset position after verification
-            for (int i = 0; i < numLeaves && treeData.remaining() >= HASH_SIZE; i++) {
-                byte[] hash = new byte[HASH_SIZE];
-                treeData.get(hash);
-                leaves.add(MerkleNode.leaf(i, hash));
-            }
-
-            if (leaves.isEmpty()) {
-                throw new IOException("No leaf nodes found in merkle file");
-            }
-
-            // Build tree from leaves
-            MerkleNode root = buildTree(leaves, treeData, 0);
-
-            // Use the virtual size if specified, otherwise use the totalSize from the footer
-            long effectiveTotalSize = (virtualSize > 0) ? virtualSize : totalSize;
-
-            return new MerkleTree(root, chunkSize, effectiveTotalSize,
-                new MerkleRange(0, effectiveTotalSize));
-        }
-    }
-
-    /// Creates a new MerkleTree representing a subrange of this tree.
-    ///
-    /// Extracts a portion of the tree that covers only the specified range.
-    ///
-    /// @param newRange The range for the subtree
-    /// @return A new MerkleTree covering only the specified range
-    /// @throws IllegalArgumentException if the range is invalid or outside the tree's total size
-    public MerkleTree subTree(MerkleRange newRange) {
-        // Validate range
-        if (newRange.start() < 0 || newRange.end() > totalSize || newRange.start() >= newRange.end()) {
-            throw new IllegalArgumentException(
-                "Invalid range [" + newRange.start() + "," + newRange.end() +
-                "] for tree of size " + totalSize
-            );
-        }
-
-        // If range matches current tree, return this
-        if (newRange.equals(computedRange)) {
-            return this;
-        }
-
-        // Calculate leaf indices for the new range
-        int startLeaf = getLeafIndex(newRange.start());
-        int endLeaf = getLeafIndex(newRange.end() - 1) + 1;
-
-        // Collect relevant leaf nodes
-        List<MerkleNode> leaves = new ArrayList<>();
-        MerkleNode current = root;
-        collectLeavesInRange(current, startLeaf, endLeaf, leaves);
-
-        // Build new tree from collected leaves
-        MerkleNode newRoot = buildTree(leaves, ByteBuffer.allocate(0), startLeaf);
-        return new MerkleTree(newRoot, chunkSize, totalSize, newRange);
-    }
-
-    /// Helper method to collect leaf nodes within a specified range of indices.
-    ///
-    /// @param node The current node to process
-    /// @param startLeaf The starting leaf index (inclusive)
-    /// @param endLeaf The ending leaf index (exclusive)
-    /// @param leaves The list to collect the leaves in
-    private void collectLeavesInRange(MerkleNode node, int startLeaf, int endLeaf, List<MerkleNode> leaves) {
-        if (node == null) {
-            return;
-        }
-
-        if (node.isLeaf()) {
-            if (node.index() >= startLeaf && node.index() < endLeaf) {
-                leaves.add(node);
-            }
-            return;
-        }
-
-        // Recursively collect leaves from children
-        collectLeavesInRange(node.left(), startLeaf, endLeaf, leaves);
-        collectLeavesInRange(node.right(), startLeaf, endLeaf, leaves);
-    }
-
-    /// Compares this tree with another and returns details of chunks that don't match.
-    ///
-    /// Uses the Merkle tree structure to efficiently identify differences without
-    /// comparing all chunks individually.
-    ///
-    /// @param other The tree to compare against
-    /// @return List of MerkleMismatch records for differing chunks
-    /// @throws IllegalArgumentException if trees have incompatible properties
-    public List<MerkleMismatch> findMismatchedChunks(MerkleTree other) {
-        // Validate compatibility
-        if (this.chunkSize != other.chunkSize) {
-            throw new IllegalArgumentException(
-                "Cannot compare trees with different chunk sizes: " +
-                this.chunkSize + " vs " + other.chunkSize
-            );
-        }
-        if (this.totalSize != other.totalSize) {
-            throw new IllegalArgumentException(
-                "Cannot compare trees with different total sizes: " +
-                this.totalSize + " vs " + other.totalSize
-            );
-        }
-
-        List<MerkleMismatch> mismatches = new ArrayList<>();
-        MerkleRange commonRange = computedRange.intersection(other.computedRange());
-        if (commonRange == null) {
-            // No overlap, all chunks in both ranges differ
-            int startChunk = getLeafIndex(computedRange.start());
-            int endChunk = getLeafIndex(computedRange.end() - 1) + 1;
-            for (int i = startChunk; i < endChunk; i++) {
-                NodeBoundary bounds = getBoundariesForLeaf(i);
-                mismatches.add(new MerkleMismatch(
-                    i,
-                    bounds.start(),
-                    bounds.end() - bounds.start()
-                ));
-            }
-            return mismatches;
-        }
-
-        // Compare nodes recursively starting from roots
-        compareTrees(this.root, other.root, mismatches);
-        return mismatches;
-    }
-
-    /**
-     * Compares this tree with another within a specific range of chunk indexes and returns
-     * an array of chunk indexes that don't match.
-     *
-     * Uses the Merkle tree structure to efficiently identify differences without
-     * comparing all chunks individually.
-     *
-     * @param other The tree to compare against
-     * @param startChunkIndex The start of the chunk index range (inclusive)
-     * @param endChunkIndex The end of the chunk index range (exclusive)
-     * @return Array of chunk indexes that don't match
-     * @throws IllegalArgumentException if trees have incompatible properties or if the index range is invalid
-     */
-    public int[] findMismatchedChunksInRange(MerkleTree other, int startChunkIndex, int endChunkIndex) {
-        // Validate compatibility
-        if (this.chunkSize != other.chunkSize) {
-            throw new IllegalArgumentException(
-                "Cannot compare trees with different chunk sizes: " + this.chunkSize + " vs "
-                + other.chunkSize);
-        }
-        if (this.totalSize != other.totalSize) {
-            throw new IllegalArgumentException(
-                "Cannot compare trees with different total sizes: " + this.totalSize + " vs "
-                + other.totalSize);
-        }
-
-        // Validate chunk index range
-        if (startChunkIndex < 0) {
-            throw new IllegalArgumentException("Start chunk index must be non-negative");
-        }
-        if (endChunkIndex <= startChunkIndex) {
-            throw new IllegalArgumentException("End chunk index must be greater than start chunk index");
-        }
-
-        // Calculate the maximum possible chunk index
-        int maxChunkIndex = (int) ((totalSize + chunkSize - 1) / chunkSize);
-        if (startChunkIndex >= maxChunkIndex) {
-            throw new IllegalArgumentException(
-                "Start chunk index " + startChunkIndex + " is out of range (max: " + (maxChunkIndex - 1) + ")");
-        }
-
-        // Adjust endChunkIndex if it exceeds the maximum
-        if (endChunkIndex > maxChunkIndex) {
-            endChunkIndex = maxChunkIndex;
-        }
-
-        // Check if the ranges overlap
-        MerkleRange commonRange = computedRange.intersection(other.computedRange());
-        if (commonRange == null) {
-            // No overlap, all chunks in the specified range that are within this tree's range differ
-            // Calculate the range of chunks that are in both the specified range and this tree's range
-            int treeStartChunk = getLeafIndex(computedRange.start());
-            int treeEndChunk = getLeafIndex(computedRange.end() - 1) + 1;
-
-            // Find the intersection of the specified range and this tree's range
-            int intersectStart = Math.max(startChunkIndex, treeStartChunk);
-            int intersectEnd = Math.min(endChunkIndex, treeEndChunk);
-
-            // If there's no intersection, return an empty array
-            if (intersectStart >= intersectEnd) {
-                return new int[0];
-            }
-
-            // Create an array with the mismatched chunks
-            int[] result = new int[intersectEnd - intersectStart];
-            for (int i = 0; i < result.length; i++) {
-                result[i] = intersectStart + i;
-            }
-            return result;
-        }
-
-        // Compare nodes recursively starting from roots, but only for the specified range
-        List<Integer> mismatches = new ArrayList<>();
-        compareTreesInRange(this.root, other.root, mismatches, startChunkIndex, endChunkIndex);
-
-        // Convert list to array
-        int[] result = new int[mismatches.size()];
-        for (int i = 0; i < mismatches.size(); i++) {
-            result[i] = mismatches.get(i);
-        }
-
-        // Sort the array for consistent output
-        Arrays.sort(result);
-        return result;
-    }
-
-    /// Recursively compares two subtrees and collects mismatched chunks.
-    ///
-    /// @param node1 The first node to compare
-    /// @param node2 The second node to compare
-    /// @param mismatches The list to collect mismatches in
-    private void compareTrees(MerkleNode node1, MerkleNode node2, List<MerkleMismatch> mismatches) {
-        // If either node is null, consider their subtrees as mismatched
-        if (node1 == null || node2 == null) {
-            if (node1 != null) {
-                collectLeafMismatches(node1, mismatches);
-            }
-            if (node2 != null) {
-                collectLeafMismatches(node2, mismatches);
-            }
-            return;
-        }
-
-        // If hashes match, subtrees are identical
-        if (Arrays.equals(node1.hash(), node2.hash())) {
-            return;
-        }
-
-        // If we reach leaves, add their details if they don't match
-        if (node1.isLeaf() && node2.isLeaf()) {
-            NodeBoundary bounds = getBoundariesForLeaf(node1.index());
-            mismatches.add(new MerkleMismatch(
-                node1.index(),
-                bounds.start(),
-                bounds.end() - bounds.start()
-            ));
-            return;
-        }
-
-        // Recurse into children
-        compareTrees(node1.left(), node2.left(), mismatches);
-        compareTrees(node1.right(), node2.right(), mismatches);
-    }
-
-    /// Collects all leaf mismatches from a subtree.
-    ///
-    /// @param node The node to collect mismatches from
-    /// @param mismatches The list to collect mismatches in
-    private void collectLeafMismatches(MerkleNode node, List<MerkleMismatch> mismatches) {
-        if (node == null) {
-            return;
-        }
-
-        if (node.isLeaf()) {
-            NodeBoundary bounds = getBoundariesForLeaf(node.index());
-            mismatches.add(new MerkleMismatch(
-                node.index(),
-                bounds.start(),
-                bounds.end() - bounds.start()
-            ));
-            return;
-        }
-
-        collectLeafMismatches(node.left(), mismatches);
-        collectLeafMismatches(node.right(), mismatches);
-    }
-
-    /// Recursively compares two subtrees and collects mismatched chunks within a specific range.
-    ///
-    /// @param node1 The first node to compare
-    /// @param node2 The second node to compare
-    /// @param mismatches The list to collect mismatches in
-    /// @param startChunkIndex The start of the chunk index range (inclusive)
-    /// @param endChunkIndex The end of the chunk index range (exclusive)
-    private void compareTreesInRange(MerkleNode node1, MerkleNode node2, List<Integer> mismatches,
-                                    int startChunkIndex, int endChunkIndex) {
-        // If either node is null, consider their subtrees as mismatched
-        if (node1 == null || node2 == null) {
-            if (node1 != null) {
-                collectLeafMismatchesInRange(node1, mismatches, startChunkIndex, endChunkIndex);
-            }
-            if (node2 != null) {
-                collectLeafMismatchesInRange(node2, mismatches, startChunkIndex, endChunkIndex);
-            }
-            return;
-        }
-
-        // If hashes match, subtrees are identical
-        if (Arrays.equals(node1.hash(), node2.hash())) {
-            return;
-        }
-
-        // If we reach leaves, check if they're in the specified range
-        if (node1.isLeaf() && node2.isLeaf()) {
-            int index = node1.index();
-            if (index >= startChunkIndex && index < endChunkIndex) {
-                mismatches.add(index);
-            }
-            return;
-        }
-
-        // Check if this subtree could contain chunks in our range
-        boolean couldContainRange = false;
-
-        // For internal nodes, we need to determine if they could contain chunks in our range
-        if (node1.left() != null) {
-            // Find the min and max leaf indexes in this subtree
-            int minLeafIndex = findMinLeafIndex(node1);
-            int maxLeafIndex = findMaxLeafIndex(node1);
-
-            // Check if there's any overlap with our range
-            if (maxLeafIndex >= startChunkIndex && minLeafIndex < endChunkIndex) {
-                couldContainRange = true;
-            }
-        } else if (node1.isLeaf()) {
-            // For leaf nodes, just check if they're in range
-            int index = node1.index();
-            couldContainRange = (index >= startChunkIndex && index < endChunkIndex);
-        }
-
-        // Only recurse if this subtree could contain chunks in our range
-        if (couldContainRange) {
-            // Recurse into children
-            compareTreesInRange(node1.left(), node2.left(), mismatches, startChunkIndex, endChunkIndex);
-            compareTreesInRange(node1.right(), node2.right(), mismatches, startChunkIndex, endChunkIndex);
-        }
-    }
-
-    /// Collects all leaf mismatches from a subtree within a specific range.
-    ///
-    /// @param node The node to collect mismatches from
-    /// @param mismatches The list to collect mismatches in
-    /// @param startChunkIndex The start of the chunk index range (inclusive)
-    /// @param endChunkIndex The end of the chunk index range (exclusive)
-    private void collectLeafMismatchesInRange(MerkleNode node, List<Integer> mismatches,
-                                             int startChunkIndex, int endChunkIndex) {
-        if (node == null) {
-            return;
-        }
-
-        if (node.isLeaf()) {
-            int index = node.index();
-            if (index >= startChunkIndex && index < endChunkIndex) {
-                mismatches.add(index);
-            }
-            return;
-        }
-
-        collectLeafMismatchesInRange(node.left(), mismatches, startChunkIndex, endChunkIndex);
-        collectLeafMismatchesInRange(node.right(), mismatches, startChunkIndex, endChunkIndex);
-    }
-
-    /// Finds the minimum leaf index in a subtree.
-    ///
-    /// @param node The root of the subtree
-    /// @return The minimum leaf index in the subtree
-    private int findMinLeafIndex(MerkleNode node) {
-        if (node == null) {
-            return Integer.MAX_VALUE;
-        }
-
-        if (node.isLeaf()) {
-            return node.index();
-        }
-
-        return findMinLeafIndex(node.left());
-    }
-
-    /// Finds the maximum leaf index in a subtree.
-    ///
-    /// @param node The root of the subtree
-    /// @return The maximum leaf index in the subtree
-    private int findMaxLeafIndex(MerkleNode node) {
-        if (node == null) {
-            return Integer.MIN_VALUE;
-        }
-
-        if (node.isLeaf()) {
-            return node.index();
-        }
-
-        int leftMax = findMaxLeafIndex(node.left());
-        int rightMax = findMaxLeafIndex(node.right());
-
-        return Math.max(leftMax, rightMax);
-    }
-
-    /// Returns a new MessageDigest instance for SHA-256.
-    ///
-    /// @return MessageDigest configured for SHA-256
-    /// @throws RuntimeException if SHA-256 is not available
-    public MessageDigest getDigest() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
-    }
-
-    /// Gets the stored hash for a specific leaf node.
-    ///
-    /// Navigates down the tree to find the leaf node with the given index.
-    ///
-    /// @param leafIndex The index of the leaf node
-    /// @return The hash value for that leaf
-    /// @throws IllegalArgumentException if the leaf index is invalid
-    public byte[] getHashForLeaf(int leafIndex) {
-        if (leafIndex < 0 || leafIndex >= getNumberOfLeaves()) {
-            throw new IllegalArgumentException("Invalid leaf index: " + leafIndex);
-        }
-
-        MerkleNode node = root;
-        int currentIndex = leafIndex;
-        int totalLeaves = getNumberOfLeaves();
-
-        // Navigate down to the leaf node
-        while (!node.isLeaf()) {
-            int leftSubtreeSize = totalLeaves / 2;
-            if (currentIndex < leftSubtreeSize) {
-                node = node.left();
-                totalLeaves = leftSubtreeSize;
-            } else {
-                node = node.right();
-                currentIndex -= leftSubtreeSize;
-                totalLeaves -= leftSubtreeSize;
-            }
-        }
-
-        return node.hash();
-    }
-
-    /// Updates the hash for a specific leaf node and propagates changes up the tree.
-    ///
-    /// @param leafIndex The index of the leaf node
-    /// @param newHash The new hash for the leaf node
-    /// @throws IllegalArgumentException if the leaf index is invalid
-    public void updateLeafHash(int leafIndex, byte[] newHash) {
-        if (leafIndex < 0 || leafIndex >= getNumberOfLeaves()) {
-            throw new IllegalArgumentException("Invalid leaf index: " + leafIndex);
-        }
-
-        // Find the path from root to the leaf node
-        List<MerkleNode> pathToLeaf = new ArrayList<>();
-        MerkleNode node = root;
-        pathToLeaf.add(node);
-
-        int currentIndex = leafIndex;
-        int totalLeaves = getNumberOfLeaves();
-
-        // Navigate down to the leaf node, recording the path
-        while (!node.isLeaf()) {
-            int leftSubtreeSize = totalLeaves / 2;
-            if (currentIndex < leftSubtreeSize) {
-                node = node.left();
-                totalLeaves = leftSubtreeSize;
-            } else {
-                node = node.right();
-                currentIndex -= leftSubtreeSize;
-                totalLeaves -= leftSubtreeSize;
-            }
-            pathToLeaf.add(node);
-        }
-
-        // Update the leaf node hash
-        node.updateHash(newHash);
-
-        // Propagate changes up the tree
-        updateParentHashes(pathToLeaf);
-    }
-
-    /// Updates the hashes of parent nodes after a leaf node has been updated.
-    ///
-    /// @param pathToLeaf The path from root to the updated leaf node
-    private void updateParentHashes(List<MerkleNode> pathToLeaf) {
-        // Start from the second-to-last node (parent of the leaf) and work up to the root
-        for (int i = pathToLeaf.size() - 2; i >= 0; i--) {
-            MerkleNode parent = pathToLeaf.get(i);
-            MerkleNode left = parent.left();
-            MerkleNode right = parent.right();
-
-            // Recalculate the parent's hash based on its children
-            byte[] leftHash = left.hash();
-            byte[] rightHash = right != null ? right.hash() : null;
-
-            // Combine and hash the child hashes
-            byte[] combinedHash;
-            synchronized (DIGEST) {
-                if (rightHash != null) {
-                    // Concatenate the hashes before digesting
-                    byte[] combined = new byte[HASH_SIZE * 2];
-                    System.arraycopy(leftHash, 0, combined, 0, HASH_SIZE);
-                    System.arraycopy(rightHash, 0, combined, HASH_SIZE, HASH_SIZE);
-                    DIGEST.reset();
-                    combinedHash = DIGEST.digest(combined);
-                } else {
-                    // If no right hash, hash the left hash alone
-                    DIGEST.reset();
-                    combinedHash = DIGEST.digest(leftHash);
-                }
-            }
-
-            // Update the parent's hash
-            parent.updateHash(combinedHash);
-        }
-    }
-
-    /// Updates the hash for a specific leaf node and writes all updated hashes to the file.
-    ///
-    /// @param leafIndex The index of the leaf node
-    /// @param newHash The new hash for the leaf node
-    /// @param filePath The path to the merkle tree file
-    /// @throws IllegalArgumentException if the leaf index is invalid
-    /// @throws IOException if there's an error writing to the file
-    public void updateLeafHash(int leafIndex, byte[] newHash, Path filePath) throws IOException {
-        // Find the path from root to the leaf node before updating
-        List<MerkleNode> pathToLeaf = new ArrayList<>();
-        MerkleNode node = root;
-        pathToLeaf.add(node);
-
-        int currentIndex = leafIndex;
-        int totalLeaves = getNumberOfLeaves();
-
-        // Navigate down to the leaf node, recording the path
-        while (!node.isLeaf()) {
-            int leftSubtreeSize = totalLeaves / 2;
-            if (currentIndex < leftSubtreeSize) {
-                node = node.left();
-                totalLeaves = leftSubtreeSize;
-            } else {
-                node = node.right();
-                currentIndex -= leftSubtreeSize;
-                totalLeaves -= leftSubtreeSize;
-            }
-            pathToLeaf.add(node);
-        }
-
-        // Update the in-memory hash (this will also update parent hashes)
-        updateLeafHash(leafIndex, newHash);
-
-        // Update the merkle tree file on disk
-        try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.WRITE)) {
-            // Write the updated leaf hash to the file
-            ByteBuffer buffer = ByteBuffer.wrap(newHash);
-            channel.position(leafIndex * HASH_SIZE);
-            channel.write(buffer);
-
-            // Now update all the parent nodes in the file
-            // We need to calculate their positions in the file
-            int numLeaves = getNumberOfLeaves();
-
-            // Start from the second-to-last node (parent of the leaf) and work up to the root
-            for (int i = pathToLeaf.size() - 2; i >= 0; i--) {
-                MerkleNode parent = pathToLeaf.get(i);
-
-                // Calculate the position of this node in the file
-                // The leaves are stored first, followed by internal nodes in level order
-                int nodeIndex = parent.index();
-                long position = numLeaves * HASH_SIZE + (nodeIndex - numLeaves) * HASH_SIZE;
-
-                // Write the updated parent hash
-                buffer = ByteBuffer.wrap(parent.hash());
-                channel.position(position);
-                channel.write(buffer);
-            }
-        }
-    }
-
-    /// Calculates the height of the Merkle tree
-    ///
-    /// @return The height of the tree (0 for empty tree, 1 for just a root node)
-    public int getTreeHeight() {
-        if (root == null) {
-            return 0;
-        }
-        return calculateHeight(root);
-    }
-
-    /// Recursively calculates the height of a subtree
-    ///
-    /// @param node The root of the subtree
-    /// @return The height of the subtree
-    private int calculateHeight(MerkleNode node) {
-        if (node == null) {
-            return 0;
-        }
-
-        int leftHeight = calculateHeight(node.left());
-        int rightHeight = calculateHeight(node.right());
-
-        return Math.max(leftHeight, rightHeight) + 1;
-    }
-
-    /// Counts the total number of nodes in the tree
-    ///
-    /// @return The total number of nodes
-    public int getTotalNodeCount() {
-        if (root == null) {
-            return 0;
-        }
-        return countNodes(root);
-    }
-
-    /// Recursively counts nodes in a subtree
-    ///
-    /// @param node The root of the subtree
-    /// @return The number of nodes in the subtree
-    private int countNodes(MerkleNode node) {
-        if (node == null) {
-            return 0;
-        }
-
-        return 1 + countNodes(node.left()) + countNodes(node.right());
-    }
-
-    /// Formats a byte size into a human-readable string
-    ///
-    /// @param bytes The size in bytes
-    /// @return A human-readable string representation
-    private String formatByteSize(long bytes) {
-        if (bytes < 1024) {
-            return bytes + " bytes";
-        } else if (bytes < 1024 * 1024) {
-            return String.format("%.2f KB", bytes / 1024.0);
-        } else if (bytes < 1024 * 1024 * 1024) {
-            return String.format("%.2f MB", bytes / (1024.0 * 1024.0));
-        } else {
-            return String.format("%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
-        }
-    }
-
-    /// Converts a byte array to a hex string
-    ///
-    /// @param bytes The byte array to convert
-    /// @return A hex string representation
-    private String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
-    }
-
-    /// Returns a string representation of this Merkle tree
-    ///
-    /// @return A string containing a summary of the tree's properties
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder("Merkle Tree Summary:\n");
-
-        // Basic properties
-        sb.append(String.format("Original Data Size: %s\n", formatByteSize(totalSize)));
-        sb.append(String.format("Chunk Size: %s\n", formatByteSize(chunkSize)));
-        sb.append(String.format("Number of Chunks: %d\n", getNumberOfLeaves()));
-
-        // Tree structure
-        int height = getTreeHeight();
-        int totalNodes = getTotalNodeCount();
-        int internalNodes = totalNodes - getNumberOfLeaves();
-
-        sb.append(String.format("Tree Height: %d\n", height));
-        sb.append(String.format("Total Nodes: %d\n", totalNodes));
-        sb.append(String.format("Leaf Nodes: %d\n", getNumberOfLeaves()));
-        sb.append(String.format("Internal Nodes: %d\n", internalNodes));
-
-        // Range information
-        sb.append(String.format("Computed Range: %s\n", computedRange));
-
-        // Root hash
-        if (root != null) {
-            String rootHashHex = bytesToHex(root.hash());
-            sb.append(String.format("Root Hash: %s\n", rootHashHex));
-        } else {
-            sb.append("Root Hash: <none>\n");
-        }
-
-        // Estimated file size
-        long estimatedFileSize = (getNumberOfLeaves() * HASH_SIZE) + (2 * Long.BYTES);
-        sb.append(String.format("Estimated File Size: %s\n", formatByteSize(estimatedFileSize)));
-
-        return sb.toString();
-    }
+    return result;
+  }
 }

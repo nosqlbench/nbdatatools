@@ -158,7 +158,7 @@ public class KnnDataWriter {
 
 
   /// write the neighbors data to a dataset, using the major coordinate intervals
-  /// {@code [start, end)}
+  /// {@code [startInclusive, end)}
   /// @param iterable
   ///     an iterator for the neighbors
   /// @param configName
@@ -166,7 +166,7 @@ public class KnnDataWriter {
   ///         from huggingface datasets. If there is only one config, then this should be set to
   ///        "default"
   /// @param start
-  ///     the start of the major coordinate intervals, inclusive
+  ///     the startInclusive of the major coordinate intervals, inclusive
   /// @param end
   ///     the end of the major coordinate intervals, exclusive
   /// @see #writeNeighborsIntStream(Iterable)

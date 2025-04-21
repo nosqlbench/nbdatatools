@@ -19,3 +19,5 @@
 #   - really freakin annoying, hope the fix promised in the next version works well
 -
 # The stop button should *NEVER* not work.
+
+# My agent UI seems to be getting slower... and slower .... and slower ... the more I use it

@@ -25,7 +25,7 @@ public interface DoubleVectors extends DatasetView<double[]> {
   /// @return the vector
   public double[] getVector(long ordinal);
   /// get a range of vectors by their ordinals
-  /// @param startInclusive the start ordinal, inclusive
+  /// @param startInclusive the startInclusive ordinal, inclusive
   /// @param endExclusive the end ordinal, exclusive
   /// @return the vectors
   public double[][] getVectors(long startInclusive, long endExclusive);

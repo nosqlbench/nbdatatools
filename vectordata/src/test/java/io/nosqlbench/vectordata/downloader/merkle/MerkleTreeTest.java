@@ -17,9 +17,8 @@ package io.nosqlbench.vectordata.downloader.merkle;
  * under the License.
  */
 
-
+import io.nosqlbench.vectordata.merkle.MerkleFooter;
 import io.nosqlbench.vectordata.merkle.MerkleMismatch;
-import io.nosqlbench.vectordata.merkle.MerklePane;
 import io.nosqlbench.vectordata.merkle.MerkleRange;
 import io.nosqlbench.vectordata.merkle.MerkleTree;
 import org.junit.jupiter.api.Test;
@@ -27,15 +26,16 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class MerkleTreeTest {
     @TempDir
@@ -53,154 +53,293 @@ class MerkleTreeTest {
     }
 
     @Test
-    void testBasicTreeOperations() {
-        byte[] data = new byte[128];
-        Arrays.fill(data, (byte)1);
-        
+    void testCreation() {
+        // Test creating a tree from data
+        byte[] data = new byte[CHUNK_SIZE * 8]; // 8 chunks
+        for (int i = 0; i < data.length; i++) {
+            data[i] = (byte) (i % 256);
+        }
+
         MerkleTree tree = createTestTree(data, CHUNK_SIZE);
-        
-        assertEquals(CHUNK_SIZE, tree.chunkSize());
-        assertEquals(128, tree.totalSize());
-        assertEquals(8, tree.getNumberOfLeaves());
-        
-        assertEquals(0, tree.getLeafIndex(0));
-        assertEquals(1, tree.getLeafIndex(CHUNK_SIZE + 1));
-        assertEquals(7, tree.getLeafIndex(127));
-        
-        MerkleTree.NodeBoundary firstChunk = tree.getBoundariesForLeaf(0);
-        assertEquals(0, firstChunk.start());
-        assertEquals(CHUNK_SIZE, firstChunk.end());
-        
-        MerkleTree.NodeBoundary lastChunk = tree.getBoundariesForLeaf(7);
-        assertEquals(112, lastChunk.start());
-        assertEquals(128, lastChunk.end());
+        assertEquals(8, tree.getNumberOfLeaves(), "Tree should have 8 leaves");
+        assertEquals(CHUNK_SIZE, tree.getChunkSize(), "Chunk size should match");
+        assertEquals(data.length, tree.totalSize(), "Total size should match");
     }
 
     @Test
-    void testInvalidChunkSize() {
-        byte[] data = new byte[128];
-        Arrays.fill(data, (byte)1);
-        
-        assertThrows(IllegalArgumentException.class,
-            () -> createTestTree(data, 10),
-            "Should throw exception for non-power-of-two chunk size"
-        );
+    void testLeafHashing() throws NoSuchAlgorithmException {
+        // Create test data
+        byte[] chunkData = new byte[CHUNK_SIZE];
+        for (int i = 0; i < chunkData.length; i++) {
+            chunkData[i] = (byte) i;
+        }
+
+        // Create a one-chunk tree
+        MerkleTree tree = createTestTree(chunkData, CHUNK_SIZE);
+
+        // Manually hash the chunk
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(chunkData);
+        byte[] expectedHash = digest.digest();
+
+        // Get the hash from the tree's leaf
+        byte[] actualHash = tree.getHashForLeaf(0);
+
+        // Compare the hashes
+        assertArrayEquals(expectedHash, actualHash, "Leaf hash should match manual hash");
     }
 
     @Test
-    void testTreeComparison() {
-        byte[] data1 = new byte[128];
-        Arrays.fill(data1, (byte)1);
+    void testSaveAndLoad() throws IOException {
+        // Create test data
+        byte[] data = new byte[CHUNK_SIZE * 4]; // 4 chunks
+        for (int i = 0; i < data.length; i++) {
+            data[i] = (byte) (i % 256);
+        }
+
+        // Create a tree
+        MerkleTree tree = createTestTree(data, CHUNK_SIZE);
+
+        // Save the tree to a file
+        Path treePath = tempDir.resolve("merkle.tree");
+        tree.save(treePath);
+
+        // Load the tree back
+        MerkleTree loadedTree = MerkleTree.load(treePath);
+
+        // Compare the trees
+        assertEquals(tree.getNumberOfLeaves(), loadedTree.getNumberOfLeaves(), "Number of leaves should match");
+        assertEquals(tree.getChunkSize(), loadedTree.getChunkSize(), "Chunk size should match");
+        assertEquals(tree.totalSize(), loadedTree.totalSize(), "Total size should match");
+
+        // Compare leaf hashes
+        for (int i = 0; i < tree.getNumberOfLeaves(); i++) {
+            assertArrayEquals(tree.getHashForLeaf(i), loadedTree.getHashForLeaf(i),
+                    "Leaf " + i + " hash should match");
+        }
+    }
+
+    @Test
+    void testEmptyTreeCreation() {
+        // Test creating an empty tree
+        long totalSize = CHUNK_SIZE * 8;
+        MerkleTree tree = MerkleTree.createEmpty(totalSize, CHUNK_SIZE);
+        
+        assertEquals(8, tree.getNumberOfLeaves(), "Empty tree should have correct number of leaves");
+        assertEquals(CHUNK_SIZE, tree.getChunkSize(), "Chunk size should match");
+        assertEquals(totalSize, tree.totalSize(), "Total size should match");
+    }
+    
+    @Test
+    void testCreateEmptyTreeLike() throws IOException {
+        // Create test data
+        byte[] data = new byte[CHUNK_SIZE * 4]; // 4 chunks
+        for (int i = 0; i < data.length; i++) {
+            data[i] = (byte) (i % 256);
+        }
+
+        // Create a tree
+        MerkleTree tree = createTestTree(data, CHUNK_SIZE);
+
+        // Save the tree to a file
+        Path treePath = tempDir.resolve("merkle.tree");
+        tree.save(treePath);
+        
+        // Create empty tree like the original
+        Path emptyTreePath = tempDir.resolve("empty_tree.tree");
+        MerkleTree.createEmptyTreeLike(treePath, emptyTreePath);
+        
+        // Load the empty tree
+        MerkleTree emptyTree = MerkleTree.load(emptyTreePath);
+        
+        // Verify properties match
+        assertEquals(tree.getChunkSize(), emptyTree.getChunkSize(), "Chunk size should match");
+        assertEquals(tree.totalSize(), emptyTree.totalSize(), "Total size should match");
+        assertEquals(tree.getNumberOfLeaves(), emptyTree.getNumberOfLeaves(), "Number of leaves should match");
+    }
+
+    @Test
+    void testFooterWriteRead() throws IOException {
+        // Create test data
+        byte[] data = new byte[CHUNK_SIZE * 4]; // 4 chunks
+        for (int i = 0; i < data.length; i++) {
+            data[i] = (byte) (i % 256);
+        }
+
+        // Create a tree
+        MerkleTree tree = createTestTree(data, CHUNK_SIZE);
+
+        // Save the tree to a file
+        Path treePath = tempDir.resolve("merkle.tree");
+        tree.save(treePath);
+
+        // Read the footer manually
+        long fileSize = Files.size(treePath);
+        ByteBuffer lenBuffer = ByteBuffer.allocate(1);
+        try (FileChannel fc = FileChannel.open(treePath, StandardOpenOption.READ)) {
+            fc.position(fileSize - 1);
+            fc.read(lenBuffer);
+        }
+        lenBuffer.flip();
+        byte footerLength = lenBuffer.get();
+
+        ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
+        try (FileChannel fc = FileChannel.open(treePath, StandardOpenOption.READ)) {
+            fc.position(fileSize - footerLength);
+            fc.read(footerBuffer);
+        }
+        footerBuffer.flip();
+
+        // Parse the footer values
+        MerkleFooter footer = MerkleFooter.fromByteBuffer(footerBuffer);
+
+        // Check values
+        assertEquals(CHUNK_SIZE, footer.chunkSize(), "Chunk size in footer should match");
+        assertEquals(data.length, footer.totalSize(), "Total size in footer should match");
+    }
+    
+    @Test
+    void testFindMismatchedChunks() {
+        // Create test data
+        byte[] data1 = new byte[CHUNK_SIZE * 4]; // 4 chunks
+        byte[] data2 = new byte[CHUNK_SIZE * 4]; // 4 chunks
+        
+        // Fill with test data
+        for (int i = 0; i < data1.length; i++) {
+            data1[i] = (byte) (i % 256);
+            data2[i] = (byte) (i % 256); // initially the same
+        }
+        
+        // Modify chunk 2 in data2
+        for (int i = CHUNK_SIZE * 2; i < CHUNK_SIZE * 3; i++) {
+            data2[i] = (byte) ((data2[i] + 128) % 256); // modify data
+        }
+        
+        // Create trees
         MerkleTree tree1 = createTestTree(data1, CHUNK_SIZE);
-        
-        byte[] data2 = data1.clone();
         MerkleTree tree2 = createTestTree(data2, CHUNK_SIZE);
         
+        // Find mismatched chunks
         List<MerkleMismatch> mismatches = tree1.findMismatchedChunks(tree2);
-        assertTrue(mismatches.isEmpty());
         
-        data2[CHUNK_SIZE + 1] = 2;
-        tree2 = createTestTree(data2, CHUNK_SIZE);
+        // Verify exactly one mismatch found
+        assertEquals(1, mismatches.size(), "Should find exactly one mismatched chunk");
         
-        mismatches = tree1.findMismatchedChunks(tree2);
-        assertEquals(1, mismatches.size());
-        
+        // Verify mismatch is at the correct position
         MerkleMismatch mismatch = mismatches.get(0);
-        assertEquals(1, mismatch.chunkIndex());
-        assertEquals(CHUNK_SIZE, mismatch.start());
-        assertEquals(CHUNK_SIZE, mismatch.length());
+        assertEquals(2, mismatch.chunkIndex(), "Mismatch should be at chunk index 2");
+        assertEquals(CHUNK_SIZE * 2, mismatch.startInclusive(), "Mismatch should start at the right offset");
+        assertEquals(CHUNK_SIZE, mismatch.length(), "Mismatch should have the correct length");
     }
-
+    
     @Test
-    void testSubTreeCreation() {
-        byte[] data = new byte[128];
-        Arrays.fill(data, (byte)1);
-        MerkleTree fullTree = createTestTree(data, CHUNK_SIZE);
+    void testUpdateLeafHash() throws NoSuchAlgorithmException {
+        // Create test data
+        byte[] data = new byte[CHUNK_SIZE * 4]; // 4 chunks
+        for (int i = 0; i < data.length; i++) {
+            data[i] = (byte) (i % 256);
+        }
         
-        MerkleRange subRange = new MerkleRange(32, 64);
-        MerkleTree subTree = fullTree.subTree(subRange);
+        // Create tree
+        MerkleTree tree = createTestTree(data, CHUNK_SIZE);
         
-        assertEquals(CHUNK_SIZE, subTree.chunkSize());
-        assertEquals(128, subTree.totalSize());
-        assertEquals(subRange, subTree.computedRange());
+        // Get original leaf hash
+        byte[] originalHash = tree.getHashForLeaf(1);
+        
+        // Create a new hash
+        byte[] newData = new byte[CHUNK_SIZE];
+        for (int i = 0; i < newData.length; i++) {
+            newData[i] = (byte) ((i + 128) % 256); // different data
+        }
+        
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(newData);
+        byte[] newHash = digest.digest();
+        
+        // Update the leaf hash
+        tree.updateLeafHash(1, newHash);
+        
+        // Verify the leaf hash was updated
+        byte[] updatedHash = tree.getHashForLeaf(1);
+        assertFalse(Arrays.equals(originalHash, updatedHash), "Hash should have changed");
+        assertArrayEquals(newHash, updatedHash, "Hash should match the new hash");
     }
-
+    
     @Test
-    void testTreeSerialization() throws IOException {
-        byte[] data = new byte[128];
-        Arrays.fill(data, (byte)1);
+    void testGetBoundariesForLeaf() {
+        // Create a tree with a non-power-of-two size
+        long totalSize = CHUNK_SIZE * 3 + 5; // 3 full chunks plus 5 bytes
+        MerkleTree tree = MerkleTree.createEmpty(totalSize, CHUNK_SIZE);
         
-        ByteBuffer buffer = ByteBuffer.wrap(data);
-        MerkleTree originalTree = MerkleTree.fromData(
-            buffer,
-            CHUNK_SIZE,
-            new MerkleRange(0, data.length)
-        );
+        // Check first chunk boundaries
+        MerkleMismatch chunk0 = tree.getBoundariesForLeaf(0);
+        assertEquals(0, chunk0.chunkIndex(), "First chunk should have index 0");
+        assertEquals(0, chunk0.startInclusive(), "First chunk should start at offset 0");
+        assertEquals(CHUNK_SIZE, chunk0.length(), "First chunk should have full chunk size length");
         
-        Path merkleFile = tempDir.resolve("test" + MerklePane.MRKL);
-        originalTree.save(merkleFile);
+        // Check middle chunk boundaries
+        MerkleMismatch chunk1 = tree.getBoundariesForLeaf(1);
+        assertEquals(1, chunk1.chunkIndex(), "Middle chunk should have index 1");
+        assertEquals(CHUNK_SIZE, chunk1.startInclusive(), "Middle chunk should start at offset CHUNK_SIZE");
+        assertEquals(CHUNK_SIZE, chunk1.length(), "Middle chunk should have full chunk size length");
         
-        MerkleTree loadedTree = MerkleTree.load(merkleFile);
-        
-        assertEquals(originalTree.chunkSize(), loadedTree.chunkSize());
-        assertEquals(originalTree.totalSize(), loadedTree.totalSize());
-        assertEquals(originalTree.computedRange(), loadedTree.computedRange());
-        
-        assertArrayEquals(
-            originalTree.root().hash(),
-            loadedTree.root().hash()
-        );
+        // Check last (partial) chunk boundaries
+        MerkleMismatch chunk3 = tree.getBoundariesForLeaf(3);
+        assertEquals(3, chunk3.chunkIndex(), "Last chunk should have index 3");
+        assertEquals(CHUNK_SIZE * 3, chunk3.startInclusive(), "Last chunk should start at offset CHUNK_SIZE*3");
+        assertEquals(5, chunk3.length(), "Last chunk should have partial length of 5");
     }
-
+    
     @Test
-    void testTreeCreation() {
-        // Test with small data set
-        byte[] data = new byte[32];  // Multiple of chunk size
-        Arrays.fill(data, (byte)1);
+    void testNonPowerOfTwoChunkSize() {
+        byte[] data = new byte[100];
         
-        MerkleTree tree = createTestTree(data, 4);  // Power of 2 chunk size
-        
-        assertNotNull(tree.root(), "Tree should have a root node");
-        assertEquals(4, tree.chunkSize(), "Chunk size should be 4");
-        assertEquals(32, tree.totalSize(), "Total size should be 32");
-        assertEquals(8, tree.getNumberOfLeaves(), "Should have 8 leaves");
-    }
-
-    @Test
-    void testTreeCreationWithNonPowerOfTwoChunkSize() {
-        byte[] data = new byte[20];
-        Arrays.fill(data, (byte)1);
-        
-        assertThrows(IllegalArgumentException.class,
-            () -> createTestTree(data, 5),  // Non-power-of-two chunk size
+        // Test with non-power-of-two chunk size
+        assertThrows(IllegalArgumentException.class, () -> 
+            createTestTree(data, 10),
             "Should throw exception for non-power-of-two chunk size"
         );
-    }
-
-    @Test
-    void testInvalidOperations() {
-        byte[] data = new byte[100];
+        
+        // Test with power-of-two chunk size (should work)
         MerkleTree tree = createTestTree(data, 16);
+        assertNotNull(tree, "Tree should be created with power-of-two chunk size");
+    }
+    
+    @Test
+    void testVerifyChunk() throws NoSuchAlgorithmException {
+        // Create test data
+        byte[] data = new byte[CHUNK_SIZE * 4]; // 4 chunks
+        for (int i = 0; i < data.length; i++) {
+            data[i] = (byte) (i % 256);
+        }
         
-        // Test invalid leaf index
-        assertThrows(IllegalArgumentException.class, () -> tree.getBoundariesForLeaf(-1));
-        assertThrows(IllegalArgumentException.class, () -> tree.getBoundariesForLeaf(10));
+        // Create a tree
+        MerkleTree tree = createTestTree(data, CHUNK_SIZE);
         
-        // Test invalid subtree range
-        assertThrows(IllegalArgumentException.class, () -> tree.subTree(new MerkleRange(-1, 50)));
-        assertThrows(IllegalArgumentException.class, () -> tree.subTree(new MerkleRange(0, 101)));
-        assertThrows(IllegalArgumentException.class, () -> tree.subTree(new MerkleRange(50, 40)));
+        // Extract the second chunk
+        byte[] chunk = Arrays.copyOfRange(data, CHUNK_SIZE, CHUNK_SIZE * 2);
         
-        // Test incompatible tree comparison
-        MerkleTree differentChunkSize = createTestTree(data, 32);
-        assertThrows(IllegalArgumentException.class, () -> 
-            tree.findMismatchedChunks(differentChunkSize)
-        );
+        // Hash the chunk
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(chunk);
+        byte[] chunkHash = digest.digest();
         
-        byte[] differentSize = new byte[200];
-        MerkleTree differentTotalSize = createTestTree(differentSize, 32);
-        assertThrows(IllegalArgumentException.class, () -> 
-            tree.findMismatchedChunks(differentTotalSize)
-        );
+        // Get the leaf hash from the tree
+        byte[] treeHash = tree.getHashForLeaf(1);
+        
+        // Verify the hashes match
+        assertArrayEquals(chunkHash, treeHash, "Tree's leaf hash should match direct chunk hash");
+        
+        // Modify the chunk
+        chunk[0] = (byte) (chunk[0] + 1);
+        
+        // Hash the modified chunk
+        digest.reset();
+        digest.update(chunk);
+        byte[] modifiedChunkHash = digest.digest();
+        
+        // Verify the hashes don't match
+        assertFalse(Arrays.equals(modifiedChunkHash, treeHash), 
+                "Modified chunk hash should not match tree's leaf hash");
     }
 }

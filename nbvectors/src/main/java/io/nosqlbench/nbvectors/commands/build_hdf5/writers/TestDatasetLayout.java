@@ -36,7 +36,7 @@ import java.util.Optional;
 ///      from huggingface datasets. If there is only one config, then this should be set to
 ///     "default"
 /// @param start
-///     the start index of the data in the source file (start inclusive) (set to -1 for all)
+///     the startInclusive index of the data in the source file (startInclusive inclusive) (set to -1 for all)
 /// @param end
 ///     the end index of the data in the source file (end exclusive) (set to -1 for all)
 public record TestDatasetLayout(
@@ -68,7 +68,7 @@ public record TestDatasetLayout(
         TestDataKind.fromString((String) map.get("kind")),
         Path.of((String) map.get("path")),
         (String) map.get("config"),
-        Optional.ofNullable(map.get("start")).map(String::valueOf).map(Long::parseLong).orElse(-1L),
+        Optional.ofNullable(map.get("startInclusive")).map(String::valueOf).map(Long::parseLong).orElse(-1L),
         Optional.ofNullable(map.get("end")).map(String::valueOf).map(Long::parseLong).orElse(-1L)
     );
   }

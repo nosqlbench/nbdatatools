@@ -69,7 +69,7 @@ public class MerkleTreeSyncTest {
 
         // Call the method under test
         Path localPath = tempDir.resolve("test.dat");
-        MerkleTree tree = MerkleTree.sync(fileUrl, localPath);
+        MerkleTree tree = MerkleTree.syncFromRemote(fileUrl, localPath);
 
         // Verify the result
         assertNotNull(tree);
@@ -114,7 +114,7 @@ public class MerkleTreeSyncTest {
         Thread.sleep(100);
 
         // Call the method under test
-        MerkleTree tree = MerkleTree.sync(fileUrl, localPath);
+        MerkleTree tree = MerkleTree.syncFromRemote(fileUrl, localPath);
 
         // Verify the result
         assertNotNull(tree);
@@ -158,7 +158,7 @@ public class MerkleTreeSyncTest {
         TestURLStreamHandler.registerMerkleUrl(fileUrlString, merkleUrl);
 
         // Call the method under test
-        MerkleTree tree = MerkleTree.sync(fileUrl, localPath);
+        MerkleTree tree = MerkleTree.syncFromRemote(fileUrl, localPath);
 
         // Verify the result
         assertNotNull(tree);

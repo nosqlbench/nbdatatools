@@ -102,8 +102,8 @@ public class MockMerklePane extends MerklePane {
     @Override
     public ByteBuffer readChunk(int chunkIndex) throws IOException {
         // Create a mock chunk
-        MerkleTree.NodeBoundary bounds = testPane.getMerkleTree().getBoundariesForLeaf(chunkIndex);
-        int chunkSize = (int) (bounds.end() - bounds.start());
+        MerkleMismatch bounds = testPane.getMerkleTree().getBoundariesForLeaf(chunkIndex);
+        int chunkSize = (int) (bounds.endExclusive() - bounds.startInclusive());
         ByteBuffer buffer = ByteBuffer.allocate(chunkSize);
         // Fill with a pattern based on the chunk index
         for (int i = 0; i < chunkSize; i++) {

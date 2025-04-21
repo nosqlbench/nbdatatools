@@ -71,7 +71,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
   public static final String ATTACHMENTS_GROUP = "attachments";
   /// Name of the profiles attribute in the HDF5 file
   public static final String PROFILES_ATTR = "profiles";
-  private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "jvector");
+  private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "nbvectors");
 
   /// create a vector data reader
   /// @param path

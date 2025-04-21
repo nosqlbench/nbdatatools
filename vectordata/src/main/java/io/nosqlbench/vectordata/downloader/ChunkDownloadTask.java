@@ -47,7 +47,7 @@ public class ChunkDownloadTask implements Runnable {
     /// @param client the http client to use for downloading
     /// @param url the url to download from
     /// @param targetFile the file to write the downloaded chunk to
-    /// @param startByte the start byte of the chunk to download
+    /// @param startByte the startInclusive byte of the chunk to download
     /// @param endByte the end byte of the chunk to download
     /// @param fileOffset the position in the output file to write the chunk to
     /// @param totalBytesDownloaded the total number of bytes downloaded so far

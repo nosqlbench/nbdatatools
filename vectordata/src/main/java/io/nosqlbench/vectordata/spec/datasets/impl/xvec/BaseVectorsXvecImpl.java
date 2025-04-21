@@ -36,4 +36,9 @@ public class BaseVectorsXvecImpl extends FloatVectorsXvecImpl implements BaseVec
   {
     super(randomio, sourceSize, window, extension);
   }
+
+  @Override
+  public String toString() {
+    return super.toString();
+  }
 }

@@ -136,7 +136,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /// directory that contains it without any parent directories. A dataset_type field should be
 /// added that says "dataset.yaml".
 ///
-/// The catalog building logic should start by finding the paths of all  entries, whether
+/// The catalog building logic should startInclusive by finding the paths of all  entries, whether
 ///  as dataset.yaml files or as an hdf5 file. Then, working from the innermost directories,
 ///  catalogs should be built. After each catalog is built, it should be saved to it's specific
 /// directory

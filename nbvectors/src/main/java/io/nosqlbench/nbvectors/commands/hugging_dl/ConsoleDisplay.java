@@ -223,7 +223,7 @@ public class ConsoleDisplay implements AutoCloseable {
         terminal.writer().println();
     }
 
-    /// start the progress thread
+    /// startInclusive the progress thread
     /// @see #close
     public void startProgressThread() {
         progressThread = new Thread(() -> {

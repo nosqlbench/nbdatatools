@@ -236,12 +236,12 @@ public class ChunkedDownloader {
 
       List<CompletableFuture<Void>> chunkFutures = new ArrayList<>();
 
-      // Start from the effective range start and go to the effective range end
+      // Start from the effective range startInclusive and go to the effective range end
       for (long offset = 0; offset < effectiveRangeLength; offset += chunkSize) {
         if (downloadFailed.get())
           break;
 
-        // Calculate the absolute start and end positions in the file
+        // Calculate the absolute startInclusive and end positions in the file
         long absoluteStartByte = effectiveRangeStart + offset;
         long absoluteEndByte = Math.min(absoluteStartByte + chunkSize - 1, effectiveRangeEnd);
 

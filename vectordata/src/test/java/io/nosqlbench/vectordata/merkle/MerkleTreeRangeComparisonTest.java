@@ -112,17 +112,17 @@ public class MerkleTreeRangeComparisonTest {
         MerkleTree tree1 = MerkleTree.fromData(data1, chunkSize, fullRange);
         MerkleTree tree2 = MerkleTree.fromData(data2, chunkSize, fullRange);
 
-        // Test with negative start index
+        // Test with negative startInclusive index
         assertThrows(IllegalArgumentException.class, () -> {
             tree1.findMismatchedChunksInRange(tree2, -1, 10);
         });
 
-        // Test with end index <= start index
+        // Test with end index <= startInclusive index
         assertThrows(IllegalArgumentException.class, () -> {
             tree1.findMismatchedChunksInRange(tree2, 10, 10);
         });
 
-        // Test with start index out of range
+        // Test with startInclusive index out of range
         assertThrows(IllegalArgumentException.class, () -> {
             tree1.findMismatchedChunksInRange(tree2, dataSize / chunkSize + 1, dataSize / chunkSize + 10);
         });

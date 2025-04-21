@@ -18,6 +18,7 @@ package io.nosqlbench.vectordata.downloader.merkle;
  */
 
 import io.nosqlbench.vectordata.merkle.MerklePane;
+import io.nosqlbench.vectordata.merkle.MerkleMismatch;
 import io.nosqlbench.vectordata.merkle.MerkleTree;
 
 import java.io.IOException;
@@ -69,9 +70,9 @@ public class TestMerklePane extends MerklePane {
         }
 
         // Get the chunk boundaries
-        MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
-        long start = bounds.start();
-        long end = bounds.end();
+        MerkleMismatch boundaries = merkleTree.getBoundariesForLeaf(chunkIndex);
+        long start = boundaries.startInclusive();
+        long end = start + boundaries.length();
 
         // If the chunk extends beyond the file size, it hasn't been loaded yet
         if (start >= getFileSize() || end > getFileSize()) {

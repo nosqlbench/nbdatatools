@@ -57,18 +57,18 @@ public interface ParquetVisitor {
     return Depth.GROUPS;
   };
 
-  /// visit the start of the traversal
+  /// visit the startInclusive of the traversal
   default void beforeAll() {};
 
-  /// visit the start of a root path
+  /// visit the startInclusive of a root path
   /// @param path the root path to visit
   default void beforeRoot(PathAggregator path) {};
 
-  /// visit the start of an input file
+  /// visit the startInclusive of an input file
   /// @param inputFile the input file to visit
   default void beforeInputFile(InputFile inputFile) {};
 
-  /// visit the start of a page
+  /// visit the startInclusive of a page
   /// @param pageStore the page store to visit
   default void beforePage(BoundedPageStore pageStore) {};
 

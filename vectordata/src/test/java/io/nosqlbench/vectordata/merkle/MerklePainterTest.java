@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.downloader.merkle;
+package io.nosqlbench.vectordata.merkle;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,8 +18,6 @@ package io.nosqlbench.vectordata.downloader.merkle;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerklePainter;
-import io.nosqlbench.vectordata.merkle.MerklePane;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

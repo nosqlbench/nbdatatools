@@ -17,15 +17,11 @@ package io.nosqlbench.nbvectors.commands.merkle;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.MerkleFooter;
-import io.nosqlbench.vectordata.merkle.MerkleNode;
-import io.nosqlbench.vectordata.merkle.MerkleMismatch;
-import io.nosqlbench.vectordata.merkle.MerkleRange;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merkle.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.HelpCommand;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
@@ -44,75 +40,19 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
 
 @Command(name = "merkle",
-    headerHeading = "Usage:%n%n",
-    synopsisHeading = "%n",
-    descriptionHeading = "%nDescription%n%n",
-    parameterListHeading = "%nParameters:%n%",
-    optionListHeading = "%nOptions:%n",
     header = "create or verify Merkle tree files for data integrity",
     description = """
         Creates or verifies Merkle tree files for specified files.
         These Merkle tree files can be used later to efficiently
         verify file integrity or identify changed portions of
-        files for partial downloads/updates.
-
-        The Merkle tree file is created with the same name as the
-        source file plus a .mrkl extension.
-
-        When creating Merkle files, files with existing up-to-date Merkle files
-        (where the Merkle file is newer than the source file) will be skipped
-        unless the --force option is used.
-
-        Before skipping a file, the integrity of its Merkle file is verified by
-        checking the internal digest. If the Merkle file is corrupted, it will
-        be recreated even if it's newer than the source file.
-
-        Examples:
-
-        # Create Merkle files for multiple files
-        nbvectors merkle create file1.hdf5 file2.hdf5
-
-        # Create with custom chunk size (must be power of 2)
-        nbvectors merkle create --chunk-size 1048576 bigfile.hdf5
-
-        # Verify files against their Merkle trees
-        nbvectors merkle verify file1.hdf5 file2.hdf5
-
-        # Force overwrite of existing Merkle files
-        nbvectors merkle create -f file1.hdf5
-
-        # Display summary information about Merkle trees
-        nbvectors merkle summary file1.hdf5 file2.hdf5
-
-        # Display summary information directly from Merkle files
-        nbvectors merkle summary file1.hdf5.mrkl file2.hdf5.mref
-
-        # Process all .hdf5 files in a directory and its subdirectories
-        nbvectors merkle create /path/to/directory .hdf5
-
-        # Process files with multiple extensions in a directory
-        nbvectors merkle create /path/to/directory .hdf5 .bin .dat
-
-        # Process a directory with default extensions (.ivec, .ivecs, .fvec, .fvecs, .bvec, .bvecs, .hdf5)
-        nbvectors merkle create /path/to/directory
-
-        # Show which files would be processed without actually creating Merkle files
-        nbvectors merkle create --dryrun /path/to/directory
-        """,
-    exitCodeListHeading = "Exit Codes:%n",
-    exitCodeList = {
-        "0: Success", "1: Error creating Merkle tree file", "2: Error verifying Merkle tree file"
-    },
-    subcommands = {CommandLine.HelpCommand.class})
+        files for partial downloads/updates.""",
+        subcommands = {HelpCommand.class})
 public class CMD_merkle implements Callable<Integer> {
   // Default extensions to use when a single directory is provided and no extensions are specified
   private static final Set<String> DEFAULT_EXTENSIONS = Set.of(
@@ -138,15 +78,14 @@ public class CMD_merkle implements Callable<Integer> {
   @Option(names = {"--dryrun", "-n"}, description = "Show which files would be processed without actually creating Merkle files")
   private boolean dryrun = false;
 
+
   @Override
-  public Integer call() {
-    // Validate chunk size is a power of 2
+  public Integer call() throws Exception {
     if (!isPowerOfTwo(chunkSize)) {
       logger.error("Chunk size must be a power of two, got: {}", chunkSize);
       return 1;
     }
 
-    // Find the command to execute
     MerkleCommand command = MerkleCommand.findByName(commandName);
     if (command == null) {
       logger.error("Unknown command: {}", commandName);
@@ -156,10 +95,25 @@ public class CMD_merkle implements Callable<Integer> {
       return 1;
     }
 
-    // Execute the command
-    boolean success = command.execute(files, chunkSize, force, dryrun);
+    List<Path> expandedFiles = CMD_merkle.expandDirectoriesWithExtensions(files);
+    boolean success = command.execute(expandedFiles, chunkSize, force, dryrun);
+
     return success ? 0 : 1;
   }
+
+
+  // ... (Other helper methods from previous responses remain the same)
+
+
+  public void verifyFile(Path file, long chunkSize) throws Exception {
+    Path merklePath = file.resolveSibling(file.getFileName() + MRKL);
+    if (!Files.exists(merklePath)) {
+      logger.error("Merkle file not found for: {}", file);
+      return;
+    }
+    verifyFile(file, merklePath, chunkSize);
+  }
+
 
   public void createMerkleFile(Path file, long chunkSize) throws Exception {
     // Set the class field to the provided chunk size
@@ -207,168 +161,27 @@ public class CMD_merkle implements Callable<Integer> {
       // Create a shared atomic counter for progress tracking
       AtomicLong bytesProcessed = new AtomicLong(0);
 
-      // Process chunks in parallel
-      try (ExecutorService executor = Executors.newFixedThreadPool(numThreads)) {
-        // Create a list to hold all the chunk processing futures
-        List<Future<ChunkResult>> futures = new ArrayList<>(numChunks);
-
-        // Submit tasks for each chunk
-        for (int i = 0; i < numChunks; i++) {
-          long startOffset = (long) i * chunkSize;
-          long endOffset = Math.min(startOffset + chunkSize, fileSize);
-          MerkleRange chunkRange = new MerkleRange(startOffset, endOffset);
-
-          // Submit the chunk processing task
-          futures.add(executor.submit(() -> processChunk(file, chunkRange, bytesProcessed, fileSize, display)));
-        }
-
-        // Collect results from all futures
-        List<ChunkResult> chunkResults = new ArrayList<>(numChunks);
-        for (Future<ChunkResult> future : futures) {
-          chunkResults.add(future.get());
-        }
-
-        // Sort results by chunk index to ensure correct order
-        chunkResults.sort((a, b) -> Long.compare(a.range.start(), b.range.start()));
-
-        // Build the final Merkle tree from all chunk results
-        display.setStatus("Building final Merkle tree");
-        MerkleTree merkleTree = buildMerkleTreeFromChunks(chunkResults, chunkSize, fileSize);
-
-        // Save the Merkle tree
-        display.setStatus("Saving Merkle tree");
-        saveMerkleTree(file, merkleTree);
-        display.log("Merkle tree creation completed successfully");
+      // Create a full Merkle tree from the file directly
+      display.setStatus("Building Merkle tree");
+      
+      // Create the Merkle range for the entire file
+      MerkleRange fullRange = new MerkleRange(0, fileSize);
+      
+      // We'll build the complete file data buffer to create the Merkle tree
+      ByteBuffer fileData = ByteBuffer.allocate((int)Math.min(fileSize, Integer.MAX_VALUE));
+      
+      try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
+        channel.read(fileData);
+        fileData.flip();
       }
-    }
-  }
-
-  /// Processes a single chunk of the file and returns the result.
-  ///
-  /// @param file The file to process
-  /// @param range The range of the file to process
-  /// @param bytesProcessed Atomic counter for tracking progress
-  /// @param totalSize Total file size
-  /// @param display Console display for progress updates
-  /// @return The chunk processing result
-  private ChunkResult processChunk(Path file, MerkleRange range, AtomicLong bytesProcessed,
-                                  long totalSize, MerkleConsoleDisplay display) throws IOException {
-    // Calculate actual chunk size for this range
-    long actualChunkSize = range.size();
-    int bufferSize = (int) Math.min(actualChunkSize, Integer.MAX_VALUE);
-
-    // Read the chunk from the file
-    ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-    try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
-      channel.position(range.start());
-      channel.read(buffer);
-      buffer.flip();
-
-      // Always use the original chunk size (power of 2) for the MerkleTree constructor
-      // This fixes the issue with the last chunk which might not be a power of 2
-      long chunkSizeForTree = this.chunkSize; // Use the original chunk size from the class field
-
-      // Create a MerkleTree from this chunk
-      MerkleTree chunkTree = MerkleTree.fromData(buffer, chunkSizeForTree, range);
-
-      // Update progress
-      long newBytesProcessed = bytesProcessed.addAndGet(actualChunkSize);
-      int sectionsCompleted = (int) (newBytesProcessed / this.chunkSize);
-      int totalSections = (int) ((totalSize + this.chunkSize - 1) / this.chunkSize);
-      display.updateProgress(newBytesProcessed, totalSize, sectionsCompleted, totalSections);
-
-      // Return the result
-      return new ChunkResult(range, chunkTree);
-    }
-  }
-
-  /// Builds a complete Merkle tree from individual chunk results.
-  ///
-  /// @param chunkResults The results from processing each chunk
-  /// @param chunkSize The chunk size
-  /// @param totalSize The total file size
-  /// @return The complete Merkle tree
-  private MerkleTree buildMerkleTreeFromChunks(List<ChunkResult> chunkResults, long chunkSize, long totalSize) {
-    // Create a full range for the entire file
-    MerkleRange fullRange = new MerkleRange(0, totalSize);
-
-    // If there's only one chunk, return its tree directly
-    if (chunkResults.size() == 1) {
-      return chunkResults.get(0).tree;
-    }
-
-    // Extract all leaf nodes from the chunk trees
-    List<MerkleNode> allLeaves = new ArrayList<>();
-    for (ChunkResult result : chunkResults) {
-      collectLeafNodes(result.tree.root(), allLeaves);
-    }
-
-    // Build a new tree from all leaves
-    // Use the MerkleTree's static buildTree method
-    MerkleNode root = buildTreeFromLeaves(allLeaves);
-    return new MerkleTree(root, chunkSize, totalSize, fullRange);
-  }
-
-  /// Recursively collects all leaf nodes from a tree.
-  ///
-  /// @param node The current node
-  /// @param leaves The list to collect leaves into
-  private void collectLeafNodes(MerkleNode node, List<MerkleNode> leaves) {
-    if (node == null) {
-      return;
-    }
-
-    if (node.isLeaf()) {
-      leaves.add(node);
-    } else {
-      collectLeafNodes(node.left(), leaves);
-      collectLeafNodes(node.right(), leaves);
-    }
-  }
-
-  /// Builds a tree from a list of leaf nodes.
-  /// This is a recursive implementation that builds a balanced binary tree.
-  ///
-  /// @param leaves The list of leaf nodes
-  /// @return The root node of the built tree
-  private MerkleNode buildTreeFromLeaves(List<MerkleNode> leaves) {
-    if (leaves == null || leaves.isEmpty()) {
-      return null;
-    }
-
-    if (leaves.size() == 1) {
-      return leaves.get(0);
-    }
-
-    // Create parent nodes by combining pairs of leaves
-    List<MerkleNode> parents = new ArrayList<>((leaves.size() + 1) / 2);
-
-    for (int i = 0; i < leaves.size(); i += 2) {
-      MerkleNode left = leaves.get(i);
-      MerkleNode right = (i + 1 < leaves.size()) ? leaves.get(i + 1) : null;
-
-      // Create a parent node that combines these two children
-      parents.add(MerkleNode.internal(
-          parents.size(),
-          left.hash(),
-          right != null ? right.hash() : null,
-          left,
-          right
-      ));
-    }
-
-    // Recursively build the tree from the parent nodes
-    return buildTreeFromLeaves(parents);
-  }
-
-  /// Represents the result of processing a single chunk of the file.
-  private static class ChunkResult {
-    final MerkleRange range;
-    final MerkleTree tree;
-
-    ChunkResult(MerkleRange range, MerkleTree tree) {
-      this.range = range;
-      this.tree = tree;
+      
+      // Create the Merkle tree from the file data
+      MerkleTree merkleTree = MerkleTree.fromData(fileData, chunkSize, fullRange);
+      
+      // Save the Merkle tree
+      display.setStatus("Saving Merkle tree");
+      saveMerkleTree(file, merkleTree);
+      display.log("Merkle tree creation completed successfully");
     }
   }
 
@@ -380,7 +193,7 @@ public class CMD_merkle implements Callable<Integer> {
   /// @throws IOException
   ///     If there's an error writing to the file
   private void saveMerkleTree(Path file, MerkleTree merkleTree) throws IOException {
-    Path merkleFile = file.resolveSibling(file.getFileName() + MRKL);
+    Path merkleFile = file.resolveSibling(file.getFileName() + MerklePane.MRKL);
     merkleTree.save(merkleFile);
     logger.info("Saved Merkle tree to {}", merkleFile);
   }
@@ -745,45 +558,24 @@ public class CMD_merkle implements Callable<Integer> {
     // Load the original Merkle tree from file
     MerkleTree originalTree = MerkleTree.load(merklePath);
 
-    // Create a new Merkle tree from the current file content
+    // Read the entire file content or a reasonable maximum
     long fileSize = Files.size(file);
     MerkleRange fullRange = new MerkleRange(0, fileSize);
-
-    // Create initial MerkleTree instance
-    MerkleTree currentTree = new MerkleTree(null, chunkSize, fileSize, fullRange);
-
-    // Process the file in chunks
-    long bytesProcessed = 0;
-    while (bytesProcessed < fileSize) {
-      long endOffset = Math.min(bytesProcessed + chunkSize, fileSize);
-      MerkleRange nextRange = new MerkleRange(bytesProcessed, endOffset);
-
-      // Process this range of the file
-      try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
-        // Calculate buffer size for this chunk
-        int bufferSize = (int) Math.min(chunkSize, Integer.MAX_VALUE);
-        ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-
-        // Position channel at the start of this range
-        channel.position(bytesProcessed);
-
-        // Read the chunk
-        int bytesRead = channel.read(buffer);
-        buffer.flip();
-
-        // Update the tree with this chunk
-        if (bytesRead > 0) {
-          // Always use the original chunk size (power of 2) for the MerkleTree constructor
-          // This fixes the issue with the last chunk which might not be a power of 2
-          currentTree = MerkleTree.fromData(buffer, chunkSize, nextRange);
-        }
-      }
-
-      bytesProcessed = endOffset;
+    
+    // Read file data
+    ByteBuffer fileData = ByteBuffer.allocate((int)Math.min(fileSize, Integer.MAX_VALUE));
+    try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
+      channel.read(fileData);
+      fileData.flip();
     }
-
-    // Compare the root hashes of both trees
-    if (Arrays.equals(originalTree.root().hash(), currentTree.root().hash())) {
+    
+    // Create a new Merkle tree from the current file content
+    MerkleTree currentTree = MerkleTree.fromData(fileData, chunkSize, fullRange);
+  
+    // Compare the trees
+    boolean isEqual = originalTree.equals(currentTree);
+    
+    if (isEqual) {
       logger.info("Verification successful: {} matches its Merkle tree", file);
     } else {
       // Find mismatches between the trees
@@ -795,7 +587,7 @@ public class CMD_merkle implements Callable<Integer> {
       int mismatchesToShow = Math.min(5, mismatches.size());
       for (int i = 0; i < mismatchesToShow; i++) {
         MerkleMismatch mismatch = mismatches.get(i);
-        logger.error("  Mismatch at offset {} (length: {})", mismatch.start(), mismatch.length());
+        logger.error("  Mismatch at offset {} (length: {})", mismatch.startInclusive(), mismatch.length());
       }
 
       throw new RuntimeException("File verification failed");

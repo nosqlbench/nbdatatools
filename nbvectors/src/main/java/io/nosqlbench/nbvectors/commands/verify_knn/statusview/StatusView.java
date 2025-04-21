@@ -24,7 +24,7 @@ import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 /// status view eventing interface for [CMD_verify_knn]
 public interface StatusView extends AutoCloseable{
 
-  /// start of verification
+  /// startInclusive of verification
   /// @param totalQueryVectors the total number of query vectors to be tested
   void onStart(int totalQueryVectors);
 

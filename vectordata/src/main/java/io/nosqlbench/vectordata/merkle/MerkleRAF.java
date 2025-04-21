@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
  */
 public class MerkleRAF extends RandomAccessFile {
   private final MerklePainter painter;
-  private final long virtualSize; // The total size according to the merkle tree
 
   /**
    * Creates a new MerkleRAF with a local path and source URL.
@@ -44,7 +43,6 @@ public class MerkleRAF extends RandomAccessFile {
     super(touch(localPath), "rwd");
     // Create a MerklePainter with the given parameters
     this.painter = new MerklePainter(localPath, remoteUrl);
-    this.virtualSize = painter.totalSize();
 
     // No initialization needed for intact chunks tracking
   }
@@ -75,7 +73,7 @@ public class MerkleRAF extends RandomAccessFile {
    */
   @Override
   public long length() {
-    return virtualSize;
+    return painter.totalSize();
   }
 
   /**
@@ -97,8 +95,8 @@ public class MerkleRAF extends RandomAccessFile {
       throw new IOException("Negative seek position: " + pos);
     }
 
-    if (pos > virtualSize) {
-      throw new IOException("Seek position beyond file size: " + pos + " > " + virtualSize);
+    if (pos > painter.totalSize()) {
+      throw new IOException("Seek position beyond file size: " + pos + " > " + painter.totalSize());
     }
 
     // Ensure the chunk containing this position is available
@@ -151,7 +149,7 @@ public class MerkleRAF extends RandomAccessFile {
    * containing the requested data are available.
    *
    * @param b The buffer into which the data is read
-   * @param off The start offset in the buffer at which the data is written
+   * @param off The startInclusive offset in the buffer at which the data is written
    * @param len The maximum number of bytes to read
    * @return The total number of bytes read into the buffer, or -1 if the end of the file is reached
    * @throws IOException If an I/O error occurs
@@ -190,14 +188,15 @@ public class MerkleRAF extends RandomAccessFile {
       return future;
     }
 
-    if (position >= virtualSize) {
+    if (position >= painter.totalSize()) {
       CompletableFuture<Void> future = new CompletableFuture<>();
-      future.completeExceptionally(new IOException("Position beyond file size: " + position + " >= " + virtualSize));
+      future.completeExceptionally(new IOException("Position beyond file size: " + position + " "
+                                                   + ">= " + painter.totalSize()));
       return future;
     }
 
     // Adjust length if it would go beyond the end of the file
-    long endPosition = Math.min(position + length, virtualSize);
+    long endPosition = Math.min(position + length, painter.totalSize());
 
     // Delegate to the painter's paintAsync method
     return painter.paintAsync(position, endPosition);

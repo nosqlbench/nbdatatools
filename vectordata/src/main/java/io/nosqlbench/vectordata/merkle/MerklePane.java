@@ -18,9 +18,7 @@ package io.nosqlbench.vectordata.merkle;
  */
 
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -30,8 +28,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.BitSet;
 import java.util.Arrays;
+import java.util.BitSet;
 
 import io.nosqlbench.vectordata.status.EventSink;
 import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
@@ -66,33 +64,7 @@ public class MerklePane implements AutoCloseable {
   /// @param filePath
   ///     Path to the data file
   public MerklePane(Path filePath) {
-    // For backward compatibility, throw an exception if the file doesn't exist
-    if (!Files.exists(filePath)) {
-      throw new RuntimeException("Data file does not exist: " + filePath);
-    }
-
-    // Initialize with default values for merklePath, referenceTreePath, and sourceUrl
-    Path merklePath = filePath.resolveSibling(filePath.getFileName().toString() + MRKL);
-
-    // Initialize fields
-    this.filePath = filePath;
-    this.merklePath = merklePath;
-
-    // Initialize the merkle tree
-    this.merkleTree = initializePane(filePath, merklePath, null, null);
-
-    try {
-      // Open the data file for reading and writing
-      this.channel = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE);
-      this.fileSize = channel.size();
-
-      // Initialize the intact chunks tracking
-      int numChunks = (int) Math.ceil((double) merkleTree.totalSize() / merkleTree.getChunkSize());
-      this.intactChunks = new BitSet(numChunks);
-      this.merkleBits = new MerkleBits(intactChunks);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    this(filePath, filePath.resolveSibling(filePath.getFileName().toString() + MRKL));
   }
 
   /// Creates a new MerklePane for the given file and its associated Merkle tree
@@ -101,25 +73,7 @@ public class MerklePane implements AutoCloseable {
   /// @param merklePath
   ///     Path to the Merkle tree file
   public MerklePane(Path filePath, Path merklePath) {
-    // Initialize fields
-    this.filePath = filePath;
-    this.merklePath = merklePath;
-
-    // Initialize the merkle tree
-    this.merkleTree = initializePane(filePath, merklePath, null, null);
-
-    try {
-      // Open the data file for reading and writing
-      this.channel = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE);
-      this.fileSize = channel.size();
-
-      // Initialize the intact chunks tracking
-      int numChunks = (int) Math.ceil((double) merkleTree.totalSize() / merkleTree.getChunkSize());
-      this.intactChunks = new BitSet(numChunks);
-      this.merkleBits = new MerkleBits(intactChunks);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    this(filePath, merklePath, null, null);
   }
 
   /// Creates a new MerklePane for the given file and its associated Merkle tree
@@ -130,25 +84,7 @@ public class MerklePane implements AutoCloseable {
   /// @param referenceTreePath
   ///     Path to the reference merkle tree file (may be null)
   public MerklePane(Path filePath, Path merklePath, Path referenceTreePath) {
-    // Initialize fields
-    this.filePath = filePath;
-    this.merklePath = merklePath;
-
-    // Initialize the merkle tree
-    this.merkleTree = initializePane(filePath, merklePath, referenceTreePath, null);
-
-    try {
-      // Open the data file for reading and writing
-      this.channel = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE);
-      this.fileSize = channel.size();
-
-      // Initialize the intact chunks tracking
-      int numChunks = (int) Math.ceil((double) merkleTree.totalSize() / merkleTree.getChunkSize());
-      this.intactChunks = new BitSet(numChunks);
-      this.merkleBits = new MerkleBits(intactChunks);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    this(filePath, merklePath, referenceTreePath, null);
   }
 
   /// Creates a new MerklePane for the given file and its associated Merkle tree,
@@ -162,11 +98,9 @@ public class MerklePane implements AutoCloseable {
   /// @param sourceUrl
   ///     Source URL for downloading the reference merkle tree (may be null)
   public MerklePane(Path filePath, Path merklePath, Path referenceTreePath, String sourceUrl) {
-    // Initialize fields
     this.filePath = filePath;
     this.merklePath = merklePath;
 
-    // Initialize the merkle tree
     this.merkleTree = initializePane(filePath, merklePath, referenceTreePath, sourceUrl);
 
     try {
@@ -191,7 +125,7 @@ public class MerklePane implements AutoCloseable {
    * @param merklePath Path to the merkle tree file
    * @param referenceTreePath Path to the reference merkle tree file (may be null)
    * @param sourceUrl Source URL for downloading the reference merkle tree (may be null)
-   * @return The initialized MerkleTree
+   * @return The initialized ImplicitMerkleTree
    */
   private MerkleTree initializePane(Path filePath, Path merklePath, Path referenceTreePath, String sourceUrl) {
     try {
@@ -281,7 +215,12 @@ public class MerklePane implements AutoCloseable {
 
         if (!Files.exists(merklePath) || Files.size(merklePath) == 0) {
           // Create an empty merkle tree file with the same structure as the reference file
-          MerkleTree.createEmptyTreeLike(actualReferenceTreePath, merklePath);
+          // Load footer to get chunkSize and totalSize
+          MerkleTree refImp = MerkleTree.load(actualReferenceTreePath);
+          long cs = refImp.getChunkSize();
+          long ts = refImp.totalSize();
+          MerkleTree emptyImp = MerkleTree.createEmpty(ts, cs);
+          emptyImp.save(merklePath);
         }
       } else if (!Files.exists(merklePath)) {
         // If no reference tree is available and the merkle tree doesn't exist, throw an error
@@ -336,8 +275,8 @@ public class MerklePane implements AutoCloseable {
 
       // If we have a reference footer with a virtual size, use it
       if (refFooter != null) {
-        // Load the merkle tree with the virtual size from the reference footer
-        merkleTree = MerkleTree.load(merklePath, refFooter.totalSize());
+        // Load the merkle tree (implicit load always considers footer)
+        merkleTree = MerkleTree.load(merklePath);
         eventSink.debug("Loaded merkle tree with virtual size {} from reference footer", refFooter.totalSize());
       } else {
         // Load the merkle tree normally
@@ -345,8 +284,22 @@ public class MerklePane implements AutoCloseable {
         eventSink.debug("Loaded merkle tree with size {} from merkle file", merkleTree.totalSize());
       }
 
-      // We no longer require the data file to match the merkle tree size
-      // This allows for lazy loading of data
+      // Assign the reference Merkle tree if downloading references; else fallback to primary merkle tree
+      if (sourceUrl != null) {
+        // When sourceUrl is provided, ensure reference tree is available
+        if (actualReferenceTreePath == null || !Files.exists(actualReferenceTreePath)) {
+          throw new IOException("Reference merkle tree file not available: " + actualReferenceTreePath);
+        }
+        // Load the reference tree with virtual size if provided by footer
+        if (refFooter != null) {
+          this.refTree = MerkleTree.load(actualReferenceTreePath);
+        } else {
+          this.refTree = MerkleTree.load(actualReferenceTreePath);
+        }
+      } else {
+        // No downloads requested: use primary merkle tree as reference
+        this.refTree = merkleTree;
+      }
       return merkleTree;
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -355,14 +308,51 @@ public class MerklePane implements AutoCloseable {
 
   /// Gets the Merkle tree associated with this window
   /// @return The MerkleTree instance
+  /// Gets the ImplicitMerkleTree associated with this window
+  /// @return The ImplicitMerkleTree instance
   public MerkleTree getMerkleTree() {
     return merkleTree;
   }
 
   /// Gets the Merkle tree associated with this window
   /// @return The MerkleTree instance
+  /// Alias for getMerkleTree
+  /// @return The ImplicitMerkleTree instance
   public MerkleTree merkleTree() {
     return merkleTree;
+  }
+  /**
+   * Gets the size of each chunk in bytes.
+   * @return chunk size
+   */
+  public long getChunkSize() {
+    return merkleTree.getChunkSize();
+  }
+  /**
+   * Gets the total size of the associated content file.
+   * @return content file size
+   */
+  public long getContentSize() {
+    return fileSize;
+  }
+  /**
+   * Lists chunk indexes overlapping the given range that are not yet verified.
+   * @param range byte range to check
+   * @return list of chunk indexes needing download or verification
+   */
+  public java.util.List<Integer> getInvalidChunkIndexes(MerkleRange range) {
+    if (range == null) throw new IllegalArgumentException("Range cannot be null");
+    long cs = getChunkSize();
+    long ts = merkleTree.totalSize();
+    long rs = range.start(); long re = Math.min(range.end(), ts);
+    if (rs < 0 || re <= rs) throw new IllegalArgumentException("Invalid range: " + range);
+    int startChunk = (int)(rs / cs);
+    int endChunk = (int)((re - 1) / cs);
+    java.util.List<Integer> list = new java.util.ArrayList<>();
+    for (int i = startChunk; i <= endChunk; i++) {
+      if (!intactChunks.get(i)) list.add(i);
+    }
+    return list;
   }
 
   /// Gets the data file path
@@ -433,7 +423,7 @@ public class MerklePane implements AutoCloseable {
     }
 
     if (start < 0) {
-      throw new IllegalArgumentException("Range start cannot be negative: " + start);
+      throw new IllegalArgumentException("Range startInclusive cannot be negative: " + start);
     }
 
     if (start + length > fileSize) {
@@ -465,10 +455,10 @@ public class MerklePane implements AutoCloseable {
   /// @throws IOException If there's an error reading the chunk
   public ByteBuffer readChunk(int chunkIndex) throws IOException {
     // Get the chunk boundaries
-    MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
-    long start = bounds.start();
-    long end = bounds.end();
-    int chunkSize = (int) (end - start);
+    MerkleMismatch bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
+    long start = bounds.startInclusive();
+    long length = bounds.length();
+    int chunkSize = (int) length;
 
     // Allocate a buffer for the chunk
     ByteBuffer buffer = ByteBuffer.allocate(chunkSize);
@@ -510,12 +500,12 @@ public class MerklePane implements AutoCloseable {
     }
 
     // Get the chunk boundaries
-    MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
-    long start = bounds.start();
-    long end = bounds.end();
-
+    MerkleMismatch bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
+    long start = bounds.startInclusive();
+    long length = bounds.length();
+  
     // If the chunk extends beyond the file size, it hasn't been loaded yet
-    if (start >= fileSize || end > fileSize) {
+    if (start >= fileSize || start + length > fileSize) {
       return false;
     }
 
@@ -566,10 +556,10 @@ public class MerklePane implements AutoCloseable {
   /// @throws IOException If there's an error submitting the chunk
   public void submitChunk(int chunkIndex, ByteBuffer data) throws IOException {
     // Get the chunk boundaries
-    MerkleTree.NodeBoundary bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
-    long start = bounds.start();
-    long end = bounds.end();
-    int chunkSize = (int) (end - start);
+    MerkleMismatch bounds = merkleTree.getBoundariesForLeaf(chunkIndex);
+    long start = bounds.startInclusive();
+    long length = bounds.length();
+    int chunkSize = (int) length;
 
     // Check if the data size matches the chunk size
     if (data.remaining() != chunkSize) {
@@ -770,7 +760,7 @@ public class MerklePane implements AutoCloseable {
         return null;
       }
 
-      // Position the buffer to the start of the footer
+      // Position the buffer to the startInclusive of the footer
       buffer.position(readSize - footerLength);
       ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
       footerBuffer.put(buffer);
@@ -832,6 +822,40 @@ public class MerklePane implements AutoCloseable {
     } else {
       return -1; // No reference tree available
     }
+  }
+
+  public MerkleMismatch getBoundariesForLeaf(int chunkIndex) {
+    if (refTree != null) {
+      MerkleMismatch boundaries = refTree.getBoundariesForLeaf(chunkIndex);
+      return boundaries;
+    } else {
+      return null;
+    }
+  }
+
+  public int getChunkIndexForPosition(long position) {
+    if (refTree != null) {
+      if (position < 0 || position >= refTree.totalSize()) {
+        throw new IllegalArgumentException("Position " + position + " is out of bounds for total size " + refTree.totalSize());
+      }
+      return (int) (position / refTree.getChunkSize());
+    } else {
+      return -1; // Or throw an exception if appropriate for your use case
+    }
+  }
+
+  public MerkleMismatch getChunkBoundary(int chunkIndex) {
+    if (merkleTree != null) {
+      return merkleTree.getBoundariesForLeaf(chunkIndex);
+    } else {
+      // Handle the case where the Merkle tree is not available.
+      // This might involve throwing an exception, returning a default value, or triggering a tree load.
+      // For example:
+      throw new IllegalStateException("Merkle tree not available.");
+      // Or:
+      // return new MerkleMismatch(-1, 0, 0); // An empty boundary representation
+    }
+
   }
 
   /// A wrapper around BitSet for tracking which chunks have been downloaded.

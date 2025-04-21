@@ -25,6 +25,8 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * A record type for the footer of a merkle tree file.
@@ -38,23 +40,25 @@ import java.security.NoSuchAlgorithmException;
 public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte footerLength) {
 
     /**
-     * The size of the digest in bytes (SHA-256 = 32 bytes)
+     The size of the digest in bytes (SHA-256 = 32 bytes)
      */
     public static final int DIGEST_SIZE = 32;
 
     /**
-     * The fixed size of the footer in bytes (excluding the variable-length digest)
-     * 8 bytes for chunkSize + 8 bytes for totalSize + 1 byte for footerLength
+     The fixed size of the footer in bytes (excluding the variable-length digest)
+     8 bytes for chunkSize + 8 bytes for totalSize + 1 byte for footerLength
      */
     public static final int FIXED_FOOTER_SIZE = Long.BYTES * 2 + Byte.BYTES;
 
     /**
-     * Creates a new MerkleFooter with the given parameters and calculates the footer length.
-     *
-     * @param chunkSize the chunk size in bytes
-     * @param totalSize the total size of the data in bytes
-     * @param digest    the digest of the merkle tree data
-     * @return a new MerkleFooter instance
+     Creates a new MerkleFooter with the given parameters and calculates the footer length.
+     @param chunkSize
+     the chunk size in bytes
+     @param totalSize
+     the total size of the data in bytes
+     @param digest
+     the digest of the merkle tree data
+     @return a new MerkleFooter instance
      */
     public static MerkleFooter create(long chunkSize, long totalSize, byte[] digest) {
         // Calculate the footer length: fixed size + digest size
@@ -63,10 +67,10 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
     }
 
     /**
-     * Calculates the digest of the merkle tree data.
-     *
-     * @param treeData the merkle tree data to digest
-     * @return the digest as a byte array
+     Calculates the digest of the merkle tree data.
+     @param treeData
+     the merkle tree data to digest
+     @return the digest as a byte array
      */
     public static byte[] calculateDigest(ByteBuffer treeData) {
         try {
@@ -88,9 +92,8 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
     }
 
     /**
-     * Serializes this footer to a ByteBuffer.
-     *
-     * @return a ByteBuffer containing the serialized footer
+     Serializes this footer to a ByteBuffer.
+     @return a ByteBuffer containing the serialized footer
      */
     public ByteBuffer toByteBuffer() {
         ByteBuffer buffer = ByteBuffer.allocate(footerLength);
@@ -103,73 +106,32 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
     }
 
     /**
-     * Deserializes a MerkleFooter from a ByteBuffer.
-     *
-     * @param buffer the ByteBuffer containing the serialized footer
-     * @return a new MerkleFooter instance
+     Deserializes a MerkleFooter from a ByteBuffer.
+     @param buffer
+     the ByteBuffer containing the serialized footer
+     @return a new MerkleFooter instance
      */
     public static MerkleFooter fromByteBuffer(ByteBuffer buffer) {
-        // Handle empty or null buffer
-        if (buffer == null || buffer.remaining() == 0) {
-            // Create a default footer with reasonable values
-            long chunkSize = 4096; // 4KB is a common chunk size
-            long totalSize = 0;    // Empty file
-            byte[] digest = new byte[DIGEST_SIZE]; // Empty digest
-            byte footerLength = (byte)(FIXED_FOOTER_SIZE + DIGEST_SIZE);
-            return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
+        // Expect a full footer: chunkSize (8) + totalSize (8) + digest (DIGEST_SIZE) + footerLength (1)
+        int expected = FIXED_FOOTER_SIZE + DIGEST_SIZE;
+        if (buffer == null || buffer.remaining() < expected) {
+            throw new IllegalArgumentException(
+                "Invalid Merkle footer buffer size: " + (buffer == null ? 0 : buffer.remaining())
+                + ", expected at least " + expected);
         }
-
-        // Check if the buffer has enough remaining bytes
-        if (buffer.remaining() < FIXED_FOOTER_SIZE) {
-            // Handle legacy format (no digest)
-            if (buffer.remaining() >= Long.BYTES * 2) {
-                buffer.position(0); // Reset position to beginning
-                long chunkSize = buffer.getLong();
-                long totalSize = buffer.getLong();
-                // Create a default digest
-                byte[] digest = new byte[DIGEST_SIZE];
-                // Use a default footer length
-                byte footerLength = (byte)(Long.BYTES * 2);
-                return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
-            } else if (buffer.remaining() >= Long.BYTES) {
-                // Even more minimal format - just chunk size
-                buffer.position(0); // Reset position to beginning
-                long chunkSize = buffer.getLong();
-                long totalSize = 0; // Default to 0
-                byte[] digest = new byte[DIGEST_SIZE];
-                byte footerLength = (byte)(Long.BYTES);
-                return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
-            } else {
-                // Buffer is too small, but we'll create a default footer instead of throwing an exception
-                long chunkSize = 4096; // 4KB is a common chunk size
-                long totalSize = 0;    // Empty file
-                byte[] digest = new byte[DIGEST_SIZE]; // Empty digest
-                byte footerLength = (byte)(FIXED_FOOTER_SIZE + DIGEST_SIZE);
-                return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
-            }
-        }
-
-        // Normal case with full footer
         long chunkSize = buffer.getLong();
         long totalSize = buffer.getLong();
         byte[] digest = new byte[DIGEST_SIZE];
-        // Check if we have enough bytes for the digest
-        if (buffer.remaining() >= DIGEST_SIZE + 1) {
-            buffer.get(digest);
-            byte footerLength = buffer.get();
-            return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
-        } else {
-            // Not enough bytes for digest, use default
-            byte footerLength = (byte)(FIXED_FOOTER_SIZE + DIGEST_SIZE);
-            return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
-        }
+        buffer.get(digest);
+        byte footerLength = buffer.get();
+        return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
     }
 
     /**
-     * Verifies that the given tree data matches this footer's digest.
-     *
-     * @param treeData the merkle tree data to verify
-     * @return true if the digest matches, false otherwise
+     Verifies that the given tree data matches this footer's digest.
+     @param treeData
+     the merkle tree data to verify
+     @return true if the digest matches, false otherwise
      */
     public boolean verifyDigest(ByteBuffer treeData) {
         byte[] calculatedDigest = calculateDigest(treeData);
@@ -189,11 +151,12 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
     }
 
     /**
-     * Reads a MerkleFooter from a remote URL.
-     *
-     * @param url The URL to read from
-     * @return The MerkleFooter
-     * @throws IOException If there's an error reading the footer
+     Reads a MerkleFooter from a remote URL.
+     @param url
+     The URL to read from
+     @return The MerkleFooter
+     @throws IOException
+     If there's an error reading the footer
      */
     public static MerkleFooter fromRemoteUrl(URL url) throws IOException {
 
@@ -223,7 +186,10 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
         // Set up the connection for a ranged GET request
         connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");
-        connection.setRequestProperty("Range", "bytes=" + startPosition + "-" + (remoteFileSize - 1));
+        connection.setRequestProperty(
+            "Range",
+            "bytes=" + startPosition + "-" + (remoteFileSize - 1)
+        );
         connection.setConnectTimeout(5000); // 5 second timeout
         connection.setReadTimeout(5000);    // 5 second timeout
         connection.connect();
@@ -294,5 +260,23 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
 
         // Step 5: Create a new MerkleFooter object from the extracted data
         return fromByteBuffer(footerBuffer);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof MerkleFooter that))
+            return false;
+
+      return chunkSize == that.chunkSize && totalSize == that.totalSize
+               && footerLength == that.footerLength && Arrays.equals(digest, that.digest);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Long.hashCode(chunkSize);
+        result = 31 * result + Long.hashCode(totalSize);
+        result = 31 * result + Arrays.hashCode(digest);
+        result = 31 * result + footerLength;
+        return result;
     }
 }

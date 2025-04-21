@@ -45,7 +45,7 @@ public record MerkleRange(long start, long end) {
 
     /// Returns the size of this range in bytes.
     ///
-    /// @return The size of this range (end - start)
+    /// @return The size of this range (end - startInclusive)
     public long size() {
         return end - start;
     }
@@ -93,5 +93,9 @@ public record MerkleRange(long start, long end) {
         int result = Long.hashCode(start);
         result = 31 * result + Long.hashCode(end);
         return result;
+    }
+
+    public long length() {
+        return end - start;
     }
 }
