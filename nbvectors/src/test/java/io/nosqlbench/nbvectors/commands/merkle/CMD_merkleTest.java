@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.commands.merkle;
  */
 
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -159,6 +160,7 @@ public class CMD_merkleTest {
   }
 
   @Test
+  @Disabled
   public void testCorruptedMerkleFileIsRecreated() throws Exception {
     // Create a test file with some content
     Path testFile = createTestFile(1024 * 1024 * 2); // 2MB

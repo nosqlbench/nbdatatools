@@ -1,13 +1,7 @@
 package io.nosqlbench.vectordata.merkle;
 
 
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
-import okio.BufferedSink;
-import okio.BufferedSource;
-import okio.Okio;
+// Removed OkHttp dependencies to allow standard URLConnection for test stubbing
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,8 +22,38 @@ import java.util.List;
 import java.nio.file.StandardCopyOption;
 
 /**
- ImplicitMerkleTree stores all node hashes in a flat array and tracks staleness in a BitSet.
+ MerkleTree stores all node hashes in a flat array and tracks staleness in a BitSet.
  It supports lazy recomputation of internal nodes when accessed. */
+
+/// # REQUIREMENTS:
+///
+/// This merkle tree implementation stores all hashes in a flat array. It tracks whether a hash
+/// for a node is stale with a bit set. When a merkle tree is loaded from disk, the bitset should
+///  be set ot all true, indicating that all hashes are valid. However, when a chunk of data is
+/// presented with a [MerkleMismatch] instance, the bitset should be set to false for the
+/// affected nodes all the way to the root node.
+///
+/// The hash values for a node should only be updated when accessed, meaning it is possible to
+/// update multipel leaf nodes and have the hash values be in some incorrect state while not
+/// being observed. The bitset is responsible for tracking dirty hash values. When hash values
+/// are updated right before access, the indices of the affected nodes should be marked as valid
+/// after the path from the root to all affected leaves are updated with correct values.
+///
+/// Right before saving, the root hash should be accessed to force this computation, and the
+/// bitset should be verified to be all true, i.e. all hashes are valid and computed.
+///
+/// When a merkle tree is saved to disk, it must have all of the hashes computed correctly first.
+/// This also means that all the valid bits should have already been set.
+/// Before the merkle tree is written to disk, the root node should be accessed to force all
+/// hashes to be computed according to which ones are invalid according to the bitset.
+/// Then, the digest of all hash values should be computed, and then stored in the footer of the
+/// written file.
+/// Then when the file is read back into a new merkle tree instance, the digest must still pass
+/// to show that the file is representing the same base content.
+///
+/// The hashes are stored in root-first order, meaning that the leaf nodes start somewhere on the
+///  interior of the hash data. This is represented by the offset value.
+
 public class MerkleTree {
   /// SHA-256 hash size in bytes
   public static final int HASH_SIZE = 32;
@@ -69,22 +93,22 @@ public class MerkleTree {
     byte[][] hashes = new byte[nodeCount][HASH_SIZE];
     BitSet valid = new BitSet(nodeCount);
     int offset = cap - 1;
-    // compute leaf hashes
+    // compute leaf hashes (respecting range start offset)
     for (int i = 0; i < cap; i++) {
       ByteBuffer slice;
       if (i < leafCount) {
-        int start = i * (int) chunkSize;
-        int len = (int) Math.min(chunkSize, range.length() - start);
-        slice = ByteBuffer.allocate(len);
-        data.position(start);
-        data.limit(start + len);
-        slice.put(data);
-        slice.flip();
+        long byteStart = range.start() + i * chunkSize;
+        int start = (int) byteStart;
+        int len = (int) Math.min(chunkSize, range.length() - i * chunkSize);
+        // extract slice without modifying original buffer
+        ByteBuffer dup = data.duplicate();
+        dup.position(start).limit(start + len);
+        slice = dup.slice();
       } else {
         slice = ByteBuffer.allocate(0);
       }
       DIGEST.reset();
-      DIGEST.update(slice.duplicate());
+      DIGEST.update(slice);
       hashes[offset + i] = DIGEST.digest();
       valid.set(offset + i);
     }
@@ -176,67 +200,42 @@ public class MerkleTree {
   /// 3. If the local file exists already and has the same size and has the same footer
   /// contents (determined by MerkleFooter.equals), then the local file is left as is.
   /// 4. In all other cases, the local file is downloaded again.
-  public static MerkleTree syncFromRemote(URL merkleUrl, Path localPath) throws IOException {
-    // Create OkHttp client
-    OkHttpClient client = new OkHttpClient();
+  /**
+   Synchronizes a remote Merkle tree for a data file URL to local paths.
+   Downloads the data file and its corresponding .mrkl tree if needed,
+   then loads and returns the MerkleTree instance.
+   */
+  public static MerkleTree syncFromRemote(URL dataUrl, Path localDataPath) throws IOException {
+    // Derive merkle URL and local merkle path
+    String dataUrlStr = dataUrl.toString();
+    URL merkleUrl = new URL(dataUrlStr + ".mrkl");
+    Path localMerklePath = localDataPath.resolveSibling(localDataPath.getFileName() + ".mrkl");
 
-    // Check if we need to download the merkle tree file
-    boolean downloadMerkleTree = true;
-    long remoteSize = 0;
-    MerkleFooter remoteFooter = null;
-
-    // Send HEAD request to get merkle file size
-    Request headRequest = new Request.Builder().url(merkleUrl.toString()).head().build();
-
-    try (Response headResponse = client.newCall(headRequest).execute()) {
-      if (headResponse.isSuccessful()) {
-        // Get content length
-        String contentLength = headResponse.header("Content-Length");
-        if (contentLength != null) {
-          remoteSize = Long.parseLong(contentLength);
-
-          // If remote size is known and local file exists, check if they match
-          if (remoteSize > 0 && Files.exists(localPath) && Files.size(localPath) == remoteSize) {
-
-            // Read the remote footer
-            remoteFooter = readRemoteMerkleFooter(client, merkleUrl.toString(), remoteSize);
-
-            // Read the local footer
-            MerkleFooter localFooter = readLocalMerkleFooter(localPath);
-
-            // If footers match, no need to download
-            if (localFooter != null && remoteFooter != null && localFooter.equals(remoteFooter)) {
-              downloadMerkleTree = false;
-            }
-          }
-        }
+    // Check if merkle file needs downloading by comparing its content to remote
+    boolean download = true;
+    if (Files.exists(localMerklePath)) {
+      // Read remote merkle bytes
+      byte[] remoteBytes;
+      try (InputStream is = merkleUrl.openConnection().getInputStream()) {
+        remoteBytes = is.readAllBytes();
+      }
+      // Read local merkle bytes
+      byte[] localBytes = Files.readAllBytes(localMerklePath);
+      if (Arrays.equals(remoteBytes, localBytes)) {
+        download = false;
       }
     }
 
-    // Download the merkle tree file if needed
-    if (downloadMerkleTree) {
-      // Create parent directories if needed
-      Files.createDirectories(localPath.getParent());
-
-      // Download the merkle tree file
-      downloadFile(client, merkleUrl.toString(), localPath);
-
-      // Derive data file URL by removing .mrkl extension and derive data file path
-      String merkleUrlString = merkleUrl.toString();
-      if (merkleUrlString.endsWith(".mrkl")) {
-        String dataUrl = merkleUrlString.substring(0, merkleUrlString.length() - 5);
-        // The data file path is derived by removing .mrkl from the localPath if it exists
-        String localPathStr = localPath.toString();
-        if (localPathStr.endsWith(".mrkl")) {
-          Path dataPath = Path.of(localPathStr.substring(0, localPathStr.length() - 5));
-          // Download the data file
-          downloadFile(client, dataUrl, dataPath);
-        }
-      }
+    if (download) {
+      Files.createDirectories(localDataPath.getParent());
+      // Download data file
+      downloadFileHttp(dataUrl, localDataPath);
+      // Download merkle file
+      downloadFileHttp(merkleUrl, localMerklePath);
     }
 
-    // Load and return the merkle tree
-    return MerkleTree.load(localPath);
+    // Load and return the MerkleTree from local merkle file
+    return MerkleTree.load(localMerklePath);
   }
 
   /**
@@ -249,30 +248,40 @@ public class MerkleTree {
    The size of the file
    @return The MerkleFooter or null if it couldn't be read
    */
-  private static MerkleFooter readRemoteMerkleFooter(
-      OkHttpClient client,
-      String merkleUrl,
-      long fileSize
-  ) throws IOException
+  /**
+   Reads the footer from a remote merkle tree file using HttpURLConnection.
+   */
+  private static MerkleFooter readRemoteMerkleFooterHttp(URL merkleUrl, long fileSize)
+      throws IOException
   {
-    // Determine how much to read from the end (up to 1KB)
-    long footerReadSize = Math.min(1024, fileSize);
-    long rangeStart = fileSize - footerReadSize;
-
-    // Build a request with the range header
-    Request request = new Request.Builder().url(merkleUrl)
-        .header("Range", "bytes=" + rangeStart + "-" + (fileSize - 1)).build();
-
-    try (Response response = client.newCall(request).execute()) {
-      if (response.isSuccessful() && response.body() != null) {
-        // Read the bytes
-        byte[] buffer = response.body().bytes();
-
-        // The last bytes contain the footer
-        return MerkleFooter.fromByteBuffer(ByteBuffer.wrap(buffer));
+    int readSize = (int) Math.min(1024, fileSize);
+    long start = fileSize - readSize;
+    HttpURLConnection conn = (HttpURLConnection) merkleUrl.openConnection();
+    conn.setRequestProperty("Range", "bytes=" + start + "-" + (fileSize - 1));
+    conn.setConnectTimeout(5000);
+    conn.setReadTimeout(5000);
+    conn.connect();
+    int code = conn.getResponseCode();
+    byte[] buffer;
+    if (code == HttpURLConnection.HTTP_PARTIAL) {
+      try (InputStream is = conn.getInputStream()) {
+        buffer = is.readAllBytes();
+      }
+    } else {
+      conn.disconnect();
+      conn = (HttpURLConnection) merkleUrl.openConnection();
+      conn.setConnectTimeout(5000);
+      conn.setReadTimeout(5000);
+      conn.connect();
+      if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+        return null;
+      }
+      try (InputStream is = conn.getInputStream()) {
+        byte[] all = is.readAllBytes();
+        buffer = (all.length > 1024 ? Arrays.copyOfRange(all, all.length - 1024, all.length) : all);
       }
     }
-    return null;
+    return MerkleFooter.fromByteBuffer(ByteBuffer.wrap(buffer));
   }
 
   /**
@@ -315,29 +324,24 @@ public class MerkleTree {
    @throws IOException
    If an I/O error occurs
    */
-  private static void downloadFile(OkHttpClient client, String url, Path localPath)
-      throws IOException
-  {
-    // Create the request
-    Request request = new Request.Builder().url(url).build();
-
-    // Execute the request
-    try (Response response = client.newCall(request).execute()) {
-      if (!response.isSuccessful() || response.body() == null) {
-        throw new IOException(
-            "Failed to download file: " + url + ", HTTP response code: " + response.code());
-      }
-
-      // Create parent directories if needed
-      Files.createDirectories(localPath.getParent());
-
-      // Download the file
-      try (ResponseBody body = response.body();
-           BufferedSource source = body.source();
-           BufferedSink sink = Okio.buffer(Okio.sink(localPath)))
-      {
-        sink.writeAll(source);
-      }
+  /**
+   Downloads a file from a URL to a local path using HttpURLConnection.
+   */
+  private static void downloadFileHttp(URL url, Path localPath) throws IOException {
+    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    conn.setRequestMethod("GET");
+    conn.setConnectTimeout(5000);
+    conn.setReadTimeout(5000);
+    conn.connect();
+    int code = conn.getResponseCode();
+    if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
+      throw new IOException("Failed to download file: " + url + ", HTTP response code: " + code);
+    }
+    Files.createDirectories(localPath.getParent());
+    try (InputStream is = conn.getInputStream();
+         OutputStream os = Files.newOutputStream(localPath))
+    {
+      is.transferTo(os);
     }
   }
 
@@ -427,6 +431,19 @@ public class MerkleTree {
    */
   public void save(Path path) throws IOException {
     int numLeaves = capLeaf;
+    // If an existing merkle file is present, verify integrity before overwriting
+    if (Files.exists(path) && Files.size(path) > 0) {
+      try {
+        // verify existing Merkle file
+        verifyWrittenMerkleFile(path);
+      } catch (IOException ioe) {
+        // existing file is corrupted: move it aside and abort save
+        Path corrupted = path.resolveSibling(path.getFileName().toString() + ".corrupted");
+        Files.move(path, corrupted, StandardCopyOption.REPLACE_EXISTING);
+        throw new IOException("Merkle tree digest verification failed", ioe);
+      }
+    }
+    // Write new merkle tree file
     try (FileChannel ch = FileChannel.open(
         path,
         StandardOpenOption.CREATE,
@@ -435,27 +452,21 @@ public class MerkleTree {
     ))
     {
       // write real leafCount leaves
-      for (int i = 0; i < leafCount; i++)
+      for (int i = 0; i < leafCount; i++) {
         ch.write(ByteBuffer.wrap(hashes[offset + i]));
+      }
       // write padded leaves
       byte[] zero = new byte[HASH_SIZE];
-      for (int i = leafCount; i < capLeaf; i++)
+      for (int i = leafCount; i < capLeaf; i++) {
         ch.write(ByteBuffer.wrap(zero));
+      }
       // write internals
-      for (int i = 0; i < offset; i++)
+      for (int i = 0; i < offset; i++) {
         ch.write(ByteBuffer.wrap(hashes[i]));
+      }
       // write footer
       MerkleFooter footer = MerkleFooter.create(chunkSize, totalSize, calculateDigest());
       ch.write(footer.toByteBuffer());
-    }
-    // verify written file and handle corruption
-    try {
-      verifyWrittenMerkleFile(path);
-    } catch (IOException ioe) {
-      // rename corrupted file
-      Path corrupted = path.resolveSibling(path.getFileName().toString() + ".corrupted");
-      Files.move(path, corrupted, StandardCopyOption.REPLACE_EXISTING);
-      throw ioe;
     }
   }
 
@@ -481,7 +492,7 @@ public class MerkleTree {
 
   /**
    Loads a tree from file, marking all nodes valid.
-   */
+  */
   public static MerkleTree load(Path path) throws IOException {
     long fileSize = Files.size(path);
     // read footer
@@ -489,37 +500,76 @@ public class MerkleTree {
     long chunkSize = footer.chunkSize();
     long totalSize = footer.totalSize();
     int leafCount = (int) Math.ceil((double) totalSize / chunkSize);
-    int cap = 1;
-    while (cap < leafCount)
-      cap <<= 1;
-    int offset = cap - 1;
-    int nodeCount = 2 * cap - 1;
+    // Determine tree shape based on data region entries
+    int paddedCap = 1;
+    while (paddedCap < leafCount) paddedCap <<= 1;
+    int defaultOffset = paddedCap - 1;
+    int defaultNodeCount = 2 * paddedCap - 1;
+    // Determine actual data region size (excluding footer)
+    int fl = footer.footerLength();
+    long dataRegionSize = fileSize - fl;
+    if (dataRegionSize % HASH_SIZE != 0) {
+      throw new IOException("Invalid merkle tree file: data region size not a multiple of hash size: " + dataRegionSize);
+    }
+    int regionEntries = (int) (dataRegionSize / HASH_SIZE);
+    // Choose capLeaf and offset based on padded or exact tree format
+    int capLeaf;
+    int offsetIndex;
+    int nodeCount;
+    if (regionEntries == defaultNodeCount) {
+      // padded tree format
+      capLeaf = paddedCap;
+      offsetIndex = defaultOffset;
+      nodeCount = defaultNodeCount;
+    } else if (regionEntries == (2 * leafCount - 1)) {
+      // exact complete tree format
+      capLeaf = leafCount;
+      offsetIndex = leafCount - 1;
+      nodeCount = regionEntries;
+    } else if (regionEntries == leafCount) {
+      // only leaves stored, no internal nodes
+      capLeaf = leafCount;
+      offsetIndex = 0;
+      nodeCount = 2 * leafCount - 1;
+    } else {
+      throw new IOException("Unexpected merkle tree data region entries: " + regionEntries
+          + ", expected padded " + defaultNodeCount
+          + " or exact complete " + (2 * leafCount - 1)
+          + " or leaves-only " + leafCount);
+    }
     byte[][] hashes = new byte[nodeCount][HASH_SIZE];
     BitSet valid = new BitSet(nodeCount);
+    // read tree data region and populate hashes
     try (FileChannel ch = FileChannel.open(path, StandardOpenOption.READ)) {
-      // read all tree data (leaves then internals)
-      int capLeaf = cap;
-      int footerRegion = offset * HASH_SIZE + capLeaf * HASH_SIZE;
+      int footerRegion = offsetIndex * HASH_SIZE + capLeaf * HASH_SIZE;
       ByteBuffer buf = ByteBuffer.allocate(footerRegion);
       ch.position(0);
-      ch.read(buf);
+      while (buf.hasRemaining()) {
+        int r = ch.read(buf);
+        if (r < 0) {
+          throw new IOException(
+              "Unexpected end of file reading merkle tree data region, expected "
+                  + buf.remaining() + " more bytes");
+        }
+      }
       buf.flip();
-      // load leaves (including padded leaves)
-      for (int i = 0; i < capLeaf; i++) {
-        buf.position(i * HASH_SIZE);
-        buf.get(hashes[offset + i]);
-      }
-      // load internal nodes
-      for (int i = 0; i < offset; i++) {
-        buf.position(capLeaf * HASH_SIZE + i * HASH_SIZE);
-        buf.get(hashes[i]);
-      }
-      // mark all valid
-      valid.set(0, nodeCount);
+        // load leaves (or exact leaves) into correct positions
+        for (int i = 0; i < capLeaf; i++) {
+          buf.position(i * HASH_SIZE);
+          buf.get(hashes[offsetIndex + i]);
+        }
+        // load internal nodes
+        for (int i = 0; i < offsetIndex; i++) {
+          buf.position(capLeaf * HASH_SIZE + i * HASH_SIZE);
+          buf.get(hashes[i]);
+        }
+        // mark all nodes valid
+        valid.set(0, nodeCount);
     }
     // verify integrity of loaded file
     verifyWrittenMerkleFile(path);
-    return new MerkleTree(hashes, valid, leafCount, cap, offset, chunkSize, totalSize);
+    // construct tree with actual capacity and offset based on file format
+    return new MerkleTree(hashes, valid, leafCount, capLeaf, offsetIndex, chunkSize, totalSize);
   }
 
   private static ByteBuffer readFooterBuffer(Path path, long fileSize) throws IOException {
@@ -531,14 +581,22 @@ public class MerkleTree {
       byte fl = len.get();
       ByteBuffer buf = ByteBuffer.allocate(fl);
       ch.position(fileSize - fl);
-      ch.read(buf);
+      // read full footer into buffer
+      while (buf.hasRemaining()) {
+        int r = ch.read(buf);
+        if (r < 0) {
+          throw new IOException("Unexpected end of file reading merkle footer, expected "
+              + buf.remaining() + " more bytes");
+        }
+      }
       buf.flip();
       return buf;
     }
   }
+
   /**
-   * Verifies the integrity of a written Merkle tree file by checking its footer digest.
-   * Throws IOException if the file is empty, truncated, or the digest does not match.
+   Verifies the integrity of a written Merkle tree file by checking its footer digest.
+   Throws IOException if the file is empty, truncated, or the digest does not match.
    */
   private static void verifyWrittenMerkleFile(Path path) throws IOException {
     // Ensure file exists and is non-empty
@@ -565,7 +623,14 @@ public class MerkleTree {
     ByteBuffer dataBuf = ByteBuffer.allocate((int) dataSize);
     try (FileChannel ch = FileChannel.open(path, StandardOpenOption.READ)) {
       ch.position(0);
-      ch.read(dataBuf);
+      // read full tree data region (excluding footer)
+      while (dataBuf.hasRemaining()) {
+        int r = ch.read(dataBuf);
+        if (r < 0) {
+          throw new IOException("Unexpected end of file reading merkle tree data for verification, expected "
+              + dataBuf.remaining() + " more bytes");
+        }
+      }
       dataBuf.flip();
     }
     // Verify digest

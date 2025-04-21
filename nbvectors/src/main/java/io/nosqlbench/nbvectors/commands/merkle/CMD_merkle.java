@@ -28,6 +28,7 @@ import picocli.CommandLine.Parameters;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.security.MessageDigest;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,6 +42,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static io.nosqlbench.nbvectors.commands.merkle.MerkleCommand.MRKL;
@@ -167,16 +172,48 @@ public class CMD_merkle implements Callable<Integer> {
       // Create the Merkle range for the entire file
       MerkleRange fullRange = new MerkleRange(0, fileSize);
       
-      // We'll build the complete file data buffer to create the Merkle tree
-      ByteBuffer fileData = ByteBuffer.allocate((int)Math.min(fileSize, Integer.MAX_VALUE));
-      
-      try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
-        channel.read(fileData);
-        fileData.flip();
+      // Create an empty Merkle tree for the file size and chunk size
+      MerkleTree merkleTree = MerkleTree.createEmpty(fileSize, chunkSize);
+      // Concurrently compute leaf hashes
+      display.setStatus("Hashing chunks");
+      ExecutorService executor = Executors.newFixedThreadPool(Math.min(Runtime.getRuntime().availableProcessors(), numChunks));
+      AtomicInteger chunksDone = new AtomicInteger(0);
+      byte[][] leafHashes = new byte[numChunks][];
+      for (int i = 0; i < numChunks; i++) {
+        final int idx = i;
+        executor.submit(() -> {
+          try (FileChannel ch2 = FileChannel.open(file, StandardOpenOption.READ)) {
+            long pos = (long) idx * chunkSize;
+            ch2.position(pos);
+            ByteBuffer buf = ByteBuffer.allocate((int) Math.min(chunkSize, fileSize - pos));
+            while (buf.hasRemaining()) {
+              int r = ch2.read(buf);
+              if (r < 0) break;
+            }
+            buf.flip();
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(buf);
+            byte[] h = md.digest();
+            leafHashes[idx] = h;
+            int done = chunksDone.incrementAndGet();
+            display.setAction(String.format("Hashed %d/%d chunks", done, numChunks));
+            display.updateProgress(done, numChunks, done, numChunks);
+          } catch (Exception e) {
+            display.log("Error hashing chunk %d: %s", idx, e.getMessage());
+          }
+        });
       }
-      
-      // Create the Merkle tree from the file data
-      MerkleTree merkleTree = MerkleTree.fromData(fileData, chunkSize, fullRange);
+      executor.shutdown();
+      executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+      display.setAction("");
+      display.setStatus("Building Merkle tree");
+      // Update Merkle tree with computed leaf hashes
+      for (int idx = 0; idx < numChunks; idx++) {
+        display.setAction(String.format("Updating tree %d/%d", idx + 1, numChunks));
+        merkleTree.updateLeafHash(idx, leafHashes[idx]);
+        display.updateProgress(idx + 1, numChunks, idx + 1, numChunks);
+      }
+      display.setAction("");
       
       // Save the Merkle tree
       display.setStatus("Saving Merkle tree");

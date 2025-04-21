@@ -51,8 +51,8 @@ public class MerkleTreeRecalculationTest {
      */
     private byte[] createTestData(int size) {
         byte[] data = new byte[size];
-        // Use shared RNG for test data to consume random state consistently
-        random.nextBytes(data);
+        // Use a fresh, fixed-seed RNG for test data to ensure consistent initial state
+        new Random(42).nextBytes(data);
         return data;
     }
 
@@ -91,9 +91,9 @@ public class MerkleTreeRecalculationTest {
         int leafIndex = 3; // Use leaf index 3
         byte[] originalLeafHash = tree.getHashForLeaf(leafIndex);
 
-        // Create a new hash
+        // Create a new hash (distinct constant data)
         byte[] newHashData = new byte[CHUNK_SIZE];
-        random.nextBytes(newHashData); // Different random data
+        Arrays.fill(newHashData, (byte) 0xFF);
         
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         digest.update(newHashData);
@@ -133,9 +133,9 @@ public class MerkleTreeRecalculationTest {
         
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         for (int leafIndex : leavesToUpdate) {
-            // Create a new hash
+            // Create a new hash (distinct constant data)
             byte[] newHashData = new byte[CHUNK_SIZE];
-            random.nextBytes(newHashData);
+            Arrays.fill(newHashData, (byte) 0xFF);
             
             digest.reset();
             digest.update(newHashData);

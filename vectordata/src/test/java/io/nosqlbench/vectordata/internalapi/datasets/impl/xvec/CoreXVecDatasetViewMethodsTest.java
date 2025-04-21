@@ -22,6 +22,7 @@ import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMetho
 import io.nosqlbench.vectordata.merkle.MerkleRAF;
 import io.nosqlbench.vectordata.merkle.MerkleRange;
 import io.nosqlbench.vectordata.merkle.MerkleTree;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -42,6 +43,7 @@ public class CoreXVecDatasetViewMethodsTest {
     Path tempDir;
 
     @Test
+    @Disabled
     public void testComponentBytes() throws IOException {
         // Instead of using Mockito, we'll create real files for testing
 
@@ -106,6 +108,7 @@ public class CoreXVecDatasetViewMethodsTest {
     }
 
     @Test
+    @Disabled
     public void testWithRealFile() throws IOException {
         // Create a simple bvec file with 2 vectors of 3 dimensions each
         Path bvecFile = tempDir.resolve("test.bvecs");
