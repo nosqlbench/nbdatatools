@@ -3,10 +3,23 @@
   These directions apply to any and all files, projects, or modules contained within 
   this directory.
 - |
+  When generating new code, always document it with javadoc using the more modern 
+  markdown javadoc format, specifically with three triple slashes starting each line 
+  and idiomatic markdown comments. When suitable, include diagrammatic documentation 
+  with unicode drawing symbols in a fenced code block in this documentation.
+- |
   When I tell you to update a class or method, it means to update it with respect to 
   other recent code changes. You may suggest other changes to make updates better, but 
-  the focus of updating should be to make the specific thing work with the existing 
+  the focus of updating should be to make the specific request work with the existing 
   classes first.
+- |
+  Do not add special code to non-test classes to make a test pass. This is in violation of 
+  basic testing principles.
+- |
+  When you write code based on input from me that is not in a resource like this file 
+  or javadoc, where the request suggest requirements that should be documented, then add
+  a section on INFERRED REQUIREMENTS to any javadoc that is produced to explain the 
+  requirements as understood.
 - |
   Use the latest supported Java language features and assume the latest Java LTS 
   bytecode version. Do not use implied classes.
@@ -15,11 +28,11 @@
   accessible in java, like overriding method accessibility or adding unsafe code.
 - |
   Do not add extra features or fields to non-test classes which are not needed to meet 
-  requirements, when specified in this way. Do not assume that new features are needed 
+  requirements. Do not assume that new features are needed 
   unless they are directly specified or strongly implied by related requirements, 
   whether given in requirements comments or in chat.
 - |
-  When you see an double slash comment starting with the word REQUIREMENT, interpret it as a hard
+  When you see any comment starting with the word REQUIREMENT, interpret it as a hard
   and absolute requirement. Do not implement any other code or test which violates the requirement.
 - |
   When you see a section in any Java test files with the section or heading named 
@@ -40,17 +53,15 @@
   Favor building native test fixtures in the code base rather than pulling in Mockito 
   for tests. Only use mockito for things which are difficult to test because fixtures 
   require remote system views, like wire protocols or other complex testing scenarios.
+  Avoid including mockito in general.
 - |
   Assume that maven is being used.
 - |
   Assume that the latest version of any dependency is being used. Do not use old or stale 
   information when determining how to use a version of a library dependency.
 - |
-  Do not add special code to non-test classes to make a test pass. This is in violation of 
-  basic testing principles.
-- |
   Changing non-test code to make a test pass is only valid if it constitutes a design change or 
-  implementation fix. Anything that is a major change should be confirmed wiht me first.
+  implementation fix. Anything major changes to make a test pass should be confirmed with me first.
 - |
   When a file needs to be created as a testing asset, it should always go under the 
   src/test/resource path, and any tests associated with it should presume that as the logical 

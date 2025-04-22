@@ -39,10 +39,8 @@ import java.util.BitSet;
 import java.util.List;
 import java.nio.file.StandardCopyOption;
 
-/**
- MerkleTree stores all node hashes in a flat array and tracks staleness in a BitSet.
- It supports lazy recomputation of internal nodes when accessed. */
-
+/// # IDEA: Consider replacing this with https://github.com/crums-io/merkle-tree
+///
 /// # REQUIREMENTS:
 ///
 /// This merkle tree implementation stores all hashes in a flat array. It tracks whether a hash

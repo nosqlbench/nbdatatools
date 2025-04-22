@@ -19,14 +19,13 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec;
 
 
 import io.nosqlbench.nbvectors.common.adapters.Enumerated;
-import io.nosqlbench.nbvectors.common.adapters.Sized;
+import io.nosqlbench.readers.Sized;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.IntBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;

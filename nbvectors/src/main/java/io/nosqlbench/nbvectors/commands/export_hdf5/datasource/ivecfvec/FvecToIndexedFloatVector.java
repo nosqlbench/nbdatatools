@@ -19,8 +19,8 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec;
 
 
 import io.nosqlbench.nbvectors.common.adapters.Enumerated;
-import io.nosqlbench.nbvectors.common.adapters.Sized;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.readers.Sized;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;

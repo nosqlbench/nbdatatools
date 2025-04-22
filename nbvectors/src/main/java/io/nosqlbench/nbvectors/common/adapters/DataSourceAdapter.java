@@ -19,15 +19,12 @@ package io.nosqlbench.nbvectors.common.adapters;
 
 
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.BvecToByteArray;
-import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.FvecToFloatArray;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.FvecToIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.IvecToIntArray;
-import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversal.ParquetFloatDataAdapter;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.readers.SizedReader;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 /// Adapt a path to a data source, depending on the file name or contents
 public class DataSourceAdapter {
@@ -109,26 +106,33 @@ public class DataSourceAdapter {
   ///     the path to adapt
   /// @return an iterable of float arrays
   public static Iterable<float[]> adaptFloatArray(Path path) {
-    if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
-      return new FvecToFloatArray(path);
-    } else if (Files.isDirectory(path)) {
-      return new ParquetFloatDataAdapter(List.of(path));
-    } else {
-      throw new RuntimeException("file type not recognized: " + path);
-    }
+    ReaderAndPath rp = new ReaderAndPath(path.toString());
+    SizedReader<float[]> sizedReader = rp.getSizedReader(float[].class);
+    return sizedReader;
+    //
+//    if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
+//      return new FvecToFloatArray(path);
+//    } else if (Files.isDirectory(path)) {
+//      return new ParquetFloatDataAdapter(List.of(path));
+//    } else {
+//      throw new RuntimeException("file type not recognized: " + path);
+//    }
   }
 
   public static Iterable<?> adaptAnyType(Path path) {
-    if (path.toString().endsWith(".bvec") || path.toString().endsWith(".bvecs")) {
-      return new BvecToByteArray(path);
-    } else if (path.toString().endsWith(".ivec") || path.toString().endsWith(".ivecs")) {
-      return new IvecToIntArray(path);
-    } else if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
-      return new FvecToFloatArray(path);
-    } else if (Files.isDirectory(path)) {
-      return new ParquetFloatDataAdapter(List.of(path));
-    } else {
-      throw new RuntimeException("file type not recognized: " + path);
-    }
+    ReaderAndPath rp = new ReaderAndPath(path.toString());
+    SizedReader<?> sizedReader = rp.getSizedReader(Object.class);
+    return sizedReader;
+//    if (path.toString().endsWith(".bvec") || path.toString().endsWith(".bvecs")) {
+//      return new BvecToByteArray(path);
+//    } else if (path.toString().endsWith(".ivec") || path.toString().endsWith(".ivecs")) {
+//      return new IvecToIntArray(path);
+//    } else if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
+//      return new FvecToFloatArray(path);
+//    } else if (Files.isDirectory(path)) {
+//      return new ParquetFloatDataAdapter(List.of(path));
+//    } else {
+//      throw new RuntimeException("file type not recognized: " + path);
+//    }
   }
 }

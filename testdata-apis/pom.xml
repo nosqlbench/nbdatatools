@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <artifactId>testdata-apis</artifactId>
+  <name>${project.artifactId}</name>
+  <description>Test Data APIs</description>
+  <url>https://github.com/nosqlbench/nbdatatools</url>
+
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <version>${revision}</version>
+    <artifactId>mvn-defaults</artifactId>
+    <relativePath>../mvn-defaults</relativePath>
+  </parent>
+
+  <properties>
+    <revision>0.1.4-SNAPSHOT</revision>
+    <maven.compiler.source>22</maven.compiler.source>
+    <maven.compiler.target>22</maven.compiler.target>
+    <maven.compiler.release>22</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <javadoc.name>testdata-apis</javadoc.name>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.11.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.snakeyaml</groupId>
+      <artifactId>snakeyaml-engine</artifactId>
+      <version>2.9</version>
+    </dependency>
+    <!-- For Maven -->
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>4.12.0</version> <!-- Use the latest version -->
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>1.16.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.11.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.17.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>2.19.0</version>
+    </dependency>
+
+    <!--    <dependency>-->
+<!--      <groupId>com.google.auto.service</groupId>-->
+<!--      <artifactId>auto-service</artifactId>-->
+<!--      <version>1.1.1</version>-->
+<!--    </dependency>-->
+    
+  </dependencies>
+
+
+  <build>
+    <plugins>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.2.1</version>
+        <executions>
+          <execution>
+            <id>enforce-java</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <!--                The GraalVM vendor version is only enforced in the native profile -->
+                <!--                <requireProperty>-->
+                <!--                  <property>java.vendor.version</property>-->
+                <!--                  <regex>.*GraalVM.*</regex>-->
+                <!--                  <message>-->
+                <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
+                <!--                  </message>-->
+                <!--                </requireProperty>-->
+                <requireJavaVersion>
+                  <version>[23,)</version>
+                </requireJavaVersion>
+                <!--                <dependencyConvergence>-->
+                <!--                </dependencyConvergence>-->
+                <requireProfileIdsExist/>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.0.1</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+            <configuration>
+              <keyname>nosqlbenchdroid@gmail.com</keyname>
+              <passphraseServerId>gpg.passphrase</passphraseServerId>
+              <!--              <useAgent>true</useAgent>-->
+              <gpgArguments>
+                <cmdParam>--pinentry-mode</cmdParam>
+                <cmdParam>loopback</cmdParam>
+              </gpgArguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>0.15</version>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <includes>
+            <include>**/*.java</include>
+          </includes>
+          <excludes>
+            <exclude>**/gen/**</exclude>
+            <exclude>**/generated/**</exclude>
+            <exclude>**/jmh_generated/**</exclude>
+            <exclude>**/generated-sources/**</exclude>
+          </excludes>
+          <addLicenseHeaders>true</addLicenseHeaders>
+          <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>1.3.0</version>
+        <configuration>
+          <updatePomFile>true</updatePomFile>
+          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>flatten.clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>23</release>
+        </configuration>
+      </plugin>
+<!--      <plugin>-->
+<!--        <groupId>org.apache.maven.plugins</groupId>-->
+<!--        <artifactId>maven-jar-plugin</artifactId>-->
+<!--        <version>3.3.0</version>-->
+<!--        <configuration>-->
+<!--          <archive>-->
+<!--          </archive>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.11.2</version>
+        <configuration>
+          <!--          <additionalOptions>-->
+          <!--            <additionalOption>-Xdoclint:none</additionalOption>-->
+          <!--          </additionalOptions>-->
+          <!--          <doclint>none</doclint>-->
+
+
+          <!--          <additionalJOptions>&#45;&#45;enable-preview</additionalJOptions>-->
+          <!--          <release>23</release>-->
+          <!--          <doctitle>${javadoc.name}</doctitle>-->
+          <!--          <header>${javadoc.name}</header>-->
+          <!--          <windowtitle>${javadoc.name}</windowtitle>-->
+          <!--          <detectJavaApiLink>false</detectJavaApiLink>-->
+          <!--          <detectLinks>false</detectLinks>-->
+          <!--          <detectOfflineLinks>false</detectOfflineLinks>-->
+          <!--                    <additionalparam>-Xdoclint:none</additionalparam>-->
+          <!--                    <additionalJOption>-Xdoclint:none</additionalJOption>-->
+          <!--          <notimestamp>true</notimestamp>-->
+          <!--          <groups>-->
+          <!--            <group>-->
+          <!--              <title>Adapter Drivers</title>-->
+          <!--              <packages>io.nosqlbench.adapter.*</packages>-->
+          <!--            </group>-->
+          <!--          </groups>-->
+        </configuration>
+        <executions>
+          <execution>
+            <id>attach-javadoc</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.7.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>portal-snapshots</publishingServerId>
+          <autoPublish>true</autoPublish>
+          <waitUntil>uploaded</waitUntil>
+
+          <publishingServerId>central</publishingServerId>
+          <autoPublish>false</autoPublish>
+          <waitUntil>uploaded</waitUntil>
+          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>
+
+        </configuration>
+      </plugin>
+
+
+    </plugins>
+
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <includes>
+          <include>META_INF/services/**</include>
+          <!--          <include>META-INF/functions</include>-->
+          <!--          <include>data/**</include>-->
+          <!--          <include>docs-for-virtdata/**</include>-->
+          <!--          <include>docs/**</include>-->
+        </includes>
+      </resource>
+    </resources>
+
+  </build>
+
+
+  <profiles>
+    <profile>
+      <id>native</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <version>3.2.1</version>
+            <executions>
+              <execution>
+                <id>enforce-java</id>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <requireProperty>
+                      <property>java.vendor.version</property>
+                      <regex>.*GraalVM.*</regex>
+                      <message>
+                        You must use a GraalVM JDK. The detected JDK is not GraalVM.
+                      </message>
+                    </requireProperty>
+                    <requireJavaVersion>
+                      <version>[23,)</version>
+                    </requireJavaVersion>
+                    <!--                    This would be nice, but jhdf is on older log4j API versions -->
+                    <!--                    <dependencyConvergence/>-->
+                    <requireProfileIdsExist/>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <!--          Building with native image seems infeasible with some dependencies-->
+          <!--          <plugin>-->
+          <!--            <groupId>org.graalvm.buildtools</groupId>-->
+          <!--            <artifactId>native-maven-plugin</artifactId>-->
+          <!--            <version>${native.maven.plugin.version}</version>-->
+          <!--            <executions>-->
+          <!--              <execution>-->
+          <!--                <id>build-native</id>-->
+          <!--                <goals>-->
+          <!--                  <goal>compile-no-fork</goal>-->
+          <!--                </goals>-->
+          <!--                <phase>package</phase>-->
+          <!--              </execution>-->
+          <!--              &lt;!&ndash;              <execution>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <id>test-native</id>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <goals>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                  <goal>test</goal>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                </goals>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <phase>test</phase>&ndash;&gt;-->
+          <!--              &lt;!&ndash;              </execution>&ndash;&gt;-->
+          <!--            </executions>-->
+          <!--            <configuration>-->
+          <!--              <fallback>false</fallback>-->
+          <!--            </configuration>-->
+          <!--          </plugin>-->
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+</project>

@@ -33,6 +33,8 @@
   </dependencies>
 
   <modules>
+    <module>mvn-defaults</module>
+    <module>testdata-apis</module>
     <module>vectordata</module>
     <module>nbvectors</module>
   </modules>
@@ -59,6 +61,17 @@
     </license>
   </licenses>
 
+  <profiles>
+    <profile>
+      <id>enable_parquet</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>readers/parquet-reader</module>
+      </modules>
+    </profile>
+  </profiles>
   <build>
     <plugins>
       <plugin>
