@@ -1,4 +1,4 @@
-package io.nosqlbench.readers;
+package io.nosqlbench.streamers;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,7 +18,8 @@ package io.nosqlbench.readers;
  */
 
 
-import io.nosqlbench.streamers.SizedStreamer;
+import io.nosqlbench.readers.Named;
 
-public interface FloatVectorIterable extends SizedStreamer<float[]> {
+public interface Streamer<T> extends Iterable<T>, Named {
+
 }

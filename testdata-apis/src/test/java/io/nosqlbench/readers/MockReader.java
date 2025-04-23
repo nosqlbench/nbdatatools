@@ -19,6 +19,7 @@ package io.nosqlbench.readers;
 
 
 import com.google.auto.service.AutoService;
+import io.nosqlbench.streamers.SizedStreamer;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;

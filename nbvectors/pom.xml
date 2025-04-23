@@ -173,31 +173,31 @@
     </dependency>
 
 
-    <!-- ND4J CUDA dependency -->
-    <dependency>
-      <groupId>org.nd4j</groupId>
-      <artifactId>nd4j-cuda-11.6-platform</artifactId>
-      <version>${nd4j.version}</version>
-    </dependency>
+<!--    &lt;!&ndash; ND4J CUDA dependency &ndash;&gt;-->
+<!--    <dependency>-->
+<!--      <groupId>org.nd4j</groupId>-->
+<!--      <artifactId>nd4j-cuda-11.6-platform</artifactId>-->
+<!--      <version>${nd4j.version}</version>-->
+<!--    </dependency>-->
 
-    <!-- ND4J Arrow integration -->
-    <dependency>
-      <groupId>org.nd4j</groupId>
-      <artifactId>nd4j-arrow</artifactId>
-      <version>${nd4j.version}</version>
-    </dependency>
+<!--    &lt;!&ndash; ND4J Arrow integration &ndash;&gt;-->
+<!--    <dependency>-->
+<!--      <groupId>org.nd4j</groupId>-->
+<!--      <artifactId>nd4j-arrow</artifactId>-->
+<!--      <version>${nd4j.version}</version>-->
+<!--    </dependency>-->
 
-    <dependency>
-      <groupId>org.nd4j</groupId>
-      <artifactId>nd4j-native</artifactId>
-      <version>1.0.0-M2.1</version>
-    </dependency>
-    <!-- DataVec dependency for data processing -->
-    <dependency>
-      <groupId>org.datavec</groupId>
-      <artifactId>datavec-api</artifactId>
-      <version>${nd4j.version}</version>
-    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>org.nd4j</groupId>-->
+<!--      <artifactId>nd4j-native</artifactId>-->
+<!--      <version>1.0.0-M2.1</version>-->
+<!--    </dependency>-->
+<!--    &lt;!&ndash; DataVec dependency for data processing &ndash;&gt;-->
+<!--    <dependency>-->
+<!--      <groupId>org.datavec</groupId>-->
+<!--      <artifactId>datavec-api</artifactId>-->
+<!--      <version>${nd4j.version}</version>-->
+<!--    </dependency>-->
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-rng-client-api</artifactId>

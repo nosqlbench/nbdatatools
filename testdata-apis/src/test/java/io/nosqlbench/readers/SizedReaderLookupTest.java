@@ -18,6 +18,7 @@ package io.nosqlbench.readers;
  */
 
 
+import io.nosqlbench.streamers.SizedStreamer;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;

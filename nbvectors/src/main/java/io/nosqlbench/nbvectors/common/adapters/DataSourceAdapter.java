@@ -22,7 +22,7 @@ import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.BvecToBy
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.FvecToIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.IvecToIntArray;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
-import io.nosqlbench.readers.SizedStreamer;
+import io.nosqlbench.streamers.SizedStreamer;
 
 import java.nio.file.Path;
 

@@ -19,6 +19,7 @@ package io.nosqlbench.readers;
 
 
 import com.google.auto.service.AutoService;
+import io.nosqlbench.streamers.SizedStreamer;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;

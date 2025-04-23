@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>xvec-reader</artifactId>
+  <artifactId>xvec-writer</artifactId>
   <name>${project.artifactId}</name>
   <description>An fvec,ivec,bvec reader for nbvectors</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
@@ -24,31 +24,18 @@
   </properties>
 
   <dependencies>
-    <dependency>
-      <groupId>io.nosqlbench</groupId>
-      <artifactId>testdata-apis</artifactId>
-      <version>0.1.4-SNAPSHOT</version>
-    </dependency>
+
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>vectordata</artifactId>
       <version>${revision}</version>
     </dependency>
 
-    <!-- Google Gson for JSON parsing -->
     <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>2.10.1</version>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>testdata-apis</artifactId>
+      <version>0.1.4-SNAPSHOT</version>
     </dependency>
 
-    <!-- Auto service for service discovery -->
-    <dependency>
-      <groupId>com.google.auto.service</groupId>
-      <artifactId>auto-service</artifactId>
-      <version>1.1.1</version>
-      <scope>provided</scope>
-    </dependency>
   </dependencies>
-
 </project>

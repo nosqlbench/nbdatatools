@@ -1,4 +1,4 @@
-package io.nosqlbench.readers;
+package io.nosqlbench.streamers;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,7 +17,8 @@ package io.nosqlbench.readers;
  * under the License.
  */
 
+import io.nosqlbench.readers.Sized;
 
-public interface SizedStreamer<T> extends Iterable<T>, Sized, Named {
+public interface SizedStreamer<T> extends Streamer<T>, Sized {
 
 }

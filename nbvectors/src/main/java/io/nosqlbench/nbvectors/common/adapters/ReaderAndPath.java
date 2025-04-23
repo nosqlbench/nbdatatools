@@ -19,7 +19,7 @@ package io.nosqlbench.nbvectors.common.adapters;
 
 
 import io.nosqlbench.readers.Encoding;
-import io.nosqlbench.readers.SizedStreamer;
+import io.nosqlbench.streamers.SizedStreamer;
 
 import java.nio.file.Path;
 import java.util.ServiceLoader;

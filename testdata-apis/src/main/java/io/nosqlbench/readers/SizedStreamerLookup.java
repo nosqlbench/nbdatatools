@@ -18,6 +18,8 @@ package io.nosqlbench.readers;
  */
 
 
+import io.nosqlbench.streamers.SizedStreamer;
+
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.stream.Stream;
