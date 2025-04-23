@@ -4,9 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <version>${revision}</version>
+    <artifactId>mvn-defaults</artifactId>
+    <relativePath>../mvn-defaults</relativePath>
+  </parent>
+
   <artifactId>vectordata</artifactId>
-  <groupId>io.nosqlbench</groupId>
-  <version>${revision}</version>
   <name>${project.artifactId}</name>
   <description>semi-formal spec for vector test data in hdf5 with API</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
@@ -40,24 +45,6 @@
       <version>2.11.0</version>
     </dependency>
 
-    <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>3.24.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <version>5.10.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>5.11.0</version>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>org.snakeyaml</groupId>
       <artifactId>snakeyaml-engine</artifactId>

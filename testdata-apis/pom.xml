@@ -4,19 +4,20 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <artifactId>mvn-defaults</artifactId>
+    <version>${revision}</version>
+    <relativePath>../mvn-defaults</relativePath>
+  </parent>
+
   <artifactId>testdata-apis</artifactId>
   <name>${project.artifactId}</name>
   <description>Test Data APIs</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
-  <parent>
-    <groupId>io.nosqlbench</groupId>
-    <version>${revision}</version>
-    <artifactId>mvn-defaults</artifactId>
-    <relativePath>../mvn-defaults</relativePath>
-  </parent>
-
   <properties>
+    <jline.version>3.28.0</jline.version>
     <revision>0.1.4-SNAPSHOT</revision>
     <maven.compiler.source>22</maven.compiler.source>
     <maven.compiler.target>22</maven.compiler.target>
@@ -26,10 +27,39 @@
   </properties>
 
   <dependencies>
+      <dependency>
+        <groupId>com.google.auto.service</groupId>
+        <artifactId>auto-service</artifactId>
+        <version>1.1.1</version>
+        <scope>provided</scope>
+      </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
     <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>2.11.0</version>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
+      <version>5.4.3</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5-fluent -->
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5-fluent</artifactId>
+      <version>5.4.3</version>
+    </dependency>
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+      <version>4.7.6</version>
+    </dependency>
+    <dependency>
+      <groupId>com.googlecode.lanterna</groupId>
+      <artifactId>lanterna</artifactId>
+      <version>3.1.2</version>
+    </dependency>
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli-codegen</artifactId>
+      <version>4.7.6</version>
     </dependency>
     <dependency>
       <groupId>org.snakeyaml</groupId>
@@ -66,12 +96,28 @@
       <version>2.19.0</version>
     </dependency>
 
+    <dependency>
+      <groupId>org.jline</groupId>
+      <artifactId>jline</artifactId>
+      <version>${jline.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jline</groupId>
+      <artifactId>jline-curses</artifactId>
+      <version>${jline.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jline</groupId>
+      <artifactId>jline-terminal-ffm</artifactId>
+      <version>${jline.version}</version>
+    </dependency>
+
     <!--    <dependency>-->
 <!--      <groupId>com.google.auto.service</groupId>-->
 <!--      <artifactId>auto-service</artifactId>-->
 <!--      <version>1.1.1</version>-->
 <!--    </dependency>-->
-    
+
   </dependencies>
 
 

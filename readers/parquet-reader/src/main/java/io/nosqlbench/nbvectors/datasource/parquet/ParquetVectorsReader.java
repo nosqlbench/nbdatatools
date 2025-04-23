@@ -26,7 +26,7 @@ import io.nosqlbench.nbvectors.datasource.parquet.conversion.HFEmbedToFloatAry;
 import io.nosqlbench.nbvectors.datasource.parquet.traversal.ParquetTabulator;
 import io.nosqlbench.nbvectors.datasource.parquet.traversal.functional.ParquetTraversal;
 import io.nosqlbench.nbvectors.services.Selector;
-import io.nosqlbench.readers.SizedReader;
+import io.nosqlbench.readers.SizedStreamer;
 import org.apache.parquet.example.data.Group;
 
 import java.nio.file.Files;
@@ -40,9 +40,9 @@ import io.nosqlbench.nbvectors.datasource.parquet.traversal.RecordReaderIterable
 
 /// Read vectors from parquet files. This layer of reading/parsing is expected to be applied to a
 ///  set of Paths which are files only, and which are part of a logical group.
-@AutoService(SizedReader.class)
+@AutoService(SizedStreamer.class)
 @Selector("parquet")
-public class ParquetVectorsReader implements SizedReader<float[]> {
+public class ParquetVectorsReader implements SizedStreamer<float[]> {
 
   private final Iterable<float[]> compositeIterable;
   private final List<Path> paths;

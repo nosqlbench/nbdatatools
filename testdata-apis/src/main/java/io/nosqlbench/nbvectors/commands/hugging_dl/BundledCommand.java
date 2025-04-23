@@ -1,4 +1,4 @@
-package io.nosqlbench.readers;
+package io.nosqlbench.nbvectors.commands.hugging_dl;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,5 +18,5 @@ package io.nosqlbench.readers;
  */
 
 
-public interface FloatVectorIterable extends SizedStreamer<float[]> {
+public interface BundledCommand {
 }

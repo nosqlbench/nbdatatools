@@ -18,8 +18,8 @@ package io.nosqlbench.nbvectors.common.adapters;
  */
 
 
-import io.nosqlbench.nbvectors.services.Selector;
-import io.nosqlbench.readers.SizedReader;
+import io.nosqlbench.readers.Encoding;
+import io.nosqlbench.readers.SizedStreamer;
 
 import java.nio.file.Path;
 import java.util.ServiceLoader;
@@ -48,22 +48,41 @@ public record ReaderAndPath(String reader, Path source) {
     return extension[extension.length - 1];
   }
 
-  public <T> SizedReader<T> getSizedReader(Class<? extends T> type) {
-    ServiceLoader<SizedReader<T>> readers =
-        (ServiceLoader<SizedReader<T>>) ServiceLoader.load(type);
-    Predicate<Class<?>> filter = selectorFilter(reader);
-    ServiceLoader.Provider<SizedReader<T>> provider =
+  public <T> SizedStreamer<T> getSizedReader(Class<? extends T> type) {
+    ServiceLoader<SizedStreamer<T>> readers =
+        (ServiceLoader<SizedStreamer<T>>) ServiceLoader.load(type);
+    Predicate<Class<?>> filter = encodingFilter(getEncodingType(reader));
+    ServiceLoader.Provider<SizedStreamer<T>> provider =
         readers.stream().filter(s -> filter.test(s.type())).findFirst().orElseThrow();
     return provider.get();
   }
-
-  private static Predicate<Class<?>> selectorFilter(String string) {
-    return (Class<?> clazz) -> {
-      Selector selector = clazz.getAnnotation(Selector.class);
-      if (selector == null) {
-        return false;
+  
+  private static Encoding.Type getEncodingType(String encodingName) {
+    try {
+      // Convert string like "fvec" to enum Encoding.Type.fvec
+      return Encoding.Type.valueOf(encodingName.toLowerCase());
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException("Unsupported encoding type: " + encodingName, e);
+    }
+  }
+      
+      /**
+       * Get the encoding type for this reader path
+       * @return The encoding type enum value
+       */
+      public Encoding.Type getEncodingType() {
+    return getEncodingType(reader);
       }
-      return selector.value().equals(string);
+
+  private static Predicate<Class<?>> encodingFilter(Encoding.Type type) {
+      return (Class<?> clazz) -> {
+        // Get the Encoding annotation from the class
+        Encoding encoding = clazz.getAnnotation(Encoding.class);
+        if (encoding == null) {
+          return false;
+        }
+        // Compare enum values using == for proper enum comparison
+        return encoding.value() == type;
     };
   }
 }

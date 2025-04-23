@@ -4,12 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <artifactId>mvn-defaults</artifactId>
+    <version>${revision}</version>
+    <relativePath>../mvn-defaults</relativePath>
+  </parent>
+
   <artifactId>nbvectors</artifactId>
-  <groupId>io.nosqlbench</groupId>
-  <version>${revision}</version>
   <name>${project.artifactId}</name>
   <description>test data management for nosqblench vector workloads</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
+
 
   <properties>
     <revision>0.1.4-SNAPSHOT</revision>
@@ -19,7 +25,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mainClass>io.nosqlbench.nbvectors.commands.CMD_nbvectors</mainClass>
     <imageName>nbvectors</imageName>
-    <jline.version>3.28.0</jline.version>
     <native.maven.plugin.version>0.10.4</native.maven.plugin.version>
     <javadoc.name>nbvectors</javadoc.name>
     <nd4j.version>1.0.0-M2.1</nd4j.version>
@@ -56,26 +61,43 @@
       <version>1.2.0</version>
     </dependency>
 
-<!--    <dependency>-->
-<!--      <groupId>com.github.haifengl</groupId>-->
-<!--      <artifactId>smile-core</artifactId>-->
-<!--      <version>4.2.0</version>-->
-<!--    </dependency>-->
-<!--&lt;!&ndash;    <dependency>&ndash;&gt;-->
-<!--&lt;!&ndash;      <groupId>com.github.haifengl</groupId>&ndash;&gt;-->
-<!--&lt;!&ndash;      <artifactId>smile-data</artifactId>&ndash;&gt;-->
-<!--&lt;!&ndash;      <version>2.6.0</version>&ndash;&gt;-->
-<!--&lt;!&ndash;    </dependency>&ndash;&gt;-->
-<!--    <dependency>-->
-<!--      <groupId>com.github.haifengl</groupId>-->
-<!--      <artifactId>smile-base</artifactId>-->
-<!--      <version>4.2.0</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>com.github.haifengl</groupId>-->
-<!--      <artifactId>smile-io</artifactId>-->
-<!--      <version>2.6.0</version>-->
-<!--    </dependency>-->
+    <!-- Apache Commons RNG - High quality PRNGs -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-rng-core</artifactId>
+      <version>1.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-rng-simple</artifactId>
+      <version>1.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-rng-sampling</artifactId>
+      <version>1.6</version>
+    </dependency>
+
+    <!--    <dependency>-->
+    <!--      <groupId>com.github.haifengl</groupId>-->
+    <!--      <artifactId>smile-core</artifactId>-->
+    <!--      <version>4.2.0</version>-->
+    <!--    </dependency>-->
+    <!--&lt;!&ndash;    <dependency>&ndash;&gt;-->
+    <!--&lt;!&ndash;      <groupId>com.github.haifengl</groupId>&ndash;&gt;-->
+    <!--&lt;!&ndash;      <artifactId>smile-data</artifactId>&ndash;&gt;-->
+    <!--&lt;!&ndash;      <version>2.6.0</version>&ndash;&gt;-->
+    <!--&lt;!&ndash;    </dependency>&ndash;&gt;-->
+    <!--    <dependency>-->
+    <!--      <groupId>com.github.haifengl</groupId>-->
+    <!--      <artifactId>smile-base</artifactId>-->
+    <!--      <version>4.2.0</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>com.github.haifengl</groupId>-->
+    <!--      <artifactId>smile-io</artifactId>-->
+    <!--      <version>2.6.0</version>-->
+    <!--    </dependency>-->
 
 
     <dependency>
@@ -90,17 +112,16 @@
     </dependency>
 
 
-
-<!--    <dependency>-->
-<!--      <groupId>org.apache.logging.log4j</groupId>-->
-<!--      <artifactId>log4j-slf4j2-impl</artifactId>-->
-<!--      <version>2.24.3</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>org.slf4j</groupId>-->
-<!--      <artifactId>slf4j-api</artifactId>-->
-<!--      <version>2.0.16</version>-->
-<!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.logging.log4j</groupId>-->
+    <!--      <artifactId>log4j-slf4j2-impl</artifactId>-->
+    <!--      <version>2.24.3</version>-->
+    <!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.slf4j</groupId>-->
+    <!--      <artifactId>slf4j-api</artifactId>-->
+    <!--      <version>2.0.16</version>-->
+    <!--    </dependency>-->
 
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -114,34 +135,17 @@
       <version>2.9</version>
     </dependency>
 
-<!--    <dependency>-->
-<!--      <groupId>org.apache.lucene</groupId>-->
-<!--      <artifactId>lucene-core</artifactId>-->
-<!--      <version>10.1.0</version>-->
-<!--    </dependency>-->
-<!--    &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.lucene/lucene-analysis-common &ndash;&gt;-->
-<!--    <dependency>-->
-<!--      <groupId>org.apache.lucene</groupId>-->
-<!--      <artifactId>lucene-analysis-common</artifactId>-->
-<!--      <version>10.1.0</version>-->
-<!--    </dependency>-->
-
-    <!--        For console input handling, if needed -->
-    <dependency>
-      <groupId>org.jline</groupId>
-      <artifactId>jline</artifactId>
-      <version>${jline.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.jline</groupId>
-      <artifactId>jline-curses</artifactId>
-      <version>${jline.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.jline</groupId>
-      <artifactId>jline-terminal-ffm</artifactId>
-      <version>${jline.version}</version>
-    </dependency>
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.lucene</groupId>-->
+    <!--      <artifactId>lucene-core</artifactId>-->
+    <!--      <version>10.1.0</version>-->
+    <!--    </dependency>-->
+    <!--    &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.lucene/lucene-analysis-common &ndash;&gt;-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.apache.lucene</groupId>-->
+    <!--      <artifactId>lucene-analysis-common</artifactId>-->
+    <!--      <version>10.1.0</version>-->
+    <!--    </dependency>-->
 
     <!--    For progress bars only -->
     <!--    <dependency>-->
@@ -149,28 +153,6 @@
     <!--      <artifactId>progressbar</artifactId>-->
     <!--      <version>0.10.0</version>-->
     <!--    </dependency>-->
-
-    <dependency>
-      <groupId>com.googlecode.lanterna</groupId>
-      <artifactId>lanterna</artifactId>
-      <version>3.1.2</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>3.24.2</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <version>5.10.2</version>
-      <scope>test</scope>
-    </dependency>
-
-
 
     <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
     <dependency>
@@ -215,6 +197,11 @@
       <groupId>org.datavec</groupId>
       <artifactId>datavec-api</artifactId>
       <version>${nd4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-rng-client-api</artifactId>
+      <version>1.6</version>
     </dependency>
 
   </dependencies>
@@ -400,37 +387,37 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-<!--          <proc>only</proc>-->
+          <!--          <proc>only</proc>-->
           <release>23</release>
         </configuration>
         <executions>
-<!--          <execution>-->
-<!--            <id>log4j-plugin-processor</id>-->
-<!--            <goals>-->
-<!--              <goal>compile</goal>-->
-<!--            </goals>-->
-<!--            <phase>process-classes</phase>-->
-<!--            <configuration>-->
-<!--              <annotationProcessorPaths>-->
-<!--                <path>-->
-<!--                  <groupId>com.google.auto.service</groupId>-->
-<!--                  <artifactId>auto-service</artifactId>-->
-<!--                  <version>1.1.1</version>-->
-<!--                </path>-->
-<!--                <path>-->
-<!--                  <groupId>org.apache.logging.log4j</groupId>-->
-<!--                  <artifactId>log4j-core</artifactId>-->
-<!--                  <version>2.24.3</version>-->
-<!--                </path>-->
-<!--              </annotationProcessorPaths>-->
-<!--              <proc>full</proc>-->
-<!--              <annotationProcessors>-->
-<!--                <annotationProcessor>-->
-<!--                  org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor-->
-<!--                </annotationProcessor>-->
-<!--              </annotationProcessors>-->
-<!--            </configuration>-->
-<!--          </execution>-->
+          <!--          <execution>-->
+          <!--            <id>log4j-plugin-processor</id>-->
+          <!--            <goals>-->
+          <!--              <goal>compile</goal>-->
+          <!--            </goals>-->
+          <!--            <phase>process-classes</phase>-->
+          <!--            <configuration>-->
+          <!--              <annotationProcessorPaths>-->
+          <!--                <path>-->
+          <!--                  <groupId>com.google.auto.service</groupId>-->
+          <!--                  <artifactId>auto-service</artifactId>-->
+          <!--                  <version>1.1.1</version>-->
+          <!--                </path>-->
+          <!--                <path>-->
+          <!--                  <groupId>org.apache.logging.log4j</groupId>-->
+          <!--                  <artifactId>log4j-core</artifactId>-->
+          <!--                  <version>2.24.3</version>-->
+          <!--                </path>-->
+          <!--              </annotationProcessorPaths>-->
+          <!--              <proc>full</proc>-->
+          <!--              <annotationProcessors>-->
+          <!--                <annotationProcessor>-->
+          <!--                  org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor-->
+          <!--                </annotationProcessor>-->
+          <!--              </annotationProcessors>-->
+          <!--            </configuration>-->
+          <!--          </execution>-->
         </executions>
       </plugin>
       <plugin>
@@ -564,6 +551,33 @@
     </resources>
   </build>
   <profiles>
+    <profile>
+      <id>hugging_dl</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.nosqlbench</groupId>
+          <artifactId>hugging_dl</artifactId>
+          <version>${revision}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>remove_zeroes</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>io.nosqlbench</groupId>
+          <artifactId>remove_zeros</artifactId>
+          <version>${revision}</version>
+        </dependency>
+      </dependencies>
+
+    </profile>
     <profile>
       <id>native</id>
       <build>

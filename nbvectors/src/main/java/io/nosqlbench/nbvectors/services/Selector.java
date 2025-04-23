@@ -18,7 +18,20 @@ package io.nosqlbench.nbvectors.services;
  */
 
 
-import io.nosqlbench.readers.Sized;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-public interface FloatVectorIterable extends Iterable<float[]>, Sized {
+/**
+ * Annotation used to identify a command by a string selector.
+ * This allows commands to be registered with a specific name for lookup.
+ */
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface Selector {
+    /**
+     * @return The string selector value for this command
+     */
+    String value();
 }

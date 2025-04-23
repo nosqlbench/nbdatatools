@@ -18,16 +18,17 @@ package io.nosqlbench.nbvectors.commands.hugging_dl;
  */
 
 
-import io.nosqlbench.nbvectors.commands.verify_knn.logging.CustomConfigurationFactory;
+import com.google.auto.service.AutoService;
+import io.nosqlbench.nbvectors.services.Selector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.ConfigurationFactory;
 import picocli.CommandLine;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -40,6 +41,8 @@ import java.util.concurrent.Callable;
 /// ```
 @CommandLine.Command(name = "hugging_dl", header = "Download Huggingface Datasets via API",
     subcommands = {CommandLine.HelpCommand.class})
+@AutoService(BundledCommand.class)
+@Selector("hugging_dl")
 public class CMD_hugging_dl implements Callable<Integer> {
 
   private static final Logger logger = LogManager.getLogger(CMD_hugging_dl.class);
@@ -54,7 +57,7 @@ public class CMD_hugging_dl implements Callable<Integer> {
 
   /// List of dataset names to download
   @CommandLine.Parameters(description = "The dataset name")
-  private List<String> datasetNames = new java.util.ArrayList<>();
+  private List<String> datasetNames = new ArrayList<>();
 
   /// Environment variable name containing the Hugging Face API token
   @CommandLine.Option(names = {"--envkey", "-k"},

@@ -22,12 +22,12 @@ import io.nosqlbench.nbvectors.commands.build_hdf5.CMD_build_hdf5;
 import io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog;
 import io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog2;
 import io.nosqlbench.nbvectors.commands.datasets.CMD_datasets;
+import io.nosqlbench.nbvectors.commands.export_hdf5.CMD_export_hdf5;
 import io.nosqlbench.nbvectors.commands.export_hdf5.CMD_export_hdf5new;
 import io.nosqlbench.nbvectors.commands.export_json.CMD_export_json;
-import io.nosqlbench.nbvectors.commands.export_hdf5.CMD_export_hdf5;
-import io.nosqlbench.nbvectors.commands.hugging_dl.CMD_hugging_dl;
 import io.nosqlbench.nbvectors.commands.jjq.CMD_jjq;
 import io.nosqlbench.nbvectors.commands.merkle.CMD_merkle;
+import io.nosqlbench.nbvectors.commands.mktestdata.CMD_mktestdata;
 import io.nosqlbench.nbvectors.commands.show_hdf5.CMD_show_hdf5;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.CMD_tag_hdf5;
 import io.nosqlbench.nbvectors.commands.verify_knn.CMD_verify_knn;
@@ -42,8 +42,8 @@ import picocli.CommandLine;
     CommandLine.HelpCommand.class, CMD_verify_knn.class, CMD_tag_hdf5.class, CMD_jjq.class,
     CMD_build_hdf5.class, CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class,
     CMD_catalog.class, CMD_datasets.class, CMD_export_hdf5new.class,
-    CMD_merkle.class, CMD_catalog2.class,
-}, modelTransformer = OptionallyIncludeHuggingDl.class)
+    CMD_merkle.class, CMD_catalog2.class, CMD_mktestdata.class,
+}, modelTransformer = AddBundledCommands.class)
 public class CMD_nbvectors {
 
   /// run a nbv command

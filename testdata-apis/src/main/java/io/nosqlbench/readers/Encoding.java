@@ -18,5 +18,24 @@ package io.nosqlbench.readers;
  */
 
 
-public interface FloatVectorIterable extends SizedStreamer<float[]> {
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/// Annotation used to mark a SizedReader implementation with an encoding value.
+/// This is used to find readers based on file formats or other encodable criteria.
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface Encoding {
+    /// @return The encoding value for this reader implementation
+    Type value();
+
+    public static enum Type {
+        ivec,
+        fvec,
+        bvec,
+        dvec,
+        csv
+    }
 }

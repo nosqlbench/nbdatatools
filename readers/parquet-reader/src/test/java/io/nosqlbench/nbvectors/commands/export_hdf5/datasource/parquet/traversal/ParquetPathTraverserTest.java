@@ -19,7 +19,9 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversa
 
 
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.ParquetVectorsReaderTest;
-import org.junit.jupiter.api.Disabled;
+import io.nosqlbench.nbvectors.datasource.parquet.layout.PathAggregator;
+import io.nosqlbench.nbvectors.datasource.parquet.layout.PathBinning;
+import io.nosqlbench.nbvectors.datasource.parquet.layout.PathsSorter;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
