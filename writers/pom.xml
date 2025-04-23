@@ -4,16 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>xvec-writer</artifactId>
+  <artifactId>writers</artifactId>
   <name>${project.artifactId}</name>
-  <description>An fvec,ivec,bvec reader for nbvectors</description>
+  <description>writers for nbvectors</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
   <parent>
     <groupId>io.nosqlbench</groupId>
     <artifactId>mvn-defaults</artifactId>
     <version>${revision}</version>
-    <relativePath>../../mvn-defaults</relativePath>
+    <relativePath>../mvn-defaults</relativePath>
   </parent>
 
   <properties>
@@ -24,18 +24,43 @@
   </properties>
 
   <dependencies>
-
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>vectordata</artifactId>
       <version>${revision}</version>
     </dependency>
-
+  
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>testdata-apis</artifactId>
       <version>0.1.4-SNAPSHOT</version>
     </dependency>
-
+  
+    <!-- Add Auto-Service with the annotation processor -->
+    <dependency>
+      <groupId>com.google.auto.service</groupId>
+      <artifactId>auto-service</artifactId>
+      <version>1.1.1</version>
+    </dependency>
   </dependencies>
+  
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <release>22</release>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>com.google.auto.service</groupId>
+              <artifactId>auto-service</artifactId>
+              <version>1.1.1</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

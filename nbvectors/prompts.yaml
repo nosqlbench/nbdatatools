@@ -1,4 +1,12 @@
 - |
+  Do not add convenience methods when a fully-parameterized method signatures is 
+  sufficient.
+- |
+  Do not assume I want special features added which I have not asked for. If I ask for 
+  more than a basic implementation of something, then it is ok to add what I ask for 
+  then. It is ok to ask me if I want special features when you see an opportunity for 
+  something value-added.
+- |
   These directions are to be followed by any agent acting on this project directory. 
   These directions apply to any and all files, projects, or modules contained within 
   this directory.

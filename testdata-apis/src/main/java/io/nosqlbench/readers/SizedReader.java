@@ -28,6 +28,7 @@ import java.util.RandomAccess;
 ///
 /// This interface extends List<T> but overrides all mutation methods to throw
 /// UnsupportedOperationException, making it effectively immutable.
+/// @param <T> the type of data to read
 public interface SizedReader<T> extends List<T>, RandomAccess, Sized, Named {
 
     @Override

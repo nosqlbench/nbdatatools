@@ -20,6 +20,10 @@ package io.nosqlbench.nbvectors.commands.convert;
 import io.nosqlbench.nbvectors.services.Selector;
 import io.nosqlbench.readers.SizedReader;
 import io.nosqlbench.readers.SizedReaderLookup;
+import io.nosqlbench.readers.SizedStreamerLookup;
+import io.nosqlbench.streamers.SizedStreamer;
+import io.nosqlbench.streamers.Streamer;
+import io.nosqlbench.streamers.StreamerLookup;
 import io.nosqlbench.writers.Writer;
 import io.nosqlbench.writers.WriterLookup;
 import org.apache.logging.log4j.LogManager;
@@ -28,6 +32,7 @@ import picocli.CommandLine;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
@@ -176,6 +181,11 @@ public class CMD_convert implements Callable<Integer> {
             else if (isIntFormat(detectedInputFormat)) {
                 return convertIntVectors(detectedInputFormat, detectedOutputFormat);
             } 
+            // For double vector input
+            else if (isDoubleFormat(detectedInputFormat)) {
+                logger.error("Double vector conversion not yet implemented");
+                return EXIT_ERROR;
+            }
             // Unsupported format combination
             else {
                 logger.error("Unsupported conversion from {} to {}", detectedInputFormat, detectedOutputFormat);
@@ -189,112 +199,236 @@ public class CMD_convert implements Callable<Integer> {
     }
     
     /**
+     * Determine the data type class based on file extension
+     * 
+     * @param fileExtension The file extension (e.g., "fvec", "ivec", "bvec", "dvec")
+     * @return The appropriate data type class
+     */
+    private Class<?> inferDataTypeFromExtension(String fileExtension) {
+        switch (fileExtension.toLowerCase()) {
+            case "fvec":
+                return float[].class;
+            case "ivec":
+            case "bvec":
+                return int[].class;
+            case "dvec":
+                return double[].class;
+            default:
+                // Default to float[] for unknown extensions
+                return float[].class;
+        }
+    }
+    
+    /**
+     * Check if the format is a double vector format
+     */
+    private boolean isDoubleFormat(String format) {
+        return format.equalsIgnoreCase("dvec");
+    }
+    
+    /**
      * Convert float vector data from input to output format
      */
     private Integer convertFloatVectors(String inputFormat, String outputFormat) throws Exception {
-        // Find appropriate reader for input format
-        Optional<SizedReader<float[]>> reader = SizedReaderLookup.findFloatReader(inputFormat, inputPath);
-        
-        if (reader.isEmpty()) {
-            logger.error("No compatible reader found for format: {}", inputFormat);
+        // Find appropriate writer
+        Optional<Writer<float[]>> writerOpt = WriterLookup.findWriter(outputFormat, float[].class);
+        if (writerOpt.isEmpty()) {
+            logger.error("No suitable writer found for format: {}", outputFormat);
             return EXIT_ERROR;
         }
         
-        SizedReader<float[]> vectorReader = reader.get();
-        int vectorCount = vectorReader.getSize();
-        logger.info("Input file contains {} vectors", vectorCount);
+        Writer<float[]> writer = writerOpt.get();
+        writer.initialize(outputPath);
         
-        // Apply limit and offset
-        int effectiveCount = (limit != null && limit < vectorCount - offset) ? limit : vectorCount - offset;
-        logger.info("Converting {} vectors (offset: {}, count: {})", effectiveCount, offset, effectiveCount);
-        
-        // Find appropriate writer for output format
-        Optional<Writer<float[]>> writer = WriterLookup.findFloatWriter(outputFormat, outputPath);
-        
-        if (writer.isEmpty()) {
-            logger.error("No compatible writer found for format: {}", outputFormat);
-            return EXIT_ERROR;
+        try {
+            // Try to find a reader in order of preference: SizedStreamer, Streamer, SizedReader
+            Iterator<float[]> iterator = null;
+            String sourceName = "unknown";
+            long totalVectors = -1;
+            
+            // Try SizedStreamer
+            Optional<SizedStreamer<float[]>> sizedStreamer = SizedStreamerLookup.findReader(inputFormat, float[].class);
+            if (sizedStreamer.isPresent()) {
+                SizedStreamer<float[]> streamer = sizedStreamer.get();
+                iterator = streamer.iterator();
+                totalVectors = streamer.getSize();
+                sourceName = streamer.getName();
+                if (verbose) {
+                    logger.info("Using SizedStreamer for format: {}", inputFormat);
+                }
+            } 
+            // Try Streamer
+            else {
+                Optional<Streamer<float[]>> streamer = StreamerLookup.findStreamer(inputFormat, float[].class);
+                if (streamer.isPresent()) {
+                    Streamer<float[]> s = streamer.get();
+                    iterator = s.iterator();
+                    sourceName = s.getName();
+                    if (verbose) {
+                        logger.info("Using Streamer for format: {}", inputFormat);
+                    }
+                } 
+                // Try SizedReader
+                else {
+                    Optional<SizedReader<float[]>> reader = SizedReaderLookup.findReader(inputFormat, float[].class);
+                    if (reader.isPresent()) {
+                        SizedReader<float[]> r = reader.get();
+                        iterator = r.iterator();
+                        totalVectors = r.size();
+                        sourceName = r.getName();
+                        if (verbose) {
+                            logger.info("Using SizedReader for format: {}", inputFormat);
+                        }
+                    } else {
+                        logger.error("No compatible reader found for format: {}", inputFormat);
+                        return EXIT_ERROR;
+                    }
+                }
+            }
+            
+            // Skip initial vectors if offset > 0
+            for (int i = 0; i < offset && iterator.hasNext(); i++) {
+                iterator.next();
+            }
+            
+            int count = 0;
+            long adjustedTotal = totalVectors >= 0 ? totalVectors - offset : -1;
+            long vectorsToProcess = limit != null ? Math.min(limit, adjustedTotal >= 0 ? adjustedTotal : Integer.MAX_VALUE) : adjustedTotal;
+            
+            if (verbose) {
+                if (adjustedTotal >= 0) {
+                    logger.info("Processing {} vectors from {} (total: {})", 
+                        vectorsToProcess >= 0 ? vectorsToProcess : "all remaining", 
+                        sourceName, 
+                        adjustedTotal);
+                } else {
+                    logger.info("Processing vectors from {} (unknown total count)", sourceName);
+                }
+            }
+            
+            while (iterator.hasNext() && (limit == null || count < limit)) {
+                float[] vector = iterator.next();
+                
+                if (normalize) {
+                    normalizeVector(vector);
+                }
+                
+                writer.write(vector);
+                count++;
+                
+                if (verbose && count % 10000 == 0) {
+                    logger.info("Processed {} vectors", count);
+                }
+            }
+            
+            if (verbose) {
+                logger.info("Conversion complete. Processed {} vectors", count);
+            }
+            
+            return EXIT_SUCCESS;
+        } finally {
+            writer.close();
         }
-        
-        Writer<float[]> vectorWriter = writer.get();
-        
-        // Process and write vectors
-        for (int i = offset; i < offset + effectiveCount; i++) {
-            float[] vector = vectorReader.get(i);
-            
-            if (vector == null) {
-                logger.warn("Null vector encountered at index {}, skipping", i);
-                continue;
-            }
-            
-            // Apply normalization if requested
-            if (normalize) {
-                normalizeVector(vector);
-            }
-            
-            // Write the vector
-            vectorWriter.write(vector);
-            
-            // Log progress for verbose mode
-            if (verbose && (i - offset + 1) % 10000 == 0) {
-                logger.info("Processed {}/{} vectors", i - offset + 1, effectiveCount);
-            }
-        }
-        
-        logger.info("Successfully converted {} vectors from {} to {}", effectiveCount, inputFormat, outputFormat);
-        return EXIT_SUCCESS;
     }
     
     /**
      * Convert integer vector data from input to output format
      */
     private Integer convertIntVectors(String inputFormat, String outputFormat) throws Exception {
-        // Find appropriate reader for input format
-        Optional<SizedReader<int[]>> reader = SizedReaderLookup.findIntReader(inputFormat, inputPath);
-        
-        if (reader.isEmpty()) {
-            logger.error("No compatible reader found for format: {}", inputFormat);
+        // Find appropriate writer
+        Optional<Writer<int[]>> writerOpt = WriterLookup.findWriter(outputFormat, int[].class);
+        if (writerOpt.isEmpty()) {
+            logger.error("No suitable writer found for format: {}", outputFormat);
             return EXIT_ERROR;
         }
         
-        SizedReader<int[]> vectorReader = reader.get();
-        int vectorCount = vectorReader.getSize();
-        logger.info("Input file contains {} vectors", vectorCount);
+        Writer<int[]> writer = writerOpt.get();
+        writer.initialize(outputPath);
         
-        // Apply limit and offset
-        int effectiveCount = (limit != null && limit < vectorCount - offset) ? limit : vectorCount - offset;
-        logger.info("Converting {} vectors (offset: {}, count: {})", effectiveCount, offset, effectiveCount);
-        
-        // Find appropriate writer for output format
-        Optional<Writer<int[]>> writer = WriterLookup.findIntWriter(outputFormat, outputPath);
-        
-        if (writer.isEmpty()) {
-            logger.error("No compatible writer found for format: {}", outputFormat);
-            return EXIT_ERROR;
-        }
-        
-        Writer<int[]> vectorWriter = writer.get();
-        
-        // Process and write vectors
-        for (int i = offset; i < offset + effectiveCount; i++) {
-            int[] vector = vectorReader.get(i);
+        try {
+            // Try to find a reader in order of preference: SizedStreamer, Streamer, SizedReader
+            Iterator<int[]> iterator = null;
+            String sourceName = "unknown";
+            long totalVectors = -1;
             
-            if (vector == null) {
-                logger.warn("Null vector encountered at index {}, skipping", i);
-                continue;
+            // Try SizedStreamer
+            Optional<SizedStreamer<int[]>> sizedStreamer = SizedStreamerLookup.findReader(inputFormat, int[].class);
+            if (sizedStreamer.isPresent()) {
+                SizedStreamer<int[]> streamer = sizedStreamer.get();
+                iterator = streamer.iterator();
+                totalVectors = streamer.getSize();
+                sourceName = streamer.getName();
+                if (verbose) {
+                    logger.info("Using SizedStreamer for format: {}", inputFormat);
+                }
+            } 
+            // Try Streamer
+            else {
+                Optional<Streamer<int[]>> streamer = StreamerLookup.findStreamer(inputFormat, int[].class);
+                if (streamer.isPresent()) {
+                    Streamer<int[]> s = streamer.get();
+                    iterator = s.iterator();
+                    sourceName = s.getName();
+                    if (verbose) {
+                        logger.info("Using Streamer for format: {}", inputFormat);
+                    }
+                } 
+                // Try SizedReader
+                else {
+                    Optional<SizedReader<int[]>> reader = SizedReaderLookup.findReader(inputFormat, int[].class);
+                    if (reader.isPresent()) {
+                        SizedReader<int[]> r = reader.get();
+                        iterator = r.iterator();
+                        totalVectors = r.size();
+                        sourceName = r.getName();
+                        if (verbose) {
+                            logger.info("Using SizedReader for format: {}", inputFormat);
+                        }
+                    } else {
+                        logger.error("No compatible reader found for format: {}", inputFormat);
+                        return EXIT_ERROR;
+                    }
+                }
             }
             
-            // Write the vector
-            vectorWriter.write(vector);
-            
-            // Log progress for verbose mode
-            if (verbose && (i - offset + 1) % 10000 == 0) {
-                logger.info("Processed {}/{} vectors", i - offset + 1, effectiveCount);
+            // Skip initial vectors if offset > 0
+            for (int i = 0; i < offset && iterator.hasNext(); i++) {
+                iterator.next();
             }
+            
+            int count = 0;
+            long adjustedTotal = totalVectors >= 0 ? totalVectors - offset : -1;
+            long vectorsToProcess = limit != null ? Math.min(limit, adjustedTotal >= 0 ? adjustedTotal : Integer.MAX_VALUE) : adjustedTotal;
+            
+            if (verbose) {
+                if (adjustedTotal >= 0) {
+                    logger.info("Processing {} vectors from {} (total: {})", 
+                        vectorsToProcess >= 0 ? vectorsToProcess : "all remaining", 
+                        sourceName, 
+                        adjustedTotal);
+                } else {
+                    logger.info("Processing vectors from {} (unknown total count)", sourceName);
+                }
+            }
+            
+            while (iterator.hasNext() && (limit == null || count < limit)) {
+                int[] vector = iterator.next();
+                writer.write(vector);
+                count++;
+                
+                if (verbose && count % 10000 == 0) {
+                    logger.info("Processed {} vectors", count);
+                }
+            }
+            
+            if (verbose) {
+                logger.info("Conversion complete. Processed {} vectors", count);
+            }
+            
+            return EXIT_SUCCESS;
+        } finally {
+            writer.close();
         }
-        
-        logger.info("Successfully converted {} vectors from {} to {}", effectiveCount, inputFormat, outputFormat);
-        return EXIT_SUCCESS;
     }
     
     /**
@@ -321,6 +455,9 @@ public class CMD_convert implements Callable<Integer> {
     
     /**
      * Extract format name from file path extension
+     * 
+     * @param path The file path to extract the format from
+     * @return The format string derived from the file extension
      */
     private String getFormatFromPath(Path path) {
         String filename = path.getFileName().toString().toLowerCase();

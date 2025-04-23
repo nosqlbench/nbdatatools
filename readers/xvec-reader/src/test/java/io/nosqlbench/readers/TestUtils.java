@@ -60,6 +60,34 @@ public class TestUtils {
     }
     
     /**
+     * Creates a test fvec file with the specified number of vectors and dimensions.
+     * All vectors will have the same dimension.
+     * 
+     * @param filePath The path where the fvec file should be created
+     * @param numVectors The number of vectors to generate
+     * @param dimensions The dimension for each vector
+     * @param seed Random seed for reproducible values
+     * @return The actual file path that was created
+     * @throws IOException If an error occurs while writing the file
+     */
+    public static Path createUniformFvecFile(Path filePath, int numVectors, int dimensions, long seed) 
+            throws IOException {
+        Random random = new Random(seed);
+        
+        try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(filePath))) {
+            // Write vectors with uniform dimensions
+            for (int i = 0; i < numVectors; i++) {
+                dos.writeInt(dimensions);
+                for (int j = 0; j < dimensions; j++) {
+                    dos.writeFloat(random.nextFloat());
+                }
+            }
+        }
+        
+        return filePath;
+    }
+    
+    /**
      * Creates a test ivec file with the specified number of vectors where
      * each vector can have a different dimension.
      * 

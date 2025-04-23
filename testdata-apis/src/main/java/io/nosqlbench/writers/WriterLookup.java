@@ -116,81 +116,7 @@ public class WriterLookup {
         }
     }
     
-    /// Find a Writer implementation for float arrays with the specified encoding.
-    /// This is a convenience method for the common case of writing float vectors.
-    ///
-    /// @param encoding The encoding type to match
-    /// @return An Optional containing the matching Writer for float arrays, or empty if none found
-    public static Optional<Writer<float[]>> findFloatWriter(Encoding.Type encoding) {
-        return findWriter(encoding, float[].class);
-    }
-    
-    /// Find a Writer implementation for float arrays with the specified encoding name.
-    /// This is a convenience method for the common case of writing float vectors.
-    ///
-    /// @param encodingName The encoding name to match (will be converted to enum)
-    /// @return An Optional containing the matching Writer for float arrays, or empty if none found
-    public static Optional<Writer<float[]>> findFloatWriter(String encodingName) {
-        return findWriter(encodingName, float[].class);
-    }
-    
-    /// Find a Writer implementation for float arrays with the specified encoding,
-    /// and instantiate it with the given path.
-    ///
-    /// @param encoding The encoding type to match
-    /// @param path The path to initialize the writer with
-    /// @return An Optional containing the instantiated Writer for float arrays, or empty if none found
-    public static Optional<Writer<float[]>> findFloatWriter(Encoding.Type encoding, Path path) {
-        return findWriter(encoding, float[].class, path);
-    }
-    
-    /// Find a Writer implementation for float arrays with the specified encoding name,
-    /// and instantiate it with the given path.
-    ///
-    /// @param encodingName The encoding name to match (will be converted to enum)
-    /// @param path The path to initialize the writer with
-    /// @return An Optional containing the instantiated Writer for float arrays, or empty if none found
-    public static Optional<Writer<float[]>> findFloatWriter(String encodingName, Path path) {
-        return findWriter(encodingName, float[].class, path);
-    }
-    
-    /// Find a Writer implementation for integer arrays with the specified encoding.
-    /// This is a convenience method for the common case of writing integer vectors.
-    ///
-    /// @param encoding The encoding type to match
-    /// @return An Optional containing the matching Writer for integer arrays, or empty if none found
-    public static Optional<Writer<int[]>> findIntWriter(Encoding.Type encoding) {
-        return findWriter(encoding, int[].class);
-    }
-    
-    /// Find a Writer implementation for integer arrays with the specified encoding name.
-    /// This is a convenience method for the common case of writing integer vectors.
-    ///
-    /// @param encodingName The encoding name to match (will be converted to enum)
-    /// @return An Optional containing the matching Writer for integer arrays, or empty if none found
-    public static Optional<Writer<int[]>> findIntWriter(String encodingName) {
-        return findWriter(encodingName, int[].class);
-    }
-    
-    /// Find a Writer implementation for integer arrays with the specified encoding,
-    /// and instantiate it with the given path.
-    ///
-    /// @param encoding The encoding type to match
-    /// @param path The path to initialize the writer with
-    /// @return An Optional containing the instantiated Writer for integer arrays, or empty if none found
-    public static Optional<Writer<int[]>> findIntWriter(Encoding.Type encoding, Path path) {
-        return findWriter(encoding, int[].class, path);
-    }
-    
-    /// Find a Writer implementation for integer arrays with the specified encoding name,
-    /// and instantiate it with the given path.
-    ///
-    /// @param encodingName The encoding name to match (will be converted to enum)
-    /// @param path The path to initialize the writer with
-    /// @return An Optional containing the instantiated Writer for integer arrays, or empty if none found
-    public static Optional<Writer<int[]>> findIntWriter(String encodingName, Path path) {
-        return findWriter(encodingName, int[].class, path);
-    }
+    // Convenience methods for specific types have been removed in favor of the generic parameterized methods
     
     /// Returns a stream of all available Writer providers.
     ///
@@ -219,11 +145,18 @@ public class WriterLookup {
         ServiceLoader.Provider<Writer> provider, Path path) {
         Class<?> writerClass = provider.type();
         try {
-            // Look for a constructor that takes a Path
-            Constructor<?> constructor = writerClass.getConstructor(Path.class);
-            return Optional.of((Writer) constructor.newInstance(path));
-        } catch (NoSuchMethodException e) {
-            // Try to create an instance and then initialize it with the path
+            // First try to use a constructor that takes a Path
+            try {
+                Constructor<?> constructor = writerClass.getConstructor(Path.class);
+                return Optional.of((Writer) constructor.newInstance(path));
+            } catch (NoSuchMethodException e) {
+                // If no such constructor exists, create an instance and call initialize
+                Writer writer = provider.get();
+                writer.initialize(path);
+                return Optional.of(writer);
+            }
+        } catch (Exception e) {
+            // Try fallback to legacy 'init' method for backward compatibility
             try {
                 Writer writer = provider.get();
                 Method initMethod = writerClass.getMethod("init", Path.class);
@@ -233,9 +166,6 @@ public class WriterLookup {
                 // Log or handle the error appropriately
                 return Optional.empty();
             }
-        } catch (Exception e) {
-            // Log or handle the error appropriately
-            return Optional.empty();
         }
     }
 }

@@ -27,6 +27,7 @@ import java.util.ListIterator;
 /// This class implements SizedReader<T> and makes all mutation methods final to ensure
 /// that subclasses cannot override them and break the immutability contract.
 /// Subclasses only need to implement the abstract methods to provide read access to the data.
+/// @param <T> the type of data to read
 public abstract class ImmutableSizedReader<T> implements SizedReader<T> {
 
     /// The error message used when mutation is attempted

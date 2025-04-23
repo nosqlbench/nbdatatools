@@ -508,12 +508,11 @@
               <mainClass>${mainClass}</mainClass>
             </manifest>
           </archive>
-          <descriptorRefs>
-            <!--                  <ref>assembly.xml</ref>-->
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-            <!--            <descriptorRef>assembly</descriptorRef>-->
-          </descriptorRefs>
+          <descriptors>
+            <descriptor>assembly.xml</descriptor>
+          </descriptors>
         </configuration>
+
       </plugin>
 
       <plugin>

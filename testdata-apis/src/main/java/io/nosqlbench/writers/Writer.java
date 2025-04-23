@@ -17,9 +17,14 @@ package io.nosqlbench.writers;
  * under the License.
  */
 
+import io.nosqlbench.readers.DataType;
+import io.nosqlbench.readers.Encoding;
+
+import java.nio.file.Path;
+
 /**
  * Interface for components that can write data of a specific type.
- * Implementations should be annotated with {@link DataType} to indicate 
+ * Implementations should be annotated with {@link DataType} to indicate
  * the type of data they can write and {@link Encoding} to indicate the format.
  *
  * @param <T> The type of data that this writer can write
@@ -41,4 +46,16 @@ public interface Writer<T> {
     default String getName() {
         return this.getClass().getSimpleName();
     }
+    
+    /**
+     * Initialize the writer with a path
+     *
+     * @param path The path to initialize the writer with
+     */
+    default void initialize(Path path) {
+        // Default implementation is a no-op
+        // Implementations should override this to perform initialization
+    }
+
+    void close();
 }

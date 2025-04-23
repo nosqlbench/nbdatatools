@@ -36,23 +36,10 @@ public class WriterLookupTest {
 //    }
 
     @Test
-    void testFindWriterWithNonMatchingEncoding() {
-        // Should not find any implementation with this encoding
-        Optional<Writer<float[]>> writer = WriterLookup.findFloatWriter("nonexistent");
-        assertTrue(writer.isEmpty(), "Should not find a writer with encoding 'nonexistent'");
-    }
-
-    @Test
     void testFindWriterWithNonMatchingDataType() {
         // MockWriter is annotated with float[], so this should not match
         Optional<Writer<String>> writer = WriterLookup.findWriter("csv", String.class);
         assertTrue(writer.isEmpty(), "Should not find a writer for String.class");
     }
     
-    @Test
-    void testFindIntWriter() {
-        // Test the convenience method for int vectors (should be empty since our mock is for float[])
-        Optional<Writer<int[]>> writer = WriterLookup.findIntWriter("csv");
-        assertTrue(writer.isEmpty(), "Should not find an int[] writer with our mock");
-    }
 }

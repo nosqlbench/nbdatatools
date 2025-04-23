@@ -49,6 +49,11 @@ public class MockWriter implements Writer<float[]> {
     }
     
     @Override
+    public void initialize(Path path) {
+        this.path = path;
+    }
+    
+    @Override
     public void write(float[] data) {
         writtenData.add(data);
     }
@@ -65,4 +70,6 @@ public class MockWriter implements Writer<float[]> {
     public String getName() {
         return "MockWriter";
     }
+
+    public void close() {}
 }

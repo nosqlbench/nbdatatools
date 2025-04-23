@@ -1,0 +1,2 @@
+io.nosqlbench.writers.UniformFvecWriter
+io.nosqlbench.writers.UniformIvecWriter

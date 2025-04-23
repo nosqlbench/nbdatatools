@@ -342,10 +342,6 @@
         <directory>src/main/resources</directory>
         <includes>
           <include>META_INF/services/**</include>
-          <!--          <include>META-INF/functions</include>-->
-          <!--          <include>data/**</include>-->
-          <!--          <include>docs-for-virtdata/**</include>-->
-          <!--          <include>docs/**</include>-->
         </includes>
       </resource>
     </resources>

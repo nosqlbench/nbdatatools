@@ -78,23 +78,7 @@ public class SizedStreamerLookup {
         }
     }
     
-    /// Find a SizedReader implementation for float arrays with the specified encoding.
-    /// This is a convenience method for the common case of reading float vectors.
-    ///
-    /// @param encodingName The encoding name to match (will be converted to enum)
-    /// @return An Optional containing the matching SizedReader for float arrays, or empty if none found
-    public static Optional<SizedStreamer<float[]>> findFloatVectorReader(String encodingName) {
-        return findReader(encodingName, float[].class);
-    }
-    
-    /// Find a SizedReader implementation for integer arrays with the specified encoding.
-    /// This is a convenience method for the common case of reading integer vectors.
-    ///
-    /// @param encodingName The encoding name to match (will be converted to enum)
-    /// @return An Optional containing the matching SizedReader for integer arrays, or empty if none found
-    public static Optional<SizedStreamer<int[]>> findIntVectorReader(String encodingName) {
-        return findReader(encodingName, int[].class);
-    }
+    // Convenience methods for specific types have been removed in favor of the generic parameterized methods
     
     /// Returns a stream of all available SizedReader providers.
     ///
