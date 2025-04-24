@@ -23,6 +23,7 @@ import org.apache.commons.rng.RestorableUniformRandomProvider;
 import picocli.CommandLine;
 
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -41,8 +42,24 @@ public class IvecShuffle implements Callable<Integer> {
   private static final int EXIT_FILE_EXISTS = 1;
   private static final int EXIT_ERROR = 2;
 
-  @CommandLine.Parameters(index = "0", description = "Output file path for the ivec file")
+  @CommandLine.Option(names = {"-o","--output"}, description = "The output file", required = true)
   private Path outputPath;
+  
+  /**
+   * Validates the output path before execution.
+   */
+  @CommandLine.Spec
+  private CommandLine.Model.CommandSpec spec;
+  
+  private void validateOutputPath() {
+    if (outputPath == null) {
+      throw new CommandLine.ParameterException(spec.commandLine(), 
+          "Error: No output path provided");
+    }
+    
+    // Normalize the path to resolve any "." or ".." components
+    outputPath = outputPath.normalize();
+  }
 
   @CommandLine.Option(names = {"-i", "--interval"},
       description = "Number of values to generate and shuffle (interval length)",
@@ -78,6 +95,14 @@ public class IvecShuffle implements Callable<Integer> {
    */
   @Override
   public Integer call() throws Exception {
+    // Validate the output path
+    try {
+      validateOutputPath();
+    } catch (CommandLine.ParameterException e) {
+      System.err.println(e.getMessage());
+      return EXIT_ERROR;
+    }
+    
     // Check if file exists and handle force option
     if (Files.exists(outputPath) && !force) {
       System.err.println("Error: Output file already exists. Use --force to overwrite.");
@@ -85,11 +110,20 @@ public class IvecShuffle implements Callable<Integer> {
     }
 
     try {
-      // Create parent directories if they don't exist
-      Files.createDirectories(outputPath.getParent());
+      // Create parent directories if they don't exist and there is a parent path
+      Path parent = outputPath.getParent();
+      if (parent != null) {
+        Files.createDirectories(parent);
+      }
 
       // Generate sequence of integers from 0 to interval-1
-      List<Integer> values = new ArrayList<>((int) interval);
+      if (interval > Integer.MAX_VALUE) {
+        System.err.println("Error: Interval too large (maximum allowed is " + Integer.MAX_VALUE + ")");
+        return EXIT_ERROR;
+      }
+      
+      int capacity = (int) interval;
+      List<Integer> values = new ArrayList<>(capacity);
       for (int i = 0; i < interval; i++) {
         values.add(i);
       }
@@ -112,6 +146,15 @@ public class IvecShuffle implements Callable<Integer> {
       System.out.println("Interval: " + interval + ", Seed: " + seed + ", Algorithm: " + algorithm);
 
       return EXIT_SUCCESS;
+    } catch (NullPointerException e) {
+      System.err.println("Error: Output path or directory issue - " + e.getMessage());
+      System.err.println("Make sure the output path is valid: " + outputPath);
+      e.printStackTrace();
+      return EXIT_ERROR;
+    } catch (IOException e) {
+      System.err.println("Error: I/O problem when writing to file - " + e.getMessage());
+      e.printStackTrace();
+      return EXIT_ERROR;
     } catch (Exception e) {
       System.err.println("Error generating shuffled ivec file: " + e.getMessage());
       e.printStackTrace();

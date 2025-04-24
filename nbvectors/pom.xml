@@ -173,37 +173,46 @@
     </dependency>
 
 
-<!--    &lt;!&ndash; ND4J CUDA dependency &ndash;&gt;-->
-<!--    <dependency>-->
-<!--      <groupId>org.nd4j</groupId>-->
-<!--      <artifactId>nd4j-cuda-11.6-platform</artifactId>-->
-<!--      <version>${nd4j.version}</version>-->
-<!--    </dependency>-->
+    <!--    &lt;!&ndash; ND4J CUDA dependency &ndash;&gt;-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.nd4j</groupId>-->
+    <!--      <artifactId>nd4j-cuda-11.6-platform</artifactId>-->
+    <!--      <version>${nd4j.version}</version>-->
+    <!--    </dependency>-->
 
-<!--    &lt;!&ndash; ND4J Arrow integration &ndash;&gt;-->
-<!--    <dependency>-->
-<!--      <groupId>org.nd4j</groupId>-->
-<!--      <artifactId>nd4j-arrow</artifactId>-->
-<!--      <version>${nd4j.version}</version>-->
-<!--    </dependency>-->
+    <!--    &lt;!&ndash; ND4J Arrow integration &ndash;&gt;-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.nd4j</groupId>-->
+    <!--      <artifactId>nd4j-arrow</artifactId>-->
+    <!--      <version>${nd4j.version}</version>-->
+    <!--    </dependency>-->
 
-<!--    <dependency>-->
-<!--      <groupId>org.nd4j</groupId>-->
-<!--      <artifactId>nd4j-native</artifactId>-->
-<!--      <version>1.0.0-M2.1</version>-->
-<!--    </dependency>-->
-<!--    &lt;!&ndash; DataVec dependency for data processing &ndash;&gt;-->
-<!--    <dependency>-->
-<!--      <groupId>org.datavec</groupId>-->
-<!--      <artifactId>datavec-api</artifactId>-->
-<!--      <version>${nd4j.version}</version>-->
-<!--    </dependency>-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.nd4j</groupId>-->
+    <!--      <artifactId>nd4j-native</artifactId>-->
+    <!--      <version>1.0.0-M2.1</version>-->
+    <!--    </dependency>-->
+    <!--    &lt;!&ndash; DataVec dependency for data processing &ndash;&gt;-->
+    <!--    <dependency>-->
+    <!--      <groupId>org.datavec</groupId>-->
+    <!--      <artifactId>datavec-api</artifactId>-->
+    <!--      <version>${nd4j.version}</version>-->
+    <!--    </dependency>-->
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-rng-client-api</artifactId>
       <version>1.6</version>
     </dependency>
-
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>writers</artifactId>
+      <version>0.1.4-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>xvec-reader</artifactId>
+      <version>0.1.4-SNAPSHOT</version>
+    </dependency>
   </dependencies>
 
 
@@ -387,37 +396,10 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <!--          <proc>only</proc>-->
+          <proc>full</proc>
           <release>23</release>
         </configuration>
         <executions>
-          <!--          <execution>-->
-          <!--            <id>log4j-plugin-processor</id>-->
-          <!--            <goals>-->
-          <!--              <goal>compile</goal>-->
-          <!--            </goals>-->
-          <!--            <phase>process-classes</phase>-->
-          <!--            <configuration>-->
-          <!--              <annotationProcessorPaths>-->
-          <!--                <path>-->
-          <!--                  <groupId>com.google.auto.service</groupId>-->
-          <!--                  <artifactId>auto-service</artifactId>-->
-          <!--                  <version>1.1.1</version>-->
-          <!--                </path>-->
-          <!--                <path>-->
-          <!--                  <groupId>org.apache.logging.log4j</groupId>-->
-          <!--                  <artifactId>log4j-core</artifactId>-->
-          <!--                  <version>2.24.3</version>-->
-          <!--                </path>-->
-          <!--              </annotationProcessorPaths>-->
-          <!--              <proc>full</proc>-->
-          <!--              <annotationProcessors>-->
-          <!--                <annotationProcessor>-->
-          <!--                  org.apache.logging.log4j.core.config.plugins.processor.PluginProcessor-->
-          <!--                </annotationProcessor>-->
-          <!--              </annotationProcessors>-->
-          <!--            </configuration>-->
-          <!--          </execution>-->
         </executions>
       </plugin>
       <plugin>

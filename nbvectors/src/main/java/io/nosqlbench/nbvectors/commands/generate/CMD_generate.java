@@ -18,13 +18,11 @@ package io.nosqlbench.nbvectors.commands.generate;
  */
 
 
-import io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog2;
 import io.nosqlbench.nbvectors.commands.generate.commands.IvecShuffle;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,16 +39,13 @@ import java.util.List;
     exitCodeList = {"0: success", "1: warning", "2: error"},
 subcommands = {IvecShuffle.class})
 public class CMD_generate {
-    private static final Logger logger = LogManager.getLogger(CMD_catalog2.class);
+    private static final Logger logger = LogManager.getLogger(CMD_generate.class);
 
     @CommandLine.Parameters(description = "commands")
     private List<String> commands = new ArrayList<>();
 
-    @CommandLine.Parameters(description = "Files and/or directories to catalog; Directories will be traversed to find dataset.yaml and .hdf5 files", arity = "0..*")
-    private List<Path> inputs;
-
     public static void main(String[] args) {
-        CMD_catalog2 cmd = new CMD_catalog2();
+        CMD_generate cmd = new CMD_generate();
         int exitCode = new CommandLine(cmd).execute(args);
         System.exit(exitCode);
     }

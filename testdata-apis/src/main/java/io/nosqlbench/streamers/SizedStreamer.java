@@ -19,6 +19,7 @@ package io.nosqlbench.streamers;
 
 import io.nosqlbench.readers.Sized;
 
-public interface SizedStreamer<T> extends Streamer<T>, Sized {
-
+public interface SizedStreamer<T> extends Streamer<T>, Sized, AutoCloseable {
+  default void close() {
+  }
 }

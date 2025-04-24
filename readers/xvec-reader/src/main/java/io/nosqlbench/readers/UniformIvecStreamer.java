@@ -128,9 +128,13 @@ public class UniformIvecStreamer implements SizedStreamer<int[]>, AutoCloseable 
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (randomAccessFile != null) {
+          try {
             randomAccessFile.close();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
         }
     }
 

@@ -19,6 +19,8 @@ package io.nosqlbench.writers;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,4 +44,47 @@ public class WriterLookupTest {
         assertTrue(writer.isEmpty(), "Should not find a writer for String.class");
     }
     
+    @Test
+    void testDirectClassLoading() {
+        // Test loading MockWriter directly by class name
+        String className = "io.nosqlbench.writers.MockWriter";
+        Optional<Writer<float[]>> writer = WriterLookup.findWriterByClassName(className, float[].class);
+        
+        assertTrue(writer.isPresent(), "Should find writer directly by class name");
+        assertEquals("MockWriter", writer.get().getName(), "Should return the mock writer");
+    }
+    
+    @Test
+    void testDirectClassLoadingWithPath() {
+        // Test loading MockWriter directly by class name with path initialization
+        String className = "io.nosqlbench.writers.MockWriter";
+        Path testPath = Paths.get("test/path");
+        Optional<Writer<float[]>> writer = WriterLookup.findWriterByClassName(className, float[].class, testPath);
+        
+        assertTrue(writer.isPresent(), "Should find writer directly by class name with path");
+        assertEquals("MockWriter", writer.get().getName(), "Should return the mock writer");
+        assertEquals(testPath, ((MockWriter)writer.get()).getPath(), "Writer should be initialized with the test path");
+    }
+    
+    @Test
+    void testFindWriterFallbackToDirectLoading() {
+        // When SPI fails, should fallback to direct class loading
+        Optional<Writer<float[]>> writer = WriterLookup.findWriter(
+            "io.nosqlbench.writers.MockWriter", float[].class);
+        
+        assertTrue(writer.isPresent(), "Should find writer using direct class loading fallback");
+        assertEquals("MockWriter", writer.get().getName(), "Should return the mock writer");
+    }
+    
+    @Test
+    void testFindWriterWithPathFallbackToDirectLoading() {
+        // When SPI fails, should fallback to direct class loading with path
+        Path testPath = Paths.get("test/path");
+        Optional<Writer<float[]>> writer = WriterLookup.findWriter(
+            "io.nosqlbench.writers.MockWriter", float[].class, testPath);
+        
+        assertTrue(writer.isPresent(), "Should find writer using direct class loading fallback with path");
+        assertEquals("MockWriter", writer.get().getName(), "Should return the mock writer");
+        assertEquals(testPath, ((MockWriter)writer.get()).getPath(), "Writer should be initialized with the test path");
+    }
 }

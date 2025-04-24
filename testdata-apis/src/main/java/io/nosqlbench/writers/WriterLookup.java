@@ -74,11 +74,16 @@ public class WriterLookup {
     public static <T> Optional<Writer<T>> findWriter(String encodingName, Class<T> dataType) {
         try {
             Encoding.Type encoding = Encoding.Type.valueOf(encodingName.toLowerCase());
-            return findWriter(encoding, dataType);
+            Optional<Writer<T>> writer = findWriter(encoding, dataType);
+            if (writer.isPresent()) {
+                return writer;
+            }
         } catch (IllegalArgumentException e) {
-            // If the encoding name doesn't match any enum value, return empty
-            return Optional.empty();
+            // If the encoding name doesn't match any enum value, continue to direct lookup
         }
+        
+        // Try direct class loading as fallback
+        return findWriterByClassName(encodingName, dataType);
     }
     
     /// Finds a Writer implementation that matches the specified encoding and dataType,
@@ -109,9 +114,97 @@ public class WriterLookup {
     public static <T> Optional<Writer<T>> findWriter(String encodingName, Class<T> dataType, Path path) {
         try {
             Encoding.Type encoding = Encoding.Type.valueOf(encodingName.toLowerCase());
-            return findWriter(encoding, dataType, path);
+            Optional<Writer<T>> writer = findWriter(encoding, dataType, path);
+            if (writer.isPresent()) {
+                return writer;
+            }
         } catch (IllegalArgumentException e) {
-            // If the encoding name doesn't match any enum value, return empty
+            // If the encoding name doesn't match any enum value, continue to direct lookup
+        }
+        
+        // Try direct class loading as fallback
+        return findWriterByClassName(encodingName, dataType, path);
+    }
+
+    /// Creates a Writer instance directly by class name, bypassing SPI.
+    ///
+    /// @param className The fully qualified class name of the Writer implementation
+    /// @param dataType The data type class expected
+    /// @param <T> The type of data written by the Writer
+    /// @return An Optional containing the instantiated Writer, or empty if instantiation fails
+    @SuppressWarnings("unchecked")
+    public static <T> Optional<Writer<T>> findWriterByClassName(String className, Class<T> dataType) {
+        try {
+            Class<?> writerClass = Class.forName(className);
+            if (!Writer.class.isAssignableFrom(writerClass)) {
+                return Optional.empty(); // Not a Writer implementation
+            }
+            
+            // Verify data type compatibility if annotated
+            DataType dataTypeAnnotation = writerClass.getAnnotation(DataType.class);
+            if (dataTypeAnnotation != null && !dataTypeAnnotation.value().equals(dataType)) {
+                return Optional.empty(); // Data type mismatch
+            }
+            
+            // Create instance using default constructor
+            Constructor<?> constructor = writerClass.getConstructor();
+            Writer<T> writer = (Writer<T>) constructor.newInstance();
+            return Optional.of(writer);
+        } catch (Exception e) {
+            // Log error or handle appropriately
+            return Optional.empty();
+        }
+    }
+    
+    /// Creates a Writer instance directly by class name with initialization path, bypassing SPI.
+    ///
+    /// @param className The fully qualified class name of the Writer implementation
+    /// @param dataType The data type class expected
+    /// @param path The path to initialize the writer with
+    /// @param <T> The type of data written by the Writer
+    /// @return An Optional containing the instantiated Writer, or empty if instantiation fails
+    @SuppressWarnings("unchecked")
+    public static <T> Optional<Writer<T>> findWriterByClassName(String className, Class<T> dataType, Path path) {
+        try {
+            Class<?> writerClass = Class.forName(className);
+            if (!Writer.class.isAssignableFrom(writerClass)) {
+                return Optional.empty(); // Not a Writer implementation
+            }
+            
+            // Verify data type compatibility if annotated
+            DataType dataTypeAnnotation = writerClass.getAnnotation(DataType.class);
+            if (dataTypeAnnotation != null && !dataTypeAnnotation.value().equals(dataType)) {
+                return Optional.empty(); // Data type mismatch
+            }
+            
+            Writer<T> writer = null;
+            
+            // Try path constructor first
+            try {
+                Constructor<?> constructor = writerClass.getConstructor(Path.class);
+                writer = (Writer<T>) constructor.newInstance(path);
+                return Optional.of(writer);
+            } catch (NoSuchMethodException e) {
+                // Fall back to default constructor with initialize
+                writer = (Writer<T>) writerClass.getConstructor().newInstance();
+            }
+            
+            // Try initialize method
+            try {
+                writer.initialize(path);
+                return Optional.of(writer);
+            } catch (Exception e) {
+                // Try legacy init method
+                try {
+                    Method initMethod = writerClass.getMethod("init", Path.class);
+                    initMethod.invoke(writer, path);
+                    return Optional.of(writer);
+                } catch (Exception ex) {
+                    return Optional.empty();
+                }
+            }
+        } catch (Exception e) {
+            // Log error or handle appropriately
             return Optional.empty();
         }
     }

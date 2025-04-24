@@ -20,6 +20,7 @@ package io.nosqlbench.streamers;
 
 import io.nosqlbench.readers.Named;
 
-public interface Streamer<T> extends Iterable<T>, Named {
+public interface Streamer<T> extends Iterable<T>, Named, AutoCloseable {
 
+  default void close() {}
 }

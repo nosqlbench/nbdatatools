@@ -128,9 +128,13 @@ public class UniformDvecStreamer implements SizedStreamer<double[]>, AutoCloseab
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (randomAccessFile != null) {
+          try {
             randomAccessFile.close();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
         }
     }
 

@@ -33,7 +33,8 @@
   bytecode version. Do not use implied classes.
 - |
   Do not do things which require special access to members which are normally not 
-  accessible in java, like overriding method accessibility or adding unsafe code.
+  accessible in java, like overriding method accessibility or adding unsafe code. Do 
+  not use deprecated methods like finalize.
 - |
   Do not add extra features or fields to non-test classes which are not needed to meet 
   requirements. Do not assume that new features are needed 
