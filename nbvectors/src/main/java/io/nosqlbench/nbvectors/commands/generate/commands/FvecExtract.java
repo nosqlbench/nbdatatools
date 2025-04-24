@@ -1,16 +1,17 @@
 package io.nosqlbench.nbvectors.commands.generate.commands;
 
 import io.nosqlbench.readers.UniformFvecReader;
+import io.nosqlbench.writers.UniformFvecWriter;
 import io.nosqlbench.readers.UniformIvecReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.Callable;
 
 /**
@@ -86,6 +87,63 @@ public class FvecExtract implements Callable<Integer> {
         }
     }
     
+    /// Display progress information for the extraction process
+    /// @param processed Number of vectors processed so far
+    /// @param total Total number of vectors to process
+    /// @param startTime Time when the extraction started
+    private void displayProgress(long processed, long total, Instant startTime) {
+        Instant now = Instant.now();
+        Duration elapsed = Duration.between(startTime, now);
+        
+        // Calculate processing rate (vectors per second)
+        double vectorsPerSecond = processed / Math.max(0.001, elapsed.toMillis() / 1000.0);
+        
+        // Clear the current line
+        System.out.print("\r");
+        
+        StringBuilder progress = new StringBuilder();
+        progress.append("Extracting: ").append(processed).append("/").append(total);
+        
+        // Add percentage
+        double percentage = (double) processed / total * 100;
+        progress.append(String.format(" [%.1f%%]", percentage));
+        
+        // Add estimated time remaining
+        if (processed > 0 && vectorsPerSecond > 0) {
+            long remainingSeconds = (long) ((total - processed) / vectorsPerSecond);
+            progress.append(String.format(", ETA: %02d:%02d:%02d", 
+                remainingSeconds / 3600, (remainingSeconds % 3600) / 60, remainingSeconds % 60));
+        }
+        
+        // Add rate information
+        progress.append(String.format(" | %.1f vectors/sec", vectorsPerSecond));
+        
+        // Add elapsed time
+        long elapsedSeconds = elapsed.getSeconds();
+        progress.append(String.format(" | Time: %02d:%02d:%02d", 
+            elapsedSeconds / 3600, (elapsedSeconds % 3600) / 60, elapsedSeconds % 60));
+        
+        // Display progress bar
+        progress.append("\n[");
+        int barWidth = 50;
+        int completedWidth = (int) ((processed * barWidth) / (double) total);
+        
+        for (int i = 0; i < barWidth; i++) {
+            if (i < completedWidth) {
+                progress.append("=");
+            } else if (i == completedWidth) {
+                progress.append(">");
+            } else {
+                progress.append(" ");
+            }
+        }
+        progress.append("]");
+        
+        // Output progress directly to stdout
+        System.out.print(progress.toString());
+        System.out.flush();
+    }
+    
     @Override
     public Integer call() throws Exception {
         Path ivecPath = Paths.get(ivecFile);
@@ -114,16 +172,18 @@ public class FvecExtract implements Callable<Integer> {
 
         UniformIvecReader ivecReader = null;
         UniformFvecReader fvecReader = null;
-        DataOutputStream outputStream = null;
+        UniformFvecWriter fvecWriter = null;
         
         try {
+            // Open the readers
             ivecReader = new UniformIvecReader(ivecPath);
             fvecReader = new UniformFvecReader(fvecPath);
-
+            
+            // Get the sizes
             int ivecSize = ivecReader.getSize();
             int fvecSize = fvecReader.getSize();
             int dimension = fvecReader.getDimension();
-
+            
             // Validate the range
             long[] rangeBounds = parseRange(range);
             long startIndex = rangeBounds[0];
@@ -146,51 +206,92 @@ public class FvecExtract implements Callable<Integer> {
                 return 1;
             }
             
-            // Validate all indices before writing output
-            for (long i = startIndex; i <= endIndex; i++) {
-                if (i >= ivecSize) {
-                    logger.warn("Reached end of ivec file at index {}, will extract up to index {}", i, i - 1);
-                    endIndex = i - 1;
-                    break;
-                }
-                
-                int[] indexVector = ivecReader.get((int)i);
-                if (indexVector.length == 0) {
-                    logger.error("Empty index vector at position {}", i);
+            // Fail-fast check: access the minimum and maximum indices in the range to verify validity
+            try {
+                // Check the first index in the range
+                int[] firstIndexVector = ivecReader.get((int)startIndex);
+                int firstIndex = firstIndexVector[0];
+                if (firstIndex < 0 || firstIndex >= fvecSize) {
+                    logger.error("The first index {} in range (at position {}) is out of bounds for fvec file (size: {})", 
+                                firstIndex, startIndex, fvecSize);
                     return 1;
                 }
                 
-                int index = indexVector[0];
-                if (index < 0 || index >= fvecSize) {
-                    logger.error("Index {} at position {} is out of bounds for fvec file (size: {})", index, i, fvecSize);
+                // Check the last index in the range
+                int[] lastIndexVector = ivecReader.get((int)endIndex);
+                int lastIndex = lastIndexVector[0];
+                if (lastIndex < 0 || lastIndex >= fvecSize) {
+                    logger.error("The last index {} in range (at position {}) is out of bounds for fvec file (size: {})", 
+                                lastIndex, endIndex, fvecSize);
                     return 1;
                 }
+                
+                System.out.println("Range validation successful: first index=" + firstIndex + ", last index=" + lastIndex);
+            } catch (Exception e) {
+                logger.error("Failed to validate index range: {}", e.getMessage());
+                return 1;
             }
             
             // Calculate number of vectors to extract
             long vectorCount = endIndex - startIndex + 1;
             
-            // Create output file after validation
-            outputStream = new DataOutputStream(Files.newOutputStream(outputPath));
+            // Create output file with writer
+            fvecWriter = new UniformFvecWriter(outputPath, dimension);
             
             logger.info("Extracting {} vectors from {} using indices from {} (range: {}..{})", 
                        vectorCount, fvecPath, ivecPath, startIndex, endIndex);
             
-            // Extract and write vectors
+            // Setup progress tracking
+            Instant startTime = Instant.now();
+            long processedVectors = 0;
+            long nextReportTime = System.currentTimeMillis() + 1000; // First report after 1 second
+            
+            // Initial status message to stdout
+            System.out.println("Starting vector extraction...");
+            
+            // Extract and write vectors directly as we process them
             for (long i = startIndex; i <= endIndex; i++) {
-                int[] indexVector = ivecReader.get((int)i);
-                int index = indexVector[0];
-                float[] vector = fvecReader.get(index);
-                outputStream.writeInt(dimension);
-                for (float value : vector) {
-                    outputStream.writeFloat(value);
+                try {
+                    // Get the index from ivec file
+                    int[] indexVector = ivecReader.get((int)i);
+                    int index = indexVector[0];
+                    
+                    // Get the vector from fvec file
+                    float[] vector = fvecReader.get(index);
+                    
+                    // Write to output file using the writer
+                    fvecWriter.write(vector);
+                    
+                    // Update progress
+                    processedVectors++;
+                    
+                    // Display progress at most once per second
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime >= nextReportTime) {
+                        displayProgress(processedVectors, vectorCount, startTime);
+                        nextReportTime = currentTime + 1000;
+                    }
+                } catch (Exception e) {
+                    logger.error("Error processing vector at index {}: {}", i, e.getMessage());
+                    return 1;
                 }
             }
+            
+            // Display final progress
+            displayProgress(processedVectors, vectorCount, startTime);
+            System.out.println(); // Add newline after progress bar
+            System.out.println("Vector extraction completed successfully.");
 
             logger.info("Successfully wrote extracted vectors to {}", outputPath);
             return 0;
 
-        } catch (IOException e) {
+        } catch (Exception e) {
+            // Handle invalid arguments or parsing errors
+            if (e instanceof IllegalArgumentException) {
+                logger.error("{}", e.getMessage());
+                return 1;
+            }
+            // Other errors (I/O or unexpected)
             logger.error("Error during extraction: {}", e.getMessage(), e);
             return 2;
         } finally {
@@ -202,8 +303,8 @@ public class FvecExtract implements Callable<Integer> {
                 if (fvecReader != null) {
                     fvecReader.close();
                 }
-                if (outputStream != null) {
-                    outputStream.close();
+                if (fvecWriter != null) {
+                    fvecWriter.close();
                 }
             } catch (Exception e) {
                 logger.error("Error closing resources: {}", e.getMessage(), e);

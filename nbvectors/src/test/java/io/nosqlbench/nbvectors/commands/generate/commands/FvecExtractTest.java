@@ -64,7 +64,7 @@ public class FvecExtractTest {
 
   /// Test successful extraction of vectors
   @Test
-  void testSuccessfulExtraction() throws IOException {
+  void testSuccessfulExtraction() throws Exception {
     // Arrange
     FvecExtract command = new FvecExtract();
     CommandLine cmd = new CommandLine(command);
@@ -107,7 +107,7 @@ public class FvecExtractTest {
 
   /// Test extraction with partial count
   @Test
-  void testPartialExtraction() throws IOException {
+  void testPartialExtraction() throws Exception {
     // Arrange
     int partialCount = 5;
     FvecExtract command = new FvecExtract();
@@ -183,7 +183,7 @@ public class FvecExtractTest {
 
   /// Test overwrite protection (--force flag)
   @Test
-  void testOverwriteProtection() throws IOException {
+  void testOverwriteProtection() throws Exception {
     // Arrange - create the output file first with dummy content
     Files.createFile(outputFile);
     try (var dos = new java.io.DataOutputStream(Files.newOutputStream(outputFile))) {
@@ -280,7 +280,7 @@ public class FvecExtractTest {
     // Verify the content has only NUM_INDICES vectors
     try (UniformFvecReader reader = new UniformFvecReader(outputFile)) {
       assertThat(reader.getSize()).isEqualTo(NUM_INDICES);
-    } catch (IOException e) {
+    } catch (Exception e) {
       fail("Could not read output file", e);
     }
   }
@@ -346,7 +346,7 @@ public class FvecExtractTest {
   
   /// Test with custom range values including non-zero starting indices
   @Test
-  void testCustomRanges() throws IOException {
+  void testCustomRanges() throws Exception {
     // Arrange - create a command with a non-zero starting range
     FvecExtract command = new FvecExtract();
     CommandLine cmd = new CommandLine(command);

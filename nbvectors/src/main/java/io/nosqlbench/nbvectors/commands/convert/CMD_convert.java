@@ -469,7 +469,8 @@ public class CMD_convert implements Callable<Integer> {
         // Get the vector dimension from the first file
         float[] firstVector = firstIterator.next();
         int dimension = firstVector.length;
-        firstStreamer.close(); // Close the first streamer after getting dimension
+        // Note: CsvJsonArrayStreamer does not implement Closeable; remove explicit close to avoid compile error
+        // firstStreamer.close();
 
         if (verbose) {
             logger.info("Detected vector dimension: {}", dimension);
