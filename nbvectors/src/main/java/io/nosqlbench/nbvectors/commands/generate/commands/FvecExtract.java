@@ -31,6 +31,13 @@ public class FvecExtract implements Callable<Integer> {
     private String ivecFile;
 
     @CommandLine.Option(
+        names = {"--range"},
+        description = "Range of indices to use (format: start..end), e.g. 0..1000 or 2000..3000",
+        required = true
+    )
+    private String range;
+    
+    @CommandLine.Option(
         names = {"--fvec-file"},
         description = "Path to fvec file containing vectors to extract",
         required = true
@@ -45,19 +52,40 @@ public class FvecExtract implements Callable<Integer> {
     private String outputFile;
 
     @CommandLine.Option(
-        names = {"--count"},
-        description = "Number of indices to use from ivec file",
-        required = true
-    )
-    private int count;
-
-    @CommandLine.Option(
         names = {"--force"},
         description = "Force overwrite of output file if it exists",
         defaultValue = "false"
     )
     private boolean force;
 
+    /// Parse a range string in the format "start..end" into a long array with \[start, end] values
+    /// @param rangeStr String in format "start..end"
+    /// @return long array with \[startIndex, endIndex]
+    /// @throws IllegalArgumentException if the range format is invalid
+    private long[] parseRange(String rangeStr) {
+        if (rangeStr == null || !rangeStr.contains("..")) {
+            throw new IllegalArgumentException("Range must be in format 'start..end'");
+        }
+        
+        String[] parts = rangeStr.split("\\.\\.");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Range must be in format 'start..end'");
+        }
+        
+        try {
+            long start = Long.parseLong(parts[0]);
+            long end = Long.parseLong(parts[1]);
+            
+            if (start < 0 || end < 0) {
+                throw new IllegalArgumentException("Range values cannot be negative");
+            }
+            
+            return new long[] { start, end };
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Range values must be valid numbers", e);
+        }
+    }
+    
     @Override
     public Integer call() throws Exception {
         Path ivecPath = Paths.get(ivecFile);
@@ -96,34 +124,62 @@ public class FvecExtract implements Callable<Integer> {
             int fvecSize = fvecReader.getSize();
             int dimension = fvecReader.getDimension();
 
-            // Ensure count is within bounds
-            if (count <= 0 || count > ivecSize) {
-                logger.error("Count must be positive and not greater than the number of indices in ivec file: {}", ivecSize);
+            // Validate the range
+            long[] rangeBounds = parseRange(range);
+            long startIndex = rangeBounds[0];
+            long endIndex = rangeBounds[1];
+            
+            // Ensure range is within bounds
+            if (startIndex < 0) {
+                logger.error("Start index must be non-negative: {}", startIndex);
                 return 1;
             }
-
+            
+            if (endIndex >= ivecSize) {
+                logger.warn("End index {} exceeds ivec size {}. Will only process up to index {}", 
+                           endIndex, ivecSize, ivecSize - 1);
+                endIndex = ivecSize - 1;
+            }
+            
+            if (startIndex > endIndex) {
+                logger.error("Start index {} is greater than end index {}", startIndex, endIndex);
+                return 1;
+            }
+            
             // Validate all indices before writing output
-            for (int i = 0; i < count; i++) {
-                int[] indexVector = ivecReader.get(i);
+            for (long i = startIndex; i <= endIndex; i++) {
+                if (i >= ivecSize) {
+                    logger.warn("Reached end of ivec file at index {}, will extract up to index {}", i, i - 1);
+                    endIndex = i - 1;
+                    break;
+                }
+                
+                int[] indexVector = ivecReader.get((int)i);
                 if (indexVector.length == 0) {
                     logger.error("Empty index vector at position {}", i);
                     return 1;
                 }
+                
                 int index = indexVector[0];
                 if (index < 0 || index >= fvecSize) {
                     logger.error("Index {} at position {} is out of bounds for fvec file (size: {})", index, i, fvecSize);
                     return 1;
                 }
             }
-
+            
+            // Calculate number of vectors to extract
+            long vectorCount = endIndex - startIndex + 1;
+            
             // Create output file after validation
             outputStream = new DataOutputStream(Files.newOutputStream(outputPath));
-
-            logger.info("Extracting {} vectors from {} using indices from {}", count, fvecPath, ivecPath);
+            
+            logger.info("Extracting {} vectors from {} using indices from {} (range: {}..{})", 
+                       vectorCount, fvecPath, ivecPath, startIndex, endIndex);
             
             // Extract and write vectors
-            for (int i = 0; i < count; i++) {
-                int index = ivecReader.get(i)[0];
+            for (long i = startIndex; i <= endIndex; i++) {
+                int[] indexVector = ivecReader.get((int)i);
+                int index = indexVector[0];
                 float[] vector = fvecReader.get(index);
                 outputStream.writeInt(dimension);
                 for (float value : vector) {

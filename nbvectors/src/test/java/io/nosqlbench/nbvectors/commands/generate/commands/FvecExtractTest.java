@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /// Test class for FvecExtract command
 /// Tests extraction of vectors from an fvec file using indices from an ivec file
@@ -76,8 +77,8 @@ public class FvecExtractTest {
         fvecFile.toString(),
         "--output",
         outputFile.toString(),
-        "--count",
-        String.valueOf(NUM_INDICES),
+        "--range",
+        "0.." + (NUM_INDICES - 1),
         "--force"
     );
 
@@ -120,8 +121,8 @@ public class FvecExtractTest {
         fvecFile.toString(),
         "--output",
         outputFile.toString(),
-        "--count",
-        String.valueOf(partialCount),
+        "--range",
+        "0.." + (partialCount - 1),
         "--force"
     );
 
@@ -149,8 +150,8 @@ public class FvecExtractTest {
         fvecFile.toString(),
         "--output",
         outputFile.toString(),
-        "--count",
-        String.valueOf(NUM_INDICES),
+        "--range",
+        "0.." + (NUM_INDICES - 1),
         "--force"
     );
 
@@ -170,8 +171,8 @@ public class FvecExtractTest {
         "nonexistent.fvec",
         "--output",
         outputFile.toString(),
-        "--count",
-        String.valueOf(NUM_INDICES),
+        "--range",
+        "0.." + (NUM_INDICES - 1),
         "--force"
     );
 
@@ -204,8 +205,8 @@ public class FvecExtractTest {
         fvecFile.toString(),
         "--output",
         outputFile.toString(),
-        "--count",
-        String.valueOf(NUM_INDICES)
+        "--range",
+        "0.." + (NUM_INDICES - 1)
     );
   
     // Assert - command should fail without force flag
@@ -223,8 +224,8 @@ public class FvecExtractTest {
         fvecFile.toString(),
         "--output",
         outputFile.toString(),
-        "--count",
-        String.valueOf(NUM_INDICES),
+        "--range",
+        "0.." + (NUM_INDICES - 1),
         "--force"
     );
   
@@ -251,13 +252,13 @@ public class FvecExtractTest {
     }
   }
 
-  /// Test with count exceeding available indices
+  /// Test with range exceeding available indices
   @Test
-  void testCountExceedingIndices() {
+  void testRangeExceedingIndices() {
     // Arrange
     FvecExtract command = new FvecExtract();
     CommandLine cmd = new CommandLine(command);
-
+  
     // Act
     int exitCode = cmd.execute(
         "--ivec-file",
@@ -266,23 +267,31 @@ public class FvecExtractTest {
         fvecFile.toString(),
         "--output",
         outputFile.toString(),
-        "--count",
-        String.valueOf(NUM_INDICES + 5),
+        "--range",
+        "0.." + (NUM_INDICES + 5),
         "--force"
     );
-
+  
     // Assert
-    assertThat(exitCode).isEqualTo(1);
-    assertThat(Files.exists(outputFile)).isFalse();
+    // The command should succeed but with a warning about truncating the range
+    assertThat(exitCode).isEqualTo(0);
+    assertThat(Files.exists(outputFile)).isTrue();
+    
+    // Verify the content has only NUM_INDICES vectors
+    try (UniformFvecReader reader = new UniformFvecReader(outputFile)) {
+      assertThat(reader.getSize()).isEqualTo(NUM_INDICES);
+    } catch (IOException e) {
+      fail("Could not read output file", e);
+    }
   }
 
-  /// Test with negative count value
+  /// Test with negative range value
   @Test
-  void testNegativeCount() {
+  void testNegativeRange() {
     // Arrange
     FvecExtract command = new FvecExtract();
     CommandLine cmd = new CommandLine(command);
-
+  
     // Act
     int exitCode = cmd.execute(
         "--ivec-file",
@@ -291,8 +300,8 @@ public class FvecExtractTest {
         fvecFile.toString(),
         "--output",
         outputFile.toString(),
-        "--count",
-        "-5",
+        "--range",
+        "-5..5",
         "--force"
     );
 
@@ -325,13 +334,64 @@ public class FvecExtractTest {
         fvecFile.toString(),
         "--output",
         outputFile.toString(),
-        "--count",
-        "5",
+        "--range",
+        "0..4",
         "--force"
     );
 
     // Assert - Command should fail with error code when encountering out-of-bounds indices
     assertThat(exitCode).isEqualTo(1);
     assertThat(Files.exists(outputFile)).isFalse();
+  }
+  
+  /// Test with custom range values including non-zero starting indices
+  @Test
+  void testCustomRanges() throws IOException {
+    // Arrange - create a command with a non-zero starting range
+    FvecExtract command = new FvecExtract();
+    CommandLine cmd = new CommandLine(command);
+  
+    // Act - extract indices 3 to 7 (5 vectors)
+    int exitCode = cmd.execute(
+        "--ivec-file", indexFile.toString(),
+        "--fvec-file", fvecFile.toString(),
+        "--output", outputFile.toString(),
+        "--range", "3..7",
+        "--force"
+    );
+  
+    // Assert
+    assertThat(exitCode).isEqualTo(0);
+    assertThat(Files.exists(outputFile)).isTrue();
+    
+    // Verify the file contains 5 vectors (indices 3,4,5,6,7)
+    try (UniformFvecReader reader = new UniformFvecReader(outputFile)) {
+      // Each vector is stored with its dimension header (4 bytes) + dimension*4 bytes
+      // so the size should be 5 vectors
+      assertThat(reader.getSize()).isEqualTo(5);
+    }
+    
+    // Test with a range that exceeds the available indices
+    command = new FvecExtract();
+    cmd = new CommandLine(command);
+    Path largeRangeOutput = tempDir.resolve("large_range.fvec");
+    
+    // Define a range that is definitely larger than our test file
+    exitCode = cmd.execute(
+        "--ivec-file", indexFile.toString(),
+        "--fvec-file", fvecFile.toString(),
+        "--output", largeRangeOutput.toString(),
+        "--range", "0..100", // NUM_INDICES is 10, so this exceeds it
+        "--force"
+    );
+    
+    // The command should succeed with warnings about truncating the range
+    assertThat(exitCode).isEqualTo(0);
+    assertThat(Files.exists(largeRangeOutput)).isTrue();
+    
+    // Verify the output contains only NUM_INDICES vectors
+    try (UniformFvecReader reader = new UniformFvecReader(largeRangeOutput)) {
+      assertThat(reader.getSize()).isEqualTo(NUM_INDICES);
+    }
   }
 }
