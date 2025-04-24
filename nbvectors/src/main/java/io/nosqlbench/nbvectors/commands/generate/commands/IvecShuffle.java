@@ -67,8 +67,8 @@ public class IvecShuffle implements Callable<Integer> {
   private long interval;
 
   @CommandLine.Option(names = {"-s", "--seed"},
-      description = "Random seed for reproducible shuffling",
-      defaultValue = "31339")
+      description = "Random seed for reproducible shuffling (0 for non-deterministic)",
+      defaultValue = "0")
   private long seed;
 
   @CommandLine.Option(names = {"-f", "--force"},
@@ -128,8 +128,12 @@ public class IvecShuffle implements Callable<Integer> {
         values.add(i);
       }
 
-      // Create a high-quality random number generator with the specified algorithm and seed
-      RestorableUniformRandomProvider rng = RandomGenerators.create(algorithm, seed);
+      // Determine effective seed: use provided seed, or generate a new one if seed <= 0
+      long effectiveSeed = seed;
+      if (seed <= 0) {
+          effectiveSeed = System.nanoTime() ^ System.currentTimeMillis();
+      }
+      RestorableUniformRandomProvider rng = RandomGenerators.create(algorithm, effectiveSeed);
       
       // Use the improved Fisher-Yates shuffle implementation with high-quality RNG
       RandomGenerators.shuffle(values, rng);
@@ -143,7 +147,7 @@ public class IvecShuffle implements Callable<Integer> {
       }
 
       System.out.println("Successfully generated shuffled ivec file: " + outputPath);
-      System.out.println("Interval: " + interval + ", Seed: " + seed + ", Algorithm: " + algorithm);
+      System.out.println("Interval: " + interval + ", Seed: " + effectiveSeed + ", Algorithm: " + algorithm);
 
       return EXIT_SUCCESS;
     } catch (NullPointerException e) {

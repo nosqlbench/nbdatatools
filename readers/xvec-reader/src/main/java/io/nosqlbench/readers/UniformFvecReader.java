@@ -69,8 +69,8 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
             throw new IOException("Failed to read dimension from file: " + filePath);
         }
         
-        // Convert bytes to integer (little-endian)
-        ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes).order(ByteOrder.LITTLE_ENDIAN);
+        // Convert bytes to integer (big-endian)
+        ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes);
         this.dimension = dimBuffer.getInt();
         
         if (this.dimension <= 0) {
@@ -117,8 +117,8 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
                 throw new IOException("Failed to read vector data at index " + index);
             }
             
-            // Convert bytes to float values
-            ByteBuffer floatBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
+            // Convert bytes to float values (big-endian)
+            ByteBuffer floatBuffer = ByteBuffer.wrap(buffer);
             for (int i = 0; i < dimension; i++) {
                 vector[i] = floatBuffer.getFloat(i * 4);
             }
@@ -130,9 +130,13 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (randomAccessFile != null) {
+          try {
             randomAccessFile.close();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
         }
     }
 

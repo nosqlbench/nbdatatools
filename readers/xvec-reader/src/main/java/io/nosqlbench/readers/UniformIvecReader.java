@@ -17,6 +17,7 @@
 
 package io.nosqlbench.readers;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -56,34 +57,55 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Au
     ///
     /// @param filePath The path to the ivec file
     /// @throws IOException If the file cannot be opened or read
-    public UniformIvecReader(Path filePath) throws IOException {
+    public UniformIvecReader(Path filePath) {
         this.filePath = Objects.requireNonNull(filePath, "filePath cannot be null");
         this.name = filePath.getFileName().toString();
         
         // Open the file and prepare for reading
+      try {
         this.randomAccessFile = new RandomAccessFile(filePath.toFile(), "r");
-        
-        // Read the first 4 bytes to get the dimension
+      } catch (FileNotFoundException e) {
+        throw new RuntimeException(e);
+      }
+
+      // Read the first 4 bytes to get the dimension
         byte[] dimBytes = new byte[4];
+      try {
         if (randomAccessFile.read(dimBytes) != 4) {
             throw new IOException("Failed to read dimension from file: " + filePath);
         }
-        
-        // Convert bytes to integer (little-endian)
-        ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes).order(ByteOrder.LITTLE_ENDIAN);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+
+        // Convert bytes to integer (big-endian)
+        ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes);
         this.dimension = dimBuffer.getInt();
         
         if (this.dimension <= 0) {
+          try {
             throw new IOException("Invalid dimension in file: " + this.dimension);
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
         }
         
         // Calculate record size: 4 bytes for dimension + (dimension * 4 bytes for integer values)
         this.recordSize = 4 + (dimension * 4);
         
         // Calculate the total number of vectors in the file
-        long fileSize = randomAccessFile.length();
-        if (fileSize % recordSize != 0) {
+      long fileSize = 0;
+      try {
+        fileSize = randomAccessFile.length();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      if (fileSize % recordSize != 0) {
+          try {
             throw new IOException("File size is not a multiple of record size. File may be corrupted.");
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
         }
         
         this.size = (int) (fileSize / recordSize);
@@ -117,8 +139,8 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Au
                 throw new IOException("Failed to read vector data at index " + index);
             }
             
-            // Convert bytes to integer values
-            ByteBuffer intBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
+            // Convert bytes to integer values (big-endian)
+            ByteBuffer intBuffer = ByteBuffer.wrap(buffer);
             for (int i = 0; i < dimension; i++) {
                 vector[i] = intBuffer.getInt(i * 4);
             }
@@ -130,9 +152,13 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Au
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (randomAccessFile != null) {
+          try {
             randomAccessFile.close();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
         }
     }
 

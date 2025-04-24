@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.commands.generate;
  */
 
 
+import io.nosqlbench.nbvectors.commands.generate.commands.FvecExtract;
 import io.nosqlbench.nbvectors.commands.generate.commands.IvecShuffle;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,7 +38,7 @@ import java.util.List;
         the purposes of preparing test data
         """,
     exitCodeList = {"0: success", "1: warning", "2: error"},
-subcommands = {IvecShuffle.class})
+subcommands = {IvecShuffle.class, FvecExtract.class})
 public class CMD_generate {
     private static final Logger logger = LogManager.getLogger(CMD_generate.class);
 

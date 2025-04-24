@@ -20,6 +20,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
+ * Basic functional tests for the IvecShuffle command.
+ * This test class focuses on the basic functionality and correctness,
+ * while statistical properties are tested in IvecShuffleStatisticalTest.
+ */
+
+/**
  * Tests for the IvecShuffle command, which generates deterministically
  * shuffled sequences of integers and saves them in ivec format.
  */

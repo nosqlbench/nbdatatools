@@ -51,7 +51,12 @@ public class TestUtils {
             for (int i = 0; i < numVectors; i++) {
                 dos.writeInt(dimensions);
                 for (int j = 0; j < dimensions; j++) {
-                    dos.writeInt(random.nextInt(1000));
+                    // For single-dimension index vectors, generate sequential indices
+                    if (dimensions == 1) {
+                        dos.writeInt(i);
+                    } else {
+                        dos.writeInt(random.nextInt(1000));
+                    }
                 }
             }
         }
@@ -156,7 +161,6 @@ public class TestUtils {
      * expected based on the vector dimensions.
      * 
      * @param filePath The path where the ivec file should be created
-     * @param corrupt Whether to truncate the file or add extra bytes
      * @param seed Random seed for reproducible values
      * @return The actual file path that was created
      * @throws IOException If an error occurs while writing the file
