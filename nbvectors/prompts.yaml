@@ -29,8 +29,18 @@
   a section on INFERRED REQUIREMENTS to any javadoc that is produced to explain the 
   requirements as understood.
 - |
+  For buffers or threads or any resource which can cause a resource leak, care should
+  be taken to specifically track resources and ensure that resources are properly 
+  managed and released when they are no longer needed
+- |
+  Never change the contents of package-info.java files. These are off-limits. You 
+  should read all package-info.java files in the file hierarchy of any work you are 
+  doing, however, to get important insights on requirements.
+- |
   Use the latest supported Java language features and assume the latest Java LTS 
   bytecode version. Do not use implied classes.
+- |
+  Variables that are used in closures should be effectively final
 - |
   Do not do things which require special access to members which are normally not 
   accessible in java, like overriding method accessibility or adding unsafe code. Do 

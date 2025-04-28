@@ -18,15 +18,17 @@ package io.nosqlbench.nbvectors.datasource.parquet;
  */
 
 
-
 import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.FlatteningIterable;
 import io.nosqlbench.nbvectors.datasource.parquet.conversion.HFEmbedToFloatAry;
+import io.nosqlbench.nbvectors.datasource.parquet.traversal.ParquetGroupIterable;
 import io.nosqlbench.nbvectors.datasource.parquet.traversal.ParquetTabulator;
+import io.nosqlbench.nbvectors.datasource.parquet.traversal.RecordReaderIterable;
 import io.nosqlbench.nbvectors.datasource.parquet.traversal.functional.ParquetTraversal;
-import io.nosqlbench.nbvectors.services.Selector;
-import io.nosqlbench.readers.SizedStreamer;
+import io.nosqlbench.readers.DataType;
+import io.nosqlbench.readers.Encoding;
+import io.nosqlbench.streamers.SizedStreamer;
 import org.apache.parquet.example.data.Group;
 
 import java.nio.file.Files;
@@ -34,14 +36,13 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Function;
-import io.nosqlbench.nbvectors.datasource.parquet.traversal.ParquetGroupIterable;
-import io.nosqlbench.nbvectors.datasource.parquet.traversal.RecordReaderIterable;
 
 
 /// Read vectors from parquet files. This layer of reading/parsing is expected to be applied to a
 ///  set of Paths which are files only, and which are part of a logical group.
 @AutoService(SizedStreamer.class)
-@Selector("parquet")
+@Encoding(Encoding.Type.parquet)
+@DataType(float[].class)
 public class ParquetVectorsReader implements SizedStreamer<float[]> {
 
   private final Iterable<float[]> compositeIterable;

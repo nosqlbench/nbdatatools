@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>writers</artifactId>
+  <artifactId>xvec-writer</artifactId>
   <name>${project.artifactId}</name>
   <description>writers for nbvectors</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
@@ -13,7 +13,7 @@
     <groupId>io.nosqlbench</groupId>
     <artifactId>mvn-defaults</artifactId>
     <version>${revision}</version>
-    <relativePath>../mvn-defaults</relativePath>
+    <relativePath>../../mvn-defaults</relativePath>
   </parent>
 
   <properties>

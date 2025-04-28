@@ -14,12 +14,19 @@
 ///   and writes them to an fvec file, using indices from a provide ivec
 ///   file which contains the positions to extract.
 /// - It uses IvecReader and FvecReader and FvecWriter internally, and does no direct IO of its own.
-/// - It provides a progress indicator on stdout.
+/// - It provides a progress indicator on stdout, using jline and nice layout
 /// - It allows the user to specific which indices will be used by providing a range.
 /// - Once the IvecReader is opened, the minimum and maximum range values are accessed to assert
 /// a valid range. This ensures a fail-fast check occurs before a long process that might fail
 /// later.
-///
+/// - Where it makes sense, ivec-extract should be made concurrent
+/// - The user should be able to specify the number of threads.
+/// - Where it makes sense, the user should be able to provide an advisory limit on the amount of
+///  buffer memory to use total
+/// - The range values are checked to make sure the are valid, asin positive and in bounds with
+/// respect to the size of the ivec file.
+/// - If any index value refers to a position that does not exist in the fvec file, an error is
+/// thrown, but this is not verified beforehand.
 ///
 /// ## IvecShuffle (ivec-shuffle)
 ///

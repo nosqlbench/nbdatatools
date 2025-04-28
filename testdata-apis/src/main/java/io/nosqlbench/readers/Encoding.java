@@ -36,6 +36,7 @@ public @interface Encoding {
         fvec,
         bvec,
         dvec,
+        parquet,
         csv
     }
 }

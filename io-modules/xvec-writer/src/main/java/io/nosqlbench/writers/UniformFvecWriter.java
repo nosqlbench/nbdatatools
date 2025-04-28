@@ -248,7 +248,7 @@ public class UniformFvecWriter implements Writer<float[]>, AutoCloseable {
     }
     
     /**
-     * Flushes any buffered data to the underlying file.
+     * Flushes any buffered data to the underlying file and forces it to disk.
      *
      * @return This writer instance for method chaining
      * @throws IOException If an I/O error occurs during flushing

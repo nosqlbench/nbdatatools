@@ -44,7 +44,7 @@
     <module>testdata-apis</module>
     <module>vectordata</module>
     <module>nbvectors</module>
-    <module>writers</module>
+    <module>io-modules</module>
   </modules>
 
   <developers>
@@ -71,31 +71,12 @@
 
   <profiles>
     <profile>
-      <id>enable_parquet</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <modules>
-        <module>readers/parquet-reader</module>
-        <module>commands/hugging_dl</module>
-      </modules>
-    </profile>
-    <profile>
       <id>remove_zeroes</id>
       <activation>
         <activeByDefault>true</activeByDefault>
       </activation>
       <modules>
         <module>commands/remove_zeroes</module>
-      </modules>
-    </profile>
-    <profile>
-      <id>xvec_reader</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <modules>
-        <module>readers/xvec-reader</module>
       </modules>
     </profile>
   </profiles>

@@ -70,10 +70,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 
  * # Data Flow
  * ```
- * ┌───────────────┐     ┌───────────────┐     ┌───────────────┐
- * │ Input         │────▶│ Optional      │────▶│ Output        │
+ * ┌───────────────┐     ┌────────────────┐     ┌───────────────┐
+ * │ Input         │────▶│ Optional       │────▶│ Output        │
  * │ Vector File   │     │ Transformations│     │ Vector File   │
- * └───────────────┘     └───────────────┘     └───────────────┘
+ * └───────────────┘     └────────────────┘     └───────────────┘
  * ```
  * 
  * Formats are automatically detected by file extension.
