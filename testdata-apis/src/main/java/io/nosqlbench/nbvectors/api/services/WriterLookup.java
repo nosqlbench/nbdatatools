@@ -41,7 +41,7 @@ public class WriterLookup {
     /// @param <T> The type of data written by the Writer
     /// @return An Optional containing the matching Writer, or empty if none found
     @SuppressWarnings("unchecked")
-    public static <T> Optional<VectorWriter<T>> findWriter(Encoding.Type encoding, Class<T> dataType) {
+    public static <T> Optional<VectorWriter<T>> findWriter(FileType encoding, Class<T> dataType) {
         return providers()
             .filter(provider -> matchesEncoding(provider, encoding) && matchesDataType(provider, dataType))
             .findFirst()
@@ -51,7 +51,7 @@ public class WriterLookup {
 
     private static boolean matchesEncoding(
         ServiceLoader.Provider<VectorWriter> provider,
-        Encoding.Type encoding
+        FileType encoding
     )
     {
         Class<?> type = provider.type();
@@ -72,7 +72,7 @@ public class WriterLookup {
     @SuppressWarnings("unchecked")
     public static <T> Optional<VectorWriter<T>> findWriter(String encodingName, Class<T> dataType) {
         try {
-            Encoding.Type encoding = Encoding.Type.valueOf(encodingName.toLowerCase());
+            FileType encoding = FileType.valueOf(encodingName.toLowerCase());
             Optional<VectorWriter<T>> writer = findWriter(encoding, dataType);
             if (writer.isPresent()) {
                 return writer;
@@ -94,7 +94,7 @@ public class WriterLookup {
     /// @param <T> The type of data written by the Writer
     /// @return An Optional containing the instantiated Writer, or empty if none found or instantiation fails
     @SuppressWarnings("unchecked")
-    public static <T> Optional<VectorWriter<T>> findWriter(Encoding.Type encoding, Class<T> dataType, Path path) {
+    public static <T> Optional<VectorWriter<T>> findWriter(FileType encoding, Class<T> dataType, Path path) {
         return providers()
             .filter(provider -> matchesEncoding(provider, encoding) && matchesDataType(provider, dataType))
             .findFirst()
@@ -112,7 +112,7 @@ public class WriterLookup {
     /// @return An Optional containing the instantiated Writer, or empty if none found or instantiation fails
     public static <T> Optional<VectorWriter<T>> findWriter(String encodingName, Class<T> dataType, Path path) {
         try {
-            Encoding.Type encoding = Encoding.Type.valueOf(encodingName.toLowerCase());
+            FileType encoding = FileType.valueOf(encodingName.toLowerCase());
             Optional<VectorWriter<T>> writer = findWriter(encoding, dataType, path);
             if (writer.isPresent()) {
                 return writer;

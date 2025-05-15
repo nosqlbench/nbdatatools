@@ -23,6 +23,7 @@ import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.FlatteningItera
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
+import io.nosqlbench.nbvectors.api.services.FileType;
 import io.nosqlbench.nbvectors.datasource.parquet.conversion.HFEmbedToFloatAry;
 import io.nosqlbench.nbvectors.datasource.parquet.traversal.ParquetGroupIterable;
 import io.nosqlbench.nbvectors.datasource.parquet.traversal.ParquetTabulator;
@@ -39,7 +40,7 @@ import java.util.function.Function;
 
 /// Read vectors from parquet files. This layer of reading/parsing is expected to be applied to a
 ///  set of Paths which are files only, and which are part of a logical group.
-@Encoding(Encoding.Type.parquet)
+@Encoding(FileType.parquet)
 @DataType(float[].class)
 public class ParquetVectorsReader implements SizedVectorStreamReader<float[]> {
 

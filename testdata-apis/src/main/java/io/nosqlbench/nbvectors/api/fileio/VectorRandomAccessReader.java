@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.api.fileio;
  */
 
 
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -29,7 +30,13 @@ import java.util.RandomAccess;
 /// This interface extends List<T> but overrides all mutation methods to throw
 /// UnsupportedOperationException, making it effectively immutable.
 /// @param <T> the type of data to read
-public interface VectorRandomAccessReader<T> extends List<T>, RandomAccess, Sized, Named {
+public interface VectorRandomAccessReader<T> extends List<T>,
+                                                                                       RandomAccess, Sized, Named {
+
+    /// All file readers must be opened this way, even if the provided file path is an
+    /// aggregator, like a containing directory
+    /// @param filePath The source of vector data
+    public void open(Path filePath);
 
     @Override
     default T set(int index, T element) {
@@ -95,5 +102,6 @@ public interface VectorRandomAccessReader<T> extends List<T>, RandomAccess, Size
     default ListIterator<T> listIterator(int index) {
         return new ImmutableListIterator<>(this, index);
     }
+
 }
 

@@ -1,9 +1,10 @@
 package io.nosqlbench.nbdatatools.commands.convert;
 
+import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
 import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
-import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.services.FileType;
+import io.nosqlbench.nbvectors.api.services.SizedStreamerLookup;
 import io.nosqlbench.nbvectors.api.services.WriterLookup;
-import io.nosqlbench.readers.CsvJsonArrayStreamer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -80,9 +81,11 @@ public class SingleFileConverter implements Runnable {
             if (parent != null && !Files.exists(parent)) {
                 Files.createDirectories(parent);
             }
-            
+
+            SizedVectorStreamReader<float[]> streamer =
+                SizedStreamerLookup.findReader(FileType.xvec, float[].class).orElseThrow();
+            streamer.open(inputPath);
             // Open the input file
-            CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(inputPath);
             Iterator<float[]> iterator = streamer.iterator();
             
             if (!iterator.hasNext()) {
@@ -95,10 +98,12 @@ public class SingleFileConverter implements Runnable {
             int dimension = firstVector.length;
 
             // Reopen the streamer for the full read
-            streamer = new CsvJsonArrayStreamer(inputPath);
+            streamer = SizedStreamerLookup.findReader(FileType.xvec,float[].class).orElseThrow();
+            streamer.open(inputPath);
             iterator = streamer.iterator();
 
-            VectorWriter<float[]> writer = WriterLookup.findWriter(Encoding.Type.xvec,
+            VectorWriter<float[]> writer = WriterLookup.findWriter(
+                FileType.xvec,
                 float[].class).orElseThrow();
 
             // Determine the number of threads to use

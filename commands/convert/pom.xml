@@ -13,7 +13,7 @@
 
   <properties>
     <revision>0.1.4-SNAPSHOT</revision>
-    <maven.compiler.source>22</maven.compiler.source>
+    <maven.compiler.source>24</maven.compiler.source>
     <maven.compiler.target>22</maven.compiler.target>
     <maven.compiler.release>22</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -33,5 +33,36 @@
       <version>${revision}</version>
     </dependency>
   </dependencies>
+
+  <build>
+    <!--    Plugin versions and default configuration are inherited -->
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <!--        <groupId>org.apache.maven.plugins</groupId>-->
+        <artifactId>maven-deploy-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>

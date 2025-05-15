@@ -21,6 +21,7 @@ package io.nosqlbench.readers;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
+import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.nio.file.Path;
 import java.util.AbstractList;
@@ -30,7 +31,7 @@ import java.util.AbstractList;
  * This class implements SizedReader directly and provides basic functionality.
  */
 @DataType(float[].class)
-@Encoding(Encoding.Type.csv)
+@Encoding(FileType.csv)
 public class MockSizedReader extends AbstractList<float[]> implements VectorRandomAccessReader<float[]> {
     
     private final int size;
@@ -86,5 +87,9 @@ public class MockSizedReader extends AbstractList<float[]> implements VectorRand
     @Override
     public String getName() {
         return name;
+    }
+
+    @Override
+    public void open(Path filePath) {
     }
 }

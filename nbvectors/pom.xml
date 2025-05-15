@@ -380,8 +380,6 @@
           <proc>full</proc>
           <release>23</release>
         </configuration>
-        <executions>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>

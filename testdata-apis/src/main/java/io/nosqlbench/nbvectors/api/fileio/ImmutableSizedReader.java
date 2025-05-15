@@ -105,7 +105,7 @@ public abstract class ImmutableSizedReader<T> implements VectorRandomAccessReade
     public String toString() {
         return getClass().getSimpleName() + "[size=" + getSize() + "]";
     }
-    
+
     /// Abstract methods from List interface that subclasses must implement
     
     @Override

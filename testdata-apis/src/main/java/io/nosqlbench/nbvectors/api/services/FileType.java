@@ -1,3 +1,5 @@
+package io.nosqlbench.nbvectors.api.services;
+
 /*
  * Copyright (c) nosqlbench
  * 
@@ -15,12 +17,18 @@
  * under the License.
  */
 
-/**
-test data APIs
- */
-module testdata.apis {
-  requires annotations;
-  exports io.nosqlbench.nbvectors.api.fileio;
-  exports io.nosqlbench.nbvectors.api.services;
-  exports io.nosqlbench.nbvectors.api.commands;
+
+/// A canonical type name for an underlying data format and associated base vector type
+public enum FileType {
+  xvec,
+  parquet,
+  csv;
+
+  ///          ivec,
+  ///         fvec,
+  ///         bvec,
+  ///         dvec,
+  ///         svec,
+  ///         hvec,
+
 }

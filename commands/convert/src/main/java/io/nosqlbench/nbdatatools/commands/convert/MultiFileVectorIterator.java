@@ -1,6 +1,8 @@
 package io.nosqlbench.nbdatatools.commands.convert;
 
-import io.nosqlbench.readers.CsvJsonArrayStreamer;
+import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
+import io.nosqlbench.nbvectors.api.services.FileType;
+import io.nosqlbench.nbvectors.api.services.SizedStreamerLookup;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -20,7 +22,7 @@ public class MultiFileVectorIterator implements Iterator<float[]> {
     private final List<Path> inputPaths;
     private int currentFileIndex = 0;
     private Iterator<float[]> currentIterator = null;
-    private CsvJsonArrayStreamer currentStreamer = null;
+    private SizedVectorStreamReader currentStreamer = null;
     private final int dimension;
     private final boolean verbose;
     private long totalVectorsRead = 0;
@@ -68,7 +70,8 @@ public class MultiFileVectorIterator implements Iterator<float[]> {
                 currentFileIndex + 1, inputPaths.size(), filePath);
         }
         
-        currentStreamer = new CsvJsonArrayStreamer(filePath);
+        currentStreamer = SizedStreamerLookup.findReader(FileType.xvec,float[].class).orElseThrow();
+        currentStreamer.open(filePath);
         currentIterator = currentStreamer.iterator();
         
         // Verify dimension if this isn't the first file
@@ -81,7 +84,8 @@ public class MultiFileVectorIterator implements Iterator<float[]> {
             }
             
             // Recreate the streamer since we consumed the first vector
-            currentStreamer = new CsvJsonArrayStreamer(filePath);
+            currentStreamer = SizedStreamerLookup.findReader(FileType.xvec,float[].class).orElseThrow();
+            currentStreamer.open(filePath);
             currentIterator = currentStreamer.iterator();
         }
         

@@ -89,5 +89,32 @@
       <organizationUrl>https://nosqlbench.io/</organizationUrl>
     </developer>
   </developers>
-  
+
+  <build>
+    <!--    Plugin versions and default configuration are inherited -->
+    <plugins>
+      <plugin>
+        <!--        <groupId>org.apache.maven.plugins</groupId>-->
+        <artifactId>maven-deploy-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>

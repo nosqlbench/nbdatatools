@@ -18,9 +18,10 @@ package io.nosqlbench.readers;
  */
 
 
+import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
-import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
+import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -46,30 +47,29 @@ import java.util.Objects;
 /// └─────────────────────┘
 /// ```
 @DataType(double[].class)
-@Encoding(Encoding.Type.xvec)
+@Encoding(FileType.xvec)
 public class UniformDvecStreamer implements SizedVectorStreamReader<double[]>, AutoCloseable {
-    private final Path filePath;
-    private final String name;
-    private final int dimension;
-    private final int recordSize;
-    private final int size;
-    private final RandomAccessFile randomAccessFile;
+    private Path filePath;
+    private int dimension;
+    private int recordSize;
+    private int size;
+    private RandomAccessFile randomAccessFile;
 
     /// Creates a new UniformDvecStreamer for the given file path.
     ///
     /// @param filePath The path to the dvec file
     /// @throws IOException If the file cannot be opened or read
-    public UniformDvecStreamer(Path filePath) throws IOException {
+    public void open(Path filePath) {
+        try {
         this.filePath = Objects.requireNonNull(filePath, "filePath cannot be null");
-        this.name = filePath.getFileName().toString();
-        
+
         // Open the file and prepare for reading
         this.randomAccessFile = new RandomAccessFile(filePath.toFile(), "r");
-        
-        // Read the first 4 bytes to get the dimension
+
+      // Read the first 4 bytes to get the dimension
         byte[] dimBytes = new byte[4];
         if (randomAccessFile.read(dimBytes) != 4) {
-            throw new IOException("Failed to read dimension from file: " + filePath);
+            throw new RuntimeException("Failed to read dimension from file: " + filePath);
         }
         
         // Convert bytes to integer (little-endian)
@@ -77,7 +77,7 @@ public class UniformDvecStreamer implements SizedVectorStreamReader<double[]>, A
         this.dimension = dimBuffer.getInt();
         
         if (this.dimension <= 0) {
-            throw new IOException("Invalid dimension in file: " + this.dimension);
+            throw new RuntimeException("Invalid dimension in file: " + this.dimension);
         }
         
         // Calculate record size: 4 bytes for dimension + (dimension * 8 bytes for double values)
@@ -86,10 +86,14 @@ public class UniformDvecStreamer implements SizedVectorStreamReader<double[]>, A
         // Calculate the total number of vectors in the file
         long fileSize = randomAccessFile.length();
         if (fileSize % recordSize != 0) {
-            throw new IOException("File size is not a multiple of record size. File may be corrupted.");
+            throw new RuntimeException("File size is not a multiple of record size. File may be corrupted.");
         }
         
         this.size = (int) (fileSize / recordSize);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+
     }
 
     /// Reads a vector at the specified index.
@@ -145,7 +149,7 @@ public class UniformDvecStreamer implements SizedVectorStreamReader<double[]>, A
 
     @Override
     public String getName() {
-        return name;
+        return this.filePath.getFileName().toString();
     }
 
     @Override

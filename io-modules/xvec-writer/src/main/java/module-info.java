@@ -1,10 +1,7 @@
-import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
-import io.nosqlbench.xvec.writers.IvecVectorWriter;
-
 /**
 VectorWriters module
  */
-module io.nosqlbench.xvec {
+module xvec.writer {
   requires testdata.apis;
-  provides VectorWriter with IvecVectorWriter;
+  provides io.nosqlbench.nbvectors.api.fileio.VectorWriter with io.nosqlbench.xvec.writers.IvecVectorWriter;
 }

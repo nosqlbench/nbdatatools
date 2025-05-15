@@ -46,21 +46,19 @@ import java.util.Objects;
 /// └─────────────────────┘
 /// ```
 public class UniformFvecReader extends ImmutableSizedReader<float[]> implements AutoCloseable {
-    private final Path filePath;
-    private final String name;
-    private final int dimension;
-    private final int recordSize;
-    private final int size;
-    private final RandomAccessFile randomAccessFile;
+    private Path filePath;
+    private int dimension;
+    private int recordSize;
+    private int size;
+    private RandomAccessFile randomAccessFile;
 
     /// Creates a new FvecReader for the given file path.
     ///
     /// @param filePath The path to the fvec file
     /// @throws IOException If the file cannot be opened or read
-    public UniformFvecReader(Path filePath) throws IOException {
+    public void open(Path filePath) throws IOException {
         this.filePath = Objects.requireNonNull(filePath, "filePath cannot be null");
-        this.name = filePath.getFileName().toString();
-        
+
         // Open the file and prepare for reading
         this.randomAccessFile = new RandomAccessFile(filePath.toFile(), "r");
         
@@ -148,7 +146,7 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
     @Override
     public String getName() {
-        return name;
+        return filePath.getFileName().toString();
     }
 
     @Override

@@ -1,3 +1,6 @@
+/// apis for vector file io
+package io.nosqlbench.nbvectors.api.fileio;
+
 /*
  * Copyright (c) nosqlbench
  * 
@@ -15,12 +18,3 @@
  * under the License.
  */
 
-/**
-test data APIs
- */
-module testdata.apis {
-  requires annotations;
-  exports io.nosqlbench.nbvectors.api.fileio;
-  exports io.nosqlbench.nbvectors.api.services;
-  exports io.nosqlbench.nbvectors.api.commands;
-}

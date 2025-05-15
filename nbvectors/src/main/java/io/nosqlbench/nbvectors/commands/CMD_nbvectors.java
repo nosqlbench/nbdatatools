@@ -21,7 +21,6 @@ package io.nosqlbench.nbvectors.commands;
 import io.nosqlbench.nbvectors.commands.build_hdf5.CMD_build_hdf5;
 import io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog;
 import io.nosqlbench.nbvectors.commands.catalog_hdf5.CMD_catalog2;
-import io.nosqlbench.nbvectors.commands.convert.CMD_convert;
 import io.nosqlbench.nbvectors.commands.datasets.CMD_datasets;
 import io.nosqlbench.nbvectors.commands.export_hdf5.CMD_export_hdf5;
 import io.nosqlbench.nbvectors.commands.export_hdf5.CMD_export_hdf5new;
@@ -44,7 +43,7 @@ import picocli.CommandLine;
     CommandLine.HelpCommand.class, CMD_verify_knn.class, CMD_tag_hdf5.class, CMD_jjq.class,
     CMD_build_hdf5.class, CMD_show_hdf5.class, CMD_export_hdf5.class, CMD_export_json.class,
     CMD_catalog.class, CMD_datasets.class, CMD_export_hdf5new.class, CMD_merkle.class,
-    CMD_catalog2.class, CMD_mktestdata.class, CMD_convert.class, CMD_generate.class,
+    CMD_catalog2.class, CMD_mktestdata.class, CMD_generate.class,
 }, modelTransformer = AddBundledCommands.class)
 public class CMD_nbvectors {
 

@@ -17,11 +17,13 @@ package io.nosqlbench.nbdatatools.commands.convert;
  * under the License.
  */
 
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
+import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
 import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
-import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.services.FileType;
+import io.nosqlbench.nbvectors.api.services.SizedStreamerLookup;
 import io.nosqlbench.nbvectors.api.services.WriterLookup;
 import io.nosqlbench.nbvectors.api.services.Selector;
-import io.nosqlbench.readers.CsvJsonArrayStreamer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -86,9 +88,10 @@ import java.util.concurrent.atomic.AtomicInteger;
     header = "Convert between different vector file formats",
     description = """
         Converts vectors between different file formats including fvec, ivec, bvec, csv, and json.
-        Formats are automatically detected from file extensions.""",
+        Formats are automatically detected from file extensions.
+        """,
     exitCodeList = {"0: success", "1: warning", "2: error"})
-public class CMD_convert implements Callable<Integer> {
+public class CMD_convert implements Callable<Integer>, BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_convert.class);
     
     private static final int EXIT_SUCCESS = 0;
@@ -461,8 +464,10 @@ public class CMD_convert implements Callable<Integer> {
         }
         
         Path firstPath = inputFiles.get(0);
-        CsvJsonArrayStreamer firstStreamer = new CsvJsonArrayStreamer(firstPath);
-        Iterator<float[]> firstIterator = firstStreamer.iterator();
+        SizedVectorStreamReader<float[]> vectorStream =
+            SizedStreamerLookup.findReader(FileType.csv, float[].class).orElseThrow();
+
+        Iterator<float[]> firstIterator = vectorStream.iterator();
         
         if (!firstIterator.hasNext()) {
             logger.error("First input file is empty: {}", firstPath);
@@ -484,7 +489,7 @@ public class CMD_convert implements Callable<Integer> {
         
         // Create and use UniformFvecWriter directly for output
         VectorWriter<float[]> writer =
-            WriterLookup.findWriter(Encoding.Type.xvec, float[].class).orElseThrow();
+            WriterLookup.findWriter(FileType.xvec, float[].class).orElseThrow();
 
         // Determine the number of processor threads to use
         int threadCount = (threads > 0) ? threads : Runtime.getRuntime().availableProcessors();

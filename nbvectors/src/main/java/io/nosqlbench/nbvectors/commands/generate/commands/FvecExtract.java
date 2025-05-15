@@ -503,8 +503,8 @@ public class FvecExtract implements Callable<Integer> {
 
       try {
         // Open the readers
-        ivecReader = new UniformIvecReader(ivecPath);
-        fvecReader = new UniformFvecReader(fvecPath);
+        ivecReader = new UniformIvecReader();
+        ivecReader.open(ivecPath);
 
         // Get the sizes
         int ivecSize = ivecReader.getSize();

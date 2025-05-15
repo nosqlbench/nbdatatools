@@ -29,19 +29,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface Encoding {
     /// @return The encoding value for this reader implementation
-    Type value();
-
-    /// A canonical type name for an underlying data format and associated base vector type
-    public static enum Type {
-        xvec,
-        parquet,
-        csv;
-    }
-
-    ///          ivec,
-    ///         fvec,
-    ///         bvec,
-    ///         dvec,
-    ///         svec,
-    ///         hvec,
+    FileType value();
 }

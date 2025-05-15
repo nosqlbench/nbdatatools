@@ -39,7 +39,7 @@ public class SizedStreamerLookup {
     /// @param <T> The type of data read by the SizedReader
     /// @return An Optional containing the matching SizedReader, or empty if none found
     @SuppressWarnings("unchecked")
-    public static <T> Optional<SizedVectorStreamReader<T>> findReader(Encoding.Type encoding, Class<T> dataType) {
+    public static <T> Optional<SizedVectorStreamReader<T>> findReader(FileType encoding, Class<T> dataType) {
         return providers()
             .filter(provider -> matchesEncoding(provider, encoding) && matchesDataType(provider, dataType))
             .findFirst()
@@ -49,7 +49,7 @@ public class SizedStreamerLookup {
 
     private static boolean matchesEncoding(
         ServiceLoader.Provider<SizedVectorStreamReader> provider,
-        Encoding.Type encoding
+        FileType encoding
     )
     {
         Class<?> type = provider.type();
@@ -70,7 +70,7 @@ public class SizedStreamerLookup {
     @SuppressWarnings("unchecked")
     public static <T> Optional<SizedVectorStreamReader<T>> findReader(String encodingName, Class<T> dataType) {
         try {
-            Encoding.Type encoding = Encoding.Type.valueOf(encodingName.toLowerCase());
+            FileType encoding = FileType.valueOf(encodingName.toLowerCase());
             return findReader(encoding, dataType);
         } catch (IllegalArgumentException e) {
             // If the encoding name doesn't match any enum value, return empty

@@ -11,9 +11,7 @@
   <description>Default module settings for mvn modules in nbdatatools</description>
   <properties>
     <revision>0.1.4-SNAPSHOT</revision>
-    <maven.compiler.source>22</maven.compiler.source>
-    <maven.compiler.target>22</maven.compiler.target>
-    <maven.compiler.release>22</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
   <dependencies>
@@ -39,24 +37,6 @@
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
       <version>5.10.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>5.11.0</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-params</artifactId>
-      <version>5.10.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.11.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -113,111 +93,122 @@
   </developers>
 
   <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-deploy-plugin</artifactId>
-        <version>3.1.3</version>
-        <configuration>
-          <skip>true</skip>
-        </configuration>
-      </plugin>
+    <pluginManagement>
+      <plugins>
 
-      <plugin>
-        <groupId>org.sonatype.central</groupId>
-        <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.7.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <excludeArtifacts>
-            <artifact>nbdatatools</artifact>
-          </excludeArtifacts>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.2.1</version>
-        <executions>
-          <execution>
-            <id>enforce-java</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <configuration>
-              <rules>
-<!--                <requireProperty>-->
-<!--                  <property>java.vendor.version</property>-->
-<!--                  <regex>.*GraalVM.*</regex>-->
-<!--                  <message>-->
-<!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
-<!--                  </message>-->
-<!--                </requireProperty>-->
-                <requireJavaVersion>
-                  <version>[23,)</version>
-                </requireJavaVersion>
-                <!--                    This would be nice, but jhdf is on older log4j API versions -->
-                <!--                    <dependencyConvergence/>-->
-                <requireProfileIdsExist/>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.0</version>
+          <configuration>
+            <proc>full</proc>
+            <release>23</release>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>3.1.3</version>
+          <configuration>
+            <skip>true</skip>
+          </configuration>
+        </plugin>
 
-      <plugin>
-        <groupId>org.apache.rat</groupId>
-        <artifactId>apache-rat-plugin</artifactId>
-        <version>0.15</version>
-        <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <includes>
-            <include>**/*.java</include>
-          </includes>
-          <excludes>
-            <exclude>**/gen/**</exclude>
-            <exclude>**/generated/**</exclude>
-            <exclude>**/jmh_generated/**</exclude>
-            <exclude>**/generated-sources/**</exclude>
-          </excludes>
-          <addLicenseHeaders>true</addLicenseHeaders>
-          <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>flatten-maven-plugin</artifactId>
-        <version>1.3.0</version>
-        <configuration>
-          <updatePomFile>true</updatePomFile>
-          <flattenMode>resolveCiFriendliesOnly</flattenMode>
-        </configuration>
-        <executions>
-          <execution>
-            <id>flatten</id>
-            <phase>process-resources</phase>
-            <goals>
-              <goal>flatten</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>flatten.clean</id>
-            <phase>clean</phase>
-            <goals>
-              <goal>clean</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
+        <plugin>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>0.7.0</version>
+          <extensions>true</extensions>
+          <configuration>
+            <excludeArtifacts>
+              <artifact>nbdatatools</artifact>
+            </excludeArtifacts>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.2.1</version>
+          <executions>
+            <execution>
+              <id>enforce-java</id>
+              <goals>
+                <goal>enforce</goal>
+              </goals>
+              <configuration>
+                <rules>
+                  <!--                <requireProperty>-->
+                  <!--                  <property>java.vendor.version</property>-->
+                  <!--                  <regex>.*GraalVM.*</regex>-->
+                  <!--                  <message>-->
+                  <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
+                  <!--                  </message>-->
+                  <!--                </requireProperty>-->
+                  <requireJavaVersion>
+                    <version>[23,)</version>
+                  </requireJavaVersion>
+                  <!--                    This would be nice, but jhdf is on older log4j API versions -->
+                  <!--                    <dependencyConvergence/>-->
+                  <requireProfileIdsExist/>
+                </rules>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
 
-    </plugins>
+        <plugin>
+          <groupId>org.apache.rat</groupId>
+          <artifactId>apache-rat-plugin</artifactId>
+          <version>0.15</version>
+          <executions>
+            <execution>
+              <phase>verify</phase>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <includes>
+              <include>**/*.java</include>
+            </includes>
+            <excludes>
+              <exclude>**/gen/**</exclude>
+              <exclude>**/generated/**</exclude>
+              <exclude>**/jmh_generated/**</exclude>
+              <exclude>**/generated-sources/**</exclude>
+            </excludes>
+            <addLicenseHeaders>true</addLicenseHeaders>
+            <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>flatten-maven-plugin</artifactId>
+          <version>1.3.0</version>
+          <configuration>
+            <updatePomFile>true</updatePomFile>
+            <flattenMode>resolveCiFriendliesOnly</flattenMode>
+          </configuration>
+          <executions>
+            <execution>
+              <id>flatten</id>
+              <phase>process-resources</phase>
+              <goals>
+                <goal>flatten</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>flatten.clean</id>
+              <phase>clean</phase>
+              <goals>
+                <goal>clean</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
 
   </build>
 

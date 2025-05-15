@@ -3,6 +3,7 @@ package io.nosqlbench.xvec.writers;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
+import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -20,7 +21,7 @@ import java.nio.file.Path;
  * floating point values using the IEEE 754-2008 binary16 format.
  */
 @DataType(float[].class)
-@Encoding(Encoding.Type.xvec)
+@Encoding(FileType.xvec)
 public class HvecVectorWriter implements VectorWriter<float[]> {
 
     private BufferedOutputStream outputStream;

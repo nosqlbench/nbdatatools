@@ -23,6 +23,7 @@ import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -176,6 +177,10 @@ public class ImmutableListIteratorTest {
         @Override
         public String getName() {
             return "TestSizedReader";
+        }
+
+        @Override
+        public void open(Path filePath) {
         }
     }
 }

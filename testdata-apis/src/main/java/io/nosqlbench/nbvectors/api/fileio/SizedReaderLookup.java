@@ -20,6 +20,7 @@ package io.nosqlbench.nbvectors.api.fileio;
 
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -43,7 +44,7 @@ public class SizedReaderLookup {
     /// @param <T> The type of data read by the SizedReader
     /// @return An Optional containing the matching SizedReader, or empty if none found
     @SuppressWarnings("unchecked")
-    public static <T> Optional<VectorRandomAccessReader<T>> findReader(Encoding.Type encoding, Class<T> dataType) {
+    public static <T> Optional<VectorRandomAccessReader<T>> findReader(FileType encoding, Class<T> dataType) {
         return providers()
             .filter(provider -> matchesEncoding(provider, encoding) && matchesDataType(provider, dataType))
             .findFirst()
@@ -53,7 +54,7 @@ public class SizedReaderLookup {
 
     private static boolean matchesEncoding(
         ServiceLoader.Provider<VectorRandomAccessReader> provider,
-        Encoding.Type encoding
+        FileType encoding
     )
     {
         Class<?> type = provider.type();
@@ -74,7 +75,7 @@ public class SizedReaderLookup {
     @SuppressWarnings("unchecked")
     public static <T> Optional<VectorRandomAccessReader<T>> findReader(String encodingName, Class<T> dataType) {
         try {
-            Encoding.Type encoding = Encoding.Type.valueOf(encodingName.toLowerCase());
+            FileType encoding = FileType.valueOf(encodingName.toLowerCase());
             return findReader(encoding, dataType);
         } catch (IllegalArgumentException e) {
             // If the encoding name doesn't match any enum value, return empty
@@ -91,7 +92,7 @@ public class SizedReaderLookup {
     /// @param <T> The type of data read by the SizedReader
     /// @return An Optional containing the instantiated SizedReader, or empty if none found or instantiation fails
     @SuppressWarnings("unchecked")
-    public static <T> Optional<VectorRandomAccessReader<T>> findReader(Encoding.Type encoding, Class<T> dataType, Path path) {
+    public static <T> Optional<VectorRandomAccessReader<T>> findReader(FileType encoding, Class<T> dataType, Path path) {
         return providers()
             .filter(provider -> matchesEncoding(provider, encoding) && matchesDataType(provider, dataType))
             .findFirst()
@@ -109,7 +110,7 @@ public class SizedReaderLookup {
     /// @return An Optional containing the instantiated SizedReader, or empty if none found or instantiation fails
     public static <T> Optional<VectorRandomAccessReader<T>> findReader(String encodingName, Class<T> dataType, Path path) {
         try {
-            Encoding.Type encoding = Encoding.Type.valueOf(encodingName.toLowerCase());
+            FileType encoding = FileType.valueOf(encodingName.toLowerCase());
             return findReader(encoding, dataType, path);
         } catch (IllegalArgumentException e) {
             // If the encoding name doesn't match any enum value, return empty

@@ -18,9 +18,14 @@ package io.nosqlbench.nbvectors.api.fileio;
  */
 
 
+import java.nio.file.Path;
+
 /// The base type for all readable streams of vectors, in contrast to [VectorRandomAccessReader]
 /// @param <T> The vector type. This is typically an array type like `float[]` or `int[]`, so you
 ///  would expect to see `Iterable<float[]>`, **NOT** `Iterable<float>`
 public interface VectorStreamReader<T> extends Iterable<T>, Named, AutoCloseable {
+  /// All vector data streams must be opened this way, even if the path is an aggregator, like a
+  /// containing directory.
+  public void open(Path path);
   default void close() {}
 }

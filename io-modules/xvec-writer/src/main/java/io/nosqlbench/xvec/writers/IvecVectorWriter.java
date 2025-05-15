@@ -3,6 +3,7 @@ package io.nosqlbench.xvec.writers;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
+import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -17,7 +18,7 @@ import java.nio.file.Path;
  * a little-endian buffer of int values.
  */
 @DataType(int[].class)
-@Encoding(Encoding.Type.xvec)
+@Encoding(FileType.xvec)
 public class IvecVectorWriter implements VectorWriter<int[]> {
 
     private BufferedOutputStream outputStream;

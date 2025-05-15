@@ -20,6 +20,7 @@ package io.nosqlbench.nbvectors.common.adapters;
 
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
+import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.nio.file.Path;
 import java.util.ServiceLoader;
@@ -57,10 +58,10 @@ public record ReaderAndPath(String reader, Path source) {
     return provider.get();
   }
   
-  private static Encoding.Type getEncodingType(String encodingName) {
+  private static FileType getEncodingType(String encodingName) {
     try {
       // Convert string like "fvec" to enum Encoding.Type.fvec
-      return Encoding.Type.valueOf(encodingName.toLowerCase());
+      return FileType.valueOf(encodingName.toLowerCase());
     } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException("Unsupported encoding type: " + encodingName, e);
     }
@@ -70,11 +71,11 @@ public record ReaderAndPath(String reader, Path source) {
        * Get the encoding type for this reader path
        * @return The encoding type enum value
        */
-      public Encoding.Type getEncodingType() {
+      public FileType getEncodingType() {
     return getEncodingType(reader);
       }
 
-  private static Predicate<Class<?>> encodingFilter(Encoding.Type type) {
+  private static Predicate<Class<?>> encodingFilter(FileType type) {
       return (Class<?> clazz) -> {
         // Get the Encoding annotation from the class
         Encoding encoding = clazz.getAnnotation(Encoding.class);
