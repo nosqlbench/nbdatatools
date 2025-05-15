@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.datasource.parquet.traversal.functional;
  */
 
 
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
+import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.ConvertingIterable;
 import org.apache.parquet.io.InputFile;
 import org.apache.parquet.io.LocalInputFile;
 

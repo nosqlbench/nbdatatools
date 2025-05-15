@@ -2,7 +2,7 @@ package io.nosqlbench.nbvectors.commands.generate.commands;
 
 import io.nosqlbench.readers.UniformFvecReader;
 import io.nosqlbench.readers.UniformIvecReader;
-import io.nosqlbench.writers.UniformFvecWriter;
+import io.nosqlbench.xvec.writers.FvecVectorWriter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jline.terminal.Terminal;
@@ -499,7 +499,7 @@ public class FvecExtract implements Callable<Integer> {
 
       UniformIvecReader ivecReader = null;
       UniformFvecReader fvecReader = null;
-      UniformFvecWriter fvecWriter = null;
+      FvecVectorWriter fvecWriter = null;
 
       try {
         // Open the readers
@@ -596,7 +596,8 @@ public class FvecExtract implements Callable<Integer> {
         long vectorCount = endIndex - startIndex + 1;
 
         // Create output file with writer
-        fvecWriter = new UniformFvecWriter(outputPath, dimension);
+        fvecWriter = new FvecVectorWriter();
+        fvecWriter.open(outputPath);
 
         // Determine number of threads to use
         int threadCount = threads;
@@ -774,7 +775,7 @@ public class FvecExtract implements Callable<Integer> {
               final AtomicLong processedVectorsFinal = processedVectors;
 
               // Submit the chunk for processing
-              UniformFvecWriter finalFvecWriter = fvecWriter;
+              FvecVectorWriter finalFvecWriter = fvecWriter;
               CompletableFuture<Void> future = CompletableFuture.runAsync(
                   () -> {
                     try {
@@ -820,7 +821,7 @@ public class FvecExtract implements Callable<Integer> {
                                     Arrays.copyOf(partialBuffer, validCount) : partialBuffer;
                                 
                                 // Write to disk
-                                finalFvecWriter.writeAllBulk(validBuffer);
+                                finalFvecWriter.writeBulk(validBuffer);
                                 finalFvecWriter.flush();
                                 
                                 logger.debug("Flushed {} vectors during chunk processing to manage memory", validCount);
@@ -909,7 +910,7 @@ public class FvecExtract implements Callable<Integer> {
                                   
                                   // Write the vectors to disk
                                   try {
-                                    finalFvecWriter.writeAllBulk(validBufferCopy);
+                                    finalFvecWriter.writeBulk(validBufferCopy);
                                     finalFvecWriter.flush();
                                     logger.info("Flushed {} vectors to disk to reduce memory pressure", validVectors);
                                     
@@ -996,7 +997,7 @@ public class FvecExtract implements Callable<Integer> {
 
             // Make a final copy of the chunk buffers for writing
             final List<float[][]> finalChunkBuffers = new ArrayList<>(chunkBuffers);
-            final UniformFvecWriter fvecWriterFinal = fvecWriter;
+            final FvecVectorWriter fvecWriterFinal = fvecWriter;
 
             // Ensure writer is properly flushed after all writing
             try {
@@ -1032,7 +1033,7 @@ public class FvecExtract implements Callable<Integer> {
                   
                   try {
                     // Use bulk write for better performance and ensure it's written to disk
-                    fvecWriterFinal.writeAllBulk(validVectors);
+                    fvecWriterFinal.writeBulk(validVectors);
                     fvecWriterFinal.flush(); // Explicitly flush after each chunk
                     
                     // Update memory tracking
@@ -1171,7 +1172,7 @@ public class FvecExtract implements Callable<Integer> {
                       Arrays.copyOf(batchVectors, batchCount) : batchVectors;
                   
                   // Write batch and flush
-                  fvecWriter.writeAllBulk(vectorsToWrite);
+                  fvecWriter.writeBulk(vectorsToWrite);
                   fvecWriter.flush();
                   
                   // Report progress periodically

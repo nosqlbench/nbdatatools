@@ -18,8 +18,8 @@ package io.nosqlbench.nbvectors.commands;
  */
 
 
-import io.nosqlbench.nbvectors.commands.hugging_dl.BundledCommand;
-import io.nosqlbench.nbvectors.services.Selector;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
+import io.nosqlbench.nbvectors.api.services.Selector;
 import picocli.CommandLine;
 
 import java.util.Objects;

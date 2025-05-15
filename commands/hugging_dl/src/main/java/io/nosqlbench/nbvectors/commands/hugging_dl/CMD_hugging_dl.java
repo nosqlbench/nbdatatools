@@ -18,8 +18,8 @@ package io.nosqlbench.nbvectors.commands.hugging_dl;
  */
 
 
-import com.google.auto.service.AutoService;
-import io.nosqlbench.nbvectors.services.Selector;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
+import io.nosqlbench.nbvectors.api.services.Selector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -41,9 +41,8 @@ import java.util.concurrent.Callable;
 /// ```
 @CommandLine.Command(name = "hugging_dl", header = "Download Huggingface Datasets via API",
     subcommands = {CommandLine.HelpCommand.class})
-@AutoService(BundledCommand.class)
 @Selector("hugging_dl")
-public class CMD_hugging_dl implements Callable<Integer> {
+public class CMD_hugging_dl implements Callable<Integer>, BundledCommand {
 
   private static final Logger logger = LogManager.getLogger(CMD_hugging_dl.class);
 

@@ -17,7 +17,7 @@
 
 package io.nosqlbench.nbvectors.commands.generate.commands;
 
-import io.nosqlbench.readers.TestUtils;
+import io.nosqlbench.nbvectors.api.fileio.TestUtils;
 import io.nosqlbench.readers.UniformFvecReader;
 import io.nosqlbench.readers.UniformIvecReader;
 import org.junit.jupiter.api.BeforeEach;

@@ -18,11 +18,12 @@ package io.nosqlbench.readers;
  */
 
 
-import com.google.auto.service.AutoService;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import io.nosqlbench.streamers.Streamer;
+import io.nosqlbench.nbvectors.api.services.DataType;
+import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.fileio.VectorStreamReader;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -38,10 +39,9 @@ import java.util.regex.Pattern;
  A Streamer implementation that reads CSV files with embedded JSON arrays.
  This streamer automatically detects which CSV column contains a JSON array of numbers
  and uses that as the source of vector data. */
-@AutoService(Streamer.class)
 @Encoding(Encoding.Type.csv)
 @DataType(float[].class)
-public class CsvJsonArrayStreamer implements Streamer<float[]> {
+public class CsvJsonArrayStreamer implements VectorStreamReader<float[]> {
 
     private final Path filePath;
     private final String name;
@@ -426,11 +426,6 @@ public class CsvJsonArrayStreamer implements Streamer<float[]> {
                 }
             }
         }
-
-        @Override
-        protected void finalize() throws Throwable {
-            close();
-            super.finalize();
-        }
+        
     }
 }

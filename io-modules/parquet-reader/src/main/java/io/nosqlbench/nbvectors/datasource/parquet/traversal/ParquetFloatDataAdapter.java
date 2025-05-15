@@ -18,11 +18,11 @@ package io.nosqlbench.nbvectors.datasource.parquet.traversal;
  */
 
 
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.FlatteningIterable;
+import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.FlatteningIterable;
 import io.nosqlbench.nbvectors.datasource.parquet.ParquetVectorsReader;
 import io.nosqlbench.nbvectors.datasource.parquet.layout.PathBinning;
 import io.nosqlbench.nbvectors.datasource.parquet.layout.PathsSorter;
-import io.nosqlbench.readers.Sized;
+import io.nosqlbench.nbvectors.api.fileio.Sized;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

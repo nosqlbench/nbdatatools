@@ -21,12 +21,15 @@ package io.nosqlbench.nbvectors.commands.jjq.nbfunctions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBBaseJQFunction;
+import io.nosqlbench.nbvectors.commands.jjq.apis.NBStateContext;
 import io.nosqlbench.nbvectors.commands.jjq.contexts.NBEnumContext;
 import io.nosqlbench.nbvectors.commands.jjq.contexts.NBIdEnumerator;
-import io.nosqlbench.nbvectors.commands.jjq.apis.NBStateContext;
-import net.thisptr.jackson.jq.*;
+import net.thisptr.jackson.jq.BuiltinFunction;
+import net.thisptr.jackson.jq.Expression;
+import net.thisptr.jackson.jq.PathOutput;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Version;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;
 
@@ -37,7 +40,6 @@ import java.util.Map;
 /// in the `enumerator_context` context variable but seems to do nothing else yet.
 /// ---
 /// This does not instance its state per function, and this needs to be fixed.
-@AutoService(Function.class)
 @BuiltinFunction({"nbenum/1"})
 public class nbenum extends NBBaseJQFunction {
   private NBIdEnumerator enumer;

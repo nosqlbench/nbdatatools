@@ -24,12 +24,12 @@ import io.nosqlbench.nbvectors.commands.build_hdf5.datasource.MapperConfig;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.predicates.PNode;
 import io.nosqlbench.nbvectors.commands.jjq.evaluator.JJQInvoker;
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
+import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.commands.jjq.outputs.BufferOutput;
 import io.nosqlbench.nbvectors.commands.build_hdf5.predicates.PredicateParser;
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.vectordata.spec.tokens.SpecDataSource;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.nbvectors.api.commands.verify_knn.datatypes.LongIndexedFloatVector;
 
 import java.nio.file.Path;
 import java.util.*;

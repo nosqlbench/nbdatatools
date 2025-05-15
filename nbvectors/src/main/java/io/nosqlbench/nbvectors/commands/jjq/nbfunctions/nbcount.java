@@ -19,10 +19,13 @@ package io.nosqlbench.nbvectors.commands.jjq.nbfunctions;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBBaseJQFunction;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBStateContext;
-import net.thisptr.jackson.jq.*;
+import net.thisptr.jackson.jq.BuiltinFunction;
+import net.thisptr.jackson.jq.Expression;
+import net.thisptr.jackson.jq.PathOutput;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Version;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;
 
@@ -32,7 +35,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /// an implementation of a jjq function `nbcount()`
 /// This counts the number of objects which are not null
-@AutoService(Function.class)
 @BuiltinFunction({"nbcount/0"})
 public class nbcount extends NBBaseJQFunction {
 

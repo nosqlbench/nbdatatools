@@ -17,7 +17,7 @@ package io.nosqlbench.nbvectors.datasource.parquet.traversal.functional;
  * under the License.
  */
 
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.ConvertingIterable;
+import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.datasource.parquet.layout.PageSupplier;
 import io.nosqlbench.nbvectors.datasource.parquet.layout.PathAggregator;
 import org.apache.logging.log4j.LogManager;

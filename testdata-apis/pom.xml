@@ -27,11 +27,6 @@
   </properties>
 
   <dependencies>
-      <dependency>
-        <groupId>com.google.auto.service</groupId>
-        <artifactId>auto-service</artifactId>
-        <version>1.1.1</version>
-      </dependency>
     <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
     <dependency>
       <groupId>org.apache.httpcomponents.client5</groupId>
@@ -109,13 +104,6 @@
       <artifactId>jline-terminal-ffm</artifactId>
       <version>${jline.version}</version>
     </dependency>
-
-    <!--    <dependency>-->
-<!--      <groupId>com.google.auto.service</groupId>-->
-<!--      <artifactId>auto-service</artifactId>-->
-<!--      <version>1.1.1</version>-->
-<!--    </dependency>-->
-
   </dependencies>
 
 
@@ -143,7 +131,7 @@
                 <!--                  </message>-->
                 <!--                </requireProperty>-->
                 <requireJavaVersion>
-                  <version>[23,)</version>
+                  <version>[24,)</version>
                 </requireJavaVersion>
                 <!--                <dependencyConvergence>-->
                 <!--                </dependencyConvergence>-->
@@ -335,72 +323,4 @@
     </resources>
 
   </build>
-
-
-  <profiles>
-    <profile>
-      <id>native</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-enforcer-plugin</artifactId>
-            <version>3.2.1</version>
-            <executions>
-              <execution>
-                <id>enforce-java</id>
-                <goals>
-                  <goal>enforce</goal>
-                </goals>
-                <configuration>
-                  <rules>
-                    <requireProperty>
-                      <property>java.vendor.version</property>
-                      <regex>.*GraalVM.*</regex>
-                      <message>
-                        You must use a GraalVM JDK. The detected JDK is not GraalVM.
-                      </message>
-                    </requireProperty>
-                    <requireJavaVersion>
-                      <version>[23,)</version>
-                    </requireJavaVersion>
-                    <!--                    This would be nice, but jhdf is on older log4j API versions -->
-                    <!--                    <dependencyConvergence/>-->
-                    <requireProfileIdsExist/>
-                  </rules>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-
-          <!--          Building with native image seems infeasible with some dependencies-->
-          <!--          <plugin>-->
-          <!--            <groupId>org.graalvm.buildtools</groupId>-->
-          <!--            <artifactId>native-maven-plugin</artifactId>-->
-          <!--            <version>${native.maven.plugin.version}</version>-->
-          <!--            <executions>-->
-          <!--              <execution>-->
-          <!--                <id>build-native</id>-->
-          <!--                <goals>-->
-          <!--                  <goal>compile-no-fork</goal>-->
-          <!--                </goals>-->
-          <!--                <phase>package</phase>-->
-          <!--              </execution>-->
-          <!--              &lt;!&ndash;              <execution>&ndash;&gt;-->
-          <!--              &lt;!&ndash;                <id>test-native</id>&ndash;&gt;-->
-          <!--              &lt;!&ndash;                <goals>&ndash;&gt;-->
-          <!--              &lt;!&ndash;                  <goal>test</goal>&ndash;&gt;-->
-          <!--              &lt;!&ndash;                </goals>&ndash;&gt;-->
-          <!--              &lt;!&ndash;                <phase>test</phase>&ndash;&gt;-->
-          <!--              &lt;!&ndash;              </execution>&ndash;&gt;-->
-          <!--            </executions>-->
-          <!--            <configuration>-->
-          <!--              <fallback>false</fallback>-->
-          <!--            </configuration>-->
-          <!--          </plugin>-->
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
-
 </project>

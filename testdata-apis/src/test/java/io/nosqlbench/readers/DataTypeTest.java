@@ -18,6 +18,7 @@ package io.nosqlbench.readers;
  */
 
 
+import io.nosqlbench.nbvectors.api.services.DataType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,7 +36,7 @@ public class DataTypeTest {
     @Test
     void testRuntimeRetention() throws ClassNotFoundException {
         // Test that the annotation has runtime retention
-        Class<?> dataTypeClass = Class.forName("io.nosqlbench.readers.DataType");
+        Class<?> dataTypeClass = Class.forName("io.nosqlbench.nbvectors.api.services.DataType");
         java.lang.annotation.Retention retention = dataTypeClass.getAnnotation(java.lang.annotation.Retention.class);
         assertNotNull(retention, "Retention annotation should be present");
         assertEquals(java.lang.annotation.RetentionPolicy.RUNTIME, retention.value(), 
@@ -45,7 +46,7 @@ public class DataTypeTest {
     @Test
     void testTypeTarget() throws ClassNotFoundException {
         // Test that the annotation targets types
-        Class<?> dataTypeClass = Class.forName("io.nosqlbench.readers.DataType");
+        Class<?> dataTypeClass = Class.forName("io.nosqlbench.nbvectors.api.services.DataType");
         java.lang.annotation.Target target = dataTypeClass.getAnnotation(java.lang.annotation.Target.class);
         assertNotNull(target, "Target annotation should be present");
         assertArrayEquals(new java.lang.annotation.ElementType[]{java.lang.annotation.ElementType.TYPE}, 

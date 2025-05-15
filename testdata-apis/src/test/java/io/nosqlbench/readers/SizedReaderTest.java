@@ -18,6 +18,7 @@ package io.nosqlbench.readers;
  */
 
 
+import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class SizedReaderTest {
 
-    private SizedReader<String> sizedReader;
+    private VectorRandomAccessReader<String> sizedReader;
 
     @BeforeEach
     void setUp() {
@@ -128,7 +129,7 @@ public class SizedReaderTest {
     }
 
     // A simple implementation of SizedReader for testing
-    private static class TestSizedReader<T> implements SizedReader<T> {
+    private static class TestSizedReader<T> implements VectorRandomAccessReader<T> {
         private final List<T> elements;
 
         public TestSizedReader(List<T> elements) {

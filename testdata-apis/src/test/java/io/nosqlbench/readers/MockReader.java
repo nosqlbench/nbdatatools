@@ -18,18 +18,18 @@ package io.nosqlbench.readers;
  */
 
 
-import com.google.auto.service.AutoService;
-import io.nosqlbench.streamers.SizedStreamer;
+import io.nosqlbench.nbvectors.api.services.DataType;
+import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /// A mock implementation of SizedReader for testing the SizedReaderLookup.
 /// This class is included in META-INF/services to be discovered by ServiceLoader.
-@AutoService(SizedStreamer.class)
 @DataType(float[].class)
 @Encoding(Encoding.Type.csv)
-public class MockReader implements SizedStreamer<float[]> {
+public class MockReader implements SizedVectorStreamReader<float[]> {
 
     @Override
     public int getSize() {

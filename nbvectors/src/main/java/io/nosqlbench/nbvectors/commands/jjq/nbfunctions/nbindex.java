@@ -20,12 +20,15 @@ package io.nosqlbench.nbvectors.commands.jjq.nbfunctions;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBBaseJQFunction;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBStateContext;
-import io.nosqlbench.nbvectors.commands.jjq.contexts.NBTriesContext;
 import io.nosqlbench.nbvectors.commands.jjq.contexts.NBIdMapper;
-import net.thisptr.jackson.jq.*;
+import io.nosqlbench.nbvectors.commands.jjq.contexts.NBTriesContext;
+import net.thisptr.jackson.jq.BuiltinFunction;
+import net.thisptr.jackson.jq.Expression;
+import net.thisptr.jackson.jq.PathOutput;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Version;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.internal.misc.Preconditions;
 import net.thisptr.jackson.jq.path.Path;
@@ -39,7 +42,6 @@ import java.util.Map;
 /// ---
 /// The state for this should be instanced according to the user's requirements,
 /// and this needs to be made more flexible.
-@AutoService(Function.class)
 @BuiltinFunction({"nbindex/2"})
 public class nbindex extends NBBaseJQFunction {
   private NBIdMapper mapper;

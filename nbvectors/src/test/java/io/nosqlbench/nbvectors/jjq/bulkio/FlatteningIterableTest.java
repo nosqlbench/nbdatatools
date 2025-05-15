@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.jjq.bulkio;
  */
 
 
-import io.nosqlbench.nbvectors.commands.jjq.bulkio.iteration.FlatteningIterable;
+import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.FlatteningIterable;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;

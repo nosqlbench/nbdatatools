@@ -18,6 +18,7 @@ package io.nosqlbench.readers;
  */
 
 
+import io.nosqlbench.nbvectors.api.services.Encoding;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -70,7 +71,7 @@ public class EncodingTest {
     @Test
     void testRuntimeRetention() throws ClassNotFoundException {
         // Test that the annotation has runtime retention
-        Class<?> encodingClass = Class.forName("io.nosqlbench.readers.Encoding");
+        Class<?> encodingClass = Class.forName("io.nosqlbench.nbvectors.api.services.Encoding");
         java.lang.annotation.Retention retention = encodingClass.getAnnotation(java.lang.annotation.Retention.class);
         assertNotNull(retention, "Retention annotation should be present");
         assertEquals(java.lang.annotation.RetentionPolicy.RUNTIME, retention.value(), 

@@ -1,0 +1,5 @@
+io.nosqlbench.writers.IvecVectorWriter
+io.nosqlbench.writers.FvecVectorWriter
+io.nosqlbench.writers.DvecVectorWriter
+io.nosqlbench.writers.SvecVectorWriter
+io.nosqlbench.writers.HvecVectorWriter

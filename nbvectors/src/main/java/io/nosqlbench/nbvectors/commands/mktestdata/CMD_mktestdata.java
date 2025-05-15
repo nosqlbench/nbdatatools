@@ -18,9 +18,9 @@ package io.nosqlbench.nbvectors.commands.mktestdata;
  */
 
 
+import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
 import io.nosqlbench.nbvectors.util.RandomGenerators;
-import io.nosqlbench.readers.SizedReader;
-import io.nosqlbench.readers.SizedReaderLookup;
+import io.nosqlbench.nbvectors.api.fileio.SizedReaderLookup;
 import org.apache.commons.rng.RestorableUniformRandomProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -129,7 +129,7 @@ public class CMD_mktestdata implements Callable<Integer> {
 
       // Open input file and determine vector count
       logger.info("Reading input file: {}", inputPath);
-      SizedReader<float[]> reader = openInputFile(inputPath);
+      VectorRandomAccessReader<float[]> reader = openInputFile(inputPath);
 
       try {
         int vectorCount = reader.getSize();
@@ -208,7 +208,7 @@ public class CMD_mktestdata implements Callable<Integer> {
   /// @return A SizedReader for float vectors
   /// @throws IOException
   ///     If the file doesn't exist or a reader can't be found
-  private SizedReader<float[]> openInputFile(Path inputPath) throws IOException {
+  private VectorRandomAccessReader<float[]> openInputFile(Path inputPath) throws IOException {
     if (!Files.exists(inputPath)) {
       throw new IOException("Input file does not exist: " + inputPath);
     }
@@ -218,7 +218,7 @@ public class CMD_mktestdata implements Callable<Integer> {
     logger.info("Detected file format: {}", selector);
 
     // Use SizedReaderLookup to find and instantiate an appropriate reader with the path
-    Optional<SizedReader<float[]>> reader =
+    Optional<VectorRandomAccessReader<float[]>> reader =
         SizedReaderLookup.findReader(selector, float[].class, inputPath);
 
     if (reader.isEmpty()) {
@@ -226,7 +226,7 @@ public class CMD_mktestdata implements Callable<Integer> {
                             + ". Ensure the appropriate reader is on the classpath.");
     }
 
-    SizedReader<float[]> sizedReader = reader.get();
+    VectorRandomAccessReader<float[]> sizedReader = reader.get();
     logger.info("Using reader: {} (size: {})", sizedReader.getName(), sizedReader.getSize());
 
     return sizedReader;
@@ -293,7 +293,7 @@ public class CMD_mktestdata implements Callable<Integer> {
   /// @throws IOException
   ///     If an I/O error occurs
   private void processVectors(
-      SizedReader<float[]> reader,
+      VectorRandomAccessReader<float[]> reader,
       List<Integer> shuffledIndices,
       Path queriesPath,
       Path dbPath

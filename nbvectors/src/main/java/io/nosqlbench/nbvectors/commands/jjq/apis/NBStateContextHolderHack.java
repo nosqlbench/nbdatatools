@@ -19,7 +19,12 @@ package io.nosqlbench.nbvectors.commands.jjq.apis;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import net.thisptr.jackson.jq.*;
+import net.thisptr.jackson.jq.BuiltinFunction;
+import net.thisptr.jackson.jq.Expression;
+import net.thisptr.jackson.jq.Function;
+import net.thisptr.jackson.jq.PathOutput;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Version;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;
 
@@ -42,7 +47,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /// Most of the logic here is not expected to be used in hot code paths.
 /// It is init logic, thus should be guarded by local state elsewhere to avoid wasted cycles.
 
-//@AutoService(Function.class)
 @BuiltinFunction("nbstate/0")
 public class NBStateContextHolderHack implements NBStateContext, Function, AutoCloseable {
   ///  When this context is shutdown, it will shutdown other objects which have also been

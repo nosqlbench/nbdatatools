@@ -17,6 +17,8 @@
 
 package io.nosqlbench.readers;
 
+import io.nosqlbench.nbvectors.api.fileio.ImmutableSizedReader;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;

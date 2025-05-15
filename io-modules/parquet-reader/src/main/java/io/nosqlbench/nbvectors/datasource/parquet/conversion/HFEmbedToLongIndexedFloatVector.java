@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.datasource.parquet.conversion;
  */
 
 
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.nbvectors.api.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import org.apache.parquet.example.data.Group;
 
 import java.util.Arrays;

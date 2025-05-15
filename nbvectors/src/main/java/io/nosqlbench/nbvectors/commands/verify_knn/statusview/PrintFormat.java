@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.statusview;
  */
 
 
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.nbvectors.api.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.Neighborhood;
 

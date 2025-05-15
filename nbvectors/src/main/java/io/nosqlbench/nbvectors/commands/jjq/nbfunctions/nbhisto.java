@@ -19,11 +19,14 @@ package io.nosqlbench.nbvectors.commands.jjq.nbfunctions;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBBaseJQFunction;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBStateContext;
 import io.nosqlbench.nbvectors.commands.jjq.contexts.NBHistogramContext;
-import net.thisptr.jackson.jq.*;
+import net.thisptr.jackson.jq.BuiltinFunction;
+import net.thisptr.jackson.jq.Expression;
+import net.thisptr.jackson.jq.PathOutput;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Version;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.path.Path;
 
@@ -38,7 +41,6 @@ import java.util.concurrent.atomic.AtomicLong;
 /// prints them out at shutdown.
 /// ---
 /// This does not instance its state per call, and this needs to be fixed.
-@AutoService(Function.class)
 @BuiltinFunction({"nbhisto/1"})
 public class nbhisto extends NBBaseJQFunction {
   private ConcurrentHashMap<String, AtomicLong> counts;

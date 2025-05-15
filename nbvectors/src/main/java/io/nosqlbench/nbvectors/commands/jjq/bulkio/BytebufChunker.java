@@ -18,6 +18,8 @@ package io.nosqlbench.nbvectors.commands.jjq.bulkio;
  */
 
 
+import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.DiagToString;
+
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;

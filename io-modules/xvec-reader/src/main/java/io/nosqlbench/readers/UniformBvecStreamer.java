@@ -18,8 +18,9 @@ package io.nosqlbench.readers;
  */
 
 
-import com.google.auto.service.AutoService;
-import io.nosqlbench.streamers.SizedStreamer;
+import io.nosqlbench.nbvectors.api.services.DataType;
+import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -44,10 +45,9 @@ import java.util.Objects;
 /// │ Using Fixed Size    │ O(1) per vector
 /// └─────────────────────┘
 /// ```
-@AutoService(SizedStreamer.class)
 @DataType(int[].class)
-@Encoding(Encoding.Type.bvec)
-public class UniformBvecStreamer implements SizedStreamer<int[]>, AutoCloseable {
+@Encoding(Encoding.Type.xvec)
+public class UniformBvecStreamer implements SizedVectorStreamReader<int[]>, AutoCloseable {
     private final Path filePath;
     private final String name;
     private final int dimension;

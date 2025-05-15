@@ -18,7 +18,9 @@ package io.nosqlbench.readers;
  */
 
 
-import com.google.auto.service.AutoService;
+import io.nosqlbench.nbvectors.api.services.DataType;
+import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
 
 import java.nio.file.Path;
 import java.util.AbstractList;
@@ -27,10 +29,9 @@ import java.util.AbstractList;
  * A mock implementation of SizedReader for testing.
  * This class implements SizedReader directly and provides basic functionality.
  */
-@AutoService(SizedReader.class)
 @DataType(float[].class)
 @Encoding(Encoding.Type.csv)
-public class MockSizedReader extends AbstractList<float[]> implements SizedReader<float[]> {
+public class MockSizedReader extends AbstractList<float[]> implements VectorRandomAccessReader<float[]> {
     
     private final int size;
     private final String name;

@@ -21,12 +21,15 @@ package io.nosqlbench.nbvectors.commands.jjq.nbfunctions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.LongNode;
-import com.google.auto.service.AutoService;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBBaseJQFunction;
 import io.nosqlbench.nbvectors.commands.jjq.apis.NBStateContext;
 import io.nosqlbench.nbvectors.commands.jjq.contexts.NBIdMapper;
 import io.nosqlbench.nbvectors.commands.jjq.contexts.NBTriesContext;
-import net.thisptr.jackson.jq.*;
+import net.thisptr.jackson.jq.BuiltinFunction;
+import net.thisptr.jackson.jq.Expression;
+import net.thisptr.jackson.jq.PathOutput;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Version;
 import net.thisptr.jackson.jq.exception.JsonQueryException;
 import net.thisptr.jackson.jq.internal.misc.Preconditions;
 import net.thisptr.jackson.jq.path.Path;
@@ -37,7 +40,6 @@ import java.util.Map;
 /// an implementation of a jjq function `nbremap("fieldName";"remapfile.json)`
 /// The changes the value of the provided field name in the JSON stream to
 /// the index ordinal from the provided remap file.
-@AutoService(Function.class)
 @BuiltinFunction({"nbremap/2"})
 public class nbremap extends NBBaseJQFunction {
   private NBIdMapper mapper;

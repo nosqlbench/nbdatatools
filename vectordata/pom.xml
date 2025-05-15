@@ -140,51 +140,6 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.2.1</version>
-        <executions>
-          <execution>
-            <id>enforce-java</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <configuration>
-              <rules>
-                <!--                The GraalVM vendor version is only enforced in the native profile -->
-                <!--                <requireProperty>-->
-                <!--                  <property>java.vendor.version</property>-->
-                <!--                  <regex>.*GraalVM.*</regex>-->
-                <!--                  <message>-->
-                <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
-                <!--                  </message>-->
-                <!--                </requireProperty>-->
-                <requireJavaVersion>
-                  <version>[23,)</version>
-                </requireJavaVersion>
-                <!--                <dependencyConvergence>-->
-                <!--                </dependencyConvergence>-->
-                <requireProfileIdsExist/>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-source-plugin</artifactId>
-        <version>3.3.1</version>
-        <executions>
-          <execution>
-            <id>attach-sources</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>jar-no-fork</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-gpg-plugin</artifactId>
         <version>3.0.1</version>
         <executions>
@@ -259,14 +214,6 @@
         </executions>
       </plugin>
 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
-        <configuration>
-          <release>23</release>
-        </configuration>
-      </plugin>
 <!--      <plugin>-->
 <!--        <groupId>org.apache.maven.plugins</groupId>-->
 <!--        <artifactId>maven-jar-plugin</artifactId>-->
@@ -354,36 +301,6 @@
       <id>native</id>
       <build>
         <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-enforcer-plugin</artifactId>
-            <version>3.2.1</version>
-            <executions>
-              <execution>
-                <id>enforce-java</id>
-                <goals>
-                  <goal>enforce</goal>
-                </goals>
-                <configuration>
-                  <rules>
-                    <requireProperty>
-                      <property>java.vendor.version</property>
-                      <regex>.*GraalVM.*</regex>
-                      <message>
-                        You must use a GraalVM JDK. The detected JDK is not GraalVM.
-                      </message>
-                    </requireProperty>
-                    <requireJavaVersion>
-                      <version>[23,)</version>
-                    </requireJavaVersion>
-                    <!--                    This would be nice, but jhdf is on older log4j API versions -->
-                    <!--                    <dependencyConvergence/>-->
-                    <requireProfileIdsExist/>
-                  </rules>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
 
           <!--          Building with native image seems infeasible with some dependencies-->
           <!--          <plugin>-->

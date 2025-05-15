@@ -37,38 +37,44 @@ import java.util.stream.IntStream;
 /// @param <T>
 ///     the type of the elements in the dataset
 ///
-/// ---
+///     ---
 ///
-/// ### Data type semantics
+///     ### Data type semantics
 ///
-/// The data type semantics of this layer are have some nuances which are important to obvserver.
-/// Overall, this an access interface to _vector_ data, or in simple Java parlance, array data.
-/// That means that the base type of each element is an array type as the user sees it. Thus, the
-///  type T will be a proper Java array type like (float[], int[], byte[] or whatever).
-/// **Additionally**, the data is stored in the backing store as a homogeneous array of those
-/// types, such as (float[][], int[][], byte[][] and similar). Since generic type tokens do not (
-/// yet) extend richly to array types and liksov relationships, we have to be slightly careful about
-/// how this is expressed. So the base [T] type is not stated in terms of an array, but as an
-/// unqualified type. Internally, this is understood to be an two-dimensional array at the base
-/// structure, but it **IS** possible that this is multi-dimensional array, wherein each [T]
-/// element is itself a multi-dimensional array. What matters is that the major dimension is the
-/// element selector, the minor dimension is the vector component selector, and any interior
-/// dimensions are carried along without need for further type introspection.
+///     The data type semantics of this layer are have some nuances which are important to
+///     obvserver.
+///     Overall, this an access interface to _vector_ data, or in simple Java parlance, array data.
+///     That means that the base type of each element is an array type as the user sees it. Thus,
+///     the
+///      type T will be a proper Java array type like (float[], int[], byte[] or whatever).
+///     **Additionally**, the data is stored in the backing store as a homogeneous array of those
+///     types, such as (float[][], int[][], byte[][] and similar). Since generic type tokens do not
+///     (
+///     yet) extend richly to array types and liksov relationships, we have to be slightly careful
+///     about
+///     how this is expressed. So the base [T] type is not stated in terms of an array, but as an
+///     unqualified type. Internally, this is understood to be an two-dimensional array at the base
+///     structure, but it **IS** possible that this is multi-dimensional array, wherein each [T]
+///     element is itself a multi-dimensional array. What matters is that the major dimension is
+///     the
+///     element selector, the minor dimension is the vector component selector, and any interior
+///     dimensions are carried along without need for further type introspection.
 ///
-/// ---
+///     ---
 ///
-/// ### Rationalizing dimensions
+///     ### Rationalizing dimensions
 ///
-/// Where a window is specified, it specifies a view into the raw data array across dimensions.
-/// The window doesn't have to have the same dimensionality as the underlying backing data. Only
-/// the dimensions which are asserted are used, and once asserted, the window is referenced as
-/// the one and true shape value for the user. For now, window assertions of more than 2
-/// dimensions are not defined or supported.
+///     Where a window is specified, it specifies a view into the raw data array across dimensions.
+///     The window doesn't have to have the same dimensionality as the underlying backing data.
+///     Only
+///     the dimensions which are asserted are used, and once asserted, the window is referenced as
+///     the one and true shape value for the user. For now, window assertions of more than 2
+///     dimensions are not defined or supported.
 ///
-/// The special window [FWindow#ALL] is a sigil value which means that the window, upon
-/// application to the underlying dataset, should simply be sized to the underlying dataset upon
-/// initialization.
-///
+///     The special window [FWindow#ALL] is a sigil value which means that the window, upon
+///     application to the underlying dataset, should simply be sized to the underlying dataset
+///     upon
+///     initialization.
 /// @see DatasetView
 public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
 
@@ -79,6 +85,8 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
   /// create a dataset view
   /// @param dataset
   ///     the dataset to view
+  /// @param window
+  /// The window to validate, can be FWindow.ALL for full dataset
   public CoreHdf5DatasetViewMethods(Dataset dataset, FWindow window) {
     this.dataset = dataset;
     this.window = validateWindow(window);
@@ -92,6 +100,12 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
   public void awaitPrebuffer(long minIncl, long maxExcl) {
   }
 
+  /// Validates and adjusts the provided window against dataset dimensions
+  /// @param window
+  ///     The window to validate, can be FWindow.ALL for full dataset
+  /// @return A validated FWindow that fits within dataset dimensions
+  /// @throws RuntimeException
+  ///     If window dimensions exceed the dataset dimensions
   protected FWindow validateWindow(FWindow window) {
     FWindow valid = window;
     if (FWindow.ALL.equals(valid)) {
@@ -213,7 +227,7 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
     long[] offsets = new long[dims.length];
     offsets[0] = index;
     Object data = dataset.getData(offsets, dims);
-    return Array.get(data,0);
+    return Array.get(data, 0);
   }
 
   /// get an object by its ordinal

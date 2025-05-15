@@ -17,11 +17,12 @@
 
 package io.nosqlbench.readers;
 
+import io.nosqlbench.nbvectors.api.fileio.ImmutableSizedReader;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;

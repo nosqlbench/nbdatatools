@@ -20,7 +20,7 @@ package io.nosqlbench.nbvectors.commands.verify_knn.readers;
 
 import io.jhdf.HdfFile;
 import io.jhdf.api.Dataset;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.nbvectors.api.commands.verify_knn.datatypes.LongIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.NeighborIndex;
 import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.Neighborhood;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;

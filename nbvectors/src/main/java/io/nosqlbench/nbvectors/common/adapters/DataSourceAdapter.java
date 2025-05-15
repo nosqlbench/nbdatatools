@@ -21,8 +21,8 @@ package io.nosqlbench.nbvectors.common.adapters;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.BvecToByteArray;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.FvecToIndexedFloatVector;
 import io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec.IvecToIntArray;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.LongIndexedFloatVector;
-import io.nosqlbench.streamers.SizedStreamer;
+import io.nosqlbench.nbvectors.api.commands.verify_knn.datatypes.LongIndexedFloatVector;
+import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
 
 import java.nio.file.Path;
 
@@ -107,7 +107,7 @@ public class DataSourceAdapter {
   /// @return an iterable of float arrays
   public static Iterable<float[]> adaptFloatArray(Path path) {
     ReaderAndPath rp = new ReaderAndPath(path.toString());
-    SizedStreamer<float[]> sizedReader = rp.getSizedReader(float[].class);
+    SizedVectorStreamReader<float[]> sizedReader = rp.getSizedReader(float[].class);
     return sizedReader;
     //
 //    if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
@@ -121,7 +121,7 @@ public class DataSourceAdapter {
 
   public static Iterable<?> adaptAnyType(Path path) {
     ReaderAndPath rp = new ReaderAndPath(path.toString());
-    SizedStreamer<?> sizedReader = rp.getSizedReader(Object.class);
+    SizedVectorStreamReader<?> sizedReader = rp.getSizedReader(Object.class);
     return sizedReader;
 //    if (path.toString().endsWith(".bvec") || path.toString().endsWith(".bvecs")) {
 //      return new BvecToByteArray(path);
