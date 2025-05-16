@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <artifactId>export_hdf5</artifactId>
+  <name>${project.artifactId}</name>
+  <description>Export hdf5 test data</description>
+  <url>https://github.com/nosqlbench/nbdatatools</url>
+  <packaging>jar</packaging>
+
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <artifactId>commands</artifactId>
+    <version>${revision}</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>testdata-apis</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>build_hdf5</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+      <version>4.7.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>vectordata</artifactId>
+      <version>${revision}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!--    Plugin versions and default configuration are inherited -->
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <!--        <groupId>org.apache.maven.plugins</groupId>-->
+        <artifactId>maven-deploy-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

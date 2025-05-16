@@ -1,0 +1,4 @@
+io.nosqlbench.readers.UniformIvecReader
+io.nosqlbench.readers.UniformBvecReader
+io.nosqlbench.readers.UniformFvecReader
+io.nosqlbench.readers.UniformDvecReader
