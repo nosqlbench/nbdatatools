@@ -21,6 +21,7 @@
     <!-- temporarily omitting parquet-reader due to build conflicts -->
     <module>xvec-reader</module>
     <module>xvec-writer</module>
+    <module>parquet-reader</module>
   </modules>
 
   <build>

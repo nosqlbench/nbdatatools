@@ -24,22 +24,18 @@
       <artifactId>testdata-apis</artifactId>
       <version>${revision}</version>
     </dependency>
-    <dependency>
-      <groupId>info.picocli</groupId>
-      <artifactId>picocli</artifactId>
-      <version>4.7.6</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-api</artifactId>
-      <version>2.24.3</version>
-    </dependency>
 
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>vectordata</artifactId>
       <version>${revision}</version>
     </dependency>
+
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+    </dependency>
+
   </dependencies>
 
   <build>

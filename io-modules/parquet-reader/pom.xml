@@ -16,12 +16,6 @@
     <relativePath>../../mvn-defaults</relativePath>
   </parent>
 
-  <properties>
-    <maven.compiler.source>22</maven.compiler.source>
-    <maven.compiler.target>22</maven.compiler.target>
-    <maven.compiler.release>22</maven.compiler.release>
-  </properties>
-
   <dependencies>
 
     <dependency>
@@ -43,13 +37,6 @@
       <version>3.3.0</version>
     </dependency>
 
-<!--    <dependency>-->
-<!--      <groupId>org.apache.logging.log4j</groupId>-->
-<!--      <artifactId>log4j-slf4j2-impl</artifactId>-->
-<!--      <version>2.20.0</version>  &lt;!&ndash; Or your preferred Log4j 2 version &ndash;&gt;-->
-<!--    </dependency>-->
-  <!-- Parquet reader module dependencies -->
-  <dependencies>
     <dependency>
       <groupId>org.apache.parquet</groupId>
       <artifactId>parquet-common</artifactId>
@@ -77,29 +64,5 @@
       <artifactId>hadoop-common</artifactId>
       <version>3.3.0</version>
     </dependency>
-
-
-<!--    <dependency>-->
-<!--      <groupId>org.apache.logging.log4j</groupId>-->
-<!--      <artifactId>log4j-core</artifactId>-->
-<!--      <version>2.24.3</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>org.apache.logging.log4j</groupId>-->
-<!--      <artifactId>log4j-api</artifactId>-->
-<!--      <version>2.24.3</version>-->
-<!--    </dependency>-->
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <!-- compile on classpath to avoid module package split conflicts -->
-          <useModulePath>false</useModulePath>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
+  </dependencies>
 </project>

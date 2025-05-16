@@ -4,7 +4,6 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.nosqlbench</groupId>
   <artifactId>nbdatatools</artifactId>
   <version>${revision}</version>
   <packaging>pom</packaging>
@@ -28,30 +27,19 @@
     <!--    </dependency>-->
 
     <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>3.24.2</version>
-      <scope>test</scope>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.5.14</version>
     </dependency>
-
-    <dependency>
-      <groupId>io.nosqlbench</groupId>
-      <artifactId>testdata-apis</artifactId>
-      <version>${revision}</version>
-      <scope>compile</scope>
-    </dependency>
-
   </dependencies>
 
   <modules>
     <module>mvn-defaults</module>
     <module>testdata-apis</module>
     <module>vectordata</module>
-    <module>nbvectors</module>
     <module>commands</module>
     <module>io-modules</module>
-<!--    <module>commands/attic</module>-->
-<!--    <module>commands</module>-->
+    <module>nbvectors</module>
   </modules>
 
   <developers>

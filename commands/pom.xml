@@ -41,6 +41,7 @@
     <module>mktestdata</module>
     <module>show_hdf5</module>
     <module>verify_knn</module>
+    <module>tag_hdf5</module>
   </modules>
 
   <dependencyManagement>
