@@ -17,13 +17,14 @@
 
 package io.nosqlbench.nbvectors.commands.generate.commands;
 
-import io.nosqlbench.readers.UniformIvecReader;
+import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
+import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
+import io.nosqlbench.nbvectors.api.services.FileType;
 import org.apache.commons.math3.stat.inference.ChiSquareTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -71,7 +72,8 @@ public class IvecShuffleStatisticalTest {
             );
             
             // Read the shuffled file and count occurrences
-            try (UniformIvecReader reader = new UniformIvecReader(outputPath)) {
+            try (VectorFileArray<int[]> reader =
+                     VectorFileIO.vectorFileArray(FileType.xvec,int[].class, outputPath)) {
                 for (int pos = 0; pos < interval; pos++) {
                     int[] vector = reader.get(pos);
                     int value = vector[0]; // Each vector has only one value

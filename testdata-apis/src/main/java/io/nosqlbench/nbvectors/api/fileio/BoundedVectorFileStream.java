@@ -17,7 +17,9 @@ package io.nosqlbench.nbvectors.api.fileio;
  * under the License.
  */
 
+import io.nosqlbench.nbvectors.api.noncore.Sized;
+
 /// A sized version of VectorStreamReader, which knows how many elements are in the logical set
 /// before being read fully.
-public interface SizedVectorStreamReader<T> extends VectorStreamReader<T>, Sized {
+public interface BoundedVectorFileStream<T> extends VectorFileStream<T>, Sized {
 }

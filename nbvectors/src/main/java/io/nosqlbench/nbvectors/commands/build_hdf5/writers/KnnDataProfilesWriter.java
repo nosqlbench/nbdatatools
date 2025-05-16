@@ -29,7 +29,7 @@ import io.nosqlbench.nbvectors.common.FilePaths;
 import io.nosqlbench.nbvectors.common.adapters.DataSourceAdapter;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDataset;
 import io.nosqlbench.nbvectors.common.jhdf.StreamableDatasetImpl;
-import io.nosqlbench.nbvectors.api.fileio.Sized;
+import io.nosqlbench.nbvectors.api.noncore.Sized;
 import io.nosqlbench.vectordata.utils.SHARED;
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.layout.FProfiles;

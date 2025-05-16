@@ -18,9 +18,9 @@ package io.nosqlbench.nbvectors.commands.mktestdata;
  */
 
 
-import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
+import io.nosqlbench.nbvectors.api.noncore.VectorRandomAccessReader;
 import io.nosqlbench.nbvectors.util.RandomGenerators;
-import io.nosqlbench.nbvectors.api.fileio.SizedReaderLookup;
+import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
 import org.apache.commons.rng.RestorableUniformRandomProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -219,7 +219,7 @@ public class CMD_mktestdata implements Callable<Integer> {
 
     // Use SizedReaderLookup to find and instantiate an appropriate reader with the path
     Optional<VectorRandomAccessReader<float[]>> reader =
-        SizedReaderLookup.findReader(selector, float[].class, inputPath);
+        VectorFileIO.findReader(selector, float[].class, inputPath);
 
     if (reader.isEmpty()) {
       throw new IOException("No compatible reader found for format: " + selector

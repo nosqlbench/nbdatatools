@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.nosqlbench.nbvectors.api.fileio;
+package io.nosqlbench.nbvectors.api.noncore;
 
 import java.util.Collection;
 import java.util.Iterator;

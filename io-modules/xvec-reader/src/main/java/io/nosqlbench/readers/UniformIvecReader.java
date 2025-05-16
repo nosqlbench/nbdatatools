@@ -17,7 +17,9 @@
 
 package io.nosqlbench.readers;
 
-import io.nosqlbench.nbvectors.api.fileio.ImmutableSizedReader;
+import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
+import io.nosqlbench.nbvectors.api.noncore.ImmutableSizedReader;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -46,12 +48,14 @@ import java.util.Objects;
 /// │ Using Fixed Size    │ O(1) per vector
 /// └─────────────────────┘
 /// ```
-public class UniformIvecReader extends ImmutableSizedReader<int[]> implements AutoCloseable {
+public class UniformIvecReader extends ImmutableSizedReader<int[]> implements VectorFileArray<int[]> {
     private Path filePath;
     private int dimension;
     private int recordSize;
     private int size;
     private RandomAccessFile randomAccessFile;
+
+    public UniformIvecReader() {}
 
     /// Creates a new IvecReader for the given file path.
     ///
@@ -178,6 +182,11 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Au
     }
 
     @Override
+    public boolean containsAll(Collection<?> c) {
+        return false;
+    }
+
+    @Override
     public boolean isEmpty() {
         return size == 0;
     }
@@ -237,15 +246,16 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Au
         return -1;
     }
 
-    @Override
-    public boolean containsAll(Collection<?> c) {
-        for (Object o : c) {
-            if (!contains(o)) {
-                return false;
-            }
-        }
-        return true;
-    }
+
+//    @Override
+//    public boolean containsAll(Collection<?> c) {
+//        for (Object o : c) {
+//            if (!contains(o)) {
+//                return false;
+//            }
+//        }
+//        return true;
+//    }
 
     @Override
     public Object[] toArray() {
@@ -256,22 +266,28 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Au
         return result;
     }
 
+    @NotNull
     @Override
-    @SuppressWarnings("unchecked")
-    public <E> E[] toArray(E[] a) {
-        if (a.length < size) {
-            // Make a new array of a's runtime type, but my contents:
-            return (E[]) Arrays.copyOf(toArray(), size, a.getClass());
-        }
-        
-        System.arraycopy(toArray(), 0, a, 0, size);
-        
-        if (a.length > size) {
-            a[size] = null;
-        }
-        
-        return a;
+    public Object[] toArray(@NotNull Object[] a) {
+        return new Object[0];
     }
+
+    //    @Override
+//    @SuppressWarnings("unchecked")
+//    public <E> E[] toArray(E[] a) {
+//        if (a.length < size) {
+//            // Make a new array of a's runtime type, but my contents:
+//            return (E[]) Arrays.copyOf(toArray(), size, a.getClass());
+//        }
+//
+//        System.arraycopy(toArray(), 0, a, 0, size);
+//
+//        if (a.length > size) {
+//            a[size] = null;
+//        }
+//
+//        return a;
+//    }
 
     @Override
     public List<int[]> subList(int fromIndex, int toIndex) {
@@ -430,8 +446,5 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Au
             return a;
         }
 
-        @Override
-        public void open(Path filePath) {
-        }
     }
 }

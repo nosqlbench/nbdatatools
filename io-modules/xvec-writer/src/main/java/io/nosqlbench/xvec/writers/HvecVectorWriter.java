@@ -1,8 +1,8 @@
 package io.nosqlbench.xvec.writers;
 
+import io.nosqlbench.nbvectors.api.fileio.VectorFileStore;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
-import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.BufferedOutputStream;
@@ -22,7 +22,7 @@ import java.nio.file.Path;
  */
 @DataType(float[].class)
 @Encoding(FileType.xvec)
-public class HvecVectorWriter implements VectorWriter<float[]> {
+public class HvecVectorWriter implements VectorFileStore<float[]> {
 
     private BufferedOutputStream outputStream;
     private Integer dimension;
@@ -35,7 +35,7 @@ public class HvecVectorWriter implements VectorWriter<float[]> {
     }
 
     @Override
-    public void open(Path path) throws IOException {
+    public void open(Path path) {
         try {
             this.outputStream = new BufferedOutputStream(new FileOutputStream(path.toFile()));
         } catch (IOException e) {

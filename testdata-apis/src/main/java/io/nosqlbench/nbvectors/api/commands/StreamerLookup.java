@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.api.fileio;
+package io.nosqlbench.nbvectors.api.commands;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,7 +17,7 @@ package io.nosqlbench.nbvectors.api.fileio;
  * under the License.
  */
 
-
+import io.nosqlbench.nbvectors.api.fileio.VectorFileStream;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.services.FileType;
@@ -30,30 +30,30 @@ import java.util.ServiceLoader;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-/// A utility class that uses ServiceLoader to discover and load SizedReader implementations.
-/// It allows finding readers based on their DataType and Encoding annotations.
-public class SizedReaderLookup {
+/// A utility class that uses ServiceLoader to discover and load Streamer implementations.
+/// It allows finding streamers based on their DataType and Encoding annotations.
+public class StreamerLookup {
 
-    private static final ServiceLoader<VectorRandomAccessReader> serviceLoader = ServiceLoader.load(
-        VectorRandomAccessReader.class);
+    private static final ServiceLoader<VectorFileStream> serviceLoader = ServiceLoader.load(
+        VectorFileStream.class);
 
-    /// Finds a SizedReader implementation that matches the specified encoding and dataType.
+    /// Finds a Streamer implementation that matches the specified encoding and dataType.
     ///
     /// @param encoding The encoding type to match with the Encoding annotation
     /// @param dataType The class representing the data type to match with the DataType annotation
-    /// @param <T> The type of data read by the SizedReader
-    /// @return An Optional containing the matching SizedReader, or empty if none found
+    /// @param <T> The type of data streamed by the Streamer
+    /// @return An Optional containing the matching Streamer, or empty if none found
     @SuppressWarnings("unchecked")
-    public static <T> Optional<VectorRandomAccessReader<T>> findReader(FileType encoding, Class<T> dataType) {
+    public static <T> Optional<VectorFileStream<T>> findStreamer(FileType encoding, Class<T> dataType) {
         return providers()
             .filter(provider -> matchesEncoding(provider, encoding) && matchesDataType(provider, dataType))
             .findFirst()
             .map(ServiceLoader.Provider::get)
-            .map(reader -> (VectorRandomAccessReader<T>) reader);
+            .map(streamer -> (VectorFileStream<T>) streamer);
     }
 
     private static boolean matchesEncoding(
-        ServiceLoader.Provider<VectorRandomAccessReader> provider,
+        ServiceLoader.Provider<VectorFileStream> provider,
         FileType encoding
     )
     {
@@ -65,53 +65,53 @@ public class SizedReaderLookup {
         return false;
     }
 
-    /// Finds a SizedReader implementation that matches the specified encoding name and dataType.
+    /// Finds a Streamer implementation that matches the specified encoding name and dataType.
     /// This method converts the encoding name to an Encoding.Type enum value.
     ///
     /// @param encodingName The encoding name to match with the Encoding annotation (will be converted to enum)
     /// @param dataType The class representing the data type to match with the DataType annotation
-    /// @param <T> The type of data read by the SizedReader
-    /// @return An Optional containing the matching SizedReader, or empty if none found
+    /// @param <T> The type of data streamed by the Streamer
+    /// @return An Optional containing the matching Streamer, or empty if none found
     @SuppressWarnings("unchecked")
-    public static <T> Optional<VectorRandomAccessReader<T>> findReader(String encodingName, Class<T> dataType) {
+    public static <T> Optional<VectorFileStream<T>> findStreamer(String encodingName, Class<T> dataType) {
         try {
             FileType encoding = FileType.valueOf(encodingName.toLowerCase());
-            return findReader(encoding, dataType);
+            return findStreamer(encoding, dataType);
         } catch (IllegalArgumentException e) {
             // If the encoding name doesn't match any enum value, return empty
             return Optional.empty();
         }
     }
     
-    /// Finds a SizedReader implementation that matches the specified encoding and dataType,
+    /// Finds a Streamer implementation that matches the specified encoding and dataType,
     /// and instantiates it with the given path.
     ///
     /// @param encoding The encoding type to match
     /// @param dataType The class representing the data type to match
-    /// @param path The path to initialize the reader with
-    /// @param <T> The type of data read by the SizedReader
-    /// @return An Optional containing the instantiated SizedReader, or empty if none found or instantiation fails
+    /// @param path The path to initialize the streamer with
+    /// @param <T> The type of data streamed by the Streamer
+    /// @return An Optional containing the instantiated Streamer, or empty if none found or instantiation fails
     @SuppressWarnings("unchecked")
-    public static <T> Optional<VectorRandomAccessReader<T>> findReader(FileType encoding, Class<T> dataType, Path path) {
+    public static <T> Optional<VectorFileStream<T>> findStreamer(FileType encoding, Class<T> dataType, Path path) {
         return providers()
             .filter(provider -> matchesEncoding(provider, encoding) && matchesDataType(provider, dataType))
             .findFirst()
             .flatMap(provider -> instantiateWithPath(provider, path))
-            .map(reader -> (VectorRandomAccessReader<T>) reader);
+            .map(streamer -> (VectorFileStream<T>) streamer);
     }
     
-    /// Finds a SizedReader implementation that matches the specified encoding name and dataType,
+    /// Finds a Streamer implementation that matches the specified encoding name and dataType,
     /// and instantiates it with the given path.
     ///
     /// @param encodingName The encoding name to match (will be converted to enum)
     /// @param dataType The class representing the data type to match
-    /// @param path The path to initialize the reader with
-    /// @param <T> The type of data read by the SizedReader
-    /// @return An Optional containing the instantiated SizedReader, or empty if none found or instantiation fails
-    public static <T> Optional<VectorRandomAccessReader<T>> findReader(String encodingName, Class<T> dataType, Path path) {
+    /// @param path The path to initialize the streamer with
+    /// @param <T> The type of data streamed by the Streamer
+    /// @return An Optional containing the instantiated Streamer, or empty if none found or instantiation fails
+    public static <T> Optional<VectorFileStream<T>> findStreamer(String encodingName, Class<T> dataType, Path path) {
         try {
             FileType encoding = FileType.valueOf(encodingName.toLowerCase());
-            return findReader(encoding, dataType, path);
+            return findStreamer(encoding, dataType, path);
         } catch (IllegalArgumentException e) {
             // If the encoding name doesn't match any enum value, return empty
             return Optional.empty();
@@ -120,43 +120,43 @@ public class SizedReaderLookup {
     
     // Convenience methods for specific types have been removed in favor of the generic parameterized methods
     
-    /// Returns a stream of all available SizedReader providers.
+    /// Returns a stream of all available Streamer providers.
     ///
-    /// @return A stream of ServiceLoader.Provider<SizedReader>
-    private static Stream<ServiceLoader.Provider<VectorRandomAccessReader>> providers() {
+    /// @return A stream of ServiceLoader.Provider<Streamer>
+    private static Stream<ServiceLoader.Provider<VectorFileStream>> providers() {
         return StreamSupport.stream(serviceLoader.stream().spliterator(), false);
     }
     
     /// Checks if the provider has a matching DataType annotation.
     ///
-    /// @param provider The SizedReader provider to check
+    /// @param provider The Streamer provider to check
     /// @param dataType The data type class to match
     /// @return true if the provider has a matching DataType annotation, false otherwise
-    private static boolean matchesDataType(ServiceLoader.Provider<VectorRandomAccessReader> provider, Class<?> dataType) {
+    private static boolean matchesDataType(ServiceLoader.Provider<VectorFileStream> provider, Class<?> dataType) {
         Class<?> type = provider.type();
         DataType dataTypeAnnotation = type.getAnnotation(DataType.class);
         return dataTypeAnnotation != null && dataTypeAnnotation.value().equals(dataType);
     }
     
-    /// Attempts to instantiate a SizedReader using a constructor that takes a Path.
+    /// Attempts to instantiate a Streamer using a constructor that takes a Path.
     ///
-    /// @param provider The ServiceLoader.Provider for the SizedReader implementation
+    /// @param provider The ServiceLoader.Provider for the Streamer implementation
     /// @param path The path to pass to the constructor
-    /// @return An Optional containing the instantiated SizedReader, or empty if instantiation fails
-    private static Optional<VectorRandomAccessReader> instantiateWithPath(
-        ServiceLoader.Provider<VectorRandomAccessReader> provider, Path path) {
-        Class<?> readerClass = provider.type();
+    /// @return An Optional containing the instantiated Streamer, or empty if instantiation fails
+    private static Optional<VectorFileStream> instantiateWithPath(
+        ServiceLoader.Provider<VectorFileStream> provider, Path path) {
+        Class<?> streamerClass = provider.type();
         try {
             // Look for a constructor that takes a Path
-            Constructor<?> constructor = readerClass.getConstructor(Path.class);
-            return Optional.of((VectorRandomAccessReader) constructor.newInstance(path));
+            Constructor<?> constructor = streamerClass.getConstructor(Path.class);
+            return Optional.of((VectorFileStream) constructor.newInstance(path));
         } catch (NoSuchMethodException e) {
             // Try to create an instance and then initialize it with the path
             try {
-                VectorRandomAccessReader reader = provider.get();
-                Method initMethod = readerClass.getMethod("init", Path.class);
-                initMethod.invoke(reader, path);
-                return Optional.of(reader);
+                VectorFileStream streamer = provider.get();
+                Method initMethod = streamerClass.getMethod("init", Path.class);
+                initMethod.invoke(streamer, path);
+                return Optional.of(streamer);
             } catch (Exception ex) {
                 // Log or handle the error appropriately
                 return Optional.empty();

@@ -21,9 +21,9 @@ package io.nosqlbench.readers;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import io.nosqlbench.nbvectors.api.fileio.VectorFileStream;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
-import io.nosqlbench.nbvectors.api.fileio.VectorStreamReader;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.BufferedReader;
@@ -42,7 +42,7 @@ import java.util.regex.Pattern;
  and uses that as the source of vector data. */
 @Encoding(FileType.csv)
 @DataType(float[].class)
-public class CsvJsonArrayStreamer implements VectorStreamReader<float[]> {
+public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
 
   private  Path filePath;
   private int vectorColumn = -1;

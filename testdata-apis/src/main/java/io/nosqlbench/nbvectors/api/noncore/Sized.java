@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.api.fileio;
+package io.nosqlbench.nbvectors.api.noncore;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,5 +18,10 @@ package io.nosqlbench.nbvectors.api.fileio;
  */
 
 
-public interface FloatVectorIterable extends SizedVectorStreamReader<float[]> {
+/// An optional interface for providing the size of something
+public interface Sized {
+
+  /// get the size
+  /// @return the size of this
+  public int getSize();
 }

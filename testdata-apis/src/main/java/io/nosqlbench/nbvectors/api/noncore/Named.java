@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.api.fileio;
+package io.nosqlbench.nbvectors.api.noncore;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,11 +17,8 @@ package io.nosqlbench.nbvectors.api.fileio;
  * under the License.
  */
 
-
-/// An optional interface for providing the size of something
-public interface Sized {
-
-  /// get the size
-  /// @return the size of this
-  public int getSize();
+/// A named element
+public interface Named {
+  /// get the name of the instance
+  public String getName();
 }

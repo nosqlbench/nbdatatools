@@ -105,7 +105,7 @@
         </executions>
         <configuration>
           <includes>
-            <include>META_INF/services/**</include>
+            <include>META-INF/services/**</include>
             <include>**/*.java</include>
           </includes>
           <excludes>

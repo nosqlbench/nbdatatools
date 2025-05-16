@@ -20,9 +20,9 @@ package io.nosqlbench.nbvectors.datasource.parquet;
 
 import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.ConvertingIterable;
 import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.FlatteningIterable;
+import io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
-import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
 import io.nosqlbench.nbvectors.api.services.FileType;
 import io.nosqlbench.nbvectors.datasource.parquet.conversion.HFEmbedToFloatAry;
 import io.nosqlbench.nbvectors.datasource.parquet.traversal.ParquetGroupIterable;
@@ -42,7 +42,7 @@ import java.util.function.Function;
 ///  set of Paths which are files only, and which are part of a logical group.
 @Encoding(FileType.parquet)
 @DataType(float[].class)
-public class ParquetVectorsReader implements SizedVectorStreamReader<float[]> {
+public class ParquetVectorsReader implements BoundedVectorFileStream<float[]> {
 
   private final Iterable<float[]> compositeIterable;
   private final List<Path> paths;

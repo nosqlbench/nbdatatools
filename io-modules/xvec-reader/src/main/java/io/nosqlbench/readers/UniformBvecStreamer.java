@@ -18,7 +18,7 @@ package io.nosqlbench.readers;
  */
 
 
-import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
+import io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.services.FileType;
@@ -48,7 +48,7 @@ import java.util.Objects;
 ///```
 @DataType(int[].class)
 @Encoding(FileType.xvec)
-public class UniformBvecStreamer implements SizedVectorStreamReader<int[]>, AutoCloseable {
+public class UniformBvecStreamer implements BoundedVectorFileStream<int[]> {
   private Path filePath;
   private int dimension;
   private int recordSize;

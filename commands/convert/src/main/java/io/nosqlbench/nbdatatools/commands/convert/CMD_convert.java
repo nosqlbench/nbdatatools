@@ -18,11 +18,11 @@ package io.nosqlbench.nbdatatools.commands.convert;
  */
 
 import io.nosqlbench.nbvectors.api.commands.BundledCommand;
-import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
-import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
+import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
+import io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStream;
+import io.nosqlbench.nbvectors.api.noncore.VectorStreamStore;
 import io.nosqlbench.nbvectors.api.services.FileType;
 import io.nosqlbench.nbvectors.api.services.SizedStreamerLookup;
-import io.nosqlbench.nbvectors.api.services.WriterLookup;
 import io.nosqlbench.nbvectors.api.services.Selector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -86,10 +86,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Selector("convert")
 @CommandLine.Command(name = "convert",
     header = "Convert between different vector file formats",
-    description = """
-        Converts vectors between different file formats including fvec, ivec, bvec, csv, and json.
-        Formats are automatically detected from file extensions.
-        """,
     exitCodeList = {"0: success", "1: warning", "2: error"})
 public class CMD_convert implements Callable<Integer>, BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_convert.class);
@@ -97,7 +93,9 @@ public class CMD_convert implements Callable<Integer>, BundledCommand {
     private static final int EXIT_SUCCESS = 0;
     private static final int EXIT_WARNING = 1;
     private static final int EXIT_ERROR = 2;
-    
+
+    public CMD_convert() {}
+
     /**
      * Callback interface for conversion progress and completion.
      */
@@ -464,7 +462,7 @@ public class CMD_convert implements Callable<Integer>, BundledCommand {
         }
         
         Path firstPath = inputFiles.get(0);
-        SizedVectorStreamReader<float[]> vectorStream =
+        BoundedVectorFileStream<float[]> vectorStream =
             SizedStreamerLookup.findReader(FileType.csv, float[].class).orElseThrow();
 
         Iterator<float[]> firstIterator = vectorStream.iterator();
@@ -488,8 +486,8 @@ public class CMD_convert implements Callable<Integer>, BundledCommand {
         MultiFileVectorIterator multiFileIterator = new MultiFileVectorIterator(inputFiles, dimension, verbose);
         
         // Create and use UniformFvecWriter directly for output
-        VectorWriter<float[]> writer =
-            WriterLookup.findWriter(FileType.xvec, float[].class).orElseThrow();
+        VectorStreamStore<float[]> writer =
+            VectorFileIO.vectorFileStore(FileType.xvec, float[].class, outputPath).orElseThrow();
 
         // Determine the number of processor threads to use
         int threadCount = (threads > 0) ? threads : Runtime.getRuntime().availableProcessors();

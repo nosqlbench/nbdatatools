@@ -19,9 +19,9 @@
   <properties>
     <jline.version>3.28.0</jline.version>
     <revision>0.1.4-SNAPSHOT</revision>
-    <maven.compiler.source>22</maven.compiler.source>
-    <maven.compiler.target>22</maven.compiler.target>
-    <maven.compiler.release>22</maven.compiler.release>
+    <maven.compiler.source>23</maven.compiler.source>
+    <maven.compiler.target>23</maven.compiler.target>
+    <maven.compiler.release>23</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javadoc.name>testdata-apis</javadoc.name>
   </properties>
@@ -89,20 +89,52 @@
       <version>2.19.0</version>
     </dependency>
 
+    <!-- We're excluding all transitive JLine dependencies and managing them explicitly -->
     <dependency>
       <groupId>org.jline</groupId>
-      <artifactId>jline</artifactId>
+      <artifactId>jline-terminal</artifactId>
       <version>${jline.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jline</groupId>
+      <artifactId>jline-reader</artifactId>
+      <version>${jline.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jline</groupId>
+          <artifactId>jline-terminal</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.jline</groupId>
       <artifactId>jline-curses</artifactId>
       <version>${jline.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jline</groupId>
+          <artifactId>jline-terminal</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.jline</groupId>
+          <artifactId>jline-reader</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.jline</groupId>
       <artifactId>jline-terminal-ffm</artifactId>
       <version>${jline.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jline</groupId>
+          <artifactId>jline</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.jline</groupId>
+          <artifactId>jline-terminal</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 
@@ -313,7 +345,7 @@
       <resource>
         <directory>src/main/resources</directory>
         <includes>
-          <include>META_INF/services/**</include>
+          <include>META-INF/services/**</include>
           <!--          <include>META-INF/functions</include>-->
           <!--          <include>data/**</include>-->
           <!--          <include>docs-for-virtdata/**</include>-->

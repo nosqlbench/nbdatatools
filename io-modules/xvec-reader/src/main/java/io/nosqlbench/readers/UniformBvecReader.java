@@ -17,8 +17,10 @@
 
 package io.nosqlbench.readers;
 
-import io.nosqlbench.nbvectors.api.fileio.ImmutableSizedReader;
+import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
+import io.nosqlbench.nbvectors.api.noncore.ImmutableSizedReader;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -46,7 +48,7 @@ import java.util.Objects;
 /// │ Using Fixed Size    │ O(1) per vector
 /// └─────────────────────┘
 /// ```
-public class UniformBvecReader extends ImmutableSizedReader<int[]> implements AutoCloseable  {
+public class UniformBvecReader extends ImmutableSizedReader<int[]> implements VectorFileArray<int[]> {
     private Path filePath;
     private int dimension;
     private int recordSize;
@@ -56,17 +58,16 @@ public class UniformBvecReader extends ImmutableSizedReader<int[]> implements Au
     /// Creates a new BvecReader for the given file path.
     ///
     /// @param filePath The path to the bvec file
-    /// @throws IOException If the file cannot be opened or read
-    public void open(Path filePath) throws IOException {
+    public void open(Path filePath) {
+        try {
         this.filePath = Objects.requireNonNull(filePath, "filePath cannot be null");
-
         // Open the file and prepare for reading
         this.randomAccessFile = new RandomAccessFile(filePath.toFile(), "r");
-        
-        // Read the first 4 bytes to get the dimension
+
+      // Read the first 4 bytes to get the dimension
         byte[] dimBytes = new byte[4];
         if (randomAccessFile.read(dimBytes) != 4) {
-            throw new IOException("Failed to read dimension from file: " + filePath);
+            throw new RuntimeException("Failed to read dimension from file: " + filePath);
         }
         
         // Convert bytes to integer (little-endian)
@@ -74,7 +75,7 @@ public class UniformBvecReader extends ImmutableSizedReader<int[]> implements Au
         this.dimension = dimBuffer.getInt();
         
         if (this.dimension <= 0) {
-            throw new IOException("Invalid dimension in file: " + this.dimension);
+            throw new RuntimeException("Invalid dimension in file: " + this.dimension);
         }
         
         // Calculate record size: 4 bytes for dimension + (dimension * 4 bytes for integer values)
@@ -83,10 +84,14 @@ public class UniformBvecReader extends ImmutableSizedReader<int[]> implements Au
         // Calculate the total number of vectors in the file
         long fileSize = randomAccessFile.length();
         if (fileSize % recordSize != 0) {
-            throw new IOException("File size is not a multiple of record size. File may be corrupted.");
+            throw new RuntimeException("File size is not a multiple of record size. File may be corrupted.");
         }
         
         this.size = (int) (fileSize / recordSize);
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+
     }
 
     /// Retrieves the vector at the specified index.
@@ -130,9 +135,13 @@ public class UniformBvecReader extends ImmutableSizedReader<int[]> implements Au
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (randomAccessFile != null) {
+          try {
             randomAccessFile.close();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
         }
     }
 

@@ -1,5 +1,5 @@
 /// # REQUIREMENTS
-/// This package contains writers implementing [[io.nosqlbench.nbvectors.api.fileio.VectorWriter]] for ivec, and
+/// This package contains writers implementing [[io.nosqlbench.nbvectors.api.noncore.VectorStreamStore]] for ivec, and
 /// fvec formats.
 ///
 /// Each implementation of a VectorWriter in this package must do the following:

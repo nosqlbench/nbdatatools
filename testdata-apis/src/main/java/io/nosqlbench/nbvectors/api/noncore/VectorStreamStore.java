@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.api.fileio;
+package io.nosqlbench.nbvectors.api.noncore;
 
 /*
  * Copyright (c) nosqlbench
@@ -20,7 +20,6 @@ package io.nosqlbench.nbvectors.api.fileio;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 
-import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -29,7 +28,7 @@ import java.util.List;
  the type of data they can write and {@link Encoding} to indicate the format.
  @param <T>
  The type of data that this writer can write */
-public interface VectorWriter<T> extends AutoCloseable  {
+public interface VectorStreamStore<T> extends AutoCloseable {
 
     /**
      Write the given T data.
@@ -72,18 +71,5 @@ public interface VectorWriter<T> extends AutoCloseable  {
         return this.getClass().getSimpleName();
     }
 
-    /**
-     Initialize the writer with a path
-     @param path
-     The path to initialize the writer with
-     */
-    public void open(Path path) throws Exception;
-
-    /// If a writer has a meaningful way of flushing buffered data before [#close()] is called,
-    /// then implement thius method.
-    default void flush() {}
-
-    /// This should be called at the end of the writer lifecycle.
-    void close();
 
 }

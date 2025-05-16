@@ -17,8 +17,8 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.ivecfvec;
  * under the License.
  */
 
-import io.nosqlbench.nbvectors.api.fileio.Enumerated;
-import io.nosqlbench.nbvectors.api.fileio.Sized;
+import io.nosqlbench.nbvectors.api.noncore.Enumerated;
+import io.nosqlbench.nbvectors.api.noncore.Sized;
 
 import java.io.BufferedInputStream;
 import java.io.DataInputStream;

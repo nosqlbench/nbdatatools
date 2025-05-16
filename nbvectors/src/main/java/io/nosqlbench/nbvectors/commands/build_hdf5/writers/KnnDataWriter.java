@@ -23,7 +23,7 @@ import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.api.WritableDataset;
 import io.jhdf.api.WritableNode;
-import io.nosqlbench.nbvectors.api.fileio.Sized;
+import io.nosqlbench.nbvectors.api.noncore.Sized;
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.spec.attributes.BaseVectorAttributes;
 import io.nosqlbench.vectordata.spec.attributes.NeighborDistancesAttributes;

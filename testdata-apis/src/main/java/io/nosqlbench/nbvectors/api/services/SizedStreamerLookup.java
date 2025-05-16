@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.api.services;
  */
 
 
-import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
+import io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStream;
 
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -29,8 +29,8 @@ import java.util.stream.StreamSupport;
 /// It allows finding readers based on their DataType and Selector annotations.
 public class SizedStreamerLookup {
 
-    private static final ServiceLoader<SizedVectorStreamReader> serviceLoader = ServiceLoader.load(
-        SizedVectorStreamReader.class);
+    private static final ServiceLoader<BoundedVectorFileStream> serviceLoader = ServiceLoader.load(
+        BoundedVectorFileStream.class);
 
     /// Finds a SizedReader implementation that matches the specified encoding and dataType.
     ///
@@ -39,16 +39,16 @@ public class SizedStreamerLookup {
     /// @param <T> The type of data read by the SizedReader
     /// @return An Optional containing the matching SizedReader, or empty if none found
     @SuppressWarnings("unchecked")
-    public static <T> Optional<SizedVectorStreamReader<T>> findReader(FileType encoding, Class<T> dataType) {
+    public static <T> Optional<BoundedVectorFileStream<T>> findReader(FileType encoding, Class<T> dataType) {
         return providers()
             .filter(provider -> matchesEncoding(provider, encoding) && matchesDataType(provider, dataType))
             .findFirst()
             .map(ServiceLoader.Provider::get)
-            .map(reader -> (SizedVectorStreamReader<T>) reader);
+            .map(reader -> (BoundedVectorFileStream<T>) reader);
     }
 
     private static boolean matchesEncoding(
-        ServiceLoader.Provider<SizedVectorStreamReader> provider,
+        ServiceLoader.Provider<BoundedVectorFileStream> provider,
         FileType encoding
     )
     {
@@ -68,7 +68,7 @@ public class SizedStreamerLookup {
     /// @param <T> The type of data read by the SizedReader
     /// @return An Optional containing the matching SizedReader, or empty if none found
     @SuppressWarnings("unchecked")
-    public static <T> Optional<SizedVectorStreamReader<T>> findReader(String encodingName, Class<T> dataType) {
+    public static <T> Optional<BoundedVectorFileStream<T>> findReader(String encodingName, Class<T> dataType) {
         try {
             FileType encoding = FileType.valueOf(encodingName.toLowerCase());
             return findReader(encoding, dataType);
@@ -83,7 +83,7 @@ public class SizedStreamerLookup {
     /// Returns a stream of all available SizedReader providers.
     ///
     /// @return A stream of ServiceLoader.Provider<SizedReader>
-    private static Stream<ServiceLoader.Provider<SizedVectorStreamReader>> providers() {
+    private static Stream<ServiceLoader.Provider<BoundedVectorFileStream>> providers() {
         return StreamSupport.stream(serviceLoader.stream().spliterator(), false);
     }
     
@@ -91,7 +91,7 @@ public class SizedStreamerLookup {
     /// @param provider The SizedReader provider to check
     /// @param dataType The data type class to match
     /// @return true if the provider has a matching DataType annotation, false otherwise
-    private static boolean matchesDataType(ServiceLoader.Provider<SizedVectorStreamReader> provider, Class<?> dataType) {
+    private static boolean matchesDataType(ServiceLoader.Provider<BoundedVectorFileStream> provider, Class<?> dataType) {
         Class<?> type = provider.type();
         DataType dataTypeAnnotation = type.getAnnotation(DataType.class);
         return dataTypeAnnotation != null && dataTypeAnnotation.value().equals(dataType);

@@ -18,12 +18,11 @@ package io.nosqlbench.readers;
  */
 
 
-import io.nosqlbench.nbvectors.api.fileio.ImmutableListIterator;
-import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
+import io.nosqlbench.nbvectors.api.noncore.ImmutableListIterator;
+import io.nosqlbench.nbvectors.api.noncore.VectorRandomAccessReader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -179,8 +178,5 @@ public class ImmutableListIteratorTest {
             return "TestSizedReader";
         }
 
-        @Override
-        public void open(Path filePath) {
-        }
     }
 }

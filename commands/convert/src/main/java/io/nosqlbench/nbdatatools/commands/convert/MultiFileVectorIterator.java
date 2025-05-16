@@ -1,6 +1,6 @@
 package io.nosqlbench.nbdatatools.commands.convert;
 
-import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
+import io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbvectors.api.services.FileType;
 import io.nosqlbench.nbvectors.api.services.SizedStreamerLookup;
 import org.apache.logging.log4j.LogManager;
@@ -22,7 +22,7 @@ public class MultiFileVectorIterator implements Iterator<float[]> {
     private final List<Path> inputPaths;
     private int currentFileIndex = 0;
     private Iterator<float[]> currentIterator = null;
-    private SizedVectorStreamReader currentStreamer = null;
+    private BoundedVectorFileStream currentStreamer = null;
     private final int dimension;
     private final boolean verbose;
     private long totalVectorsRead = 0;

@@ -22,7 +22,7 @@ import io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration.FlatteningItera
 import io.nosqlbench.nbvectors.datasource.parquet.ParquetVectorsReader;
 import io.nosqlbench.nbvectors.datasource.parquet.layout.PathBinning;
 import io.nosqlbench.nbvectors.datasource.parquet.layout.PathsSorter;
-import io.nosqlbench.nbvectors.api.fileio.Sized;
+import io.nosqlbench.nbvectors.api.noncore.Sized;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

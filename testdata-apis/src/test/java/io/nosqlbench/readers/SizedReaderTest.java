@@ -18,14 +18,21 @@ package io.nosqlbench.readers;
  */
 
 
-import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
+import io.nosqlbench.nbvectors.api.noncore.VectorRandomAccessReader;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SizedReaderTest {
 
@@ -197,8 +204,5 @@ public class SizedReaderTest {
             return "TestSizedReader";
         }
 
-        @Override
-        public void open(Path filePath) {
-        }
     }
 }

@@ -17,7 +17,10 @@
 
 package io.nosqlbench.nbvectors.commands.generate.commands;
 
-import io.nosqlbench.nbvectors.api.fileio.TestUtils;
+import io.nosqlbench.nbvectors.api.commands.TestUtils;
+import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
+import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
+import io.nosqlbench.nbvectors.api.services.FileType;
 import io.nosqlbench.readers.UniformFvecReader;
 import io.nosqlbench.readers.UniformIvecReader;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,19 +90,31 @@ public class FvecExtractTest {
     assertThat(Files.exists(outputFile)).isTrue();
 
     // Verify the content of the output file using try-with-resources
-    try (UniformFvecReader reader = new UniformFvecReader(outputFile);
-         UniformIvecReader ivecReader = new UniformIvecReader(indexFile);
-         UniformFvecReader originalReader = new UniformFvecReader(fvecFile)) {
-        
+    try (VectorFileArray<float[]> reader = VectorFileIO.vectorFileArray(
+        FileType.xvec,
+        float[].class,
+        outputFile
+    );
+         VectorFileArray<int[]> ivecReader = VectorFileIO.vectorFileArray(
+             FileType.xvec,
+             int[].class,
+             indexFile
+         );
+         VectorFileArray<float[]> originalReader = VectorFileIO.vectorFileArray(
+             FileType.xvec,
+             float[].class,
+             fvecFile
+         ))
+    {
+
       assertThat(reader.getSize()).isEqualTo(NUM_INDICES);
-      assertThat(reader.getDimension()).isEqualTo(DIMENSION);
-  
+
       // Verify that the extracted vectors match those from the source file
       for (int i = 0; i < NUM_INDICES; i++) {
         int index = ivecReader.get(i)[0];
         float[] originalVector = originalReader.get(index);
         float[] extractedVector = reader.get(i);
-  
+
         assertThat(extractedVector).isEqualTo(originalVector);
       }
     }
@@ -130,7 +145,12 @@ public class FvecExtractTest {
     assertThat(exitCode).isEqualTo(0);
 
     // Verify the content of the output file using try-with-resources
-    try (UniformFvecReader reader = new UniformFvecReader(outputFile)) {
+    try (VectorFileArray reader = VectorFileIO.vectorFileArray(
+        FileType.xvec,
+        float[].class,
+        outputFile
+    ))
+    {
       assertThat(reader.getSize()).isEqualTo(partialCount);
     }
   }
@@ -190,13 +210,13 @@ public class FvecExtractTest {
       dos.writeInt(1); // Dimension of 1
       dos.writeFloat(999.0f); // Dummy data
     }
-    
+
     // Verify the initial file size is non-zero
     assertThat(Files.size(outputFile)).isGreaterThan(0);
-  
+
     FvecExtract command = new FvecExtract();
     CommandLine cmd = new CommandLine(command);
-  
+
     // Act - run without force flag
     int exitCode = cmd.execute(
         "--ivec-file",
@@ -208,12 +228,12 @@ public class FvecExtractTest {
         "--range",
         "0.." + (NUM_INDICES - 1)
     );
-  
+
     // Assert - command should fail without force flag
     assertThat(exitCode).isEqualTo(1);
     // File should still exist with original content
     assertThat(Files.exists(outputFile)).isTrue();
-  
+
     // Act - run with force flag
     command = new FvecExtract();
     cmd = new CommandLine(command);
@@ -228,25 +248,38 @@ public class FvecExtractTest {
         "0.." + (NUM_INDICES - 1),
         "--force"
     );
-  
+
     // Assert - command should succeed with force flag
     assertThat(exitCode).isEqualTo(0);
     assertThat(Files.exists(outputFile)).isTrue();
-    
+
     // Verify the content of the output file after successful overwrite using nested try-with-resources
-    try (UniformFvecReader reader = new UniformFvecReader(outputFile);
-         UniformFvecReader originalReader = new UniformFvecReader(fvecFile);
-         UniformIvecReader ivecReader = new UniformIvecReader(indexFile)) {
-      
+    try (VectorFileArray<float[]> reader = VectorFileIO.vectorFileArray(
+        FileType.xvec,
+        float[].class,
+        outputFile
+    );
+         VectorFileArray<float[]> originalReader = VectorFileIO.vectorFileArray(
+             FileType.xvec,
+             float[].class,
+             fvecFile
+         );
+         VectorFileArray<int[]> ivecReader = VectorFileIO.vectorFileArray(
+             FileType.xvec,
+             int[].class,
+             indexFile
+         ))
+    {
+
       assertThat(reader.getSize()).isEqualTo(NUM_INDICES);
-      assertThat(reader.getDimension()).isEqualTo(DIMENSION);
-      
+      assertThat(reader.get(0).length).isEqualTo(DIMENSION);
+
       // Verify that the extracted vectors match those from the source file
       for (int i = 0; i < NUM_INDICES; i++) {
         int index = ivecReader.get(i)[0];
         float[] originalVector = originalReader.get(index);
         float[] extractedVector = reader.get(i);
-        
+
         assertThat(extractedVector).isEqualTo(originalVector);
       }
     }
@@ -258,7 +291,7 @@ public class FvecExtractTest {
     // Arrange
     FvecExtract command = new FvecExtract();
     CommandLine cmd = new CommandLine(command);
-  
+
     // Act
     int exitCode = cmd.execute(
         "--ivec-file",
@@ -271,14 +304,19 @@ public class FvecExtractTest {
         "0.." + (NUM_INDICES + 5),
         "--force"
     );
-  
+
     // Assert
     // The command should succeed but with a warning about truncating the range
     assertThat(exitCode).isEqualTo(0);
     assertThat(Files.exists(outputFile)).isTrue();
-    
+
     // Verify the content has only NUM_INDICES vectors
-    try (UniformFvecReader reader = new UniformFvecReader(outputFile)) {
+    try (VectorFileArray<float[]> reader = VectorFileIO.vectorFileArray(
+        FileType.csv,
+        float[].class,
+        outputFile
+    ))
+    {
       assertThat(reader.getSize()).isEqualTo(NUM_INDICES);
     } catch (Exception e) {
       fail("Could not read output file", e);
@@ -291,7 +329,7 @@ public class FvecExtractTest {
     // Arrange
     FvecExtract command = new FvecExtract();
     CommandLine cmd = new CommandLine(command);
-  
+
     // Act
     int exitCode = cmd.execute(
         "--ivec-file",
@@ -343,54 +381,73 @@ public class FvecExtractTest {
     assertThat(exitCode).isEqualTo(1);
     assertThat(Files.exists(outputFile)).isFalse();
   }
-  
+
   /// Test with custom range values including non-zero starting indices
   @Test
   void testCustomRanges() throws Exception {
     // Arrange - create a command with a non-zero starting range
     FvecExtract command = new FvecExtract();
     CommandLine cmd = new CommandLine(command);
-  
+
     // Act - extract indices 3 to 7 (5 vectors)
     int exitCode = cmd.execute(
-        "--ivec-file", indexFile.toString(),
-        "--fvec-file", fvecFile.toString(),
-        "--output", outputFile.toString(),
-        "--range", "3..7",
+        "--ivec-file",
+        indexFile.toString(),
+        "--fvec-file",
+        fvecFile.toString(),
+        "--output",
+        outputFile.toString(),
+        "--range",
+        "3..7",
         "--force"
     );
-  
+
     // Assert
     assertThat(exitCode).isEqualTo(0);
     assertThat(Files.exists(outputFile)).isTrue();
-    
+
     // Verify the file contains 5 vectors (indices 3,4,5,6,7)
-    try (UniformFvecReader reader = new UniformFvecReader(outputFile)) {
+    try (VectorFileArray<float[]> reader = VectorFileIO.vectorFileArray(
+        FileType.xvec,
+        float[].class,
+        outputFile
+    ))
+    {
       // Each vector is stored with its dimension header (4 bytes) + dimension*4 bytes
       // so the size should be 5 vectors
       assertThat(reader.getSize()).isEqualTo(5);
     }
-    
+
     // Test with a range that exceeds the available indices
     command = new FvecExtract();
     cmd = new CommandLine(command);
     Path largeRangeOutput = tempDir.resolve("large_range.fvec");
-    
+
     // Define a range that is definitely larger than our test file
     exitCode = cmd.execute(
-        "--ivec-file", indexFile.toString(),
-        "--fvec-file", fvecFile.toString(),
-        "--output", largeRangeOutput.toString(),
-        "--range", "0..100", // NUM_INDICES is 10, so this exceeds it
+        "--ivec-file",
+        indexFile.toString(),
+        "--fvec-file",
+        fvecFile.toString(),
+        "--output",
+        largeRangeOutput.toString(),
+        "--range",
+        "0..100",
+        // NUM_INDICES is 10, so this exceeds it
         "--force"
     );
-    
+
     // The command should succeed with warnings about truncating the range
     assertThat(exitCode).isEqualTo(0);
     assertThat(Files.exists(largeRangeOutput)).isTrue();
-    
+
     // Verify the output contains only NUM_INDICES vectors
-    try (UniformFvecReader reader = new UniformFvecReader(largeRangeOutput)) {
+    try (VectorFileArray<float[]> reader = VectorFileIO.vectorFileArray(
+        FileType.xvec,
+        float[].class,
+        largeRangeOutput
+    ))
+    {
       assertThat(reader.getSize()).isEqualTo(NUM_INDICES);
     }
   }

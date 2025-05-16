@@ -18,7 +18,7 @@ package io.nosqlbench.nbvectors.api.commands.jjq.bulkio.iteration;
  */
 
 
-import io.nosqlbench.nbvectors.api.fileio.Enumerated;
+import io.nosqlbench.nbvectors.api.noncore.Enumerated;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Iterator;

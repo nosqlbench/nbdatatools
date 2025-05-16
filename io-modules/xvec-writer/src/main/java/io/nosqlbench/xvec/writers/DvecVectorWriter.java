@@ -1,8 +1,8 @@
 package io.nosqlbench.xvec.writers;
 
+import io.nosqlbench.nbvectors.api.fileio.VectorFileStore;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
-import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.BufferedOutputStream;
@@ -19,7 +19,7 @@ import java.nio.file.Path;
  */
 @DataType(double[].class)
 @Encoding(FileType.xvec)
-public class DvecVectorWriter implements VectorWriter<double[]> {
+public class DvecVectorWriter implements VectorFileStore<double[]> {
 
     private BufferedOutputStream outputStream;
     private Integer dimension;

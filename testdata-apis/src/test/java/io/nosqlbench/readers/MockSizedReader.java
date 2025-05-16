@@ -20,7 +20,7 @@ package io.nosqlbench.readers;
 
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
-import io.nosqlbench.nbvectors.api.fileio.VectorRandomAccessReader;
+import io.nosqlbench.nbvectors.api.noncore.VectorRandomAccessReader;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.nio.file.Path;
@@ -89,7 +89,4 @@ public class MockSizedReader extends AbstractList<float[]> implements VectorRand
         return name;
     }
 
-    @Override
-    public void open(Path filePath) {
-    }
 }

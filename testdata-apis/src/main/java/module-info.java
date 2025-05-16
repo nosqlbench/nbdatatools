@@ -23,4 +23,5 @@ module testdata.apis {
   exports io.nosqlbench.nbvectors.api.fileio;
   exports io.nosqlbench.nbvectors.api.services;
   exports io.nosqlbench.nbvectors.api.commands;
+  exports io.nosqlbench.nbvectors.api.noncore;
 }

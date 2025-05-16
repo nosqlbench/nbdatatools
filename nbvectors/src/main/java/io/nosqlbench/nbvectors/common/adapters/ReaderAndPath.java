@@ -19,7 +19,7 @@ package io.nosqlbench.nbvectors.common.adapters;
 
 
 import io.nosqlbench.nbvectors.api.services.Encoding;
-import io.nosqlbench.nbvectors.api.fileio.SizedVectorStreamReader;
+import io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.nio.file.Path;
@@ -49,11 +49,11 @@ public record ReaderAndPath(String reader, Path source) {
     return extension[extension.length - 1];
   }
 
-  public <T> SizedVectorStreamReader<T> getSizedReader(Class<? extends T> type) {
-    ServiceLoader<SizedVectorStreamReader<T>> readers =
-        (ServiceLoader<SizedVectorStreamReader<T>>) ServiceLoader.load(type);
+  public <T> BoundedVectorFileStream<T> getSizedReader(Class<? extends T> type) {
+    ServiceLoader<BoundedVectorFileStream<T>> readers =
+        (ServiceLoader<BoundedVectorFileStream<T>>) ServiceLoader.load(type);
     Predicate<Class<?>> filter = encodingFilter(getEncodingType(reader));
-    ServiceLoader.Provider<SizedVectorStreamReader<T>> provider =
+    ServiceLoader.Provider<BoundedVectorFileStream<T>> provider =
         readers.stream().filter(s -> filter.test(s.type())).findFirst().orElseThrow();
     return provider.get();
   }

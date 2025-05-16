@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.api.fileio;
+package io.nosqlbench.nbvectors.api.commands;
 
 /*
  * Copyright (c) nosqlbench

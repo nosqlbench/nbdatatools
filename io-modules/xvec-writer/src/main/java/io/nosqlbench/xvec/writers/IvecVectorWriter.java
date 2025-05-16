@@ -1,8 +1,8 @@
 package io.nosqlbench.xvec.writers;
 
+import io.nosqlbench.nbvectors.api.fileio.VectorFileStore;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
-import io.nosqlbench.nbvectors.api.fileio.VectorWriter;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.BufferedOutputStream;
@@ -19,7 +19,7 @@ import java.nio.file.Path;
  */
 @DataType(int[].class)
 @Encoding(FileType.xvec)
-public class IvecVectorWriter implements VectorWriter<int[]> {
+public class IvecVectorWriter implements VectorFileStore<int[]> {
 
     private BufferedOutputStream outputStream;
     private Integer dimension;
@@ -38,6 +38,11 @@ public class IvecVectorWriter implements VectorWriter<int[]> {
         } catch (IOException e) {
             throw new RuntimeException("Failed to open file for writing: " + path, e);
         }
+    }
+
+    @Override
+    public void flush() {
+
     }
 
     @Override
