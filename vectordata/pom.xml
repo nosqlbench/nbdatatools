@@ -17,7 +17,6 @@
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
   <properties>
-    <revision>0.1.4-SNAPSHOT</revision>
     <maven.compiler.source>23</maven.compiler.source>
     <maven.compiler.target>23</maven.compiler.target>
     <maven.compiler.release>23</maven.compiler.release>

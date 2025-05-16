@@ -1,0 +1,303 @@
+package io.nosqlbench.nbvectors.commands.merkle;
+
+/*
+ * Copyright (c) nosqlbench
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class CMD_merkleTest {
+
+  @TempDir
+  Path tempDir;
+
+  @Test
+  public void testCreateMerkleFile() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 3 + 512); // 3.5MB (not a multiple of 1MB)
+
+    // Create a Merkle file for the test file
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, 1048576); // 1MB chunk size
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+  }
+
+  @Test
+  public void testSkipUpToDateMerkleFile() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
+
+    // Create a Merkle file for the test file
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, 1048576); // 1MB chunk size
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Ensure the Merkle file is newer than the source file
+    // Set the last modified time of the Merkle file to be 1 second later than the source file
+    long sourceLastModified = Files.getLastModifiedTime(testFile).toMillis();
+    Files.setLastModifiedTime(merkleFile, java.nio.file.attribute.FileTime.fromMillis(sourceLastModified + 1000));
+
+    // Create a MerkleCommand to test the CreateCommand implementation
+    MerkleCommand createCommand = MerkleCommand.findByName("create");
+    assertNotNull(createCommand, "Create command should be found");
+
+    // Execute the command with force=false
+    // The command should skip the file since the Merkle file is newer
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false, false);
+    assertTrue(success, "Command should succeed even when skipping files");
+
+    // The Merkle file's last modified time should not have changed
+    long merkleLastModifiedAfter = Files.getLastModifiedTime(merkleFile).toMillis();
+    assertEquals(sourceLastModified + 1000, merkleLastModifiedAfter,
+                "Merkle file should not have been updated");
+  }
+
+  @Test
+  public void testForceOverwriteUpToDateMerkleFile() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
+
+    // Create a Merkle file for the test file
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, 1048576); // 1MB chunk size
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Ensure the Merkle file is newer than the source file
+    // Set the last modified time of the Merkle file to be 1 second later than the source file
+    long sourceLastModified = Files.getLastModifiedTime(testFile).toMillis();
+    Files.setLastModifiedTime(merkleFile, java.nio.file.attribute.FileTime.fromMillis(sourceLastModified + 1000));
+    long originalMerkleLastModified = Files.getLastModifiedTime(merkleFile).toMillis();
+
+    // Create a MerkleCommand to test the CreateCommand implementation
+    MerkleCommand createCommand = MerkleCommand.findByName("create");
+    assertNotNull(createCommand, "Create command should be found");
+
+    // Add a small delay to ensure the timestamp will be different
+    Thread.sleep(1500);
+
+    // Execute the command with force=true
+    // The command should overwrite the file even though the Merkle file is newer
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, true, false);
+    assertTrue(success, "Command should succeed when forcing overwrite");
+
+    // The Merkle file's last modified time should have changed
+    long merkleLastModifiedAfter = Files.getLastModifiedTime(merkleFile).toMillis();
+    assertTrue(merkleLastModifiedAfter > originalMerkleLastModified,
+               "Merkle file should have been updated when using force option");
+  }
+
+  @Test
+  public void testDryRunOption() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
+
+    // Create a MerkleCommand to test the CreateCommand implementation
+    MerkleCommand createCommand = MerkleCommand.findByName("create");
+    assertNotNull(createCommand, "Create command should be found");
+
+    // Execute the command with dryrun=true
+    // The command should not create any Merkle files
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false, true);
+    assertTrue(success, "Command should succeed in dry run mode");
+
+    // Verify no Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertFalse(Files.exists(merkleFile), "Merkle file should not be created in dry run mode");
+
+    // Now run without dryrun to create the file
+    success = createCommand.execute(java.util.List.of(testFile), 1048576, false, false);
+    assertTrue(success, "Command should succeed");
+
+    // Verify the Merkle file was created
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Set the last modified time of the Merkle file to be 1 second later than the source file
+    long sourceLastModified = Files.getLastModifiedTime(testFile).toMillis();
+    Files.setLastModifiedTime(merkleFile, java.nio.file.attribute.FileTime.fromMillis(sourceLastModified + 1000));
+
+    // Run with dryrun again - should report that it would skip the file
+    success = createCommand.execute(java.util.List.of(testFile), 1048576, false, true);
+    assertTrue(success, "Command should succeed in dry run mode");
+
+    // The Merkle file's last modified time should not have changed
+    long merkleLastModifiedAfter = Files.getLastModifiedTime(merkleFile).toMillis();
+    assertEquals(sourceLastModified + 1000, merkleLastModifiedAfter,
+                "Merkle file should not have been updated in dry run mode");
+  }
+
+  @Test
+  @Disabled
+  public void testCorruptedMerkleFileIsRecreated() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
+
+    // Create a Merkle file for the test file
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, 1048576); // 1MB chunk size
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Ensure the Merkle file is newer than the source file
+    // Set the last modified time of the Merkle file to be 1 second later than the source file
+    long sourceLastModified = Files.getLastModifiedTime(testFile).toMillis();
+    Files.setLastModifiedTime(merkleFile, java.nio.file.attribute.FileTime.fromMillis(sourceLastModified + 1000));
+    long originalMerkleLastModified = Files.getLastModifiedTime(merkleFile).toMillis();
+
+    // Corrupt the Merkle file by writing random data to it
+    byte[] corruptData = new byte[100];
+    java.util.Random random = new java.util.Random();
+    random.nextBytes(corruptData);
+    Files.write(merkleFile, corruptData);
+
+    // Verify the file is now corrupted
+    assertFalse(cmd.verifyMerkleFileIntegrity(merkleFile), "Merkle file should be detected as corrupted");
+
+    // Add a small delay to ensure the timestamp will be different
+    Thread.sleep(1500);
+
+    // Execute the command with force=false
+    // The command should recreate the file even though it's newer, because it's corrupted
+    MerkleCommand createCommand = MerkleCommand.findByName("create");
+    assertNotNull(createCommand, "Create command should be found");
+    boolean success = createCommand.execute(java.util.List.of(testFile), 1048576, false,false);
+    assertTrue(success, "Command should succeed when recreating corrupted Merkle file");
+
+    // The Merkle file's last modified time should have changed
+    long merkleLastModifiedAfter = Files.getLastModifiedTime(merkleFile).toMillis();
+    assertTrue(merkleLastModifiedAfter > originalMerkleLastModified,
+               "Merkle file should have been updated when corrupted");
+
+    // Verify the file is now valid
+    assertTrue(cmd.verifyMerkleFileIntegrity(merkleFile), "Recreated Merkle file should be valid");
+  }
+
+  @Test
+  public void testExpandDirectoriesWithDefaultExtensions() throws IOException {
+    // Create test files with various extensions
+    Path ivecFile = tempDir.resolve("test.ivec");
+    Path ivecsFile = tempDir.resolve("test.ivecs");
+    Path fvecFile = tempDir.resolve("test.fvec");
+    Path fvecsFile = tempDir.resolve("test.fvecs");
+    Path bvecFile = tempDir.resolve("test.bvec");
+    Path bvecsFile = tempDir.resolve("test.bvecs");
+    Path hdf5File = tempDir.resolve("test.hdf5");
+    Path txtFile = tempDir.resolve("test.txt"); // Not in default extensions
+
+    // Create all the files
+    Files.createFile(ivecFile);
+    Files.createFile(ivecsFile);
+    Files.createFile(fvecFile);
+    Files.createFile(fvecsFile);
+    Files.createFile(bvecFile);
+    Files.createFile(bvecsFile);
+    Files.createFile(hdf5File);
+    Files.createFile(txtFile);
+
+    // Test with a single directory and no extensions
+    List<Path> paths = new ArrayList<>();
+    paths.add(tempDir);
+
+    List<Path> expandedFiles = CMD_merkle.expandDirectoriesWithExtensions(paths);
+
+    // Should find 7 files with default extensions
+    assertEquals(7, expandedFiles.size(), "Should find 7 files with default extensions");
+
+    // Verify all default extension files are included
+    assertTrue(expandedFiles.contains(ivecFile), ".ivec file should be included");
+    assertTrue(expandedFiles.contains(ivecsFile), ".ivecs file should be included");
+    assertTrue(expandedFiles.contains(fvecFile), ".fvec file should be included");
+    assertTrue(expandedFiles.contains(fvecsFile), ".fvecs file should be included");
+    assertTrue(expandedFiles.contains(bvecFile), ".bvec file should be included");
+    assertTrue(expandedFiles.contains(bvecsFile), ".bvecs file should be included");
+    assertTrue(expandedFiles.contains(hdf5File), ".hdf5 file should be included");
+
+    // Verify non-default extension file is not included
+    assertFalse(expandedFiles.contains(txtFile), ".txt file should not be included");
+  }
+
+  /**
+   * Creates a test file with the specified size
+   * @param size Size of the file in bytes
+   * @return Path to the created file
+   * @throws IOException If an error occurs creating the file
+   */
+  private Path createTestFile(int size) throws IOException {
+    Path testFile = tempDir.resolve("test-file.dat");
+    byte[] data = new byte[size];
+    // Fill with some pattern data
+    for (int i = 0; i < size; i++) {
+      data[i] = (byte)(i % 256);
+    }
+    Files.write(testFile, data);
+    return testFile;
+  }
+
+  @Test
+  public void testSummaryCommandWithMerkleFile() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
+
+    // Create a Merkle file for the test file
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, 1048576); // 1MB chunk size
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Create a reference file by copying the Merkle file
+    Path refFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MREF);
+    Files.copy(merkleFile, refFile);
+    assertTrue(Files.exists(refFile), "Reference file should be created");
+
+    // Test summary command with the original file
+    MerkleCommand summaryCommand = MerkleCommand.findByName("summary");
+    assertNotNull(summaryCommand, "Summary command should be found");
+
+    boolean success = summaryCommand.execute(List.of(testFile), 1048576, false, true);
+    assertTrue(success, "Summary command should succeed with original file");
+
+    // Test summary command with the Merkle file directly
+    success = summaryCommand.execute(List.of(merkleFile), 1048576, false, true);
+    assertTrue(success, "Summary command should succeed with Merkle file");
+
+    // Test summary command with the reference file directly
+    success = summaryCommand.execute(List.of(refFile), 1048576, false, true);
+    assertTrue(success, "Summary command should succeed with reference file");
+  }
+}

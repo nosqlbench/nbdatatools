@@ -21,16 +21,250 @@
     <maven.compiler.source>22</maven.compiler.source>
     <maven.compiler.target>22</maven.compiler.target>
     <maven.compiler.release>22</maven.compiler.release>
-    <revision>0.1.4-SNAPSHOT</revision>
   </properties>
 
   <modules>
     <module>hugging_dl</module>
     <module>convert</module>
+    <module>command-bundler</module>
+    <module>template</module>
+    <module>build_hdf5</module>
+    <module>catalog_hdf5</module>
+    <module>clean_fvec</module>
+    <module>datasets</module>
+    <module>export_hdf5</module>
+    <module>export_json</module>
+    <module>fletcher</module>
+    <module>generate</module>
+    <module>jjq</module>
+    <module>merkle</module>
+    <module>mktestdata</module>
+    <module>show_hdf5</module>
+    <module>verify_knn</module>
   </modules>
 
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>2.18.3</version>
+        <scope>compile</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>io.jhdf</groupId>
+        <artifactId>jhdf</artifactId>
+        <version>0.9.2</version>
+        <exclusions>
+          <exclusion>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>io.nosqlbench</groupId>
+        <artifactId>testdata-apis</artifactId>
+        <version>${revision}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.nosqlbench</groupId>
+        <artifactId>vectordata</artifactId>
+        <version>${revision}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>net.thisptr</groupId>
+        <artifactId>jackson-jq</artifactId>
+        <version>1.2.0</version>
+      </dependency>
+
+      <!-- Apache Commons RNG - High quality PRNGs -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-rng-core</artifactId>
+        <version>1.6</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-rng-simple</artifactId>
+        <version>1.6</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-rng-sampling</artifactId>
+        <version>1.6</version>
+      </dependency>
+
+      <!--    <dependency>-->
+      <!--      <groupId>com.github.haifengl</groupId>-->
+      <!--      <artifactId>smile-core</artifactId>-->
+      <!--      <version>4.2.0</version>-->
+      <!--    </dependency>-->
+      <!--&lt;!&ndash;    <dependency>&ndash;&gt;-->
+      <!--&lt;!&ndash;      <groupId>com.github.haifengl</groupId>&ndash;&gt;-->
+      <!--&lt;!&ndash;      <artifactId>smile-data</artifactId>&ndash;&gt;-->
+      <!--&lt;!&ndash;      <version>2.6.0</version>&ndash;&gt;-->
+      <!--&lt;!&ndash;    </dependency>&ndash;&gt;-->
+      <!--    <dependency>-->
+      <!--      <groupId>com.github.haifengl</groupId>-->
+      <!--      <artifactId>smile-base</artifactId>-->
+      <!--      <version>4.2.0</version>-->
+      <!--    </dependency>-->
+      <!--    <dependency>-->
+      <!--      <groupId>com.github.haifengl</groupId>-->
+      <!--      <artifactId>smile-io</artifactId>-->
+      <!--      <version>2.6.0</version>-->
+      <!--    </dependency>-->
+
+
+      <dependency>
+        <groupId>info.picocli</groupId>
+        <artifactId>picocli</artifactId>
+        <version>4.7.6</version>
+      </dependency>
+      <dependency>
+        <groupId>info.picocli</groupId>
+        <artifactId>picocli-codegen</artifactId>
+        <version>4.7.6</version>
+      </dependency>
+
+
+      <!--    <dependency>-->
+      <!--      <groupId>org.apache.logging.log4j</groupId>-->
+      <!--      <artifactId>log4j-slf4j2-impl</artifactId>-->
+      <!--      <version>2.24.3</version>-->
+      <!--    </dependency>-->
+      <!--    <dependency>-->
+      <!--      <groupId>org.slf4j</groupId>-->
+      <!--      <artifactId>slf4j-api</artifactId>-->
+      <!--      <version>2.0.16</version>-->
+      <!--    </dependency>-->
+
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-collections4</artifactId>
+        <version>4.4</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.snakeyaml</groupId>
+        <artifactId>snakeyaml-engine</artifactId>
+        <version>2.9</version>
+      </dependency>
+
+      <!--    <dependency>-->
+      <!--      <groupId>org.apache.lucene</groupId>-->
+      <!--      <artifactId>lucene-core</artifactId>-->
+      <!--      <version>10.1.0</version>-->
+      <!--    </dependency>-->
+      <!--    &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.lucene/lucene-analysis-common &ndash;&gt;-->
+      <!--    <dependency>-->
+      <!--      <groupId>org.apache.lucene</groupId>-->
+      <!--      <artifactId>lucene-analysis-common</artifactId>-->
+      <!--      <version>10.1.0</version>-->
+      <!--    </dependency>-->
+
+      <!--    For progress bars only -->
+      <!--    <dependency>-->
+      <!--      <groupId>me.tongfei</groupId>-->
+      <!--      <artifactId>progressbar</artifactId>-->
+      <!--      <version>0.10.0</version>-->
+      <!--    </dependency>-->
+
+      <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.client5</groupId>
+        <artifactId>httpclient5</artifactId>
+        <version>5.4.3</version>
+      </dependency>
+      <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5-fluent -->
+      <dependency>
+        <groupId>org.apache.httpcomponents.client5</groupId>
+        <artifactId>httpclient5-fluent</artifactId>
+        <version>5.4.3</version>
+      </dependency>
+      <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>okhttp</artifactId>
+        <version>4.12.0</version>
+      </dependency>
+
+
+      <!--    &lt;!&ndash; ND4J CUDA dependency &ndash;&gt;-->
+      <!--    <dependency>-->
+      <!--      <groupId>org.nd4j</groupId>-->
+      <!--      <artifactId>nd4j-cuda-11.6-platform</artifactId>-->
+      <!--      <version>${nd4j.version}</version>-->
+      <!--    </dependency>-->
+
+      <!--    &lt;!&ndash; ND4J Arrow integration &ndash;&gt;-->
+      <!--    <dependency>-->
+      <!--      <groupId>org.nd4j</groupId>-->
+      <!--      <artifactId>nd4j-arrow</artifactId>-->
+      <!--      <version>${nd4j.version}</version>-->
+      <!--    </dependency>-->
+
+      <!--    <dependency>-->
+      <!--      <groupId>org.nd4j</groupId>-->
+      <!--      <artifactId>nd4j-native</artifactId>-->
+      <!--      <version>1.0.0-M2.1</version>-->
+      <!--    </dependency>-->
+      <!--    &lt;!&ndash; DataVec dependency for data processing &ndash;&gt;-->
+      <!--    <dependency>-->
+      <!--      <groupId>org.datavec</groupId>-->
+      <!--      <artifactId>datavec-api</artifactId>-->
+      <!--      <version>${nd4j.version}</version>-->
+      <!--    </dependency>-->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-rng-client-api</artifactId>
+        <version>1.6</version>
+      </dependency>
+      <dependency>
+        <groupId>io.nosqlbench</groupId>
+        <artifactId>xvec-writer</artifactId>
+        <version>${revision}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.nosqlbench</groupId>
+        <artifactId>xvec-reader</artifactId>
+        <version>${revision}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-math4-legacy</artifactId>
+        <version>4.0-beta1</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-math3</artifactId>
+        <version>3.6.1</version>
+        <scope>test</scope>
+      </dependency>
+
+    </dependencies>
+  </dependencyManagement>
   <build>
-    <!--    Plugin versions and default configuration are inherited -->
+    <!-- Plugin management for commands modules to ensure consistent compiler setup -->
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.0</version>
+          <configuration>
+            <proc>full</proc>
+            <release>22</release>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <!-- Plugin versions and default configuration are inherited -->
     <plugins>
       <plugin>
         <!--        <groupId>org.apache.maven.plugins</groupId>-->

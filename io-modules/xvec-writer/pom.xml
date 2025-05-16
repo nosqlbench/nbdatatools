@@ -17,10 +17,9 @@
   </parent>
 
   <properties>
-    <maven.compiler.source>22</maven.compiler.source>
-    <maven.compiler.target>22</maven.compiler.target>
-    <maven.compiler.release>22</maven.compiler.release>
-    <revision>0.1.4-SNAPSHOT</revision>
+    <maven.compiler.source>23</maven.compiler.source>
+    <maven.compiler.target>23</maven.compiler.target>
+    <maven.compiler.release>23</maven.compiler.release>
   </properties>
 
   <dependencies>
@@ -29,15 +28,15 @@
       <artifactId>vectordata</artifactId>
       <version>${revision}</version>
     </dependency>
-  
+
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>testdata-apis</artifactId>
-      <version>0.1.4-SNAPSHOT</version>
+      <version>${revision}</version>
     </dependency>
-  
+
   </dependencies>
-  
+
   <build>
     <plugins>
       <plugin>
@@ -45,7 +44,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <release>22</release>
+          <release>23</release>
         </configuration>
       </plugin>
     </plugins>

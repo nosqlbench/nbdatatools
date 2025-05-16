@@ -44,7 +44,18 @@ import java.util.regex.Pattern;
 @DataType(float[].class)
 public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
 
-  private  Path filePath;
+  /**
+   * Default constructor for SPI and reflective instantiation.
+   */
+  public CsvJsonArrayStreamer() {}
+  /**
+   * Convenience constructor: opens the given file immediately.
+   * @param path Path to CSV file containing JSON arrays
+   */
+  public CsvJsonArrayStreamer(Path path) {
+    open(path);
+  }
+  private Path filePath;
   private int vectorColumn = -1;
   private boolean firstLineIsData = false;
 

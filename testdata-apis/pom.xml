@@ -18,7 +18,6 @@
 
   <properties>
     <jline.version>3.28.0</jline.version>
-    <revision>0.1.4-SNAPSHOT</revision>
     <maven.compiler.source>23</maven.compiler.source>
     <maven.compiler.target>23</maven.compiler.target>
     <maven.compiler.release>23</maven.compiler.release>
@@ -163,7 +162,7 @@
                 <!--                  </message>-->
                 <!--                </requireProperty>-->
                 <requireJavaVersion>
-                  <version>[24,)</version>
+                  <version>[23,)</version>
                 </requireJavaVersion>
                 <!--                <dependencyConvergence>-->
                 <!--                </dependencyConvergence>-->
@@ -341,18 +340,6 @@
 
     </plugins>
 
-    <resources>
-      <resource>
-        <directory>src/main/resources</directory>
-        <includes>
-          <include>META-INF/services/**</include>
-          <!--          <include>META-INF/functions</include>-->
-          <!--          <include>data/**</include>-->
-          <!--          <include>docs-for-virtdata/**</include>-->
-          <!--          <include>docs/**</include>-->
-        </includes>
-      </resource>
-    </resources>
 
   </build>
 </project>

@@ -5,26 +5,34 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>convert</artifactId>
-  <groupId>io.nosqlbench</groupId>
-  <version>${revision}</version>
   <name>${project.artifactId}</name>
   <description>Hugging Face parquet downloader for nbvectors</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
+  <packaging>jar</packaging>
 
-  <properties>
-    <revision>0.1.4-SNAPSHOT</revision>
-    <maven.compiler.source>24</maven.compiler.source>
-    <maven.compiler.target>22</maven.compiler.target>
-    <maven.compiler.release>22</maven.compiler.release>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  </properties>
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <artifactId>commands</artifactId>
+    <version>${revision}</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
 
   <dependencies>
 
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>testdata-apis</artifactId>
-      <version>0.1.4-SNAPSHOT</version>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+      <version>4.7.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.24.3</version>
     </dependency>
 
     <dependency>
