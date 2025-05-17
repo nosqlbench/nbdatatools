@@ -19,7 +19,10 @@ package io.nosqlbench.nbvectors.api.commands;
 
 
 import java.io.DataOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -30,7 +33,7 @@ import java.util.Random;
  * Utility class for creating test ivec files with various configurations.
  */
 public class TestUtils {
-    
+
     /**
      * Creates a test ivec file with the specified number of vectors and dimensions.
      * All vectors will have the same dimension.
@@ -45,25 +48,34 @@ public class TestUtils {
     public static Path createUniformIvecFile(Path filePath, int numVectors, int dimensions, long seed) 
             throws IOException {
         Random random = new Random(seed);
-        
-        try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(filePath))) {
+
+        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
             // Write vectors with uniform dimensions
             for (int i = 0; i < numVectors; i++) {
-                dos.writeInt(dimensions);
+                // Allocate a ByteBuffer with little-endian byte order
+                ByteBuffer buffer = ByteBuffer.allocate(4 + dimensions * 4).order(ByteOrder.LITTLE_ENDIAN);
+
+                // Write dimension
+                buffer.putInt(dimensions);
+
+                // Write vector data
                 for (int j = 0; j < dimensions; j++) {
                     // For single-dimension index vectors, generate sequential indices
                     if (dimensions == 1) {
-                        dos.writeInt(i);
+                        buffer.putInt(i);
                     } else {
-                        dos.writeInt(random.nextInt(1000));
+                        buffer.putInt(random.nextInt(1000));
                     }
                 }
+
+                // Write buffer to file
+                fos.write(buffer.array());
             }
         }
-        
+
         return filePath;
     }
-    
+
     /**
      * Creates a test fvec file with the specified number of vectors and dimensions.
      * All vectors will have the same dimension.
@@ -78,20 +90,29 @@ public class TestUtils {
     public static Path createUniformFvecFile(Path filePath, int numVectors, int dimensions, long seed) 
             throws IOException {
         Random random = new Random(seed);
-        
-        try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(filePath))) {
+
+        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
             // Write vectors with uniform dimensions
             for (int i = 0; i < numVectors; i++) {
-                dos.writeInt(dimensions);
+                // Allocate a ByteBuffer with little-endian byte order
+                ByteBuffer buffer = ByteBuffer.allocate(4 + dimensions * 4).order(ByteOrder.LITTLE_ENDIAN);
+
+                // Write dimension
+                buffer.putInt(dimensions);
+
+                // Write vector data
                 for (int j = 0; j < dimensions; j++) {
-                    dos.writeFloat(random.nextFloat());
+                    buffer.putFloat(random.nextFloat());
                 }
+
+                // Write buffer to file
+                fos.write(buffer.array());
             }
         }
-        
+
         return filePath;
     }
-    
+
     /**
      * Creates a test ivec file with the specified number of vectors where
      * each vector can have a different dimension.
@@ -108,21 +129,31 @@ public class TestUtils {
                                                      int minDimensions, int maxDimensions, long seed) 
             throws IOException {
         Random random = new Random(seed);
-        
-        try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(filePath))) {
+
+        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
             // Write vectors with varying dimensions
             for (int i = 0; i < numVectors; i++) {
                 int dimensions = minDimensions + random.nextInt(maxDimensions - minDimensions + 1);
-                dos.writeInt(dimensions);
+
+                // Allocate a ByteBuffer with little-endian byte order
+                ByteBuffer buffer = ByteBuffer.allocate(4 + dimensions * 4).order(ByteOrder.LITTLE_ENDIAN);
+
+                // Write dimension
+                buffer.putInt(dimensions);
+
+                // Write vector data
                 for (int j = 0; j < dimensions; j++) {
-                    dos.writeInt(random.nextInt(1000));
+                    buffer.putInt(random.nextInt(1000));
                 }
+
+                // Write buffer to file
+                fos.write(buffer.array());
             }
         }
-        
+
         return filePath;
     }
-    
+
     /**
      * Creates a test ivec file where all vectors have the same dimension except for
      * one specified vector that has a different dimension.
@@ -141,21 +172,31 @@ public class TestUtils {
                                                        int outlierDimension, long seed) 
             throws IOException {
         Random random = new Random(seed);
-        
-        try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(filePath))) {
+
+        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
             // Write vectors with one outlier dimension
             for (int i = 0; i < numVectors; i++) {
                 int dimensions = (i == outlierIndex) ? outlierDimension : uniformDimension;
-                dos.writeInt(dimensions);
+
+                // Allocate a ByteBuffer with little-endian byte order
+                ByteBuffer buffer = ByteBuffer.allocate(4 + dimensions * 4).order(ByteOrder.LITTLE_ENDIAN);
+
+                // Write dimension
+                buffer.putInt(dimensions);
+
+                // Write vector data
                 for (int j = 0; j < dimensions; j++) {
-                    dos.writeInt(random.nextInt(1000));
+                    buffer.putInt(random.nextInt(1000));
                 }
+
+                // Write buffer to file
+                fos.write(buffer.array());
             }
         }
-        
+
         return filePath;
     }
-    
+
     /**
      * Creates a corrupt ivec file where the file size doesn't match what would be
      * expected based on the vector dimensions.
@@ -168,35 +209,48 @@ public class TestUtils {
     public static Path createCorruptIvecFile(Path filePath, boolean truncate, long seed) 
             throws IOException {
         Random random = new Random(seed);
-        
-        try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(filePath))) {
+
+        try (FileOutputStream fos = new FileOutputStream(filePath.toFile())) {
             // Write a few normal vectors
             int dimensions = 10;
             for (int i = 0; i < 3; i++) {
-                dos.writeInt(dimensions);
+                // Allocate a ByteBuffer with little-endian byte order
+                ByteBuffer buffer = ByteBuffer.allocate(4 + dimensions * 4).order(ByteOrder.LITTLE_ENDIAN);
+
+                // Write dimension
+                buffer.putInt(dimensions);
+
+                // Write vector data
                 for (int j = 0; j < dimensions; j++) {
-                    dos.writeInt(random.nextInt(1000));
+                    buffer.putInt(random.nextInt(1000));
                 }
+
+                // Write buffer to file
+                fos.write(buffer.array());
             }
-            
+
             // Add a partial vector to corrupt the file
             if (truncate) {
                 // Write dimension but not all the values
-                dos.writeInt(dimensions);
+                ByteBuffer buffer = ByteBuffer.allocate(4 + (dimensions - 2) * 4).order(ByteOrder.LITTLE_ENDIAN);
+                buffer.putInt(dimensions);
                 for (int j = 0; j < dimensions - 2; j++) {
-                    dos.writeInt(random.nextInt(1000));
+                    buffer.putInt(random.nextInt(1000));
                 }
+                fos.write(buffer.array());
             } else {
                 // Write extra bytes
+                ByteBuffer buffer = ByteBuffer.allocate(3 * 4).order(ByteOrder.LITTLE_ENDIAN);
                 for (int j = 0; j < 3; j++) {
-                    dos.writeInt(random.nextInt(1000));
+                    buffer.putInt(random.nextInt(1000));
                 }
+                fos.write(buffer.array());
             }
         }
-        
+
         return filePath;
     }
-    
+
     /**
      * Reads an ivec file and returns the expected vectors as float arrays.
      * This provides a reference implementation for testing.
@@ -207,23 +261,34 @@ public class TestUtils {
      */
     public static List<float[]> readExpectedVectors(Path filePath) throws IOException {
         List<float[]> vectors = new ArrayList<>();
-        
-        try (java.io.DataInputStream dis = new java.io.DataInputStream(Files.newInputStream(filePath))) {
-            while (dis.available() > 0) {
-                int dimension = dis.readInt();
-                float[] vector = new float[dimension];
-                
-                for (int i = 0; i < dimension; i++) {
-                    vector[i] = (float) dis.readInt();
-                }
-                
-                vectors.add(vector);
+
+        // Read the entire file into a byte array
+        byte[] fileBytes = Files.readAllBytes(filePath);
+        ByteBuffer buffer = ByteBuffer.wrap(fileBytes).order(ByteOrder.LITTLE_ENDIAN);
+
+        while (buffer.hasRemaining()) {
+            // Read dimension
+            int dimension = buffer.getInt();
+            if (dimension <= 0 || dimension > 10000) {
+                // Sanity check to avoid allocating huge arrays
+                throw new IOException("Invalid dimension: " + dimension);
             }
+
+            // Read vector data
+            float[] vector = new float[dimension];
+            for (int i = 0; i < dimension; i++) {
+                if (!buffer.hasRemaining()) {
+                    throw new IOException("Unexpected end of file");
+                }
+                vector[i] = (float) buffer.getInt();
+            }
+
+            vectors.add(vector);
         }
-        
+
         return vectors;
     }
-    
+
     /**
      * Compares two float arrays for equality within a small epsilon.
      * 
@@ -235,14 +300,14 @@ public class TestUtils {
         if (a.length != b.length) {
             return false;
         }
-        
+
         float epsilon = 1e-6f;
         for (int i = 0; i < a.length; i++) {
             if (Math.abs(a[i] - b[i]) > epsilon) {
                 return false;
             }
         }
-        
+
         return true;
     }
 }

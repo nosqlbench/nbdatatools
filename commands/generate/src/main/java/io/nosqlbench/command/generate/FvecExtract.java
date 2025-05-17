@@ -527,6 +527,8 @@ public class FvecExtract implements Callable<Integer> {
         // Initialize reader for fvec file
         fvecReader = VectorFileIO.vectorFileArray(FileType.xvec, float[].class, fvecPath);
 
+        fvecWriter = VectorFileIO.vectorFileStore(FileType.xvec, float[].class, outputPath).orElseThrow();
+
         // Get the sizes
         int ivecSize = ivecReader.getSize();
         int fvecSize = fvecReader.getSize();
