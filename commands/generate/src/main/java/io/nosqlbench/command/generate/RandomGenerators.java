@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.util;
+package io.nosqlbench.command.generate;
 
 /*
  * Copyright (c) nosqlbench

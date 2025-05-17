@@ -35,7 +35,7 @@
 /// - The user can specify the RNG implementation for a set of supported options.
 /// - The user can specify how many values should be generated.
 /// - The user can specify the output file name.
-package io.nosqlbench.command.generate.commands;
+package io.nosqlbench.command.generate;
 
 /*
  * Copyright (c) nosqlbench

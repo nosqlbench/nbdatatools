@@ -1,4 +1,4 @@
-package io.nosqlbench.command.generate.commands;
+package io.nosqlbench.command.generate;
 
 /*
  * Copyright (c) nosqlbench

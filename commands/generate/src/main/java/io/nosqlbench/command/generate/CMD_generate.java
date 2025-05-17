@@ -18,8 +18,6 @@ package io.nosqlbench.command.generate;
  */
 
 
-import io.nosqlbench.command.generate.commands.FvecExtract;
-import io.nosqlbench.command.generate.commands.IvecShuffle;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;

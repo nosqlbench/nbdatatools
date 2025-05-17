@@ -20,7 +20,7 @@ package io.nosqlbench.command.mktestdata;
 
 import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
 import io.nosqlbench.nbvectors.api.noncore.VectorRandomAccessReader;
-import io.nosqlbench.nbvectors.util.RandomGenerators;
+import io.nosqlbench.command.generate.RandomGenerators;
 import org.apache.commons.rng.RestorableUniformRandomProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

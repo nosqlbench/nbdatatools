@@ -15,9 +15,9 @@
  * under the License.
  */
 
-package io.nosqlbench.nbvectors.commands.generate.commands;
+package io.nosqlbench.nbvectors.commands.generate;
 
-import io.nosqlbench.command.generate.commands.IvecShuffle;
+import io.nosqlbench.command.generate.IvecShuffle;
 import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
 import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
 import io.nosqlbench.nbvectors.api.services.FileType;

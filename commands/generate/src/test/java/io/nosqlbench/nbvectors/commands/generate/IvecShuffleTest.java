@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.generate.commands;
+package io.nosqlbench.nbvectors.commands.generate;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,8 +18,8 @@ package io.nosqlbench.nbvectors.commands.generate.commands;
  */
 
 
-import io.nosqlbench.command.generate.commands.IvecShuffle;
-import io.nosqlbench.nbvectors.util.RandomGenerators;
+import io.nosqlbench.command.generate.IvecShuffle;
+import io.nosqlbench.command.generate.RandomGenerators;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;

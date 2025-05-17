@@ -1,4 +1,4 @@
-package io.nosqlbench.command.generate.commands;
+package io.nosqlbench.command.generate;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,7 +18,6 @@ package io.nosqlbench.command.generate.commands;
  */
 
 
-import io.nosqlbench.nbvectors.util.RandomGenerators;
 import org.apache.commons.rng.RestorableUniformRandomProvider;
 import picocli.CommandLine;
 

@@ -12,9 +12,9 @@
 
   <parent>
     <groupId>io.nosqlbench</groupId>
-    <artifactId>commands</artifactId>
+    <artifactId>mvn-defaults</artifactId>
     <version>${revision}</version>
-    <relativePath>../pom.xml</relativePath>
+    <relativePath>../../mvn-defaults</relativePath>
   </parent>
 
   <dependencies>

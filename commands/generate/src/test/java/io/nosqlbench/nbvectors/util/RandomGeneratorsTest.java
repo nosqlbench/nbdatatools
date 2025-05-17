@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.util;
  */
 
 
+import io.nosqlbench.command.generate.RandomGenerators;
 import org.apache.commons.rng.RandomProviderState;
 import org.apache.commons.rng.RestorableUniformRandomProvider;
 import org.apache.commons.rng.UniformRandomProvider;
