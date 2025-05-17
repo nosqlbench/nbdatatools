@@ -27,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -76,24 +77,24 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
         if (randomAccessFile.read(dimBytes) != 4) {
             throw new RuntimeException("Failed to read dimension from file: " + filePath);
         }
-        
-        // Convert bytes to integer (big-endian)
-        ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes);
+
+        // Convert bytes to integer (little-endian)
+        ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes).order(ByteOrder.LITTLE_ENDIAN);
         this.dimension = dimBuffer.getInt();
-        
+
         if (this.dimension <= 0) {
             throw new RuntimeException("Invalid dimension in file: " + this.dimension);
         }
-        
+
         // Calculate record size: 4 bytes for dimension + (dimension * 4 bytes for float values)
         this.recordSize = 4 + (dimension * 4);
-        
+
         // Calculate the total number of vectors in the file
         long fileSize = randomAccessFile.length();
         if (fileSize % recordSize != 0) {
             throw new RuntimeException("File size is not a multiple of record size. File may be corrupted.");
         }
-        
+
         this.size = (int) (fileSize / recordSize);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -111,30 +112,30 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
         if (index < 0 || index >= size) {
             throw new IndexOutOfBoundsException("Index " + index + " out of bounds for size " + size);
         }
-        
+
         try {
             // Calculate offset for the specific vector
             long offset = (long) index * recordSize;
             randomAccessFile.seek(offset);
-            
+
             // Skip the dimension field (we already know it)
             randomAccessFile.skipBytes(4);
-            
+
             // Read the vector values
             float[] vector = new float[dimension];
             byte[] buffer = new byte[dimension * 4];
             int bytesRead = randomAccessFile.read(buffer);
-            
+
             if (bytesRead != dimension * 4) {
                 throw new IOException("Failed to read vector data at index " + index);
             }
-            
-            // Convert bytes to float values (big-endian)
-            ByteBuffer floatBuffer = ByteBuffer.wrap(buffer);
+
+            // Convert bytes to float values (little-endian)
+            ByteBuffer floatBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
             for (int i = 0; i < dimension; i++) {
                 vector[i] = floatBuffer.getFloat(i * 4);
             }
-            
+
             return vector;
         } catch (IOException e) {
             throw new RuntimeException("Error reading vector at index " + index, e);
@@ -177,11 +178,11 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
         if (!(o instanceof float[] array)) {
             return false;
         }
-        
+
         if (array.length != dimension) {
             return false;
         }
-        
+
         // Linear search through all vectors
         for (int i = 0; i < size; i++) {
             float[] vector = get(i);
@@ -189,7 +190,7 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -198,7 +199,7 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
         if (!(o instanceof float[] array) || array.length != dimension) {
             return -1;
         }
-        
+
         // Linear search through all vectors
         for (int i = 0; i < size; i++) {
             float[] vector = get(i);
@@ -206,7 +207,7 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
                 return i;
             }
         }
-        
+
         return -1;
     }
 
@@ -215,7 +216,7 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
         if (!(o instanceof float[] array) || array.length != dimension) {
             return -1;
         }
-        
+
         // Linear search through all vectors in reverse
         for (int i = size - 1; i >= 0; i--) {
             float[] vector = get(i);
@@ -223,7 +224,7 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
                 return i;
             }
         }
-        
+
         return -1;
     }
 
@@ -253,13 +254,13 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
             // Make a new array of a's runtime type, but my contents:
             return (E[]) Arrays.copyOf(toArray(), size, a.getClass());
         }
-        
+
         System.arraycopy(toArray(), 0, a, 0, size);
-        
+
         if (a.length > size) {
             a[size] = null;
         }
-        
+
         return a;
     }
 
@@ -268,30 +269,30 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
         if (fromIndex < 0 || toIndex > size || fromIndex > toIndex) {
             throw new IndexOutOfBoundsException("fromIndex: " + fromIndex + ", toIndex: " + toIndex + ", size: " + size);
         }
-        
+
         // Create a view of a sublist - this doesn't copy the data
         return new SublistFvecReader(this, fromIndex, toIndex);
     }
-    
+
     /// Returns the dimension of vectors in this reader.
     ///
     /// @return The dimension of each vector
     public int getDimension() {
         return dimension;
     }
-    
+
     /// A view of a sublist of a FvecReader.
     private static class SublistFvecReader extends ImmutableSizedReader<float[]> {
         private final UniformFvecReader parent;
         private final int offset;
         private final int size;
-        
+
         public SublistFvecReader(UniformFvecReader parent, int fromIndex, int toIndex) {
             this.parent = parent;
             this.offset = fromIndex;
             this.size = toIndex - fromIndex;
         }
-        
+
         @Override
         public float[] get(int index) {
             if (index < 0 || index >= size) {
@@ -299,37 +300,37 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
             }
             return parent.get(offset + index);
         }
-        
+
         @Override
         public int size() {
             return size;
         }
-        
+
         @Override
         public int getSize() {
             return size;
         }
-        
+
         @Override
         public String getName() {
             return parent.getName() + "[" + offset + ":" + (offset + size) + "]";
         }
-        
+
         @Override
         public boolean isEmpty() {
             return size == 0;
         }
-        
+
         @Override
         public boolean contains(Object o) {
             if (!(o instanceof float[] array)) {
                 return false;
             }
-            
+
             if (array.length != parent.getDimension()) {
                 return false;
             }
-            
+
             // Linear search through this sublist's vectors
             for (int i = 0; i < size; i++) {
                 float[] vector = get(i);
@@ -337,16 +338,16 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
                     return true;
                 }
             }
-            
+
             return false;
         }
-        
+
         @Override
         public int indexOf(Object o) {
             if (!(o instanceof float[] array) || array.length != parent.getDimension()) {
                 return -1;
             }
-            
+
             // Linear search through this sublist's vectors
             for (int i = 0; i < size; i++) {
                 float[] vector = get(i);
@@ -354,16 +355,16 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
                     return i;
                 }
             }
-            
+
             return -1;
         }
-        
+
         @Override
         public int lastIndexOf(Object o) {
             if (!(o instanceof float[] array) || array.length != parent.getDimension()) {
                 return -1;
             }
-            
+
             // Linear search through this sublist's vectors in reverse
             for (int i = size - 1; i >= 0; i--) {
                 float[] vector = get(i);
@@ -371,19 +372,19 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
                     return i;
                 }
             }
-            
+
             return -1;
         }
-        
+
         @Override
         public List<float[]> subList(int fromIndex, int toIndex) {
             if (fromIndex < 0 || toIndex > size || fromIndex > toIndex) {
                 throw new IndexOutOfBoundsException("fromIndex: " + fromIndex + ", toIndex: " + toIndex + ", size: " + size);
             }
-            
+
             return parent.subList(offset + fromIndex, offset + toIndex);
         }
-        
+
         @Override
         public boolean containsAll(Collection<?> c) {
             for (Object o : c) {
@@ -393,7 +394,7 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
             }
             return true;
         }
-        
+
         @Override
         public Object[] toArray() {
             Object[] result = new Object[size];
@@ -402,7 +403,7 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
             }
             return result;
         }
-        
+
         @Override
         @SuppressWarnings("unchecked")
         public <E> E[] toArray(E[] a) {
@@ -410,13 +411,13 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
                 // Make a new array of a's runtime type, but my contents:
                 return (E[]) Arrays.copyOf(toArray(), size, a.getClass());
             }
-            
+
             System.arraycopy(toArray(), 0, a, 0, size);
-            
+
             if (a.length > size) {
                 a[size] = null;
             }
-            
+
             return a;
         }
     }

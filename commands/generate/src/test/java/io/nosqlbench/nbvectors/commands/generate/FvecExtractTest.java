@@ -27,7 +27,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -311,7 +314,7 @@ public class FvecExtractTest {
 
     // Verify the content has only NUM_INDICES vectors
     try (VectorFileArray<float[]> reader = VectorFileIO.vectorFileArray(
-        FileType.csv,
+        FileType.xvec,
         float[].class,
         outputFile
     ))
@@ -352,11 +355,20 @@ public class FvecExtractTest {
   void testOutOfBoundsIndices() throws IOException {
     // Arrange - create an ivec file with indices beyond the fvec size
     Path largeIndicesFile = tempDir.resolve("large_indices.ivec");
-    try (var dos = new java.io.DataOutputStream(Files.newOutputStream(largeIndicesFile))) {
+    try (FileOutputStream fos = new FileOutputStream(largeIndicesFile.toFile())) {
       // Write vectors with out-of-bounds indices
       for (int i = 0; i < 5; i++) {
-        dos.writeInt(1);
-        dos.writeInt(i + NUM_VECTORS); // These indices exceed the fvec size
+        // Allocate a ByteBuffer with little-endian byte order
+        ByteBuffer buffer = ByteBuffer.allocate(4 + 4).order(ByteOrder.LITTLE_ENDIAN);
+
+        // Write dimension (1)
+        buffer.putInt(1);
+
+        // Write index that exceeds the fvec size
+        buffer.putInt(i + NUM_VECTORS);
+
+        // Write buffer to file
+        fos.write(buffer.array());
       }
     }
 

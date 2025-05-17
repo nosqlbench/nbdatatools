@@ -24,6 +24,7 @@ import io.jhdf.api.Attribute;
 import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.vectordata.utils.SHARED;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vectordata.spec.predicates.PNode;
@@ -51,7 +52,7 @@ import java.util.concurrent.Callable;
     exitCodeList = {
         "0: no errors",
     }, subcommands = {CommandLine.HelpCommand.class})
-public class CMD_show_hdf5 implements Callable<Integer> {
+public class CMD_show_hdf5 implements Callable<Integer>, BundledCommand {
 
   private static final Logger logger = LogManager.getLogger(CMD_show_hdf5.class);
 

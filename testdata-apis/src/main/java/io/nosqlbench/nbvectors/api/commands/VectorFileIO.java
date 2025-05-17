@@ -219,7 +219,8 @@ public class VectorFileIO {
                     // Create a wrapper that adapts BoundedVectorFileStream to VectorFileArray
                     return new io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStreamAdapter<>(stream, aClass);
                 } catch (Exception e) {
-                    throw new RuntimeException("Failed to initialize vector file array", e);
+                    throw new RuntimeException("Failed to initialize vector file array:" + e.getMessage(),
+                        e);
                 }
             })
             .orElseThrow(() -> new IllegalArgumentException(

@@ -21,6 +21,7 @@ package io.nosqlbench.command.export_hdf5;
 import io.nosqlbench.command.build_hdf5.datasource.BasicTestDataSource;
 import io.nosqlbench.command.build_hdf5.datasource.ObjectLoader;
 import io.nosqlbench.command.build_hdf5.writers.KnnDataWriter;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 import picocli.CommandLine;
 
@@ -42,14 +43,14 @@ import static picocli.CommandLine.Option;
     description = """
         Reads base vectors, query vectors, neighborhood indices, and optionally, neighbor distances,
         from ivec, fvec and other formats, and creates HDF5 vector test data files.
-        
+
         When no mapping file is provided, then these individual input files are specified by the respective options.
         The output file name is determined, by default, from a template that uses common parameter tokens so that
         files are automatically named and unique as long as the parameter sets are unique.
-        
+
         When a mapping file is provided, then the mapping file is used to determine the input files and output file names.
         This is an example of the mapping file format:
-        
+
             # mapping.yaml
             filekey: #this is only unique within the mapping file and is not used otherwise
              # the following are required
@@ -64,17 +65,17 @@ import static picocli.CommandLine.Option;
              distance_function: The distance function used # defaults to COSINE
              distances: my_distances.ivec # this is only added to the hdf5 file if provided
              notes: Any notes about the model used
-        
+
         When a mapping file is not provided, the remaining metadata can be provided in a yaml
         file and specified with the --metadata option.
-        
+
         """,
     synopsisHeading = "%n",
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     subcommands = {CommandLine.HelpCommand.class})
-public class CMD_export_hdf5 implements Callable<Integer> {
+public class CMD_export_hdf5 implements Callable<Integer>, BundledCommand {
   private final static String DEFAULT_TEMPLATE =
       "[model][_d{dims*}][_b{vectors*}][_q{queries*}][_i{indices*}][_mk{max_k*}].hdf5";
 
@@ -218,5 +219,3 @@ public class CMD_export_hdf5 implements Callable<Integer> {
     return 0;
   }
 }
-
-

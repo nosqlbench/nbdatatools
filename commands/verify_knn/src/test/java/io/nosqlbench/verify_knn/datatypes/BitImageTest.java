@@ -18,7 +18,7 @@ package io.nosqlbench.verify_knn.datatypes;
  */
 
 
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.BitImage;
+import io.nosqlbench.command.verify_knn.datatypes.BitImage;
 import org.junit.jupiter.api.Test;
 
 import java.util.BitSet;

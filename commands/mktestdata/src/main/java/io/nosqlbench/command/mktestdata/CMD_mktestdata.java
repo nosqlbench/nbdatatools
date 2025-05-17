@@ -18,6 +18,7 @@ package io.nosqlbench.command.mktestdata;
  */
 
 
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
 import io.nosqlbench.nbvectors.api.noncore.VectorRandomAccessReader;
 import io.nosqlbench.command.generate.RandomGenerators;
@@ -70,7 +71,7 @@ import java.util.concurrent.Callable;
         When given a source of vectors, create a set of conditioned base and query
         vectors in fvec format""",
     exitCodeList = {"0: success", "1: warning", "2: error"})
-public class CMD_mktestdata implements Callable<Integer> {
+public class CMD_mktestdata implements Callable<Integer>, BundledCommand {
   private static final Logger logger = LogManager.getLogger(CMD_mktestdata.class);
 
   private static final int EXIT_SUCCESS = 0;

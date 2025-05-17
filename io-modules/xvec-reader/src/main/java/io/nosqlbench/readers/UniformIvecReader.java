@@ -28,6 +28,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -87,10 +88,10 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
         throw new RuntimeException(e);
       }
 
-        // Convert bytes to integer (big-endian)
-        ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes);
+        // Convert bytes to integer (little-endian)
+        ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes).order(ByteOrder.LITTLE_ENDIAN);
         this.dimension = dimBuffer.getInt();
-        
+
         if (this.dimension <= 0) {
           try {
             throw new IOException("Invalid dimension in file: " + this.dimension);
@@ -98,10 +99,10 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
             throw new RuntimeException(e);
           }
         }
-        
+
         // Calculate record size: 4 bytes for dimension + (dimension * 4 bytes for integer values)
         this.recordSize = 4 + (dimension * 4);
-        
+
         // Calculate the total number of vectors in the file
       long fileSize = 0;
       try {
@@ -116,7 +117,7 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
             throw new RuntimeException(e);
           }
         }
-        
+
         this.size = (int) (fileSize / recordSize);
     }
 
@@ -130,30 +131,30 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
         if (index < 0 || index >= size) {
             throw new IndexOutOfBoundsException("Index " + index + " out of bounds for size " + size);
         }
-        
+
         try {
             // Calculate offset for the specific vector
             long offset = (long) index * recordSize;
             randomAccessFile.seek(offset);
-            
+
             // Skip the dimension field (we already know it)
             randomAccessFile.skipBytes(4);
-            
+
             // Read the vector values
             int[] vector = new int[dimension];
             byte[] buffer = new byte[dimension * 4];
             int bytesRead = randomAccessFile.read(buffer);
-            
+
             if (bytesRead != dimension * 4) {
                 throw new IOException("Failed to read vector data at index " + index);
             }
-            
-            // Convert bytes to integer values (big-endian)
-            ByteBuffer intBuffer = ByteBuffer.wrap(buffer);
+
+            // Convert bytes to integer values (little-endian)
+            ByteBuffer intBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
             for (int i = 0; i < dimension; i++) {
                 vector[i] = intBuffer.getInt(i * 4);
             }
-            
+
             return vector;
         } catch (IOException e) {
             throw new RuntimeException("Error reading vector at index " + index, e);
@@ -188,7 +189,12 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
 
     @Override
     public boolean containsAll(Collection<?> c) {
-        return false;
+        for (Object o : c) {
+            if (!contains(o)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -201,11 +207,11 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
         if (!(o instanceof int[] array)) {
             return false;
         }
-        
+
         if (array.length != dimension) {
             return false;
         }
-        
+
         // Linear search through all vectors
         for (int i = 0; i < size; i++) {
             int[] vector = get(i);
@@ -213,7 +219,7 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -222,7 +228,7 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
         if (!(o instanceof int[] array) || array.length != dimension) {
             return -1;
         }
-        
+
         // Linear search through all vectors
         for (int i = 0; i < size; i++) {
             int[] vector = get(i);
@@ -230,7 +236,7 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
                 return i;
             }
         }
-        
+
         return -1;
     }
 
@@ -239,7 +245,7 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
         if (!(o instanceof int[] array) || array.length != dimension) {
             return -1;
         }
-        
+
         // Linear search through all vectors in reverse
         for (int i = size - 1; i >= 0; i--) {
             int[] vector = get(i);
@@ -247,7 +253,7 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
                 return i;
             }
         }
-        
+
         return -1;
     }
 
@@ -271,58 +277,53 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
         return result;
     }
 
-    @NotNull
     @Override
-    public Object[] toArray(@NotNull Object[] a) {
-        return new Object[0];
+    @SuppressWarnings("unchecked")
+    public <E> E[] toArray(E[] a) {
+        if (a.length < size) {
+            // Make a new array of a's runtime type, but my contents:
+            return (E[]) Arrays.copyOf(toArray(), size, a.getClass());
+        }
+
+        System.arraycopy(toArray(), 0, a, 0, size);
+
+        if (a.length > size) {
+            a[size] = null;
+        }
+
+        return a;
     }
 
-    //    @Override
-//    @SuppressWarnings("unchecked")
-//    public <E> E[] toArray(E[] a) {
-//        if (a.length < size) {
-//            // Make a new array of a's runtime type, but my contents:
-//            return (E[]) Arrays.copyOf(toArray(), size, a.getClass());
-//        }
-//
-//        System.arraycopy(toArray(), 0, a, 0, size);
-//
-//        if (a.length > size) {
-//            a[size] = null;
-//        }
-//
-//        return a;
-//    }
 
     @Override
     public List<int[]> subList(int fromIndex, int toIndex) {
         if (fromIndex < 0 || toIndex > size || fromIndex > toIndex) {
             throw new IndexOutOfBoundsException("fromIndex: " + fromIndex + ", toIndex: " + toIndex + ", size: " + size);
         }
-        
+
         // Create a view of a sublist - this doesn't copy the data
         return new SublistIvecReader(this, fromIndex, toIndex);
     }
-    
+
     /// Returns the dimension of vectors in this reader.
     ///
     /// @return The dimension of each vector
     public int getDimension() {
         return dimension;
     }
-    
+
     /// A view of a sublist of a IvecReader.
     private static class SublistIvecReader extends ImmutableSizedReader<int[]> {
         private final UniformIvecReader parent;
         private final int offset;
         private final int size;
-        
+
         public SublistIvecReader(UniformIvecReader parent, int fromIndex, int toIndex) {
             this.parent = parent;
             this.offset = fromIndex;
             this.size = toIndex - fromIndex;
         }
-        
+
         @Override
         public int[] get(int index) {
             if (index < 0 || index >= size) {
@@ -330,37 +331,37 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
             }
             return parent.get(offset + index);
         }
-        
+
         @Override
         public int size() {
             return size;
         }
-        
+
         @Override
         public int getSize() {
             return size;
         }
-        
+
         @Override
         public String getName() {
             return parent.getName() + "[" + offset + ":" + (offset + size) + "]";
         }
-        
+
         @Override
         public boolean isEmpty() {
             return size == 0;
         }
-        
+
         @Override
         public boolean contains(Object o) {
             if (!(o instanceof int[] array)) {
                 return false;
             }
-            
+
             if (array.length != parent.getDimension()) {
                 return false;
             }
-            
+
             // Linear search through this sublist's vectors
             for (int i = 0; i < size; i++) {
                 int[] vector = get(i);
@@ -368,16 +369,16 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
                     return true;
                 }
             }
-            
+
             return false;
         }
-        
+
         @Override
         public int indexOf(Object o) {
             if (!(o instanceof int[] array) || array.length != parent.getDimension()) {
                 return -1;
             }
-            
+
             // Linear search through this sublist's vectors
             for (int i = 0; i < size; i++) {
                 int[] vector = get(i);
@@ -385,16 +386,16 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
                     return i;
                 }
             }
-            
+
             return -1;
         }
-        
+
         @Override
         public int lastIndexOf(Object o) {
             if (!(o instanceof int[] array) || array.length != parent.getDimension()) {
                 return -1;
             }
-            
+
             // Linear search through this sublist's vectors in reverse
             for (int i = size - 1; i >= 0; i--) {
                 int[] vector = get(i);
@@ -402,19 +403,19 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
                     return i;
                 }
             }
-            
+
             return -1;
         }
-        
+
         @Override
         public List<int[]> subList(int fromIndex, int toIndex) {
             if (fromIndex < 0 || toIndex > size || fromIndex > toIndex) {
                 throw new IndexOutOfBoundsException("fromIndex: " + fromIndex + ", toIndex: " + toIndex + ", size: " + size);
             }
-            
+
             return parent.subList(offset + fromIndex, offset + toIndex);
         }
-        
+
         @Override
         public boolean containsAll(Collection<?> c) {
             for (Object o : c) {
@@ -424,7 +425,7 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
             }
             return true;
         }
-        
+
         @Override
         public Object[] toArray() {
             Object[] result = new Object[size];
@@ -433,7 +434,7 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
             }
             return result;
         }
-        
+
         @Override
         @SuppressWarnings("unchecked")
         public <E> E[] toArray(E[] a) {
@@ -441,13 +442,13 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
                 // Make a new array of a's runtime type, but my contents:
                 return (E[]) Arrays.copyOf(toArray(), size, a.getClass());
             }
-            
+
             System.arraycopy(toArray(), 0, a, 0, size);
-            
+
             if (a.length > size) {
                 a[size] = null;
             }
-            
+
             return a;
         }
 

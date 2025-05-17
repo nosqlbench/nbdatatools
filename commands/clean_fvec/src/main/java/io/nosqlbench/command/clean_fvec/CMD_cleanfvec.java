@@ -18,6 +18,7 @@ package io.nosqlbench.command.clean_fvec;
  */
 
 
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -34,7 +35,7 @@ import java.util.concurrent.Callable;
     header = "Clean an input fvec file by removing zero and duplicate vectors",
     description = "When given an input fvec file, does a partitioned sort maintaining indices",
     exitCodeList = {"0: success", "1: error processing files"})
-public class CMD_cleanfvec implements Callable<Integer> {
+public class CMD_cleanfvec implements Callable<Integer>, BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_cleanfvec.class);
 
     @CommandLine.Parameters(description = "Files and/or directories to catalog; Directories will be traversed to find dataset.yaml and .hdf5 files", arity = "0..*")

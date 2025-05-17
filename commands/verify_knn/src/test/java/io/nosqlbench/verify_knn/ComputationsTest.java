@@ -18,14 +18,14 @@ package io.nosqlbench.verify_knn;
  */
 
 
-import io.nosqlbench.nbvectors.commands.verify_knn.computation.Computations;
-import io.nosqlbench.nbvectors.commands.verify_knn.datatypes.BitImage;
+import io.nosqlbench.command.verify_knn.computation.Computations;
+import io.nosqlbench.command.verify_knn.datatypes.BitImage;
 import org.junit.jupiter.api.Test;
 
-import static io.nosqlbench.nbvectors.commands.verify_knn.statusview.Glyphs.braille;
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.BitSet;
+
+import static io.nosqlbench.command.verify_knn.statusview.Glyphs.braille;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class ComputationsTest {
 

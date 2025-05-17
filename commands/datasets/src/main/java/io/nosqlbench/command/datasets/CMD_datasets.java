@@ -18,6 +18,7 @@ package io.nosqlbench.command.datasets;
  */
 
 import com.google.gson.Gson;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import org.apache.logging.log4j.LogManager;
@@ -35,7 +36,7 @@ import java.util.concurrent.Callable;
 @CommandLine.Command(name = "datasets",
     description = "Browse and download hdf5 datasets from accessible catalogs",
     subcommands = {CommandLine.HelpCommand.class})
-public class CMD_datasets implements Callable<Integer> {
+public class CMD_datasets implements Callable<Integer>, BundledCommand {
 
   private static final Logger logger = LogManager.getLogger(CMD_datasets.class);
 

@@ -24,6 +24,7 @@ import io.nosqlbench.command.build_hdf5.datasource.json.JsonLoader;
 import io.nosqlbench.command.build_hdf5.writers.KnnDataWriter;
 import io.nosqlbench.command.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.command.jjq.outputs.BufferOutput;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -49,7 +50,7 @@ import java.util.function.Supplier;
     exitCodeList = {
         "0: no errors",
     }, subcommands = {CommandLine.HelpCommand.class})
-public class CMD_build_hdf5 implements Callable<Integer> {
+public class CMD_build_hdf5 implements Callable<Integer>, BundledCommand {
 
   private static final Logger logger = LogManager.getLogger(CMD_build_hdf5.class);
 

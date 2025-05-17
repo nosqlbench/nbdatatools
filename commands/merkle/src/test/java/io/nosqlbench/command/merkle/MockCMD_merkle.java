@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.merkle;
+package io.nosqlbench.command.merkle;
 
 /*
  * Copyright (c) nosqlbench

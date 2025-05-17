@@ -17,6 +17,7 @@ package io.nosqlbench.command.catalog_hdf5;
  * under the License.
  */
 
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -51,7 +52,7 @@ import java.util.concurrent.Callable;
         "1: error processing files or directories"
     },
     subcommands = {CommandLine.HelpCommand.class})
-public class CMD_catalog implements Callable<Integer> {
+public class CMD_catalog implements Callable<Integer>, BundledCommand {
 
   private static final Logger logger = LogManager.getLogger(CMD_catalog.class);
 

@@ -17,6 +17,7 @@ package io.nosqlbench.command.merkle;
  * under the License.
  */
 
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.vectordata.merkle.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -58,7 +59,7 @@ import static io.nosqlbench.command.merkle.MerkleCommand.MRKL;
         verify file integrity or identify changed portions of
         files for partial downloads/updates.""",
         subcommands = {HelpCommand.class})
-public class CMD_merkle implements Callable<Integer> {
+public class CMD_merkle implements Callable<Integer>, BundledCommand {
   // Default extensions to use when a single directory is provided and no extensions are specified
   private static final Set<String> DEFAULT_EXTENSIONS = Set.of(
       ".ivec", ".ivecs", ".fvec", ".fvecs", ".bvec", ".bvecs", ".hdf5", ".mrkl", ".mref"
@@ -167,10 +168,10 @@ public class CMD_merkle implements Callable<Integer> {
 
       // Create a full Merkle tree from the file directly
       display.setStatus("Building Merkle tree");
-      
+
       // Create the Merkle range for the entire file
       MerkleRange fullRange = new MerkleRange(0, fileSize);
-      
+
       // Create an empty Merkle tree for the file size and chunk size
       MerkleTree merkleTree = MerkleTree.createEmpty(fileSize, chunkSize);
       // Concurrently compute leaf hashes using virtual threads
@@ -217,7 +218,7 @@ public class CMD_merkle implements Callable<Integer> {
         display.updateProgress(bytesProcessed.get(), fileSize, idx + 1, numChunks);
       }
       display.setAction("");
-      
+
       // Save the Merkle tree
       display.setStatus("Saving Merkle tree");
       saveMerkleTree(file, merkleTree);
@@ -601,20 +602,20 @@ public class CMD_merkle implements Callable<Integer> {
     // Read the entire file content or a reasonable maximum
     long fileSize = Files.size(file);
     MerkleRange fullRange = new MerkleRange(0, fileSize);
-    
+
     // Read file data
     ByteBuffer fileData = ByteBuffer.allocate((int)Math.min(fileSize, Integer.MAX_VALUE));
     try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ)) {
       channel.read(fileData);
       fileData.flip();
     }
-    
+
     // Create a new Merkle tree from the current file content
     MerkleTree currentTree = MerkleTree.fromData(fileData, chunkSize, fullRange);
-  
+
     // Compare the trees
     boolean isEqual = originalTree.equals(currentTree);
-    
+
     if (isEqual) {
       logger.info("Verification successful: {} matches its Merkle tree", file);
     } else {

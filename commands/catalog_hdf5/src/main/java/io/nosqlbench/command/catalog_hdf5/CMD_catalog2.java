@@ -21,6 +21,7 @@ package io.nosqlbench.command.catalog_hdf5;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import io.nosqlbench.command.export_json.Hdf5JsonSummarizer;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,7 +54,7 @@ import java.util.stream.Collectors;
     description = "When given files or directories, recursively find dataset roots (directories with dataset.yaml)" +
                   " and .hdf5 files, and produce catalog.json and catalog.yaml files at each directory level.",
     exitCodeList = {"0: success", "1: error processing files"})
-public class CMD_catalog2 implements Callable<Integer> {
+public class CMD_catalog2 implements Callable<Integer>, BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_catalog2.class);
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final Dump yamlDumper = new Dump(DumpSettings.builder().build());

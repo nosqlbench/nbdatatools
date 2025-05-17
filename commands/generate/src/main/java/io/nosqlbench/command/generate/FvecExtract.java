@@ -18,6 +18,7 @@ package io.nosqlbench.command.generate;
  */
 
 
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
 import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
 import io.nosqlbench.nbvectors.api.fileio.VectorFileStore;
@@ -68,7 +69,7 @@ import java.util.concurrent.locks.ReentrantLock;
  - If any index value refers to a position that does not exist in the fvec file, an error is thrown. */
 @CommandLine.Command(name = "fvec-extract",
     description = "Extract vectors from a fvec file using indices from an ivec file")
-public class FvecExtract implements Callable<Integer> {
+public class FvecExtract implements Callable<Integer>, BundledCommand {
   private static final Logger logger = LogManager.getLogger(FvecExtract.class);
 
   // JLine terminal display components
@@ -201,47 +202,47 @@ public class FvecExtract implements Callable<Integer> {
         if (display != null) {
           display.clear();
         }
-        
+
         if (terminal != null) {
           // Show cursor if it was hidden
           terminal.puts(InfoCmp.Capability.cursor_normal);
-          
+
           // Make sure the cursor is positioned at a good spot
           terminal.puts(InfoCmp.Capability.carriage_return);
-          
+
           // Add some space after the display
           terminal.writer().println();
           terminal.writer().println("Vector extraction completed.");
           terminal.writer().println();
-          
+
           // Flush all output
           terminal.flush();
         }
-        
+
         // Mark display as inactive
         displayActive.set(false);
-        
+
         logger.info("Display shutdown successfully");
       } catch (Exception e) {
         logger.warn("Error during display shutdown: {}", e.getMessage());
       }
     }
   }
-  
+
   /// Cleanup the terminal resources
   private void cleanupTerminal() {
     if (terminal != null) {
       try {
         // Make sure display is shut down first
         shutdownDisplay();
-  
+
         // Close the terminal properly
         try {
           terminal.close();
         } catch (Exception e) {
           logger.warn("Error closing terminal: {}", e.getMessage());
         }
-  
+
         logger.info("Terminal display cleaned up and closed");
       } catch (Exception e) {
         logger.warn("Error cleaning up terminal display: {}", e.getMessage());
@@ -481,14 +482,14 @@ public class FvecExtract implements Callable<Integer> {
   public Integer call() throws Exception {
     // Initialize the JLine terminal
     boolean terminalInitialized = false;
-    
+
     // Add a JVM shutdown hook to ensure terminal is closed properly
     shutdownHook = new Thread(() -> {
       logger.info("JVM shutdown hook triggered, cleaning up terminal");
       cleanupTerminal();
     });
     Runtime.getRuntime().addShutdownHook(shutdownHook);
-    
+
     try {
       terminalInitialized = initializeTerminal();
 
@@ -527,15 +528,14 @@ public class FvecExtract implements Callable<Integer> {
         // Initialize reader for fvec file
         fvecReader = VectorFileIO.vectorFileArray(FileType.xvec, float[].class, fvecPath);
 
-        fvecWriter = VectorFileIO.vectorFileStore(FileType.xvec, float[].class, outputPath).orElseThrow();
-
-        // Get the sizes
-        int ivecSize = ivecReader.getSize();
-        int fvecSize = fvecReader.getSize();
-        int dimension = fvecReader.get(0).length;
-
-        // Validate the range
-        long[] rangeBounds = parseRange(range);
+        // Validate the range before creating the output file
+        long[] rangeBounds;
+        try {
+          rangeBounds = parseRange(range);
+        } catch (IllegalArgumentException e) {
+          logger.error(e.getMessage());
+          return 1;
+        }
         long startIndex = rangeBounds[0];
         long endIndex = rangeBounds[1];
 
@@ -544,6 +544,11 @@ public class FvecExtract implements Callable<Integer> {
           logger.error("Start index must be non-negative: {}", startIndex);
           return 1;
         }
+
+        // Get the sizes
+        int ivecSize = ivecReader.getSize();
+        int fvecSize = fvecReader.getSize();
+        int dimension = fvecReader.get(0).length;
 
         if (endIndex >= ivecSize) {
           logger.warn(
@@ -560,60 +565,31 @@ public class FvecExtract implements Callable<Integer> {
           return 1;
         }
 
-        // Fail-fast check: access the minimum and maximum indices in the range to verify validity
+        // Fail-fast check: validate all indices in the range to ensure they're within bounds
         try {
-          // Check the first index in the range
-          int[] firstIndexVector = ivecReader.get((int) startIndex);
-          int firstIndex = firstIndexVector[0];
-          if (firstIndex < 0 || firstIndex >= fvecSize) {
-            logger.error(
-                "The first index {} in range (at position {}) is out of bounds for fvec file (size: {})",
-                firstIndex,
-                startIndex,
-                fvecSize
-            );
-            return 1;
-          }
-
-          // Check the last index in the range
-          int[] lastIndexVector = ivecReader.get((int) endIndex);
-          int lastIndex = lastIndexVector[0];
-          if (lastIndex < 0 || lastIndex >= fvecSize) {
-            logger.error(
-                "The last index {} in range (at position {}) is out of bounds for fvec file (size: {})",
-                lastIndex,
-                endIndex,
-                fvecSize
-            );
-            return 1;
-          }
-
-          // Sample a few indices in between for better validation
-          if (endIndex - startIndex > 10) {
-            // Sample some intermediate points if range is large enough
-            long midIndex = startIndex + (endIndex - startIndex) / 2;
-            int[] midIndexVector = ivecReader.get((int) midIndex);
-            int midValue = midIndexVector[0];
-            if (midValue < 0 || midValue >= fvecSize) {
+          // Check all indices in the range
+          for (long i = startIndex; i <= endIndex; i++) {
+            int[] indexVector = ivecReader.get((int) i);
+            int index = indexVector[0];
+            if (index < 0 || index >= fvecSize) {
               logger.error(
-                  "Middle index {} in range (at position {}) is out of bounds for fvec file (size: {})",
-                  midValue,
-                  midIndex,
+                  "Index {} from ivec file (at position {}) is out of bounds for fvec file (size: {})",
+                  index,
+                  i,
                   fvecSize
               );
               return 1;
             }
           }
 
-          logger.info(
-              "Range validation successful: first index={}, last index={}",
-              firstIndex,
-              lastIndex
-          );
+          logger.info("Range validation successful: all indices are within bounds");
         } catch (Exception e) {
           logger.error("Failed to validate index range: {}", e.getMessage(), e);
           return 1;
         }
+
+        // Only create the output file if all validations pass
+        fvecWriter = VectorFileIO.vectorFileStore(FileType.xvec, float[].class, outputPath).orElseThrow();
 
         // Calculate number of vectors to extract
         long vectorCount = endIndex - startIndex + 1;
@@ -682,7 +658,7 @@ public class FvecExtract implements Callable<Integer> {
           progressThread.start();
           logger.info("Started progress reporting thread");
         }
-        
+
         // Create a dedicated memory monitor thread if memory limit is set
         Thread memoryMonitorThread = null;
         if (memoryLimitMB > 0 && finalThreadCount > 1) {
@@ -692,14 +668,14 @@ public class FvecExtract implements Callable<Integer> {
                 // Check current memory usage
                 long bufferMemory = totalBufferMemory.get();
                 long memoryLimitBytes = memoryLimitMB * 1024L * 1024L;
-                
+
                 // If we're using more than 90% of our limit, log a warning and suggest GC
                 if (bufferMemory > memoryLimitBytes * 0.9) {
                   logger.warn("Buffer memory usage ({}MB) exceeds 90% of limit ({}MB)",
                       bufferMemory / (1024.0 * 1024.0), memoryLimitMB);
                   System.gc();
                 }
-                
+
                 Thread.sleep(1000); // Check memory once per second
               }
             } catch (InterruptedException e) {
@@ -800,7 +776,7 @@ public class FvecExtract implements Callable<Integer> {
                     try {
                       // Create a counter for periodic flushing within this chunk
                       int vectorsProcessedInChunk = 0;
-                      
+
                       // Process each vector in the chunk
                       for (int i = 0; i < chunkLength; i++) {
                         // If we've processed a significant portion of the chunk and memory limit is a concern,
@@ -809,40 +785,40 @@ public class FvecExtract implements Callable<Integer> {
                           // Check if memory usage is high
                           long currentMemory = totalBufferMemory.get();
                           long memoryLimitBytes = memoryLimitMB * 1024L * 1024L;
-                          
+
                           if (currentMemory > memoryLimitBytes * 0.7) {
                             // We're approaching the memory limit, try to flush what we have
                             try {
                               progressLock.lock();
-                              
+
                               // We'll only flush the portion we've processed so far
                               float[][] partialBuffer = new float[vectorsProcessedInChunk][];
                               int validCount = 0;
-                              
+
                               // Copy valid vectors to a new buffer
                               for (int j = 0; j < vectorsProcessedInChunk; j++) {
                                 if (vectorBuffer[j] != null) {
                                   partialBuffer[validCount++] = vectorBuffer[j];
-                                  
+
                                   // Account for memory being released
                                   long vMemUsage = (vectorBuffer[j].length * 4L) + 16L;
                                   totalBufferMemory.addAndGet(-vMemUsage);
-                                  
+
                                   // Clear the reference in the original buffer
                                   vectorBuffer[j] = null;
                                 }
                               }
-                              
+
                               // Only write if we have valid vectors
                               if (validCount > 0) {
                                 // Resize the buffer if needed
                                 float[][] validBuffer = validCount < partialBuffer.length ? 
                                     Arrays.copyOf(partialBuffer, validCount) : partialBuffer;
-                                
+
                                 // Write to disk
                                 finalFvecWriter.writeBulk(validBuffer);
                                 finalFvecWriter.flush();
-                                
+
                                 logger.debug("Flushed {} vectors during chunk processing to manage memory", validCount);
                                 vectorsProcessedInChunk = 0; // Reset counter
                               }
@@ -851,7 +827,7 @@ public class FvecExtract implements Callable<Integer> {
                             }
                           }
                         }
-                        
+
                         vectorsProcessedInChunk++;
                         long currentIndex = cs + i;
 
@@ -886,7 +862,7 @@ public class FvecExtract implements Callable<Integer> {
                             // CRITICAL SECTION - Need to start flushing buffers to disk
                             try {
                               progressLock.lock();
-                              
+
                               // Check again in case another thread flushed while we were waiting
                               if (totalBufferMemory.get() > memoryLimitBytes * 0.8) {
                                 logger.warn(
@@ -894,45 +870,45 @@ public class FvecExtract implements Callable<Integer> {
                                     newTotal / (1024.0 * 1024.0),
                                     memoryLimitMB
                                 );
-                                
+
                                 // Flush this chunk early to reduce memory pressure
                                 // Make a copy to avoid concurrent modification issues
                                 float[][] bufferCopy = Arrays.copyOf(vectorBuffer, i+1);
                                 int validVectors = 0;
-                                
+
                                 // Count valid vectors
                                 for (int vi = 0; vi <= i; vi++) {
                                   if (bufferCopy[vi] != null) {
                                     validVectors++;
                                   }
                                 }
-                                
+
                                 // Only flush if we have valid vectors
                                 if (validVectors > 0) {
                                   // Create an array of just the valid vectors
                                   float[][] validBufferCopy = new float[validVectors][];
                                   int validIdx = 0;
-                                  
+
                                   // Copy valid vectors
                                   for (int vi = 0; vi <= i; vi++) {
                                     if (bufferCopy[vi] != null) {
                                       validBufferCopy[validIdx++] = bufferCopy[vi];
-                                      
+
                                       // Clear memory in original buffer and account for it
                                       long vMemUsage = (bufferCopy[vi].length * 4L) + 16L;
                                       totalBufferMemory.addAndGet(-vMemUsage);
-                                      
+
                                       // Clear the original reference
                                       vectorBuffer[vi] = null;
                                     }
                                   }
-                                  
+
                                   // Write the vectors to disk
                                   try {
                                     finalFvecWriter.writeBulk(validBufferCopy);
                                     finalFvecWriter.flush();
                                     logger.info("Flushed {} vectors to disk to reduce memory pressure", validVectors);
-                                    
+
                                     // Update counters - these vectors are done
                                     // We're still processing chunk i so we don't update processedVectors
                                   } catch (Exception e) {
@@ -942,7 +918,7 @@ public class FvecExtract implements Callable<Integer> {
                               }
                             } finally {
                               progressLock.unlock();
-                              
+
                               // Suggest garbage collection after a flush
                               System.gc();
                             }
@@ -1000,7 +976,7 @@ public class FvecExtract implements Callable<Integer> {
                 // Ignore interruption during cleanup
               }
             }
-            
+
             // Stop memory monitor thread if running
             if (memoryMonitorThread != null) {
               memoryMonitorThread.interrupt();
@@ -1027,7 +1003,7 @@ public class FvecExtract implements Callable<Integer> {
             } catch (Exception e) {
                 logger.warn("Error flushing writer: {}", e.getMessage());
             }
-            
+
             int totalWritten = 0;
             // Use bulk write instead of individual writes for better performance
             for (int c = 0; c < finalChunkBuffers.size(); c++) {
@@ -1040,7 +1016,7 @@ public class FvecExtract implements Callable<Integer> {
                     validVectorCount++;
                   }
                 }
-                
+
                 if (validVectorCount > 0) {
                   // Create array of valid vectors for bulk writing
                   float[][] validVectors = new float[validVectorCount][];
@@ -1050,32 +1026,32 @@ public class FvecExtract implements Callable<Integer> {
                       validVectors[validIdx++] = vector;
                     }
                   }
-                  
+
                   try {
                     // Use bulk write for better performance and ensure it's written to disk
                     fvecWriterFinal.writeBulk(validVectors);
                     fvecWriterFinal.flush(); // Explicitly flush after each chunk
-                    
+
                     // Update memory tracking
                     for (float[] vector : validVectors) {
                       // Track memory being released
                       long vectorMemoryUsage = (vector.length * 4L) + 16L; // 16 bytes for object overhead
                       totalBufferMemory.addAndGet(-vectorMemoryUsage);
                     }
-                    
+
                     totalWritten += validVectorCount;
-                    
+
                     logger.debug("Wrote chunk {} with {} vectors", c, validVectorCount);
                   } catch (Exception e) {
                     logger.error("Error writing chunk {}: {}", c, e.getMessage(), e);
                     throw e; // Re-throw to properly handle the error
                   }
                 }
-                
+
                 // Clear the processed chunk to allow GC to reclaim memory
                 finalChunkBuffers.set(c, null);
               }
-              
+
               // Flush every few chunks
               if (c % 5 == 0) {
                 try {
@@ -1096,10 +1072,10 @@ public class FvecExtract implements Callable<Integer> {
             } catch (Exception e) {
                 logger.warn("Error during final flush: {}", e.getMessage());
             }
-            
+
             final int finalTotalWritten = totalWritten;
             logger.info("Wrote {} vectors to output file", finalTotalWritten);
-            
+
             // Flush standard output to ensure visibility
             System.out.flush();
 
@@ -1157,13 +1133,13 @@ public class FvecExtract implements Callable<Integer> {
           final int batchSize = 1000; // Process and write in batches
           float[][] batchVectors = new float[batchSize][];
           int batchCount = 0;
-          
+
           for (long i = startIndex; i <= endIndex; i++) {
             try {
               // Get the index from ivec file
               int[] indexVector = ivecReader.get((int) i);
               int index = indexVector[0];
-          
+
               // Check if the index is valid
               if (index < 0 || index >= fvecSize) {
                 logger.error(
@@ -1174,27 +1150,27 @@ public class FvecExtract implements Callable<Integer> {
                 );
                 return 1;
               }
-              
+
               // Get the vector from fvec file
               float[] vector = fvecReader.get(index);
-              
+
               // Add to batch
               batchVectors[batchCount++] = vector;
-              
+
               // Update progress counter
               processedVectors.incrementAndGet();
-              
+
               // Write batch when full or at the end
               if (batchCount == batchSize || i == endIndex) {
                 if (batchCount > 0) {
                   // If the batch isn't full, create a properly sized array
                   float[][] vectorsToWrite = batchCount < batchSize ? 
                       Arrays.copyOf(batchVectors, batchCount) : batchVectors;
-                  
+
                   // Write batch and flush
                   fvecWriter.writeBulk(vectorsToWrite);
                   fvecWriter.flush();
-                  
+
                   // Report progress periodically
                   if (i % 10000 < batchSize || i == endIndex) {
                     System.out.println("Progress: Processed " + processedVectors.get() + 
@@ -1202,7 +1178,7 @@ public class FvecExtract implements Callable<Integer> {
                         String.format("%.1f%%", (100.0 * processedVectors.get() / vectorCount)) + ")");
                     System.out.flush();
                   }
-                  
+
                   // Reset batch
                   batchCount = 0;
                   if (batchSize > 100) {
@@ -1211,7 +1187,7 @@ public class FvecExtract implements Callable<Integer> {
                   }
                 }
               }
-              
+
               // Periodically suggest garbage collection
               if (i % 50000 == 0 && i > 0) {
                 System.gc();
@@ -1252,22 +1228,22 @@ public class FvecExtract implements Callable<Integer> {
                 new AttributedStringBuilder().style(AttributedStyle.BOLD.foreground(AttributedStyle.GREEN))
                     .append("Vector extraction completed successfully.").toAttributedString();
             displayLines.add(completionMessage);
-          
+
             // Update the display - ensure the cursor is in a visible area
             display.resize(terminal.getHeight(), terminal.getWidth());
             display.update(displayLines, 0);
-          
+
             terminal.writer().println();
             terminal.writer().println();
             terminal.flush();
-            
+
             // Add a small delay to ensure the message is visible before shutdown
             try {
               Thread.sleep(500);
             } catch (InterruptedException ignored) {
               // Ignore
             }
-            
+
             // Explicitly shutdown the display
             shutdownDisplay();
           } catch (Exception e) {
@@ -1281,27 +1257,27 @@ public class FvecExtract implements Callable<Integer> {
           System.out.println("Vector extraction completed successfully.");
           System.out.flush(); // Ensure output is flushed to console
         }
-        
+
         // Ensure memory counter is reset
         if (totalBufferMemory != null) {
           logger.debug("Resetting buffer memory counter from {} bytes", totalBufferMemory.get());
           totalBufferMemory.set(0);
         }
-        
+
         // Explicitly flush all console output to ensure visibility
         System.out.flush();
         System.err.flush();
 
         // Clean up the terminal one more time to ensure it's properly closed
         cleanupTerminal();
-        
+
         // Remove our shutdown hook since we're completing normally
         try {
           Runtime.getRuntime().removeShutdownHook(shutdownHook);
         } catch (IllegalStateException e) {
           // Ignore - this happens if JVM is already shutting down
         }
-        
+
         logger.info("Successfully wrote extracted vectors to {}", outputPath);
         return 0;
 

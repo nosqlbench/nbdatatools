@@ -1,1 +1,2 @@
-io.nosqlbench.command.catalog_hdf5.CMD_catalog_hdf5
+io.nosqlbench.command.catalog_hdf5.CMD_catalog
+io.nosqlbench.command.catalog_hdf5.CMD_catalog2
