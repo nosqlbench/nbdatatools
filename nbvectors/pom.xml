@@ -47,7 +47,7 @@
     </dependency>
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>command-bundler</artifactId>
+      <artifactId>command-bundle</artifactId>
       <version>${revision}</version>
     </dependency>
   </dependencies>

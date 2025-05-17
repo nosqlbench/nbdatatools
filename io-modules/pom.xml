@@ -18,10 +18,10 @@
   <packaging>pom</packaging>
 
   <modules>
-    <!-- temporarily omitting parquet-reader due to build conflicts -->
+    <module>parquet-reader</module>
     <module>xvec-reader</module>
     <module>xvec-writer</module>
-    <module>parquet-reader</module>
+    <module>io-bundle</module>
   </modules>
 
   <build>

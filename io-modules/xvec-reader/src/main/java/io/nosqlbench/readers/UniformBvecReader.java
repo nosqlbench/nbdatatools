@@ -19,6 +19,9 @@ package io.nosqlbench.readers;
 
 import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
 import io.nosqlbench.nbvectors.api.noncore.ImmutableSizedReader;
+import io.nosqlbench.nbvectors.api.services.DataType;
+import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -48,6 +51,9 @@ import java.util.Objects;
 /// │ Using Fixed Size    │ O(1) per vector
 /// └─────────────────────┘
 /// ```
+//@DataType(int[].class) TODO: This needs something to distinguish it from int[] types, since the
+// consumed type in memory is different, even though the storage format is the same.
+@Encoding(FileType.xvec)
 public class UniformBvecReader extends ImmutableSizedReader<int[]> implements VectorFileArray<int[]> {
     private Path filePath;
     private int dimension;

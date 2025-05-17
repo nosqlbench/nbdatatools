@@ -44,16 +44,18 @@ import java.util.function.Function;
 @DataType(float[].class)
 public class ParquetVectorsReader implements BoundedVectorFileStream<float[]> {
 
-  private final Iterable<float[]> compositeIterable;
-  private final List<Path> paths;
+  private Iterable<float[]> compositeIterable;
+  private List<Path> paths;
   private long size;
 
-  /// create a new parquet vectors reader
-  /// @param paths
-  ///     the paths to the parquet files to read from, which must be readable files only
-  /// @throws RuntimeException
-  ///     if any of the paths are not readable files
-  public ParquetVectorsReader(List<Path> paths) {
+  public ParquetVectorsReader() {
+  }
+
+  @Override
+  public void open(Path path) {
+    open(List.of(path));
+  }
+  public void open(List<Path> paths) {
     this.paths = paths;
 
     for (Path file : paths) {
@@ -75,6 +77,13 @@ public class ParquetVectorsReader implements BoundedVectorFileStream<float[]> {
 
     this.compositeIterable =
         new ConvertingIterable<Group, float[]>(groupIterable, embeddingDecoder);
+
+  }
+
+  public static ParquetVectorsReader of(List<Path> paths) {
+    ParquetVectorsReader reader = new ParquetVectorsReader();
+    reader.open(paths);
+    return reader;
   }
 
   @Override
@@ -100,4 +109,5 @@ public class ParquetVectorsReader implements BoundedVectorFileStream<float[]> {
   public String getName() {
     return "parquet";
   }
+
 }

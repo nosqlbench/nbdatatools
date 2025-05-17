@@ -2,13 +2,13 @@ package io.nosqlbench.nbvectors.commands.export_hdf5.datasource.parquet.traversa
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -33,8 +33,7 @@ public class ParquetTabulatorTest {
   @Disabled
   @Test
   public void testTabulation() {
-    ParquetTabulator tabulator =
-        new ParquetTabulator();
+    ParquetTabulator tabulator = new ParquetTabulator();
     ParqueLoggingVisitor parqueLoggingVisitor = new ParqueLoggingVisitor(tabulator, Level.INFO);
     ParquetTraversal traversal =
         new ParquetTraversal(List.of(ParquetVectorsReaderTest.SNAPSHOT_PATH), 10);

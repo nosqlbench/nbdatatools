@@ -26,7 +26,7 @@
   <modules>
     <module>hugging_dl</module>
     <module>convert</module>
-    <module>command-bundler</module>
+    <module>command-bundle</module>
     <module>template</module>
     <module>build_hdf5</module>
     <module>catalog_hdf5</module>

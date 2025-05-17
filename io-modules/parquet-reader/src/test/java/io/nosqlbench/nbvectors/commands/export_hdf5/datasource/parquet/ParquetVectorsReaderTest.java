@@ -44,7 +44,7 @@ public class ParquetVectorsReaderTest {
   @Test
   public void testParquetCompositeTraversal() {
     ParquetVectorsReader pvr =
-        new ParquetVectorsReader(List.of(SECTION_PATH));
+        ParquetVectorsReader.of(List.of(SECTION_PATH));
     for (float[] lifv : pvr) {
       System.out.println(Arrays.toString(lifv));
     }

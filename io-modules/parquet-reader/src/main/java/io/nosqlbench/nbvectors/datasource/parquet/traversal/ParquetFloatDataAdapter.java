@@ -64,7 +64,7 @@ public class ParquetFloatDataAdapter implements Iterable<float[]>, Sized {
                                  + "). Either pass dirs which represent groupings, or files which represent the contents of a single grouping.");
     }
     if (files > 0) {
-      return List.of(new ParquetVectorsReader(paths));
+      return List.of(ParquetVectorsReader.of(paths));
       //      aggregators.add(new ParquetVectorsReader(paths));
     } else {
       PathBinning binning = new PathBinning(paths);
@@ -78,7 +78,7 @@ public class ParquetFloatDataAdapter implements Iterable<float[]>, Sized {
       sorted.forEach(s -> System.out.println(s.getRootPath()));
 
       return sorted.stream()
-          .map(a -> new ParquetVectorsReader(a.getFileList().stream().sorted().toList())).toList();
+          .map(a -> ParquetVectorsReader.of(a.getFileList().stream().sorted().toList())).toList();
     }
   }
 

@@ -4,76 +4,55 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>parquet-reader</artifactId>
+  <artifactId>command-bundle</artifactId>
   <name>${project.artifactId}</name>
-  <description>A parquet reader for nbvectors</description>
+  <description>Command bundler module for nbvectors</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
   <packaging>jar</packaging>
 
   <parent>
     <groupId>io.nosqlbench</groupId>
-    <artifactId>mvn-defaults</artifactId>
+    <artifactId>commands</artifactId>
     <version>${revision}</version>
-    <relativePath>../../mvn-defaults</relativePath>
+    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <dependencies>
-
     <dependency>
-      <groupId>io.nosqlbench</groupId>
-      <artifactId>vectordata</artifactId>
-      <version>${revision}</version>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli</artifactId>
+      <version>4.7.6</version>
     </dependency>
-
+    <dependency>
+      <groupId>info.picocli</groupId>
+      <artifactId>picocli-codegen</artifactId>
+      <version>4.7.6</version>
+    </dependency>
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>testdata-apis</artifactId>
       <version>${revision}</version>
+      <scope>compile</scope>
     </dependency>
 
-
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-mapreduce-client-core</artifactId>
-      <version>3.3.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-common</artifactId>
-      <version>1.15.1</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-log4j12</artifactId>
-        </exclusion>
-      </exclusions>
-
-    </dependency>
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-column</artifactId>
-      <version>1.15.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.parquet</groupId>
-      <artifactId>parquet-hadoop</artifactId>
-      <version>1.15.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <version>3.4.0</version>
-    </dependency>
   </dependencies>
-
   <build>
-    <!--    Plugin versions and default configuration are inherited -->
+    <!-- Plugin management for commands modules to ensure consistent compiler setup -->
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.0</version>
+          <configuration>
+            <proc>full</proc>
+            <release>22</release>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <!-- Plugin versions and default configuration are inherited -->
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-      </plugin>
       <plugin>
         <!--        <groupId>org.apache.maven.plugins</groupId>-->
         <artifactId>maven-deploy-plugin</artifactId>
@@ -97,6 +76,5 @@
       </plugin>
     </plugins>
   </build>
-
 
 </project>

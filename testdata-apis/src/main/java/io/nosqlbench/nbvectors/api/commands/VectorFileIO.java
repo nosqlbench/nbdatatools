@@ -18,6 +18,7 @@ package io.nosqlbench.nbvectors.api.commands;
  */
 
 
+import io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
 import io.nosqlbench.nbvectors.api.fileio.VectorFileStore;
 import io.nosqlbench.nbvectors.api.noncore.VectorRandomAccessReader;
@@ -85,7 +86,7 @@ public class VectorFileIO {
             return Optional.empty();
         }
     }
-    
+
     /// Finds a SizedReader implementation that matches the specified encoding and dataType,
     /// and instantiates it with the given path.
     ///
@@ -102,7 +103,7 @@ public class VectorFileIO {
             .flatMap(provider -> instantiateWithPath(provider, path))
             .map(reader -> (VectorRandomAccessReader<T>) reader);
     }
-    
+
     /// Finds a SizedReader implementation that matches the specified encoding name and dataType,
     /// and instantiates it with the given path.
     ///
@@ -120,16 +121,16 @@ public class VectorFileIO {
             return Optional.empty();
         }
     }
-    
+
     // Convenience methods for specific types have been removed in favor of the generic parameterized methods
-    
+
     /// Returns a stream of all available SizedReader providers.
     ///
     /// @return A stream of ServiceLoader.Provider<SizedReader>
     private static Stream<ServiceLoader.Provider<VectorRandomAccessReader>> providers() {
         return StreamSupport.stream(serviceLoader.stream().spliterator(), false);
     }
-    
+
     /// Checks if the provider has a matching DataType annotation.
     ///
     /// @param provider The SizedReader provider to check
@@ -140,7 +141,7 @@ public class VectorFileIO {
         DataType dataTypeAnnotation = type.getAnnotation(DataType.class);
         return dataTypeAnnotation != null && dataTypeAnnotation.value().equals(dataType);
     }
-    
+
     /// Attempts to instantiate a SizedReader using a constructor that takes a Path.
     ///
     /// @param provider The ServiceLoader.Provider for the SizedReader implementation
@@ -170,13 +171,69 @@ public class VectorFileIO {
         }
     }
 
+    /// Returns a stream of all available BoundedVectorFileStream providers.
+    ///
+    /// @return A stream of ServiceLoader.Provider<BoundedVectorFileStream>
+    private static Stream<ServiceLoader.Provider<BoundedVectorFileStream>> streamProviders() {
+        ServiceLoader<BoundedVectorFileStream> serviceLoader = ServiceLoader.load(BoundedVectorFileStream.class);
+        return StreamSupport.stream(serviceLoader.stream().spliterator(), false);
+    }
+
+    /// Checks if the provider has a matching DataType and Encoding annotation.
+    ///
+    /// @param provider The provider to check
+    /// @param type The encoding type to match
+    /// @param dataType The data type class to match
+    /// @return true if the provider has matching annotations, false otherwise
+    private static boolean matchesTypeAndEncoding(
+        ServiceLoader.Provider<?> provider, 
+        FileType type, 
+        Class<?> dataType
+    ) {
+        Class<?> providerClass = provider.type();
+        DataType dataTypeAnnotation = providerClass.getAnnotation(DataType.class);
+        Encoding encodingAnnotation = providerClass.getAnnotation(Encoding.class);
+
+        return dataTypeAnnotation != null && encodingAnnotation != null &&
+               dataTypeAnnotation.value().equals(dataType) &&
+               encodingAnnotation.value() == type;
+    }
+
     public static <T> VectorFileArray<T> vectorFileArray(
         FileType type,
         Class<T> aClass,
         Path outputFile
     )
     {
-        return null;
+        return streamProviders()
+            .filter(provider -> matchesTypeAndEncoding(provider, type, aClass))
+            .findFirst()
+            .map(provider -> {
+                try {
+                    // Get the instance only after we've confirmed it matches our criteria
+                    BoundedVectorFileStream<?> stream = provider.get();
+
+                    // Initialize the stream with the provided path
+                    stream.open(outputFile);
+
+                    // Create a wrapper that adapts BoundedVectorFileStream to VectorFileArray
+                    return new io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStreamAdapter<>(stream, aClass);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to initialize vector file array", e);
+                }
+            })
+            .orElseThrow(() -> new IllegalArgumentException(
+                "No vector file array implementation found for type " + aClass.getSimpleName() +
+                " and encoding " + type));
+    }
+
+
+    /// Returns a stream of all available VectorFileStore providers.
+    ///
+    /// @return A stream of ServiceLoader.Provider<VectorFileStore>
+    private static Stream<ServiceLoader.Provider<VectorFileStore>> storeProviders() {
+        ServiceLoader<VectorFileStore> serviceLoader = ServiceLoader.load(VectorFileStore.class);
+        return StreamSupport.stream(serviceLoader.stream().spliterator(), false);
     }
 
     public static <T> Optional<VectorFileStore<T>> vectorFileStore(
@@ -185,7 +242,25 @@ public class VectorFileIO {
         Path outputFile
     )
     {
-        return null;
+        return storeProviders()
+            .filter(provider -> matchesTypeAndEncoding(provider, type, aClass))
+            .findFirst()
+            .map(provider -> {
+                try {
+                    // Get the instance only after we've confirmed it matches our criteria
+                    VectorFileStore<?> store = provider.get();
+
+                    // Initialize the store with the provided path
+                    store.open(outputFile);
+
+                    // Cast to the correct type
+                    @SuppressWarnings("unchecked")
+                    VectorFileStore<T> typedStore = (VectorFileStore<T>) store;
+                    return typedStore;
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to initialize vector file store", e);
+                }
+            });
     }
 
 

@@ -19,6 +19,9 @@ package io.nosqlbench.readers;
 
 import io.nosqlbench.nbvectors.api.fileio.VectorFileArray;
 import io.nosqlbench.nbvectors.api.noncore.ImmutableSizedReader;
+import io.nosqlbench.nbvectors.api.services.DataType;
+import io.nosqlbench.nbvectors.api.services.Encoding;
+import io.nosqlbench.nbvectors.api.services.FileType;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -47,6 +50,8 @@ import java.util.Objects;
 /// │ Using Fixed Size    │ O(1) per vector
 /// └─────────────────────┘
 /// ```
+@DataType(float[].class)
+@Encoding(FileType.xvec)
 public class UniformFvecReader extends ImmutableSizedReader<float[]> implements VectorFileArray<float[]> {
     private Path filePath;
     private int dimension;
