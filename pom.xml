@@ -74,18 +74,17 @@
 <!--        </configuration>-->
 <!--      </plugin>-->
 
-      <plugin>
-        <groupId>org.sonatype.central</groupId>
-        <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.7.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <excludeArtifacts>
-            <artifact>nbdatatools</artifact>
-            <artifact>commands</artifact>
-          </excludeArtifacts>
-        </configuration>
-      </plugin>
+<!--      <plugin>-->
+<!--        <groupId>org.sonatype.central</groupId>-->
+<!--        <artifactId>central-publishing-maven-plugin</artifactId>-->
+<!--        <version>0.7.0</version>-->
+<!--        <extensions>true</extensions>-->
+<!--        <configuration>-->
+<!--          <excludeArtifacts>-->
+<!--            <artifact>nbdatatools</artifact>-->
+<!--          </excludeArtifacts>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
       <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
