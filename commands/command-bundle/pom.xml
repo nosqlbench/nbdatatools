@@ -21,13 +21,12 @@
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>
-      <version>4.7.6</version>
     </dependency>
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli-codegen</artifactId>
-      <version>4.7.6</version>
     </dependency>
+
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>testdata-apis</artifactId>
@@ -35,26 +34,102 @@
       <scope>compile</scope>
     </dependency>
 
+    <!-- Command module dependencies -->
+<!--    <dependency>-->
+<!--      <groupId>io.nosqlbench</groupId>-->
+<!--      <artifactId>build_hdf5</artifactId>-->
+<!--      <version>${revision}</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>io.nosqlbench</groupId>-->
+<!--      <artifactId>catalog_hdf5</artifactId>-->
+<!--      <version>${revision}</version>-->
+<!--    </dependency>-->
+<!--    <dependency>-->
+<!--      <groupId>io.nosqlbench</groupId>-->
+<!--      <artifactId>export_hdf5</artifactId>-->
+<!--      <version>${revision}</version>-->
+<!--    </dependency>-->
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>clean_fvec</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>convert</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>datasets</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>export_json</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>fletcher</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>generate</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>hugging_dl</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>jjq</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>merkle</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>mktestdata</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>show_hdf5</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>tag_hdf5</artifactId>
+      <version>${revision}</version>
+    </dependency>
+<!--    <dependency>-->
+<!--      <groupId>io.nosqlbench</groupId>-->
+<!--      <artifactId>template</artifactId>-->
+<!--      <version>${revision}</version>-->
+<!--    </dependency>-->
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>verify_knn</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
   </dependencies>
   <build>
     <!-- Plugin management for commands modules to ensure consistent compiler setup -->
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.14.0</version>
-          <configuration>
-            <proc>full</proc>
-            <release>22</release>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
     <!-- Plugin versions and default configuration are inherited -->
     <plugins>
       <plugin>
-        <!--        <groupId>org.apache.maven.plugins</groupId>-->
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
         <artifactId>maven-deploy-plugin</artifactId>
       </plugin>
 

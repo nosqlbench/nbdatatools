@@ -91,8 +91,7 @@ apply to all files, directories, modules, or sub-projects contained within this 
 
 ## Instrumentation
 
-* Log4j2 should be used by default, with no accomodations made for slf4j. Slf4j is banal in its
-  present-day form.
+* Log4j2 should be used by default, with no accomodations made for slf4j.
 * When Log4j2 is not provided, you can create a basic logging facade which emulates the log4j2 API.
   Do NOT include slf4j.
 

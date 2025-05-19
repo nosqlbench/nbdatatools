@@ -30,6 +30,7 @@ import io.nosqlbench.command.verify_knn.statusview.StatusViewLanterna;
 import io.nosqlbench.command.verify_knn.statusview.StatusViewNoOp;
 import io.nosqlbench.command.verify_knn.statusview.StatusViewRouter;
 import io.nosqlbench.command.verify_knn.statusview.StatusViewStdout;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
@@ -87,7 +88,7 @@ import java.util.concurrent.Callable;
         "0: all tested neighborhoods were correct",
         "2: at least one tested neighborhood was incorrect"
     })
-public class CMD_verify_knn implements Callable<Integer> {
+public class CMD_verify_knn implements Callable<Integer>, BundledCommand {
   private static final Logger logger = LogManager.getLogger(CMD_verify_knn.class);
   //  private final static Logger logger = NBLoggerContext.context().getLogger(NBVectors.class);
 

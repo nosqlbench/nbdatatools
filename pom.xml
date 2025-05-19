@@ -34,12 +34,12 @@
   </dependencies>
 
   <modules>
+    <module>commands</module>
     <module>mvn-defaults</module>
     <module>testdata-apis</module>
     <module>vectordata</module>
     <module>nbvectors</module>
     <module>io-modules</module>
-    <module>commands</module>
   </modules>
 
   <developers>

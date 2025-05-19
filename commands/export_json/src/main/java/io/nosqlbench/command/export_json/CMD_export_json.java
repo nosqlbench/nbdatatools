@@ -19,6 +19,7 @@ package io.nosqlbench.command.export_json;
 
 
 import io.nosqlbench.nbvectors.api.commands.BundledCommand;
+import io.nosqlbench.nbvectors.api.services.Selector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 /// Show details of HDF5 vector data files
+@Selector("export_json")
 @CommandLine.Command(name = "export_json",
     headerHeading = "Usage:%n%n",
     synopsisHeading = "%n",

@@ -19,7 +19,6 @@ package io.nosqlbench.commands;
 
 
 import io.nosqlbench.nbvectors.api.commands.BundledCommand;
-import io.nosqlbench.nbvectors.api.services.Selector;
 import picocli.CommandLine;
 
 import java.util.Objects;
@@ -32,15 +31,21 @@ public class AddBundledCommands implements CommandLine.IModelTransformer {
     ServiceLoader<BundledCommand> load = ServiceLoader.load(BundledCommand.class);
     Set<String> extant = commandSpec.subcommands().keySet();
     load.stream().filter(c -> {
-      Selector anno = c.type().getAnnotation(Selector.class);
-      if (anno == null || extant.contains(anno.value())) {
+      CommandLine.Command canno = c.type().getAnnotation(CommandLine.Command.class);
+      if (canno == null) {
         return false;
+      }
+      if (extant.contains(canno.name())) {
+        throw new RuntimeException("Command name '" + canno.name() + "' is already defined, but "
+                                   + "found another under the same name in services manifest.");
       }
       return true;
     }).forEach(c -> {
+      CommandLine.Command canno = c.type().getAnnotation(CommandLine.Command.class);
+      Objects.requireNonNull(canno);
+      String name = canno.name();
       CommandLine cl = new CommandLine(c.type());
-      commandSpec.addSubcommand(
-          Objects.requireNonNull(c.type().getAnnotation(Selector.class)).value(), cl);
+      commandSpec.addSubcommand(name, cl);
     });
     return commandSpec;
   }

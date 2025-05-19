@@ -20,7 +20,7 @@ package io.nosqlbench.nbvectors.commands.tag_hdf5;
 
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
-import io.nosqlbench.vectordata.spec.attributes.syntax.AttrSet;
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.HdfTraverser;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.filters.BaseHdfVisitorFilter;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.injectors.BaseHdfVisitorInjector;
@@ -28,6 +28,7 @@ import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.visitors.HdfCompoundV
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.visitors.HdfPrintVisitor;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversal.visitors.HdfWriterVisitor;
 import io.nosqlbench.nbvectors.commands.tag_hdf5.traversalv2.NullTransformer;
+import io.nosqlbench.vectordata.spec.attributes.syntax.AttrSet;
 import picocli.CommandLine;
 
 import java.nio.file.Path;
@@ -36,7 +37,7 @@ import java.util.concurrent.Callable;
 /// Tag HDF5 vector test data files
 @CommandLine.Command(name = "tag_hdf5", description = "read or write hdf attributes",
     subcommands = {CommandLine.HelpCommand.class})
-public class CMD_tag_hdf5 implements Callable<Integer> {
+public class CMD_tag_hdf5 implements Callable<Integer>, BundledCommand {
 
   private final HdfTraverser hdfTraverser =
       new HdfTraverser(new BaseHdfVisitorFilter(), new BaseHdfVisitorInjector());
@@ -51,7 +52,7 @@ public class CMD_tag_hdf5 implements Callable<Integer> {
 
   @CommandLine.Option(names = {"-s", "--set", "--set-attribute"},
       description = "The HDF5 attribute to set",
-      converter = AttrSetConverter.class)
+      converter = io.nosqlbench.nbvectors.commands.tag_hdf5.AttrSetConverter.class)
   private AttrSet[] attrs;
 
   /// run a tag_hdf5 command

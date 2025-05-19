@@ -41,11 +41,6 @@
       <artifactId>export_json</artifactId>
       <version>${revision}</version>
     </dependency>
-    <dependency>
-      <groupId>io.nosqlbench</groupId>
-      <artifactId>nbvectors</artifactId>
-      <version>${revision}</version>
-    </dependency>
 
   </dependencies>
 

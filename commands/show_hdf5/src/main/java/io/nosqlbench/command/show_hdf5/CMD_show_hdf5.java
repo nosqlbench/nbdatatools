@@ -25,9 +25,10 @@ import io.jhdf.api.Dataset;
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
 import io.nosqlbench.nbvectors.api.commands.BundledCommand;
-import io.nosqlbench.vectordata.utils.SHARED;
+import io.nosqlbench.nbvectors.api.services.Selector;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vectordata.spec.predicates.PNode;
+import io.nosqlbench.vectordata.utils.SHARED;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -41,6 +42,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 /// Show details of HDF5 vector data files
+@Selector("show_hdf5")
 @CommandLine.Command(name = "show_hdf5",
     headerHeading = "Usage:%n%n",
     synopsisHeading = "%n",

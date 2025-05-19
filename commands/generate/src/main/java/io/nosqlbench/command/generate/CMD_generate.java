@@ -18,6 +18,7 @@ package io.nosqlbench.command.generate;
  */
 
 
+import io.nosqlbench.nbvectors.api.commands.BundledCommand;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -37,7 +38,7 @@ import java.util.List;
         """,
     exitCodeList = {"0: success", "1: warning", "2: error"},
 subcommands = {IvecShuffle.class, FvecExtract.class})
-public class CMD_generate {
+public class CMD_generate implements BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_generate.class);
 
     @CommandLine.Parameters(description = "commands")

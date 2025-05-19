@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
   <description>Default module settings for mvn modules in nbdatatools</description>
   <properties>
-    <revision>0.1.4-SNAPSHOT</revision>
+    <revision>0.1.5-SNAPSHOT</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -443,6 +443,11 @@
         </plugin>
       </plugins>
     </pluginManagement>
+
+    <sourceDirectory>src/main/java</sourceDirectory>
+    <resources>
+      <resource><directory>src/main/resources</directory></resource>
+    </resources>
 
   </build>
 

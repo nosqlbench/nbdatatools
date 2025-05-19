@@ -1,2 +1,3 @@
 io.nosqlbench.command.generate.FvecExtract
 io.nosqlbench.command.generate.IvecShuffle
+io.nosqlbench.command.generate.CMD_generate

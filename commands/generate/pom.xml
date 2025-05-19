@@ -33,16 +33,6 @@
 
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>vectordata</artifactId>
-      <version>${revision}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.nosqlbench</groupId>
-      <artifactId>nbvectors</artifactId>
-      <version>${revision}</version>
-    </dependency>
-    <dependency>
-      <groupId>io.nosqlbench</groupId>
       <artifactId>io-bundle</artifactId>
       <version>${revision}</version>
     </dependency>

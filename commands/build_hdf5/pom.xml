@@ -49,11 +49,6 @@
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
     </dependency>
-    <dependency>
-      <groupId>io.nosqlbench</groupId>
-      <artifactId>nbvectors</artifactId>
-      <version>${revision}</version>
-    </dependency>
 
   </dependencies>
 
