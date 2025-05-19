@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <artifactId>command-parentpom</artifactId>
+  <version>${revision}</version>
+  <description>Default module settings for command modules</description>
+  <packaging>pom</packaging>
+
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <artifactId>mvn-defaults</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../mvn-defaults</relativePath>
+  </parent>
+
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Jonathan Shook</name>
+      <email>jshook@gmail.com</email>
+      <organization>io.nosqlbench</organization>
+      <organizationUrl>https://nosqlbench.io/</organizationUrl>
+    </developer>
+    <developer>
+      <name>Mark Wolters</name>
+      <email>mwolters138@gmail.com</email>
+      <organization>nosqlbench.io</organization>
+      <organizationUrl>https://nosqlbench.io/</organizationUrl>
+    </developer>
+  </developers>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <configuration>
+            <skip>true</skip>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.0</version>
+          <configuration>
+            <proc>full</proc>
+            <release>23</release>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>3.1.3</version>
+          <configuration>
+            <skip>true</skip>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>0.7.0</version>
+          <extensions>true</extensions>
+          <configuration>
+            <excludeArtifacts>
+              <artifact>nbdatatools</artifact>
+            </excludeArtifacts>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.2.1</version>
+          <executions>
+            <execution>
+              <id>enforce-java</id>
+              <goals>
+                <goal>enforce</goal>
+              </goals>
+              <configuration>
+                <rules>
+                  <!--                <requireProperty>-->
+                  <!--                  <property>java.vendor.version</property>-->
+                  <!--                  <regex>.*GraalVM.*</regex>-->
+                  <!--                  <message>-->
+                  <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
+                  <!--                  </message>-->
+                  <!--                </requireProperty>-->
+                  <requireJavaVersion>
+                    <version>[23,)</version>
+                  </requireJavaVersion>
+                  <!--                    This would be nice, but jhdf is on older log4j API versions -->
+                  <!--                    <dependencyConvergence/>-->
+                  <requireProfileIdsExist/>
+                </rules>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.rat</groupId>
+          <artifactId>apache-rat-plugin</artifactId>
+          <version>0.15</version>
+          <executions>
+            <execution>
+              <phase>verify</phase>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <includes>
+              <include>**/*.java</include>
+            </includes>
+            <excludes>
+              <exclude>**/gen/**</exclude>
+              <exclude>**/generated/**</exclude>
+              <exclude>**/jmh_generated/**</exclude>
+              <exclude>**/generated-sources/**</exclude>
+            </excludes>
+            <addLicenseHeaders>true</addLicenseHeaders>
+            <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>flatten-maven-plugin</artifactId>
+          <version>1.3.0</version>
+          <configuration>
+            <updatePomFile>true</updatePomFile>
+            <flattenMode>resolveCiFriendliesOnly</flattenMode>
+          </configuration>
+          <executions>
+            <execution>
+              <id>flatten</id>
+              <phase>process-resources</phase>
+              <goals>
+                <goal>flatten</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>flatten.clean</id>
+              <phase>clean</phase>
+              <goals>
+                <goal>clean</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <sourceDirectory>src/main/java</sourceDirectory>
+    <resources>
+      <resource><directory>src/main/resources</directory></resource>
+    </resources>
+
+  </build>
+
+</project>
