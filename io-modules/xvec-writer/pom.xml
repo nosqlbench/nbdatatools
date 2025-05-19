@@ -11,9 +11,9 @@
 
   <parent>
     <groupId>io.nosqlbench</groupId>
-    <artifactId>mvn-defaults</artifactId>
+    <artifactId>io-parent</artifactId>
     <version>${revision}</version>
-    <relativePath>../../mvn-defaults</relativePath>
+    <relativePath>../io-parent</relativePath>
   </parent>
 
   <properties>
