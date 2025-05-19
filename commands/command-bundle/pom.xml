@@ -130,10 +130,6 @@
         <artifactId>maven-compiler-plugin</artifactId>
       </plugin>
       <plugin>
-        <artifactId>maven-deploy-plugin</artifactId>
-      </plugin>
-
-      <plugin>
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>
       </plugin>

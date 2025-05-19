@@ -28,7 +28,6 @@
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>
-      <version>4.7.6</version>
     </dependency>
 
     <dependency>
@@ -52,7 +51,6 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-math3</artifactId>
-      <version>3.6.1</version>
       <scope>test</scope>
     </dependency>
 
@@ -65,11 +63,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
       </plugin>
-      <plugin>
-        <!--        <groupId>org.apache.maven.plugins</groupId>-->
-        <artifactId>maven-deploy-plugin</artifactId>
-      </plugin>
-
       <plugin>
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>

@@ -20,16 +20,15 @@
              If necessary, a separate defaults module should be created. -->
 
   <dependencies>
-    <!--    <dependency>-->
-    <!--      <groupId>org.apache.maven.plugins</groupId>-->
-    <!--      <artifactId>maven-enforcer-plugin</artifactId>-->
-    <!--      <version>3.5.0</version>-->
-    <!--    </dependency>-->
-
+<!--    <dependency>-->
+<!--      <groupId>org.apache.maven.plugins</groupId>-->
+<!--      <artifactId>maven-deploy-plugin</artifactId>-->
+<!--      <version>3.1.4</version>-->
+<!--    </dependency>-->
     <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
-      <version>4.5.14</version>
+      <groupId>org.sonatype.central</groupId>
+      <artifactId>central-publishing-maven-plugin</artifactId>
+      <version>0.7.0</version>
     </dependency>
   </dependencies>
 
@@ -66,14 +65,14 @@
 
   <build>
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-deploy-plugin</artifactId>
-        <version>3.1.3</version>
-        <configuration>
-          <skip>true</skip>
-        </configuration>
-      </plugin>
+<!--      <plugin>-->
+<!--        <groupId>org.apache.maven.plugins</groupId>-->
+<!--        <artifactId>maven-deploy-plugin</artifactId>-->
+<!--        <version>3.1.3</version>-->
+<!--        <configuration>-->
+<!--          <skip>true</skip>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
 
       <plugin>
         <groupId>org.sonatype.central</groupId>
@@ -83,6 +82,7 @@
         <configuration>
           <excludeArtifacts>
             <artifact>nbdatatools</artifact>
+            <artifact>commands</artifact>
           </excludeArtifacts>
         </configuration>
       </plugin>
