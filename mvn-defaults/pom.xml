@@ -13,6 +13,9 @@
     <revision>0.1.5-SNAPSHOT</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.deploy.skip>true</maven.deploy.skip>
+    <maven.compiler.release>24</maven.compiler.release>
+    <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>24</maven.compiler.source>
   </properties>
 
   <dependencies>
@@ -345,7 +348,7 @@
           <version>3.14.0</version>
           <configuration>
             <proc>full</proc>
-            <release>23</release>
+            <release>24</release>
           </configuration>
         </plugin>
 <!--        <plugin>-->
@@ -388,7 +391,7 @@
                   <!--                  </message>-->
                   <!--                </requireProperty>-->
                   <requireJavaVersion>
-                    <version>[23,)</version>
+                    <version>[24,)</version>
                   </requireJavaVersion>
                   <!--                    This would be nice, but jhdf is on older log4j API versions -->
                   <!--                    <dependencyConvergence/>-->

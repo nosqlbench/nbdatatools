@@ -42,7 +42,12 @@
     </dependency>
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>command-bundle</artifactId>
+      <artifactId>commands</artifactId>
+      <version>${revision}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>io-xvec</artifactId>
       <version>${revision}</version>
     </dependency>
   </dependencies>

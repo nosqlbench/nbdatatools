@@ -199,6 +199,16 @@ public class VectorFileIO {
                encodingAnnotation.value() == type;
     }
 
+    /// Creates a VectorFileArray for the specified file type and data class.
+    /// This method finds an appropriate BoundedVectorFileStream implementation based on the provided type and class.
+    ///
+    /// @param type The file type/encoding to use
+    /// @param aClass The class representing the data type
+    /// @param outputFile The path to the file to open
+    /// @param <T> The type of data in the array
+    /// @return A VectorFileArray instance for the specified file
+    /// @throws IllegalArgumentException if no suitable implementation is found
+    /// @throws RuntimeException if initialization fails
     public static <T> VectorFileArray<T> vectorFileArray(
         FileType type,
         Class<T> aClass,
@@ -237,6 +247,15 @@ public class VectorFileIO {
         return StreamSupport.stream(serviceLoader.stream().spliterator(), false);
     }
 
+    /// Creates a VectorFileStore for the specified file type and data class.
+    /// This method finds an appropriate VectorFileStore implementation based on the provided type and class.
+    ///
+    /// @param type The file type/encoding to use
+    /// @param aClass The class representing the data type
+    /// @param outputFile The path to the file to open
+    /// @param <T> The type of data in the store
+    /// @return An Optional containing the VectorFileStore instance, or empty if no suitable implementation is found
+    /// @throws RuntimeException if initialization fails
     public static <T> Optional<VectorFileStore<T>> vectorFileStore(
         FileType type,
         Class<T> aClass,
