@@ -104,128 +104,7 @@
 
 
   <build>
-
     <plugins>
-
-      <plugin>
-        <groupId>org.sonatype.central</groupId>
-        <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.7.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <skipPublishing>false</skipPublishing>
-        </configuration>
-      </plugin>
-
-      <!-- Skip tests in nbvectors module to avoid transient command-side failures -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.0.0-M9</version>
-        <configuration>
-          <skipTests>true</skipTests>
-        </configuration>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-source-plugin</artifactId>
-        <version>3.3.1</version>
-        <executions>
-          <execution>
-            <id>attach-sources</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>jar-no-fork</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.0.1</version>
-        <executions>
-          <execution>
-            <id>sign-artifacts</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>sign</goal>
-            </goals>
-            <configuration>
-              <keyname>nosqlbenchdroid@gmail.com</keyname>
-              <passphraseServerId>gpg.passphrase</passphraseServerId>
-              <!--              <useAgent>true</useAgent>-->
-              <gpgArguments>
-                <cmdParam>--pinentry-mode</cmdParam>
-                <cmdParam>loopback</cmdParam>
-              </gpgArguments>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.rat</groupId>
-        <artifactId>apache-rat-plugin</artifactId>
-        <version>0.15</version>
-        <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <includes>
-            <include>**/*.java</include>
-          </includes>
-          <excludes>
-            <exclude>**/gen/**</exclude>
-            <exclude>**/generated/**</exclude>
-            <exclude>**/jmh_generated/**</exclude>
-            <exclude>**/generated-sources/**</exclude>
-          </excludes>
-          <addLicenseHeaders>true</addLicenseHeaders>
-          <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
-        </configuration>
-      </plugin>
-
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>flatten-maven-plugin</artifactId>
-        <version>1.3.0</version>
-        <configuration>
-          <updatePomFile>true</updatePomFile>
-          <flattenMode>resolveCiFriendliesOnly</flattenMode>
-        </configuration>
-        <executions>
-          <execution>
-            <id>flatten</id>
-            <phase>process-resources</phase>
-            <goals>
-              <goal>flatten</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>flatten.clean</id>
-            <phase>clean</phase>
-            <goals>
-              <goal>clean</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
-        <configuration>
-          <proc>full</proc>
-          <release>23</release>
-        </configuration>
-      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
@@ -257,46 +136,6 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.11.2</version>
-        <configuration>
-          <!--          <additionalOptions>-->
-          <!--            <additionalOption>-Xdoclint:none</additionalOption>-->
-          <!--          </additionalOptions>-->
-          <!--          <doclint>none</doclint>-->
-
-
-          <!--          <additionalJOptions>&#45;&#45;enable-preview</additionalJOptions>-->
-          <!--          <release>23</release>-->
-          <!--          <doctitle>${javadoc.name}</doctitle>-->
-          <!--          <header>${javadoc.name}</header>-->
-          <!--          <windowtitle>${javadoc.name}</windowtitle>-->
-          <!--          <detectJavaApiLink>false</detectJavaApiLink>-->
-          <!--          <detectLinks>false</detectLinks>-->
-          <!--          <detectOfflineLinks>false</detectOfflineLinks>-->
-          <!--                    <additionalparam>-Xdoclint:none</additionalparam>-->
-          <!--                    <additionalJOption>-Xdoclint:none</additionalJOption>-->
-          <!--          <notimestamp>true</notimestamp>-->
-          <!--          <groups>-->
-          <!--            <group>-->
-          <!--              <title>Adapter Drivers</title>-->
-          <!--              <packages>io.nosqlbench.adapter.*</packages>-->
-          <!--            </group>-->
-          <!--          </groups>-->
-        </configuration>
-        <executions>
-          <execution>
-            <id>attach-javadoc</id>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
         <version>3.7.1</version>
         <executions>
@@ -319,6 +158,7 @@
           </descriptors>
         </configuration>
       </plugin>
+
     </plugins>
   </build>
 </project>

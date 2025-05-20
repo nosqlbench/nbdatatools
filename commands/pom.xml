@@ -20,6 +20,12 @@
 
   <dependencies>
     <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>io-xvec</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
       <version>2.18.3</version>
@@ -217,27 +223,19 @@
 
   <build>
     <!-- Plugin management for commands modules to ensure consistent compiler setup -->
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.14.0</version>
-          <configuration>
-            <proc>full</proc>
-            <release>22</release>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
     <!-- Plugin versions and default configuration are inherited -->
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+      <plugin>
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>
-        <configuration>
-          <skipPublishing>true</skipPublishing>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

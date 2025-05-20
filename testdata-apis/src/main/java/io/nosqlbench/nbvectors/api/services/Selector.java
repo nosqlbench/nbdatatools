@@ -23,15 +23,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Annotation used to identify a command by a string selector.
- * This allows commands to be registered with a specific name for lookup.
- */
+/// Annotation used to identify a command by a string selector.
+/// This allows commands to be registered with a specific name for lookup.
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface Selector {
-    /**
-     * @return The string selector value for this command
-     */
+    /// @return The string selector value for this command
     String value();
 }

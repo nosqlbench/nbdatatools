@@ -1,7 +1,6 @@
 io.nosqlbench.command.show_hdf5.CMD_show_hdf5
 io.nosqlbench.command.tag_hdf5.CMD_tag_hdf5
 io.nosqlbench.command.verify_knn.CMD_verify_knn
-io.nosqlbench.command.COMMAND.CMD_COMMAND
 io.nosqlbench.command.mktestdata.CMD_mktestdata
 io.nosqlbench.command.merkle.CMD_merkle
 io.nosqlbench.command.generate.FvecExtract
