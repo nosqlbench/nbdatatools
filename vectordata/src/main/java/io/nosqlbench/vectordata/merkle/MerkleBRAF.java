@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
  * This class acts as a shell around its parent RandomAccessFile, presenting the size from the
  * reference merkle file and ensuring that content is downloaded and verified before any reads.
  */
-public class MerkleRAF extends RandomAccessFile {
+public class MerkleBRAF extends RandomAccessFile implements BufferedRandomAccessFile {
   private final MerklePainter painter;
 
   /**
@@ -39,7 +39,7 @@ public class MerkleRAF extends RandomAccessFile {
    * @param remoteUrl URL of the source data file
    * @throws IOException If there's an error opening the files or downloading reference data
    */
-  public MerkleRAF(Path localPath, String remoteUrl) throws IOException {
+  public MerkleBRAF(Path localPath, String remoteUrl) throws IOException {
     super(touch(localPath), "rwd");
     // Create a MerklePainter with the given parameters
     this.painter = new MerklePainter(localPath, remoteUrl);
@@ -175,6 +175,7 @@ public class MerkleRAF extends RandomAccessFile {
    * @param length The number of bytes to prebuffer
    * @return A CompletableFuture that completes when all chunks in the range are available
    */
+  @Override
   public CompletableFuture<Void> prebuffer(long position, long length) {
     if (position < 0) {
       CompletableFuture<Void> future = new CompletableFuture<>();
@@ -219,6 +220,7 @@ public class MerkleRAF extends RandomAccessFile {
     }
   }
 
+  @Override
   public void awaitPrebuffer(long minIncl, long maxExcl) {
     prebuffer(minIncl, maxExcl - minIncl);
     try {

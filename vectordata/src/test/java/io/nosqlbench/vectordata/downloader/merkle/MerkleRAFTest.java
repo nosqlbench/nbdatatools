@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.downloader.merkle;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleRAF;
+import io.nosqlbench.vectordata.merkle.MerkleBRAF;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -62,7 +62,7 @@ public class MerkleRAFTest {
         try {
             // Create a MerkleRAF instance with its own internal MerklePainter
             // Use deleteOnExit=true for clean test execution
-            try (MerkleRAF merkleRAF = new MerkleRAF(localPath, remoteUrl)) {
+            try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, remoteUrl)) {
                 // No need to set test mode anymore
                 // Verify that the file exists
                 assertTrue(Files.exists(localPath), "Local file should exist");
@@ -131,7 +131,7 @@ public class MerkleRAFTest {
         try {
             // Create a MerkleRAF instance with its own internal MerklePainter
             // Use deleteOnExit=true for clean test execution
-            try (MerkleRAF merkleRAF = new MerkleRAF(localPath, remoteUrl)) {
+            try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, remoteUrl)) {
                 // Verify that the file exists
                 assertTrue(Files.exists(localPath), "Local file should exist");
 

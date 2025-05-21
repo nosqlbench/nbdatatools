@@ -18,8 +18,8 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleRAF;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
+import io.nosqlbench.vectordata.merkle.BufferedRandomAccessFile;
 
 /// Implementation of float vector access for xvec file formats.
 ///
@@ -33,7 +33,7 @@ public class FloatVectorsXvecImpl extends CoreXVecDatasetViewMethods<float[]> {
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
   public FloatVectorsXvecImpl(
-      MerkleRAF randomio,
+      BufferedRandomAccessFile randomio,
       long sourceSize,
       DSWindow window,
       String extension

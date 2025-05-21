@@ -18,9 +18,9 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleRAF;
-import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
+import io.nosqlbench.vectordata.merkle.BufferedRandomAccessFile;
+import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 
 /// Implementation of BaseVectors interface for xvec file format.
 /// This class extends FloatVectorsXvecImpl to provide base vector functionality
@@ -32,7 +32,7 @@ public class BaseVectorsXvecImpl extends FloatVectorsXvecImpl implements BaseVec
   /// @param sourceSize The size of the source file in bytes
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
-  public BaseVectorsXvecImpl(MerkleRAF randomio, long sourceSize, DSWindow window, String extension)
+  public BaseVectorsXvecImpl(BufferedRandomAccessFile randomio, long sourceSize, DSWindow window, String extension)
   {
     super(randomio, sourceSize, window, extension);
   }

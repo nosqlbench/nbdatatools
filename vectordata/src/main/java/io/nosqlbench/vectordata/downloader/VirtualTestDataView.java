@@ -19,7 +19,8 @@ package io.nosqlbench.vectordata.downloader;
 
 
 import io.nosqlbench.vectordata.discovery.TestDataView;
-import io.nosqlbench.vectordata.merkle.MerkleRAF;
+import io.nosqlbench.vectordata.merkle.BufferedRandomAccessFile;
+import io.nosqlbench.vectordata.merkle.MerkleBRAF;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
@@ -66,15 +67,24 @@ public class VirtualTestDataView implements TestDataView {
       URL sourceContentURL = new URL(datasetEntry.url(), sourcePath);
       Path contentPath =
           cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(sourcePath);
-      MerkleRAF merkleRAF = new MerkleRAF(contentPath, sourceContentURL.toString());
+
+      BufferedRandomAccessFile iohandle = resolveRandomAccessHandle(contentPath,
+          sourceContentURL.toString());
+
       String extension =
           sourceContentURL.getFile().substring(sourceContentURL.getFile().lastIndexOf('.') + 1);
       BaseVectorsXvecImpl newview =
-          new BaseVectorsXvecImpl(merkleRAF, merkleRAF.length(), dsView.getWindow(), extension);
+          new BaseVectorsXvecImpl(iohandle, iohandle.length(), dsView.getWindow(), extension);
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private BufferedRandomAccessFile resolveRandomAccessHandle(Path contentPath, String sourceContentURL)
+      throws IOException
+  {
+    BufferedRandomAccessFile merkleRAF = new MerkleBRAF(contentPath, sourceContentURL.toString());
   }
 
   private Optional<DSView> getMatchingView(String viewkind) {
@@ -97,7 +107,7 @@ public class VirtualTestDataView implements TestDataView {
     }
     try {
       URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
-      MerkleRAF merkleRAF = new MerkleRAF(null, sourceURL.toString());
+      MerkleBRAF merkleRAF = new MerkleBRAF(null, sourceURL.toString());
       FloatVectorsXvecImpl newview = new FloatVectorsXvecImpl(
           merkleRAF,
           merkleRAF.length(),
@@ -121,7 +131,7 @@ public class VirtualTestDataView implements TestDataView {
     }
     try {
       URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
-      MerkleRAF merkleRAF = new MerkleRAF(null, sourceURL.toString());
+      BufferedRandomAccessFile merkleRAF = new MerkleBRAF(null, sourceURL.toString());
       // Assuming there's an implementation for NeighborIndices similar to BaseVectorsXvecImpl
       // This would need to be implemented or adapted from existing code
       // For now, returning empty to avoid compilation errors
@@ -141,7 +151,7 @@ public class VirtualTestDataView implements TestDataView {
     }
     try {
       URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
-      MerkleRAF merkleRAF = new MerkleRAF(null, sourceURL.toString());
+      BufferedRandomAccessFile merkleRAF = new MerkleBRAF(null, sourceURL.toString());
       // Assuming there's an implementation for NeighborDistances similar to BaseVectorsXvecImpl
       // This would need to be implemented or adapted from existing code
       // For now, returning empty to avoid compilation errors

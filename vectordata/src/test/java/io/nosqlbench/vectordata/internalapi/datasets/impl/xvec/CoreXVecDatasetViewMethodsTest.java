@@ -18,8 +18,8 @@ package io.nosqlbench.vectordata.internalapi.datasets.impl.xvec;
  */
 
 
+import io.nosqlbench.vectordata.merkle.MerkleBRAF;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
-import io.nosqlbench.vectordata.merkle.MerkleRAF;
 import io.nosqlbench.vectordata.merkle.MerkleRange;
 import io.nosqlbench.vectordata.merkle.MerkleTree;
 import org.junit.jupiter.api.Disabled;
@@ -86,17 +86,17 @@ public class CoreXVecDatasetViewMethodsTest {
         createEmptyMerkleTreeFile(fvecFile);
 
         // Test with different file extensions
-        MerkleRAF bvecRaf = new MerkleRAF(bvecFile, null);
+        MerkleBRAF bvecRaf = new MerkleBRAF(bvecFile, null);
         CoreXVecDatasetViewMethods<?> bvecView = new CoreXVecDatasetViewMethods<>(
             bvecRaf, Files.size(bvecFile), null, "bvecs");
         assertEquals(Byte.BYTES, bvecView.componentBytes());
 
-        MerkleRAF ivecRaf = new MerkleRAF(ivecFile, null);
+        MerkleBRAF ivecRaf = new MerkleBRAF(ivecFile, null);
         CoreXVecDatasetViewMethods<?> ivecView = new CoreXVecDatasetViewMethods<>(
             ivecRaf, Files.size(ivecFile), null, "ivecs");
         assertEquals(Integer.BYTES, ivecView.componentBytes());
 
-        MerkleRAF fvecRaf = new MerkleRAF(fvecFile, null);
+        MerkleBRAF fvecRaf = new MerkleBRAF(fvecFile, null);
         CoreXVecDatasetViewMethods<?> fvecView = new CoreXVecDatasetViewMethods<>(
             fvecRaf, Files.size(fvecFile), null, "fvecs");
         assertEquals(Float.BYTES, fvecView.componentBytes());
@@ -145,7 +145,7 @@ public class CoreXVecDatasetViewMethodsTest {
         System.out.println();
 
         // Create a MerkleRAF from the file
-        MerkleRAF raf = new MerkleRAF(bvecFile, null);
+        MerkleBRAF raf = new MerkleBRAF(bvecFile, null);
 
         // Create the view
         CoreXVecDatasetViewMethods<byte[]> view = new CoreXVecDatasetViewMethods<>(

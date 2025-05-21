@@ -18,8 +18,9 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 
+import io.nosqlbench.vectordata.merkle.BufferedRandomAccessFile;
+import io.nosqlbench.vectordata.merkle.MerkleBRAF;
 import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
-import io.nosqlbench.vectordata.merkle.MerkleRAF;
 import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
 import org.jetbrains.annotations.NotNull;
@@ -41,7 +42,7 @@ import java.util.function.Function;
 /// @param <T> The type of vector returned by this view (e.g., float[], int[], byte[])
 public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
 
-  private final MerkleRAF randomio;
+  private final BufferedRandomAccessFile randomio;
   private final DSWindow window;
   private Class<?> type;
   private Class<?> aryType;
@@ -57,7 +58,7 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
   public CoreXVecDatasetViewMethods(
-      MerkleRAF randomio,
+      BufferedRandomAccessFile randomio,
       long sourceSize,
       DSWindow window,
       String extension
