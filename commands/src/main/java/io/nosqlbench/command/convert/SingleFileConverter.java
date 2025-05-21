@@ -1,4 +1,4 @@
-package io.nosqlbench.nbdatatools.commands.convert;
+package io.nosqlbench.command.convert;
 
 /*
  * Copyright (c) nosqlbench
@@ -21,7 +21,6 @@ package io.nosqlbench.nbdatatools.commands.convert;
 import io.nosqlbench.nbvectors.api.commands.VectorFileIO;
 import io.nosqlbench.nbvectors.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbvectors.api.fileio.VectorFileStore;
-import io.nosqlbench.nbvectors.api.noncore.VectorStreamStore;
 import io.nosqlbench.nbvectors.api.services.FileType;
 import io.nosqlbench.nbvectors.api.services.SizedStreamerLookup;
 import org.apache.logging.log4j.LogManager;

@@ -28,6 +28,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface Encoding {
+    /// The encoding value for this reader implementation
     /// @return The encoding value for this reader implementation
     FileType value();
 }

@@ -7,13 +7,13 @@ io.nosqlbench.command.generate.FvecExtract
 io.nosqlbench.command.generate.IvecShuffle
 io.nosqlbench.command.generate.CMD_generate
 io.nosqlbench.command.jjq.CMD_jjq
-io.nosqlbench.nbvectors.commands.hugging_dl.CMD_hugging_dl
+io.nosqlbench.command.hugging_dl.CMD_hugging_dl
 io.nosqlbench.command.export_json.CMD_export_json
 io.nosqlbench.command.export_hdf5.CMD_export_hdf5
 io.nosqlbench.command.export_hdf5.CMD_export_hdf5new
 io.nosqlbench.command.datasets.CMD_datasets
-io.nosqlbench.nbdatatools.commands.convert.CMD_convert
+io.nosqlbench.command.convert.CMD_convert
 io.nosqlbench.command.clean_fvec.CMD_cleanfvec
+io.nosqlbench.command.catalog_hdf5.CMD_old_catalog
 io.nosqlbench.command.catalog_hdf5.CMD_catalog
-io.nosqlbench.command.catalog_hdf5.CMD_catalog2
 io.nosqlbench.command.build_hdf5.CMD_build_hdf5

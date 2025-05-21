@@ -31,6 +31,9 @@ public enum Features {
   /// The associated data has been shuffled from the original ordering
   SHUFFLED;
 
+  /// Get the features mask
+  /// @param features The feature set to get the mask for
+  /// @return The mask
   public static long getFeatureMask(Set<Features> features) {
     long mask = 0L;
     for (Features feature : features) {

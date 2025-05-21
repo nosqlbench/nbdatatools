@@ -23,6 +23,8 @@ package io.nosqlbench.vectordata.merkle;
 /// @param startInclusive Starting byte offset of the chunk
 /// @param length Length of the chunk in bytes
 public record MerkleMismatch(int chunkIndex, long startInclusive, long length) {
+  /// The end offset, exclusive, calculated as start + len
+  /// @return The end offset, exclusive
   public long endExclusive() {
     return startInclusive + length;
   }

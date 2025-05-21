@@ -28,6 +28,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface DataType {
+    /// The Class representing the data type produced by this reader
     /// @return The Class representing the data type produced by this reader
     Class<?> value();
 }

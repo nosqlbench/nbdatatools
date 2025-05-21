@@ -63,7 +63,6 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
     /// Creates a new FvecReader for the given file path.
     ///
     /// @param filePath The path to the fvec file
-    /// @throws IOException If the file cannot be opened or read
     public void open(Path filePath) {
         try {
 

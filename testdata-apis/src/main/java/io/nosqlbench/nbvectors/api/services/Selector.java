@@ -28,6 +28,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface Selector {
+    /// A selector value
     /// @return The string selector value for this command
     String value();
 }

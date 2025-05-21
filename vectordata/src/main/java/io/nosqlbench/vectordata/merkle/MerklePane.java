@@ -119,16 +119,12 @@ public class MerklePane implements AutoCloseable {
 
   /// Gets the Merkle tree associated with this window
   /// @return The MerkleTree instance
-  /// Gets the ImplicitMerkleTree associated with this window
-  /// @return The ImplicitMerkleTree instance
   public MerkleTree getMerkleTree() {
     return merkleTree;
   }
 
   /// Gets the Merkle tree associated with this window
   /// @return The MerkleTree instance
-  /// Alias for getMerkleTree
-  /// @return The ImplicitMerkleTree instance
   public MerkleTree merkleTree() {
     return merkleTree;
   }
@@ -662,6 +658,9 @@ public class MerklePane implements AutoCloseable {
     }
   }
 
+  /// Get the offset boundaries for a merkle leaf
+  /// @param chunkIndex The chunk index
+  /// @return The boundaries for the leaf
   public MerkleMismatch getBoundariesForLeaf(int chunkIndex) {
     if (refTree != null) {
       MerkleMismatch boundaries = refTree.getBoundariesForLeaf(chunkIndex);
@@ -671,6 +670,9 @@ public class MerklePane implements AutoCloseable {
     }
   }
 
+  /// Get the index for a position in the data file
+  /// @param position The position in the data file
+  /// @return The index for the position
   public int getChunkIndexForPosition(long position) {
     if (refTree != null) {
       if (position < 0 || position >= refTree.totalSize()) {
@@ -683,6 +685,9 @@ public class MerklePane implements AutoCloseable {
     }
   }
 
+  /// Get the cunk boundary for a merkle leaf
+  /// @param chunkIndex The chunk index
+  /// @return a MerkleMismatch range
   public MerkleMismatch getChunkBoundary(int chunkIndex) {
     if (merkleTree != null) {
       return merkleTree.getBoundariesForLeaf(chunkIndex);

@@ -28,6 +28,7 @@ public class FloatVectorsHdf5Impl extends CoreHdf5DatasetViewMethods<float[]>
 {
   /// create a new float vectors dataset
   /// @param dataset the dataset to wrap
+  /// @param window The window into the data by interval
   /// @see FloatVectors
   public FloatVectorsHdf5Impl(Dataset dataset, FWindow window) {
     super(dataset, window);

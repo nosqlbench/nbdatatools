@@ -58,7 +58,6 @@ public class UniformDvecStreamer implements BoundedVectorFileStream<double[]> {
     /// Creates a new UniformDvecStreamer for the given file path.
     ///
     /// @param filePath The path to the dvec file
-    /// @throws IOException If the file cannot be opened or read
     public void open(Path filePath) {
         try {
         this.filePath = Objects.requireNonNull(filePath, "filePath cannot be null");
@@ -71,24 +70,24 @@ public class UniformDvecStreamer implements BoundedVectorFileStream<double[]> {
         if (randomAccessFile.read(dimBytes) != 4) {
             throw new RuntimeException("Failed to read dimension from file: " + filePath);
         }
-        
+
         // Convert bytes to integer (little-endian)
         ByteBuffer dimBuffer = ByteBuffer.wrap(dimBytes).order(ByteOrder.LITTLE_ENDIAN);
         this.dimension = dimBuffer.getInt();
-        
+
         if (this.dimension <= 0) {
             throw new RuntimeException("Invalid dimension in file: " + this.dimension);
         }
-        
+
         // Calculate record size: 4 bytes for dimension + (dimension * 8 bytes for double values)
         this.recordSize = 4 + (dimension * 8);
-        
+
         // Calculate the total number of vectors in the file
         long fileSize = randomAccessFile.length();
         if (fileSize % recordSize != 0) {
             throw new RuntimeException("File size is not a multiple of record size. File may be corrupted.");
         }
-        
+
         this.size = (int) (fileSize / recordSize);
         } catch (IOException e) {
           throw new RuntimeException(e);
@@ -105,32 +104,34 @@ public class UniformDvecStreamer implements BoundedVectorFileStream<double[]> {
         if (index < 0 || index >= size) {
             throw new IndexOutOfBoundsException("Index " + index + " out of bounds for size " + size);
         }
-        
+
         // Calculate offset for the specific vector
         long offset = (long) index * recordSize;
         randomAccessFile.seek(offset);
-        
+
         // Skip the dimension field (we already know it)
         randomAccessFile.skipBytes(4);
-        
+
         // Read the vector values
         double[] vector = new double[dimension];
         byte[] buffer = new byte[dimension * 8];
         int bytesRead = randomAccessFile.read(buffer);
-        
+
         if (bytesRead != dimension * 8) {
             throw new IOException("Failed to read vector data at index " + index);
         }
-        
+
         // Convert bytes to double values
         ByteBuffer doubleBuffer = ByteBuffer.wrap(buffer).order(ByteOrder.LITTLE_ENDIAN);
         for (int i = 0; i < dimension; i++) {
             vector[i] = doubleBuffer.getDouble(i * 8);
         }
-        
+
         return vector;
     }
 
+    /// Closes the file resources.
+    /// Releases any system resources associated with this streamer.
     @Override
     public void close() {
         if (randomAccessFile != null) {
@@ -142,16 +143,23 @@ public class UniformDvecStreamer implements BoundedVectorFileStream<double[]> {
         }
     }
 
+    /// Returns the total number of vectors in the file.
+    /// @return The number of vectors
     @Override
     public int getSize() {
         return size;
     }
 
+    /// Returns the name of the file being read.
+    /// @return The filename
     @Override
     public String getName() {
         return this.filePath.getFileName().toString();
     }
 
+    /// Returns an iterator over the vectors in this file.
+    /// The iterator reads vectors sequentially from the file.
+    /// @return An iterator over the vectors
     @Override
     public Iterator<double[]> iterator() {
         return new Iterator<double[]>() {
@@ -167,7 +175,7 @@ public class UniformDvecStreamer implements BoundedVectorFileStream<double[]> {
                 if (!hasNext()) {
                     throw new NoSuchElementException();
                 }
-                
+
                 try {
                     return readVector(currentIndex++);
                 } catch (IOException e) {

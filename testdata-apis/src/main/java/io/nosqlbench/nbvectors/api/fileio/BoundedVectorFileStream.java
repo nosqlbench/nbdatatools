@@ -21,5 +21,6 @@ import io.nosqlbench.nbvectors.api.noncore.Sized;
 
 /// A sized version of VectorStreamReader, which knows how many elements are in the logical set
 /// before being read fully.
+/// @param <T> The type of vector data
 public interface BoundedVectorFileStream<T> extends VectorFileStream<T>, Sized {
 }

@@ -1,4 +1,4 @@
-package io.nosqlbench.nbdatatools.commands.convert;
+package io.nosqlbench.command.convert;
 
 /*
  * Copyright (c) nosqlbench

@@ -20,7 +20,6 @@ package io.nosqlbench.command.catalog_hdf5;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import io.nosqlbench.command.catalog_hdf5.CMD_catalog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -284,7 +283,7 @@ public class CMD_catalogTest {
     @Test
     void testCatalogCommand() {
         // Execute the catalog command
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
 
         System.err.println("Executing catalog command with path: " + testDataDir.toAbsolutePath());
@@ -357,7 +356,7 @@ public class CMD_catalogTest {
     @Test
     void testCatalogCommandWithCustomBasename() {
         // Execute the catalog command with custom basename
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute("--basename", "custom_catalog", testDataDir.toString());
@@ -379,7 +378,7 @@ public class CMD_catalogTest {
     @Test
     void testCatalogCommandWithInvalidBasename() {
         // Execute the catalog command with invalid basename (contains dot)
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute("--basename", "invalid.name", testDataDir.toString());
@@ -398,7 +397,7 @@ public class CMD_catalogTest {
     @Test
     void testCatalogCommandWithNonExistentPath() {
         // Execute the catalog command with non-existent path
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
 
         Path nonExistentPath = tempDir.resolve("non_existent");
@@ -422,7 +421,7 @@ public class CMD_catalogTest {
     @Test
     void testCatalogCommandWithIndividualFile() {
         // Execute the catalog command with an individual HDF5 file
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute(hdf5File1.toString());
@@ -463,7 +462,7 @@ public class CMD_catalogTest {
     @Test
     void testCatalogCommandWithMultiplePaths() {
         // Execute the catalog command with multiple paths
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute(
@@ -516,7 +515,7 @@ public class CMD_catalogTest {
     @Test
     void testCatalogHierarchy() {
         // Execute the catalog command
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute(testDataDir.toString());
@@ -591,7 +590,7 @@ public class CMD_catalogTest {
     @Test
     void testCatalogEntryPaths() {
         // Execute the catalog command
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute(testDataDir.toString());

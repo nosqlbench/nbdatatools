@@ -20,5 +20,6 @@ package io.nosqlbench.nbvectors.api.noncore;
 /// A named element
 public interface Named {
   /// get the name of the instance
+  /// @return The name of the instance
   public String getName();
 }

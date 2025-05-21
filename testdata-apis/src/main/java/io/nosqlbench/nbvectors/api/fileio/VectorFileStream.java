@@ -29,6 +29,9 @@ import java.nio.file.Path;
 public interface VectorFileStream<T> extends Iterable<T>, Named, AutoCloseable {
   /// All vector data streams must be opened this way, even if the path is an aggregator, like a
   /// containing directory.
+  /// @param path The path to open.
   public void open(Path path);
+
+  /// close the stream
   default void close() {}
 }

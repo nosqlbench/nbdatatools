@@ -21,21 +21,11 @@ package io.nosqlbench.vectordata.merkle;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.Objects;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.merkle.MerkleRange;
 import java.nio.file.StandardOpenOption;
 
 public class MerklePaneSetup {
@@ -82,6 +72,7 @@ public class MerklePaneSetup {
   ///     the remote path of the content which will be fetched with range
   ///     requests to fill in the local content path, as a result of other classes acting on this
   ///     class
+  /// @return a MerkleTree instance
   public static MerkleTree initTree(
       Path localContentPath,
       Path localMerklePath,

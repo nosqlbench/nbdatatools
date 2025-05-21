@@ -18,7 +18,6 @@ package io.nosqlbench.nbvectors.api.commands;
  */
 
 
-import java.io.DataOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -192,6 +191,7 @@ public class TestUtils {
     /// 
     /// @param filePath The path where the ivec file should be created
     /// @param seed Random seed for reproducible values
+    /// @param truncate whether to truncate the file
     /// @return The actual file path that was created
     /// @throws IOException If an error occurs while writing the file
     public static Path createCorruptIvecFile(Path filePath, boolean truncate, long seed) 

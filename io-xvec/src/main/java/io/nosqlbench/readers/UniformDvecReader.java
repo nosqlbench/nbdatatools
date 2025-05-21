@@ -63,7 +63,6 @@ public class UniformDvecReader extends ImmutableSizedReader<double[]> implements
     /// Creates a new DvecReader for the given file path.
     ///
     /// @param filePath The path to the dvec file
-    /// @throws IOException If the file cannot be opened or read
     public void open(Path filePath) {
         try {
         this.filePath = Objects.requireNonNull(filePath, "filePath cannot be null");

@@ -55,21 +55,30 @@ public class DSInterval {
   public DSInterval() {
   }
 
-  public static DSInterval fromData(Object dataMap) {
-    if (dataMap instanceof Map<?, ?> m) {
+  /// Create an interval object from another representative form.
+  /// @param objdata any object which can be converted, including the target type,
+  /// a map of fields, or a string.
+  /// @return A {@link DSInterval} object
+  public static DSInterval fromData(Object objdata) {
+    if (objdata instanceof DSInterval dsi) {
+      return dsi;
+    } else if (objdata instanceof Map<?, ?> m) {
       Double min = (Double) m.get("minIncl");
       Double max = (Double) m.get("maxExcl");
       return new DSInterval(
           min.longValue(),
           max.longValue()
       );
-    } else if (dataMap instanceof String sObj) {
-      return parse(sObj.toString());
+    } else if (objdata instanceof String sObj) {
+      return parse(sObj);
     } else {
-      throw new RuntimeException("invalid intervals format:" + dataMap);
+      throw new RuntimeException("invalid intervals format:" + objdata);
     }
   }
 
+  /// parse a dataset interval
+  /// @param interval A string spec for interval, like '[10..1000)'
+  /// @return A DSInterval object
   public static DSInterval parse(String interval) {
     Matcher matcher = PATTERN.matcher(interval);
     if (matcher.matches()) {

@@ -28,6 +28,7 @@ public class DoubleVectorsHdf5Impl extends CoreHdf5DatasetViewMethods<double[]> 
 
   /// create a new double vectors view
   /// @param dataset the dataset to view
+  /// @param window the window of ordinals to view
   public DoubleVectorsHdf5Impl(Dataset dataset, FWindow window) {
     super(dataset, window);
   }

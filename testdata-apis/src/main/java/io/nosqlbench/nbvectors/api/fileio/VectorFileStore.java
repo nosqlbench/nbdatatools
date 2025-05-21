@@ -22,6 +22,8 @@ import io.nosqlbench.nbvectors.api.noncore.VectorStreamStore;
 
 import java.nio.file.Path;
 
+/// A way to store a sequence of vectors in a file.
+/// @param <T> The type of vector value
 public interface VectorFileStore<T> extends VectorStreamStore<T>  {
   /**
    Initialize the writer with a path
@@ -30,6 +32,7 @@ public interface VectorFileStore<T> extends VectorStreamStore<T>  {
    */
   public void open(Path path);
 
+  /// Flush the file
   default void flush() {};
 
   /// This should be called at the end of the writer lifecycle.

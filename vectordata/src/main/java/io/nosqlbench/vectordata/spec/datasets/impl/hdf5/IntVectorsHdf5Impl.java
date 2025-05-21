@@ -32,6 +32,7 @@ public class IntVectorsHdf5Impl extends CoreHdf5DatasetViewMethods<int[]> implem
 
   /// create a new integer vectors view
   /// @param dataset the dataset to view
+  /// @param window the window to use
   public IntVectorsHdf5Impl(Dataset dataset, FWindow window) {
     super(dataset, window);
   }

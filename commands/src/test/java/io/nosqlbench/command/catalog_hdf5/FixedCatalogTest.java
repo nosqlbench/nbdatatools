@@ -18,7 +18,6 @@ package io.nosqlbench.command.catalog_hdf5;
  */
 
 
-import io.nosqlbench.command.catalog_hdf5.CMD_catalog;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -69,7 +68,7 @@ public class FixedCatalogTest {
         System.out.println("hdf5File: " + hdf5File.toAbsolutePath());
         
         // Execute the catalog command
-        CMD_catalog cmd = new CMD_catalog();
+        CMD_old_catalog cmd = new CMD_old_catalog();
         CommandLine commandLine = new CommandLine(cmd);
         
         System.out.println("Executing catalog command with path: " + testDir.toAbsolutePath());

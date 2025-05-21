@@ -20,15 +20,11 @@ package io.nosqlbench.nbvectors.api.services;
 
 /// A canonical type name for an underlying data format and associated base vector type
 public enum FileType {
+  /// either ivec, fvec, or some other little-endian format containing a sequence of (vector length, vector
+  /// length, vector values)
   xvec,
+  /// The apache parquet formst
   parquet,
+  /// Comma separated values
   csv;
-
-  ///          ivec,
-  ///         fvec,
-  ///         bvec,
-  ///         dvec,
-  ///         svec,
-  ///         hvec,
-
 }

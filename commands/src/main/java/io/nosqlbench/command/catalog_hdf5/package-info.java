@@ -1,4 +1,4 @@
-/// the {@link io.nosqlbench.command.catalog_hdf5.CMD_catalog} command
+/// the {@link io.nosqlbench.command.catalog_hdf5.CMD_old_catalog} command
 package io.nosqlbench.command.catalog_hdf5;
 
 /*

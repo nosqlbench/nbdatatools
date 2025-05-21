@@ -29,7 +29,19 @@ import java.util.function.Function;
 /// @param <T> the type of the vector elements
 public interface DatasetView<T> extends Iterable<T>{
 
+  /// Asynchronously buffer the whole file from the remote to the local cached copy.
+  /// This method immediately returns. You can continue to read the file as normal, but your
+  /// reads may block unless/until the region needed has been buffered locally. If you need to
+  /// await for the whole file to be loaded, as with a performance test, then use
+  ///  [[#awaitPrebuffer(long startIncl, long endExcl)]] instead.
+  /// @param startIncl The starting position to buffer from
+  /// @param endExcl The ending position to buffer to
   void prebuffer(long startIncl, long endExcl);
+
+  /// This is the synchronous version of [[#prebuffer(long, long)]]. It will block until the
+  /// specified region has been fully persisted locally in the cache file.
+  /// @param minIncl minimum value inclusive
+  /// @param maxExcl maximum value exclusive
   void awaitPrebuffer(long minIncl, long maxExcl);
 
 

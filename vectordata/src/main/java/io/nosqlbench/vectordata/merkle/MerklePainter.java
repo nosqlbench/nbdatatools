@@ -155,6 +155,8 @@ public class MerklePainter implements Closeable {
   /// Uses the pane to determine what chunks need to be fetched, and then submits them to the
   /// pane for reconciliation. This call blocks until the downloads have been done and the pane
   /// is updated.
+  /// @param startIncl The start value inclusive
+  /// @param endExcl The end value exclusive
   public void paint(long startIncl, long endExcl) {
     try {
       paintAsync(startIncl, endExcl).get(); // Call the asynchronous method and wait for completion
@@ -167,6 +169,10 @@ public class MerklePainter implements Closeable {
   /// Uses the pane to determine what chunks need to be fetched, and then submits them to the
   /// pane for reconciliation. This call returns a DownloadProgress that can be used to check the
   ///  status of an active download or otherwise synchronously wait for the result.
+  /// @param startIncl the start value inclusive
+  /// @param endExcl the end value exclusive
+  /// @return a completable future of Void
+  ///
   public CompletableFuture<Void> paintAsync(long startIncl, long endExcl) {
     return CompletableFuture.runAsync(() -> {
       try {
@@ -236,12 +242,13 @@ public class MerklePainter implements Closeable {
           return null; // Or throw an exception depending on your error handling
         }
       }
-    } catch (IOException e) {
+    } catch (Exception e) {
       eventSink.error("Error downloading range " + start + "-" + (start + length - 1) + ": " + e.getMessage());
       return null; // Or throw an exception
     }
   }
 
+  /// Await all download streams which are pending before unblocking the caller.
   public void awaitAllDownloads() throws InterruptedException {
     while (downloadTasks.values().stream().anyMatch(f -> !f.isDone())) {
       Thread.sleep(100); // Check periodically

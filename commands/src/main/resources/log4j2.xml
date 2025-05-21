@@ -21,7 +21,7 @@
 
   <Appenders>
     <Appender type="Console" name="STDOUT">
-      <Layout type="PatternLayout" pattern="%7r %-5level [%t] %-12logger{0} %msg%n%throwable"/>
+<!--      <Layout type="PatternLayout" pattern="%7r %-5level [%t] %-12logger{0} %msg%n%throwable"/>-->
       <Filters>
         <Filter type="MarkerFilter" marker="FLOW" onMatch="DENY" onMismatch="NEUTRAL"/>
         <Filter type="MarkerFilter" marker="EXCEPTION" onMatch="DENY" onMismatch="ACCEPT"/>

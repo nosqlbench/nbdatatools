@@ -36,22 +36,17 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
 
-/**
- A Streamer implementation that reads CSV files with embedded JSON arrays.
- This streamer automatically detects which CSV column contains a JSON array of numbers
- and uses that as the source of vector data. */
+/// A Streamer implementation that reads CSV files with embedded JSON arrays.
+/// This streamer automatically detects which CSV column contains a JSON array of numbers
+/// and uses that as the source of vector data.
 @Encoding(FileType.csv)
 @DataType(float[].class)
 public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
 
-  /**
-   * Default constructor for SPI and reflective instantiation.
-   */
+  /// Default constructor for SPI and reflective instantiation.
   public CsvJsonArrayStreamer() {}
-  /**
-   * Convenience constructor: opens the given file immediately.
-   * @param path Path to CSV file containing JSON arrays
-   */
+  /// Convenience constructor: opens the given file immediately.
+  /// @param path Path to CSV file containing JSON arrays
   public CsvJsonArrayStreamer(Path path) {
     open(path);
   }
@@ -63,10 +58,8 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
   private static final Pattern JSON_ARRAY_PATTERN = Pattern.compile("\\s*\\[\\s*[\\d.-]+.*\\]\\s*");
 
 
-  /**
-   Initializes the streamer by scanning the CSV file to determine which column
-   contains the JSON array of numbers and if the first row is a header.
-   */
+  /// Initializes the streamer by scanning the CSV file to determine which column
+  /// contains the JSON array of numbers and if the first row is a header.
   private void initialize() {
     try (BufferedReader reader = new BufferedReader(new FileReader(filePath.toFile()))) {
       String firstLine = reader.readLine();
@@ -142,14 +135,10 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
     }
   }
 
-  /**
-   Detects structural differences between two CSV rows to determine if the first is likely a header.
-   @param firstRow
-   First row fields
-   @param secondRow
-   Second row fields
-   @return True if structural differences suggest first row is a header
-   */
+  /// Detects structural differences between two CSV rows to determine if the first is likely a header.
+  /// @param firstRow First row fields
+  /// @param secondRow Second row fields
+  /// @return True if structural differences suggest first row is a header
   private boolean detectStructuralDifference(String[] firstRow, String[] secondRow) {
     // If row lengths differ significantly, this could indicate a header
     if (firstRow.length != secondRow.length) {
@@ -183,12 +172,9 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
     return diffCount >= Math.max(1, firstRow.length / 3);
   }
 
-  /**
-   Checks if a field is likely to be a header field based on typical patterns.
-   @param field
-   The field to check
-   @return True if the field appears to be a header label
-   */
+  /// Checks if a field is likely to be a header field based on typical patterns.
+  /// @param field The field to check
+  /// @return True if the field appears to be a header label
   private boolean isLikelyHeaderField(String field) {
     // Headers are typically short words without spaces or special characters
     if (field.length() < 20 && !field.contains(" ")
@@ -203,13 +189,9 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
     return false;
   }
 
-  /**
-   Finds the vector column in a line of CSV data.
-   @param fields
-   Array of fields to examine
-   @throws IOException
-   if no vector column can be found
-   */
+  /// Finds the vector column in a line of CSV data.
+  /// @param fields Array of fields to examine
+  /// @throws IOException if no vector column can be found
   private void findVectorColumnInLine(String[] fields) throws IOException {
     for (int i = 0; i < fields.length; i++) {
       String field = fields[i].trim();
@@ -223,13 +205,9 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
     }
   }
 
-  /**
-   Finds a vector column in a parsed CSV line.
-   @param fields
-   Array of CSV fields
-   @throws IOException
-   If multiple vector columns are found
-   */
+  /// Finds a vector column in a parsed CSV line.
+  /// @param fields Array of CSV fields
+  /// @throws IOException If multiple vector columns are found
   private void findVectorColumn(String[] fields) throws IOException {
     for (int i = 0; i < fields.length; i++) {
       String field = fields[i].trim();
@@ -243,12 +221,9 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
     }
   }
 
-  /**
-   Checks if a string is a valid JSON array containing only numbers.
-   @param jsonStr
-   The string to check
-   @return True if the string is a JSON array of numbers, false otherwise
-   */
+  /// Checks if a string is a valid JSON array containing only numbers.
+  /// @param jsonStr The string to check
+  /// @return True if the string is a JSON array of numbers, false otherwise
   private boolean isJsonNumberArray(String jsonStr) {
     try {
       JsonElement element = JsonParser.parseString(jsonStr);
@@ -269,12 +244,9 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
     }
   }
 
-  /**
-   Parses a CSV line into fields, handling quoted fields properly.
-   @param line
-   The CSV line to parse
-   @return An array of fields
-   */
+  /// Parses a CSV line into fields, handling quoted fields properly.
+  /// @param line The CSV line to parse
+  /// @return An array of fields
   private String[] parseCsvLine(String line) {
     List<String> fields = new ArrayList<>();
     boolean inQuotes = false;
@@ -299,12 +271,9 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
     return fields.toArray(new String[0]);
   }
 
-  /**
-   Converts a JSON array string to a float array.
-   @param jsonArrayStr
-   The JSON array string
-   @return A float array
-   */
+  /// Converts a JSON array string to a float array.
+  /// @param jsonArrayStr The JSON array string
+  /// @return A float array
   private float[] parseJsonFloatArray(String jsonArrayStr) {
     try {
       JsonArray jsonArray = JsonParser.parseString(jsonArrayStr).getAsJsonArray();
@@ -320,39 +289,30 @@ public class CsvJsonArrayStreamer implements VectorFileStream<float[]> {
     }
   }
 
-  /**
-   Returns the name of this streamer.
-   @return The name of the streamer
-   */
+  /// Returns the name of this streamer.
+  /// @return The name of the streamer
   @Override
   public String getName() {
     return "CsvJsonArray(" + this.filePath.getFileName().toString() + ")";
   }
 
-  /**
-   Returns an iterator over the float vectors in the CSV file.
-   This iterator streams data directly from the file without loading everything into memory.
-   @return An iterator over float[]
-   */
+  /// Returns an iterator over the float vectors in the CSV file.
+  /// This iterator streams data directly from the file without loading everything into memory.
+  /// @return An iterator over float[]
   @Override
   public Iterator<float[]> iterator() {
     return new CsvStreamIterator();
   }
 
-  /**
-   Creates a new CsvJsonArrayStreamer for the given file path.
-   @param path
-   The path to the CSV file containing JSON arrays
-   */
+  /// Creates a new CsvJsonArrayStreamer for the given file path.
+  /// @param path The path to the CSV file containing JSON arrays
   @Override
   public void open(Path path) {
     this.filePath = path;
     initialize();
   }
 
-  /**
-   An iterator that streams data directly from the CSV file.
-   */
+  /// An iterator that streams data directly from the CSV file.
   private class CsvStreamIterator implements Iterator<float[]> {
     private BufferedReader reader;
     private String nextLine;

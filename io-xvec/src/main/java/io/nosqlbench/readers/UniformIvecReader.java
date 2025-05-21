@@ -22,7 +22,6 @@ import io.nosqlbench.nbvectors.api.noncore.ImmutableSizedReader;
 import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.services.FileType;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -61,12 +60,12 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
     private int size;
     private RandomAccessFile randomAccessFile;
 
+    /// Create a new UniformIvecReader.
     public UniformIvecReader() {}
 
     /// Creates a new IvecReader for the given file path.
     ///
     /// @param filePath The path to the ivec file
-    /// @throws IOException If the file cannot be opened or read
     @Override
     public void open(Path filePath) {
         this.filePath = Objects.requireNonNull(filePath, "filePath cannot be null");

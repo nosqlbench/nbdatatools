@@ -26,16 +26,15 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.Objects;
 
 /**
  * A record type for the footer of a merkle tree file.
  * <p>
  * The footer contains metadata about the merkle tree, including:
- * - chunkSize: the size of each chunk in bytes
- * - totalSize: the total size of the data in bytes
- * - digest: a hash of the merkle tree data for integrity verification
- * - footerLength: the length of the footer in bytes
+ * @param chunkSize: the size of each chunk in bytes
+ * @param totalSize: the total size of the data in bytes
+ * @param digest: a hash of the merkle tree data for integrity verification
+ * @param footerLength: the length of the footer in bytes
  */
 public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte footerLength) {
 

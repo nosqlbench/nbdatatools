@@ -35,6 +35,9 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
     super(views);
   }
 
+  /// Create a new DSProfile
+  /// @param name The profile name
+  /// @param views The map of views to include in this profile
   public DSProfile(String name, Map<String, DSView> views) {
     super(views);
     this.name = name;
@@ -75,10 +78,14 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
     return new DSProfile(viewMap);
   }
 
+  /// Get the name of the profile
+  /// @return The name of the profile
   public String getName() {
     return this.name;
   }
 
+  /// Set the name of the dataset profile
+  /// @return This DSProfile for method chaining
   public DSProfile setName(String name) {
     this.name = name;
     return this;

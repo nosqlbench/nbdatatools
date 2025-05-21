@@ -55,17 +55,13 @@ public class UniformIvecStreamer implements BoundedVectorFileStream<int[]> {
   private int size;
   private RandomAccessFile randomAccessFile;
 
-  /**
-    create a new uniform ivec streamer
-   */
+  /// Creates a new uniform ivec streamer.
   public UniformIvecStreamer() {
   }
 
   /// Creates a new UniformIvecReader for the given file path.
   /// @param filePath
   ///     The path to the ivec file
-  /// @throws IOException
-  ///     If the file cannot be opened or read
   public void open(Path filePath) {
     this.filePath = Objects.requireNonNull(filePath, "filePath cannot be null");
 
@@ -139,6 +135,8 @@ public class UniformIvecStreamer implements BoundedVectorFileStream<int[]> {
     return vector;
   }
 
+  /// Closes the file resources.
+  /// Releases any system resources associated with this streamer.
   @Override
   public void close() {
     if (randomAccessFile != null) {
@@ -150,16 +148,23 @@ public class UniformIvecStreamer implements BoundedVectorFileStream<int[]> {
     }
   }
 
+  /// Returns the total number of vectors in the file.
+  /// @return The number of vectors
   @Override
   public int getSize() {
     return size;
   }
 
+  /// Returns the name of the file being read.
+  /// @return The filename
   @Override
   public String getName() {
     return filePath.getFileName().toString();
   }
 
+  /// Returns an iterator over the vectors in this file.
+  /// The iterator reads vectors sequentially from the file.
+  /// @return An iterator over the vectors
   @Override
   public Iterator<int[]> iterator() {
     return new Iterator<int[]>() {

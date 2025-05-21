@@ -79,10 +79,10 @@ public class VirtualTestDataView implements TestDataView {
 
   private Optional<DSView> getMatchingView(String viewkind) {
     TestDataKind testDataKind = TestDataKind.fromString(viewkind);
-    Set<String> allNames = testDataKind.getAllNames();
+    Set<String> allValidKindSynonyms = testDataKind.getAllNames();
 
     for (String viewName : profile.keySet()) {
-      if (allNames.contains(viewName)) {
+      if (allValidKindSynonyms.contains(viewName)) {
         return Optional.of(profile.get(viewName));
       }
     }

@@ -1,4 +1,4 @@
-package io.nosqlbench.nbvectors.commands.hugging_dl;
+package io.nosqlbench.command.hugging_dl;
 
 /*
  * Copyright (c) nosqlbench

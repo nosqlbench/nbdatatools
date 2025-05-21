@@ -9,6 +9,8 @@
   <version>${revision}</version>
   <packaging>pom</packaging>
   <description>Default module settings for mvn modules in nbdatatools</description>
+  <url>https://github.com/nosqlbench/nbdatatools</url>
+
   <properties>
     <revision>0.1.5-SNAPSHOT</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -487,15 +489,13 @@
         </plugin>
 
 
-
-        <!-- Skip tests in nbvectors module to avoid transient command-side failures -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.0.0-M9</version>
-          <configuration>
-            <skipTests>true</skipTests>
-          </configuration>
+<!--          <configuration>-->
+<!--            <skipTests>true</skipTests>-->
+<!--          </configuration>-->
         </plugin>
 
         <plugin>
@@ -546,7 +546,6 @@
           </configuration>
         </plugin>
 
-
       </plugins>
 
 
@@ -572,6 +571,44 @@
       </resource>
     </resources>
 
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.surefire</groupId>
+        <artifactId>surefire</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+      </plugin>
+    </plugins>
 
   </build>
 

@@ -1,5 +1,5 @@
 /// vector data file format conversion
-package io.nosqlbench.nbdatatools.commands.convert;
+package io.nosqlbench.command.convert;
 
 /*
  * Copyright (c) nosqlbench
