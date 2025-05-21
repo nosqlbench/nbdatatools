@@ -239,8 +239,23 @@ public class CMD_merkle implements Callable<Integer>, BundledCommand {
   ///     If there's an error writing to the file
   private void saveMerkleTree(Path file, MerkleTree merkleTree) throws IOException {
     Path merkleFile = file.resolveSibling(file.getFileName() + MerklePane.MRKL);
-    merkleTree.save(merkleFile);
-    logger.info("Saved Merkle tree to {}", merkleFile);
+    try {
+      merkleTree.save(merkleFile);
+      logger.info("Saved Merkle tree to {}", merkleFile);
+    } catch (IOException e) {
+      // If the exception is due to corruption, the file has been renamed
+      // and we should recreate it from scratch
+      if (e.getMessage() != null && e.getMessage().contains("Merkle tree digest verification failed")) {
+        logger.warn("Detected corruption in Merkle file. Recreating from scratch.");
+        // The corrupted file has already been renamed by MerkleTree.save()
+        // Just save the tree again to create a new file
+        merkleTree.save(merkleFile);
+        logger.info("Recreated Merkle tree at {}", merkleFile);
+      } else {
+        // For other types of IO exceptions, propagate them
+        throw e;
+      }
+    }
   }
 
   private String createProgressBar(double percent, int width) {

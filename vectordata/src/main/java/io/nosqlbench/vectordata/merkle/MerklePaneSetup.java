@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.merkle;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -18,9 +18,14 @@ package io.nosqlbench.vectordata.merkle;
  */
 
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -28,7 +33,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
+/**
+ Setup a merkle pane, an auxiliary view of merkle state attached to a file and available ranges of
+ data. */
 public class MerklePaneSetup {
+
+  private final static Logger logger = LogManager.getLogger(MerklePaneSetup.class);
 
   /// This should initialize the merkle tree and content file state, given four parameters.
   /// When copied from a remote location, the remote merkle file contents become a local
@@ -60,58 +70,68 @@ public class MerklePaneSetup {
   /// then it should be discarded and a new download should be attempted. There should be up to 3
   ///  tries before an exception is finally thrown in this case. In every other case that is not
   /// documented in this javadoc, an exception should be thrown.
-  ///
-  ///
   /// @param localContentPath
   ///     The path of the local content file to be fetched incrementall by
-  ///     other classes acting on this class.
+  ///                                 other classes acting on this class.
   /// @param localMerklePath
   ///     the local merkle tree file path which represents the state of the local
-  ///     content path.
+  ///                                 content path.
   /// @param remoteContentPath
-  ///     the remote path of the content which will be fetched with range
-  ///     requests to fill in the local content path, as a result of other classes acting on this
-  ///     class
+  ///     the remote path of the content which will be fetched with range requests to fill in the
+  ///     local content path, as a result of other classes acting on this class
   /// @return a MerkleTree instance
   public static MerkleTree initTree(
       Path localContentPath,
       Path localMerklePath,
       String remoteContentPath
-  ) {
+  )
+  {
     // Validate arguments: remoteContentPath must be provided
     if (localContentPath == null || localMerklePath == null || remoteContentPath == null) {
-      throw new IllegalArgumentException("Content path, Merkle path, and remote content path must be non-null");
+      throw new IllegalArgumentException(
+          "Content path, Merkle path, and remote content path must be non-null");
     }
     try {
       // Ensure parent directories
       Files.createDirectories(localContentPath.getParent());
       Files.createDirectories(localMerklePath.getParent());
       // Step 1: Handle remote reference Merkle tree if remoteContentPath provided
-      Path localMrefPath = localContentPath.resolveSibling(
-          localContentPath.getFileName().toString() + ".mref");
-      if (remoteContentPath != null) {
-        URL remoteMrefUrl = new URL(remoteContentPath + ".mrkl");
-        IOException lastEx = null;
-        for (int attempt = 1; attempt <= 3; attempt++) {
-          try {
-            if (Files.exists(localMrefPath) && Files.size(localMrefPath) > 0) {
-              MerkleTree.load(localMrefPath);
-              break;
-            }
-            Files.createDirectories(localMrefPath.getParent());
-            try (InputStream in = remoteMrefUrl.openStream(); OutputStream out = Files.newOutputStream(localMrefPath)) {
-              in.transferTo(out);
-            }
+      Path localMrefPath =
+          localContentPath.resolveSibling(localContentPath.getFileName().toString() + ".mref");
+      URL remoteMrefUrl = new URI(remoteContentPath + ".mrkl").toURL();
+      IOException lastEx = null;
+      int maxAttempts = 3;
+      for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          if (Files.exists(localMrefPath) && Files.size(localMrefPath) > 0) {
             MerkleTree.load(localMrefPath);
             break;
-          } catch (IOException e) {
-            Files.deleteIfExists(localMrefPath);
-            lastEx = e;
           }
+          Files.createDirectories(localMrefPath.getParent());
+          try (InputStream in = remoteMrefUrl.openStream();
+               OutputStream out = Files.newOutputStream(localMrefPath))
+          {
+            in.transferTo(out);
+          }
+          MerkleTree.load(localMrefPath);
+          break;
+        } catch (IOException e) {
+          logger.warn(
+              "Failed to obtain a valid merkle tree reference (attempt {}/{}): {}",
+              attempt,
+              maxAttempts,
+              e.getMessage(),
+              e
+          );
+          Files.deleteIfExists(localMrefPath);
+          lastEx = e;
         }
-        if (!Files.exists(localMrefPath)) {
-          throw new IOException("Failed to obtain valid reference Merkle tree after 3 attempts", lastEx);
-        }
+      }
+      if (!Files.exists(localMrefPath)) {
+        throw new IOException(
+            "Failed to obtain valid reference Merkle tree after 3 attempts: " + (
+                lastEx == null ? "unknown error" : lastEx.getMessage()), lastEx
+        );
       }
       // Ensure local MRKL exists (create empty if missing)
       if (!Files.exists(localMerklePath) || Files.size(localMerklePath) == 0) {
@@ -130,8 +150,7 @@ public class MerklePaneSetup {
         long totalSize = refTree.totalSize();
         long effectiveSize = Math.min(totalSize, Files.size(localContentPath));
         ByteBuffer buf = ByteBuffer.allocate((int) effectiveSize);
-        try (FileChannel ch = FileChannel.open(
-            localContentPath, StandardOpenOption.READ)) {
+        try (FileChannel ch = FileChannel.open(localContentPath, StandardOpenOption.READ)) {
           ch.read(buf);
         }
         buf.flip();
@@ -140,11 +159,10 @@ public class MerklePaneSetup {
       }
       // Load and return primary Merkle tree
       return MerkleTree.load(localMerklePath);
-    } catch (IOException e) {
+    } catch (IOException | URISyntaxException e) {
       throw new RuntimeException(e);
     }
   }
-
 
 
 }

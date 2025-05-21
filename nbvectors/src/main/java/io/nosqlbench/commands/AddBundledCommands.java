@@ -19,6 +19,8 @@ package io.nosqlbench.commands;
 
 
 import io.nosqlbench.nbvectors.api.commands.BundledCommand;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
 
 import java.util.Objects;
@@ -28,6 +30,8 @@ import java.util.Set;
 /// Add bundled commands implementing the [[BundledCommand]] interface and having a
 /// [[CommandLine.Command]] annotation.
 public class AddBundledCommands implements CommandLine.IModelTransformer {
+  private final static Logger logger = LogManager.getLogger(AddBundledCommands.class);
+
   /// Adds bundled commands
   public AddBundledCommands() {}
 

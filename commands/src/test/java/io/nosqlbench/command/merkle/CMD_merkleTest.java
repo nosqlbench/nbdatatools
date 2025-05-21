@@ -18,17 +18,27 @@ package io.nosqlbench.command.merkle;
  */
 
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class CMD_merkleTest {
 
@@ -159,7 +169,6 @@ public class CMD_merkleTest {
   }
 
   @Test
-  @Disabled
   public void testCorruptedMerkleFileIsRecreated() throws Exception {
     // Create a test file with some content
     Path testFile = createTestFile(1024 * 1024 * 2); // 2MB
@@ -299,5 +308,169 @@ public class CMD_merkleTest {
     // Test summary command with the reference file directly
     success = summaryCommand.execute(List.of(refFile), 1048576, false, true);
     assertTrue(success, "Summary command should succeed with reference file");
+  }
+
+  @Test
+  public void testCreateAndVerifyMerkleFile() throws Exception {
+    // Create a test file with some content
+    Path testFile = createTestFile(1024 * 1024 * 3 + 512); // 3.5MB (not a multiple of 1MB)
+
+    // Create a Merkle file for the test file
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, 1048576); // 1MB chunk size
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Verify the Merkle file integrity
+    boolean isValid = cmd.verifyMerkleFileIntegrity(merkleFile);
+    assertTrue(isValid, "Merkle file should be valid immediately after creation");
+
+    // Load the Merkle tree from the file to verify it can be loaded
+    try {
+      io.nosqlbench.vectordata.merkle.MerkleTree merkleTree = 
+          io.nosqlbench.vectordata.merkle.MerkleTree.load(merkleFile);
+      assertNotNull(merkleTree, "Merkle tree should be loaded successfully");
+      assertEquals(1048576, merkleTree.getChunkSize(), "Chunk size should match");
+
+      // Verify we can get the correct number of leaves
+      int expectedLeaves = (int) Math.ceil((double) Files.size(testFile) / 1048576);
+      assertEquals(expectedLeaves, merkleTree.getNumberOfLeaves(), 
+                  "Number of leaves should match file size and chunk size");
+
+      // Verify we can access leaf hashes
+      for (int i = 0; i < merkleTree.getNumberOfLeaves(); i++) {
+        byte[] leafHash = merkleTree.getHashForLeaf(i);
+        assertNotNull(leafHash, "Leaf hash should be accessible");
+        assertEquals(32, leafHash.length, "Leaf hash should be 32 bytes (SHA-256)");
+      }
+
+      // Verify the total size matches the file size
+      assertEquals(Files.size(testFile), merkleTree.totalSize(), 
+                  "Total size should match file size");
+    } catch (Exception e) {
+      fail("Failed to load and validate Merkle tree: " + e.getMessage());
+    }
+  }
+  @Test
+  public void testNonLeafNodeHashComputation() throws Exception {
+    // Create a test file with known content
+    Path testFile = createTestFile(1024 * 1024 * 3 + 512); // 3.5MB (not a multiple of 1MB)
+    long chunkSize = 1048576; // 1MB chunk size
+
+    // Create a Merkle file for the test file using CMD_merkle
+    CMD_merkle cmd = new CMD_merkle();
+    cmd.createMerkleFile(testFile, chunkSize);
+
+    // Verify the Merkle file was created
+    Path merkleFile = testFile.resolveSibling(testFile.getFileName() + MerkleCommand.MRKL);
+    assertTrue(Files.exists(merkleFile), "Merkle file should be created");
+
+    // Load the Merkle tree from the file
+    io.nosqlbench.vectordata.merkle.MerkleTree merkleTreeFromFile = 
+        io.nosqlbench.vectordata.merkle.MerkleTree.load(merkleFile);
+
+    // Create a Merkle tree directly from the file data using fromData
+    ByteBuffer fileData = ByteBuffer.allocate((int)Files.size(testFile));
+    try (FileChannel channel = FileChannel.open(testFile, StandardOpenOption.READ)) {
+      channel.read(fileData);
+      fileData.flip();
+    }
+
+    io.nosqlbench.vectordata.merkle.MerkleRange fullRange = 
+        new io.nosqlbench.vectordata.merkle.MerkleRange(0, Files.size(testFile));
+    io.nosqlbench.vectordata.merkle.MerkleTree merkleTreeFromData = 
+        io.nosqlbench.vectordata.merkle.MerkleTree.fromData(fileData, chunkSize, fullRange);
+
+    // Compare the root hashes of both trees
+    // We need to use reflection to access the getHash method since it's package-private
+    Method getHashMethod = io.nosqlbench.vectordata.merkle.MerkleTree.class.getDeclaredMethod("getHash", int.class);
+    getHashMethod.setAccessible(true);
+
+    byte[] rootHashFromFile = (byte[]) getHashMethod.invoke(merkleTreeFromFile, 0);
+    byte[] rootHashFromData = (byte[]) getHashMethod.invoke(merkleTreeFromData, 0);
+
+    // Print out the root hashes for debugging
+    System.out.println("[DEBUG_LOG] Root hash from file: " + bytesToHex(rootHashFromFile));
+    System.out.println("[DEBUG_LOG] Root hash from data: " + bytesToHex(rootHashFromData));
+
+    // Compare leaf hashes to see if they match
+    int leafCount = merkleTreeFromFile.getNumberOfLeaves();
+    System.out.println("[DEBUG_LOG] Number of leaves: " + leafCount);
+
+    boolean allLeafHashesMatch = true;
+    for (int i = 0; i < leafCount; i++) {
+      byte[] leafHashFromFile = merkleTreeFromFile.getHashForLeaf(i);
+      byte[] leafHashFromData = merkleTreeFromData.getHashForLeaf(i);
+
+      if (!Arrays.equals(leafHashFromFile, leafHashFromData)) {
+        System.out.println("[DEBUG_LOG] Leaf hash mismatch at index " + i);
+        System.out.println("[DEBUG_LOG] Leaf hash from file: " + bytesToHex(leafHashFromFile));
+        System.out.println("[DEBUG_LOG] Leaf hash from data: " + bytesToHex(leafHashFromData));
+        allLeafHashesMatch = false;
+      }
+    }
+
+    System.out.println("[DEBUG_LOG] All leaf hashes match: " + allLeafHashesMatch);
+
+    // Print out internal node hashes to see where the divergence occurs
+    // Get the offset (index of first leaf node)
+    Field offsetField = io.nosqlbench.vectordata.merkle.MerkleTree.class.getDeclaredField("offset");
+    offsetField.setAccessible(true);
+    int offset = (int) offsetField.get(merkleTreeFromFile);
+    System.out.println("[DEBUG_LOG] Offset (index of first leaf): " + offset);
+
+    // Print out all internal node hashes
+    for (int i = 0; i < offset; i++) {
+      byte[] internalHashFromFile = (byte[]) getHashMethod.invoke(merkleTreeFromFile, i);
+      byte[] internalHashFromData = (byte[]) getHashMethod.invoke(merkleTreeFromData, i);
+
+      System.out.println("[DEBUG_LOG] Internal node " + i + " hash from file: " + bytesToHex(internalHashFromFile));
+      System.out.println("[DEBUG_LOG] Internal node " + i + " hash from data: " + bytesToHex(internalHashFromData));
+      System.out.println("[DEBUG_LOG] Internal node " + i + " hashes match: " + 
+                         Arrays.equals(internalHashFromFile, internalHashFromData));
+    }
+
+    // Manually compute the root hash by combining the hashes of its children
+    // Get the DIGEST field from MerkleTree
+    Field digestField = io.nosqlbench.vectordata.merkle.MerkleTree.class.getDeclaredField("DIGEST");
+    digestField.setAccessible(true);
+    MessageDigest digest = (MessageDigest) digestField.get(null); // static field, so null is the instance
+
+    // Get the hashes of the children of the root node
+    byte[] leftChildHash = (byte[]) getHashMethod.invoke(merkleTreeFromFile, 1);
+    byte[] rightChildHash = (byte[]) getHashMethod.invoke(merkleTreeFromFile, 2);
+
+    // Compute the root hash manually
+    digest.reset();
+    digest.update(leftChildHash);
+    digest.update(rightChildHash);
+    byte[] manualRootHash = digest.digest();
+
+    System.out.println("[DEBUG_LOG] Manually computed root hash: " + bytesToHex(manualRootHash));
+    System.out.println("[DEBUG_LOG] Manually computed root hash matches file: " + 
+                       Arrays.equals(manualRootHash, rootHashFromFile));
+    System.out.println("[DEBUG_LOG] Manually computed root hash matches data: " + 
+                       Arrays.equals(manualRootHash, rootHashFromData));
+
+    // The root hashes should be equal if the non-leaf node hash computation is correct
+    assertTrue(Arrays.equals(rootHashFromFile, rootHashFromData), 
+               "Root hashes should match, indicating correct non-leaf node hash computation");
+
+    // Also verify that there are no mismatched chunks between the trees
+    List<io.nosqlbench.vectordata.merkle.MerkleMismatch> mismatches = 
+        merkleTreeFromFile.findMismatchedChunks(merkleTreeFromData);
+    assertTrue(mismatches.isEmpty(), 
+               "There should be no mismatched chunks between the trees");
+  }
+
+  // Helper method to convert byte array to hex string
+  private String bytesToHex(byte[] bytes) {
+    StringBuilder sb = new StringBuilder();
+    for (byte b : bytes) {
+      sb.append(String.format("%02x", b));
+    }
+    return sb.toString();
   }
 }

@@ -34,6 +34,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -124,12 +130,12 @@ class MerkleTreeTest {
         // Test creating an empty tree
         long totalSize = CHUNK_SIZE * 8;
         MerkleTree tree = MerkleTree.createEmpty(totalSize, CHUNK_SIZE);
-        
+
         assertEquals(8, tree.getNumberOfLeaves(), "Empty tree should have correct number of leaves");
         assertEquals(CHUNK_SIZE, tree.getChunkSize(), "Chunk size should match");
         assertEquals(totalSize, tree.totalSize(), "Total size should match");
     }
-    
+
     @Test
     void testCreateEmptyTreeLike() throws IOException {
         // Create test data
@@ -144,14 +150,14 @@ class MerkleTreeTest {
         // Save the tree to a file
         Path treePath = tempDir.resolve("merkle.tree");
         tree.save(treePath);
-        
+
         // Create empty tree like the original
         Path emptyTreePath = tempDir.resolve("empty_tree.tree");
         MerkleTree.createEmptyTreeLike(treePath, emptyTreePath);
-        
+
         // Load the empty tree
         MerkleTree emptyTree = MerkleTree.load(emptyTreePath);
-        
+
         // Verify properties match
         assertEquals(tree.getChunkSize(), emptyTree.getChunkSize(), "Chunk size should match");
         assertEquals(tree.totalSize(), emptyTree.totalSize(), "Total size should match");
@@ -197,41 +203,41 @@ class MerkleTreeTest {
         assertEquals(CHUNK_SIZE, footer.chunkSize(), "Chunk size in footer should match");
         assertEquals(data.length, footer.totalSize(), "Total size in footer should match");
     }
-    
+
     @Test
     void testFindMismatchedChunks() {
         // Create test data
         byte[] data1 = new byte[CHUNK_SIZE * 4]; // 4 chunks
         byte[] data2 = new byte[CHUNK_SIZE * 4]; // 4 chunks
-        
+
         // Fill with test data
         for (int i = 0; i < data1.length; i++) {
             data1[i] = (byte) (i % 256);
             data2[i] = (byte) (i % 256); // initially the same
         }
-        
+
         // Modify chunk 2 in data2
         for (int i = CHUNK_SIZE * 2; i < CHUNK_SIZE * 3; i++) {
             data2[i] = (byte) ((data2[i] + 128) % 256); // modify data
         }
-        
+
         // Create trees
         MerkleTree tree1 = createTestTree(data1, CHUNK_SIZE);
         MerkleTree tree2 = createTestTree(data2, CHUNK_SIZE);
-        
+
         // Find mismatched chunks
         List<MerkleMismatch> mismatches = tree1.findMismatchedChunks(tree2);
-        
+
         // Verify exactly one mismatch found
         assertEquals(1, mismatches.size(), "Should find exactly one mismatched chunk");
-        
+
         // Verify mismatch is at the correct position
         MerkleMismatch mismatch = mismatches.get(0);
         assertEquals(2, mismatch.chunkIndex(), "Mismatch should be at chunk index 2");
         assertEquals(CHUNK_SIZE * 2, mismatch.startInclusive(), "Mismatch should start at the right offset");
         assertEquals(CHUNK_SIZE, mismatch.length(), "Mismatch should have the correct length");
     }
-    
+
     @Test
     void testUpdateLeafHash() throws NoSuchAlgorithmException {
         // Create test data
@@ -239,72 +245,72 @@ class MerkleTreeTest {
         for (int i = 0; i < data.length; i++) {
             data[i] = (byte) (i % 256);
         }
-        
+
         // Create tree
         MerkleTree tree = createTestTree(data, CHUNK_SIZE);
-        
+
         // Get original leaf hash
         byte[] originalHash = tree.getHashForLeaf(1);
-        
+
         // Create a new hash
         byte[] newData = new byte[CHUNK_SIZE];
         for (int i = 0; i < newData.length; i++) {
             newData[i] = (byte) ((i + 128) % 256); // different data
         }
-        
+
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         digest.update(newData);
         byte[] newHash = digest.digest();
-        
+
         // Update the leaf hash
         tree.updateLeafHash(1, newHash);
-        
+
         // Verify the leaf hash was updated
         byte[] updatedHash = tree.getHashForLeaf(1);
         assertFalse(Arrays.equals(originalHash, updatedHash), "Hash should have changed");
         assertArrayEquals(newHash, updatedHash, "Hash should match the new hash");
     }
-    
+
     @Test
     void testGetBoundariesForLeaf() {
         // Create a tree with a non-power-of-two size
         long totalSize = CHUNK_SIZE * 3 + 5; // 3 full chunks plus 5 bytes
         MerkleTree tree = MerkleTree.createEmpty(totalSize, CHUNK_SIZE);
-        
+
         // Check first chunk boundaries
         MerkleMismatch chunk0 = tree.getBoundariesForLeaf(0);
         assertEquals(0, chunk0.chunkIndex(), "First chunk should have index 0");
         assertEquals(0, chunk0.startInclusive(), "First chunk should start at offset 0");
         assertEquals(CHUNK_SIZE, chunk0.length(), "First chunk should have full chunk size length");
-        
+
         // Check middle chunk boundaries
         MerkleMismatch chunk1 = tree.getBoundariesForLeaf(1);
         assertEquals(1, chunk1.chunkIndex(), "Middle chunk should have index 1");
         assertEquals(CHUNK_SIZE, chunk1.startInclusive(), "Middle chunk should start at offset CHUNK_SIZE");
         assertEquals(CHUNK_SIZE, chunk1.length(), "Middle chunk should have full chunk size length");
-        
+
         // Check last (partial) chunk boundaries
         MerkleMismatch chunk3 = tree.getBoundariesForLeaf(3);
         assertEquals(3, chunk3.chunkIndex(), "Last chunk should have index 3");
         assertEquals(CHUNK_SIZE * 3, chunk3.startInclusive(), "Last chunk should start at offset CHUNK_SIZE*3");
         assertEquals(5, chunk3.length(), "Last chunk should have partial length of 5");
     }
-    
+
     @Test
     void testNonPowerOfTwoChunkSize() {
         byte[] data = new byte[100];
-        
+
         // Test with non-power-of-two chunk size
         assertThrows(IllegalArgumentException.class, () -> 
             createTestTree(data, 10),
             "Should throw exception for non-power-of-two chunk size"
         );
-        
+
         // Test with power-of-two chunk size (should work)
         MerkleTree tree = createTestTree(data, 16);
         assertNotNull(tree, "Tree should be created with power-of-two chunk size");
     }
-    
+
     @Test
     void testVerifyChunk() throws NoSuchAlgorithmException {
         // Create test data
@@ -312,34 +318,160 @@ class MerkleTreeTest {
         for (int i = 0; i < data.length; i++) {
             data[i] = (byte) (i % 256);
         }
-        
+
         // Create a tree
         MerkleTree tree = createTestTree(data, CHUNK_SIZE);
-        
+
         // Extract the second chunk
         byte[] chunk = Arrays.copyOfRange(data, CHUNK_SIZE, CHUNK_SIZE * 2);
-        
+
         // Hash the chunk
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         digest.update(chunk);
         byte[] chunkHash = digest.digest();
-        
+
         // Get the leaf hash from the tree
         byte[] treeHash = tree.getHashForLeaf(1);
-        
+
         // Verify the hashes match
         assertArrayEquals(chunkHash, treeHash, "Tree's leaf hash should match direct chunk hash");
-        
+
         // Modify the chunk
         chunk[0] = (byte) (chunk[0] + 1);
-        
+
         // Hash the modified chunk
         digest.reset();
         digest.update(chunk);
         byte[] modifiedChunkHash = digest.digest();
-        
+
         // Verify the hashes don't match
         assertFalse(Arrays.equals(modifiedChunkHash, treeHash), 
                 "Modified chunk hash should not match tree's leaf hash");
+    }
+    @Test
+    void testConcurrentLeafUpdates() throws InterruptedException {
+        // Size the tree for a 100MB file
+        long totalSize = 100 * 1024 * 1024; // 100MB
+        int chunkSize = 4096; // 4KB chunks (power of 2)
+
+        // Create an empty tree
+        MerkleTree tree = MerkleTree.createEmpty(totalSize, chunkSize);
+
+        // Calculate number of leaves
+        int leafCount = (int) Math.ceil((double) totalSize / chunkSize);
+        System.out.println("Leaf count: " + leafCount);
+
+        // Create a deterministic sequence of fake hashes
+        byte[][][] fakeHashes = new byte[leafCount][2][MerkleTree.HASH_SIZE];
+        for (int i = 0; i < leafCount; i++) {
+            // Create two different deterministic hashes for each leaf
+            for (int v = 0; v < 2; v++) {
+                for (int j = 0; j < MerkleTree.HASH_SIZE; j++) {
+                    // Use a deterministic pattern based on leaf index, version, and byte position
+                    fakeHashes[i][v][j] = (byte) ((i * 31 + j * 17 + v * 13) % 256);
+                }
+            }
+        }
+
+        // Number of threads to use (at least 100)
+        int threadCount = 100;
+
+        // Create a thread pool
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+        // Create a countdown latch to synchronize thread start
+        CountDownLatch startLatch = new CountDownLatch(1);
+
+        // Create a countdown latch to wait for all threads to finish
+        CountDownLatch finishLatch = new CountDownLatch(threadCount);
+
+        // Create a CyclicBarrier to synchronize threads at specific points
+        CyclicBarrier barrier = new CyclicBarrier(threadCount);
+
+        // Create an AtomicInteger to track errors
+        AtomicInteger errorCount = new AtomicInteger(0);
+
+        // Submit tasks to the executor
+        for (int t = 0; t < threadCount; t++) {
+            final int threadId = t;
+            executor.submit(() -> {
+                try {
+                    // Wait for the start signal
+                    startLatch.await();
+
+                    // Each thread updates a subset of leaves
+                    int leavesPerThread = leafCount / threadCount;
+                    int startLeaf = threadId * leavesPerThread;
+                    int endLeaf = (threadId == threadCount - 1) ? leafCount : startLeaf + leavesPerThread;
+
+                    // First pass: update leaves with first set of hashes
+                    for (int i = startLeaf; i < endLeaf; i++) {
+                        tree.updateLeafHash(i, fakeHashes[i][0]);
+                    }
+
+                    // Wait for all threads to finish first pass
+                    barrier.await();
+
+                    // Verify first pass
+                    for (int i = startLeaf; i < endLeaf; i++) {
+                        byte[] hash = tree.getHashForLeaf(i);
+                        if (!Arrays.equals(hash, fakeHashes[i][0])) {
+                            System.err.println("Thread " + threadId + ": Hash mismatch at leaf " + i + " after first pass");
+                            errorCount.incrementAndGet();
+                        }
+                    }
+
+                    // Wait for all threads to finish verification
+                    barrier.await();
+
+                    // Second pass: update leaves with second set of hashes
+                    for (int i = startLeaf; i < endLeaf; i++) {
+                        tree.updateLeafHash(i, fakeHashes[i][1]);
+                    }
+
+                    // Wait for all threads to finish second pass
+                    barrier.await();
+
+                    // Verify second pass
+                    for (int i = startLeaf; i < endLeaf; i++) {
+                        byte[] hash = tree.getHashForLeaf(i);
+                        if (!Arrays.equals(hash, fakeHashes[i][1])) {
+                            System.err.println("Thread " + threadId + ": Hash mismatch at leaf " + i + " after second pass");
+                            errorCount.incrementAndGet();
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Thread " + threadId + " error: " + e.getMessage());
+                    e.printStackTrace();
+                    errorCount.incrementAndGet();
+                } finally {
+                    finishLatch.countDown();
+                }
+            });
+        }
+
+        // Start all threads
+        startLatch.countDown();
+
+        // Wait for all threads to finish
+        finishLatch.await();
+
+        // Shutdown the executor
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+
+        // Check if there were any errors
+        assertEquals(0, errorCount.get(), "There should be no errors during concurrent updates");
+
+        // Create a new tree and update it sequentially with the same values
+        MerkleTree sequentialTree = MerkleTree.createEmpty(totalSize, chunkSize);
+        for (int i = 0; i < leafCount; i++) {
+            sequentialTree.updateLeafHash(i, fakeHashes[i][1]);
+        }
+
+        // Compare the trees by checking if they have any mismatched chunks
+        // If findMismatchedChunks returns an empty list, the trees are identical
+        List<MerkleMismatch> mismatches = tree.findMismatchedChunks(sequentialTree);
+        assertTrue(mismatches.isEmpty(), "Trees should be identical after concurrent and sequential updates");
     }
 }

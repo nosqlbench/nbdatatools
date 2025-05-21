@@ -341,7 +341,9 @@
           <version>3.14.0</version>
           <configuration>
             <proc>full</proc>
-            <release>24</release>
+            <source>24</source>
+            <release>21</release>
+            <target>21</target>
           </configuration>
         </plugin>
 

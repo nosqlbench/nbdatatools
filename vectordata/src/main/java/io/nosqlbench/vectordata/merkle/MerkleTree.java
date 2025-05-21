@@ -383,33 +383,43 @@ public class MerkleTree {
   /**
    Retrieves the hash for any node in the tree, computing it if necessary.
    This is package-private to allow tests to access internal nodes, including the root.
+   This method is synchronized to ensure thread safety during concurrent access.
    @param idx
    The index of the node in the hashes array
    @return The hash value for the node
    */
-  byte[] getHash(int idx) {
+  synchronized byte[] getHash(int idx) {
     if (valid.get(idx))
       return hashes[idx];
     // compute children
     int left = 2 * idx + 1, right = left + 1;
-    DIGEST.reset();
+
+    // Create a new MessageDigest instance for each computation to avoid interference
+    MessageDigest digest;
+    try {
+      digest = MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new RuntimeException(e);
+    }
+
     // include left child if present
     if (left < hashes.length) {
-      DIGEST.update(getHash(left));
+      digest.update(getHash(left));
     }
     // include right child if present
     if (right < hashes.length) {
-      DIGEST.update(getHash(right));
+      digest.update(getHash(right));
     }
-    hashes[idx] = DIGEST.digest();
+    hashes[idx] = digest.digest();
     valid.set(idx);
     return hashes[idx];
   }
 
   /**
    Returns the hash for a leaf, computing internals lazily.
+   This method is synchronized to ensure thread safety during concurrent access.
    */
-  public byte[] getHashForLeaf(int leafIndex) {
+  public synchronized byte[] getHashForLeaf(int leafIndex) {
     if (leafIndex < 0 || leafIndex >= leafCount)
       throw new IllegalArgumentException("Invalid leaf index");
     return getHash(offset + leafIndex);
@@ -417,8 +427,9 @@ public class MerkleTree {
 
   /**
    Marks and recomputes a leaf hash, invalidating ancestors.
+   This method is synchronized to ensure thread safety during concurrent access.
    */
-  public void updateLeafHash(int leafIndex, byte[] newHash) {
+  public synchronized void updateLeafHash(int leafIndex, byte[] newHash) {
     int idx = offset + leafIndex;
     hashes[idx] = newHash;
     valid.set(idx);
@@ -436,16 +447,18 @@ public class MerkleTree {
 
   /**
    Updates a leaf hash and persists the tree to disk.
+   This method is synchronized to ensure thread safety during concurrent access.
    */
-  public void updateLeafHash(int leafIndex, byte[] newHash, Path filePath) throws IOException {
+  public synchronized void updateLeafHash(int leafIndex, byte[] newHash, Path filePath) throws IOException {
     updateLeafHash(leafIndex, newHash);
     save(filePath);
   }
 
   /**
    Saves hashes and footer to file.
+   This method is synchronized to ensure thread safety during concurrent access.
    */
-  public void save(Path path) throws IOException {
+  public synchronized void save(Path path) throws IOException {
     int numLeaves = capLeaf;
     // If an existing merkle file is present, verify integrity before overwriting
     if (Files.exists(path) && Files.size(path) > 0) {
@@ -453,10 +466,12 @@ public class MerkleTree {
         // verify existing Merkle file
         verifyWrittenMerkleFile(path);
       } catch (IOException ioe) {
-        // existing file is corrupted: move it aside and abort save
+        // existing file is corrupted: move it aside and throw the exception
         Path corrupted = path.resolveSibling(path.getFileName().toString() + ".corrupted");
         Files.move(path, corrupted, StandardCopyOption.REPLACE_EXISTING);
-        throw new IOException("Merkle tree digest verification failed", ioe);
+        // Log the corruption and rethrow the exception
+        System.err.println("Warning: Existing Merkle file was corrupted and moved to " + corrupted);
+        throw ioe;
       }
     }
     // Write new merkle tree file
@@ -636,6 +651,10 @@ public class MerkleTree {
     // Read tree data region (excluding footer)
     int fl = footer.footerLength();
     long dataSize = fileSize - fl;
+    // Check if dataSize is valid
+    if (dataSize <= 0) {
+      throw new IOException("Verification failed: Invalid data size " + dataSize);
+    }
     ByteBuffer dataBuf = ByteBuffer.allocate((int) dataSize);
     try (FileChannel ch = FileChannel.open(path, StandardOpenOption.READ)) {
       ch.position(0);
@@ -657,11 +676,12 @@ public class MerkleTree {
 
   /**
    Finds all mismatched chunks between this tree and another tree.
+   This method is synchronized to ensure thread safety during concurrent access.
    @param otherTree
    The tree to compare against
    @return List of MerkleMismatch objects representing the mismatched chunks
    */
-  public List<MerkleMismatch> findMismatchedChunks(MerkleTree otherTree) {
+  public synchronized List<MerkleMismatch> findMismatchedChunks(MerkleTree otherTree) {
     // Validate that trees are comparable
     if (this.chunkSize != otherTree.chunkSize) {
       throw new IllegalArgumentException(
@@ -690,6 +710,7 @@ public class MerkleTree {
   /**
    Finds all mismatched chunk indexes within a specified range.
    This method compares leaf hashes between the two trees and returns indexes where they differ.
+   This method is synchronized to ensure thread safety during concurrent access.
    @param otherTree
    The tree to compare against
    @param startIndex
@@ -698,7 +719,7 @@ public class MerkleTree {
    The ending chunk index (exclusive)
    @return Array of chunk indexes that differ between the trees
    */
-  public int[] findMismatchedChunksInRange(MerkleTree otherTree, int startIndex, int endIndex) {
+  public synchronized int[] findMismatchedChunksInRange(MerkleTree otherTree, int startIndex, int endIndex) {
     // Validate matching chunk size
     if (this.chunkSize != otherTree.chunkSize) {
       throw new IllegalArgumentException(

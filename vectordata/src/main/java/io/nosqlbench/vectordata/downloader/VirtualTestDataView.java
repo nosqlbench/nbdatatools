@@ -20,6 +20,7 @@ package io.nosqlbench.vectordata.downloader;
 
 import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.merkle.BufferedRandomAccessFile;
+import io.nosqlbench.vectordata.merkle.LocalRandomAccessFile;
 import io.nosqlbench.vectordata.merkle.MerkleBRAF;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
@@ -36,6 +37,7 @@ import io.nosqlbench.vectordata.layoutv2.DSView;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -69,7 +71,7 @@ public class VirtualTestDataView implements TestDataView {
           cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(sourcePath);
 
       BufferedRandomAccessFile iohandle = resolveRandomAccessHandle(contentPath,
-          sourceContentURL.toString());
+          sourceContentURL);
 
       String extension =
           sourceContentURL.getFile().substring(sourceContentURL.getFile().lastIndexOf('.') + 1);
@@ -81,10 +83,22 @@ public class VirtualTestDataView implements TestDataView {
     }
   }
 
-  private BufferedRandomAccessFile resolveRandomAccessHandle(Path contentPath, String sourceContentURL)
+  private BufferedRandomAccessFile resolveRandomAccessHandle(Path contentPath, URL sourceContentURL)
       throws IOException
   {
-    BufferedRandomAccessFile merkleRAF = new MerkleBRAF(contentPath, sourceContentURL.toString());
+    // Check if the URL is a local filesystem URL
+    if (sourceContentURL.getProtocol().equals("file")) {
+      // For local filesystem URLs, use the LocalRandomAccessFile wrapper
+      try {
+        Path localFilePath = Path.of(sourceContentURL.toURI());
+        return new LocalRandomAccessFile(localFilePath);
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
+    } else {
+      // For remote resources, use the MerkleBRAF implementation
+      return new MerkleBRAF(contentPath, sourceContentURL.toString());
+    }
   }
 
   private Optional<DSView> getMatchingView(String viewkind) {
