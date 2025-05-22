@@ -18,21 +18,21 @@ package io.nosqlbench.vectordata;
  */
 
 
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import java.io.Writer;
-import java.nio.file.Path;
-import java.nio.file.Files;
-import java.util.Random;
-import java.util.List;
-import java.util.ArrayList;
-import static org.assertj.core.api.Assertions.assertThat;
-import java.io.DataOutputStream;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import java.io.DataInputStream;
-import org.assertj.core.data.Offset;
+import java.io.DataOutputStream;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Offset.offset;
 
 /**
@@ -42,7 +42,6 @@ import static org.assertj.core.data.Offset.offset;
 public class TestDatasetFileGenerationTest {
 
     @Test
-    @Disabled
     void testGenerateDatasetFile(@TempDir Path tempDir) throws Exception {
         int n = 1000;
         int m = 100;
