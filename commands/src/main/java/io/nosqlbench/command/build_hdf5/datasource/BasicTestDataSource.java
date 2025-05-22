@@ -20,7 +20,7 @@ package io.nosqlbench.command.build_hdf5.datasource;
 
 import io.nosqlbench.command.export_hdf5.DataGroupConfig;
 import io.nosqlbench.command.export_hdf5.datasource.ivecfvec.FvecToFloatArray;
-import io.nosqlbench.command.nbvectors.common.adapters.DataSourceAdapter;
+import io.nosqlbench.common.adapters.DataSourceAdapter;
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.vectordata.spec.predicates.PNode;
 import io.nosqlbench.vectordata.spec.tokens.SpecDataSource;

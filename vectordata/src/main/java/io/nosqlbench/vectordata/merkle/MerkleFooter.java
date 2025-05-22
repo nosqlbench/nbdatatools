@@ -18,14 +18,14 @@ package io.nosqlbench.vectordata.merkle;
  */
 
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 
 /**
  * A record type for the footer of a merkle tree file.
@@ -33,21 +33,16 @@ import java.util.Arrays;
  * The footer contains metadata about the merkle tree, including:
  * @param chunkSize: the size of each chunk in bytes
  * @param totalSize: the total size of the data in bytes
- * @param digest: a hash of the merkle tree data for integrity verification
  * @param footerLength: the length of the footer in bytes
  */
-public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte footerLength) {
+public record MerkleFooter(long chunkSize, long totalSize, byte footerLength) {
 
     /**
-     The size of the digest in bytes (SHA-256 = 32 bytes)
-     */
-    public static final int DIGEST_SIZE = 32;
-
-    /**
-     The fixed size of the footer in bytes (excluding the variable-length digest)
+     The fixed size of the footer in bytes
      8 bytes for chunkSize + 8 bytes for totalSize + 1 byte for footerLength
      */
     public static final int FIXED_FOOTER_SIZE = Long.BYTES * 2 + Byte.BYTES;
+    private static final Logger logger = LogManager.getLogger(MerkleFooter.class);
 
     /**
      Creates a new MerkleFooter with the given parameters and calculates the footer length.
@@ -55,39 +50,12 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
      the chunk size in bytes
      @param totalSize
      the total size of the data in bytes
-     @param digest
-     the digest of the merkle tree data
      @return a new MerkleFooter instance
      */
-    public static MerkleFooter create(long chunkSize, long totalSize, byte[] digest) {
-        // Calculate the footer length: fixed size + digest size
-        byte footerLength = (byte) (FIXED_FOOTER_SIZE + DIGEST_SIZE);
-        return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
-    }
-
-    /**
-     Calculates the digest of the merkle tree data.
-     @param treeData
-     the merkle tree data to digest
-     @return the digest as a byte array
-     */
-    public static byte[] calculateDigest(ByteBuffer treeData) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            // Create a duplicate to avoid modifying the original buffer
-            ByteBuffer buffer = treeData.duplicate();
-            buffer.position(0); // Reset position to beginning
-
-            // Create a byte array from the buffer
-            byte[] bytes = new byte[buffer.remaining()];
-            buffer.get(bytes);
-
-            // Update the digest with the bytes
-            digest.update(bytes);
-            return digest.digest();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
-        }
+    public static MerkleFooter create(long chunkSize, long totalSize) {
+        // Calculate the footer length: fixed size
+        byte footerLength = (byte) (FIXED_FOOTER_SIZE);
+        return new MerkleFooter(chunkSize, totalSize, footerLength);
     }
 
     /**
@@ -98,7 +66,6 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
         ByteBuffer buffer = ByteBuffer.allocate(footerLength);
         buffer.putLong(chunkSize);
         buffer.putLong(totalSize);
-        buffer.put(digest);
         buffer.put(footerLength);
         buffer.flip();
         return buffer;
@@ -111,8 +78,8 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
      @return a new MerkleFooter instance
      */
     public static MerkleFooter fromByteBuffer(ByteBuffer buffer) {
-        // Expect a full footer: chunkSize (8) + totalSize (8) + digest (DIGEST_SIZE) + footerLength (1)
-        int expected = FIXED_FOOTER_SIZE + DIGEST_SIZE;
+        // Expect a full footer: chunkSize (8) + totalSize (8) + footerLength (1)
+        int expected = FIXED_FOOTER_SIZE;
         if (buffer == null || buffer.remaining() < expected) {
             throw new IllegalArgumentException(
                 "Invalid Merkle footer buffer size: " + (buffer == null ? 0 : buffer.remaining())
@@ -120,32 +87,17 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
         }
         long chunkSize = buffer.getLong();
         long totalSize = buffer.getLong();
-        byte[] digest = new byte[DIGEST_SIZE];
-        buffer.get(digest);
         byte footerLength = buffer.get();
-        return new MerkleFooter(chunkSize, totalSize, digest, footerLength);
+        return new MerkleFooter(chunkSize, totalSize, footerLength);
     }
 
     /**
-     Verifies that the given tree data matches this footer's digest.
-     @param treeData
-     the merkle tree data to verify
-     @return true if the digest matches, false otherwise
+     * This method is a placeholder that always returns true.
+     * The digest verification functionality has been removed.
+     * @param treeData the merkle tree data (ignored)
+     * @return always returns true
      */
     public boolean verifyDigest(ByteBuffer treeData) {
-        byte[] calculatedDigest = calculateDigest(treeData);
-        if (digest == null || calculatedDigest == null) {
-            return false;
-        }
-        if (digest.length != calculatedDigest.length) {
-            return false;
-        }
-        // Compare the digests byte by byte
-        for (int i = 0; i < digest.length; i++) {
-            if (digest[i] != calculatedDigest[i]) {
-                return false;
-            }
-        }
         return true;
     }
 
@@ -267,14 +219,13 @@ public record MerkleFooter(long chunkSize, long totalSize, byte[] digest, byte f
             return false;
 
       return chunkSize == that.chunkSize && totalSize == that.totalSize
-               && footerLength == that.footerLength && Arrays.equals(digest, that.digest);
+               && footerLength == that.footerLength;
     }
 
     @Override
     public int hashCode() {
         int result = Long.hashCode(chunkSize);
         result = 31 * result + Long.hashCode(totalSize);
-        result = 31 * result + Arrays.hashCode(digest);
         result = 31 * result + footerLength;
         return result;
     }

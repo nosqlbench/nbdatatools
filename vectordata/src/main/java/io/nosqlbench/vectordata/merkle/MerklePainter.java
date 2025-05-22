@@ -176,7 +176,7 @@ public class MerklePainter implements Closeable {
   public CompletableFuture<Void> paintAsync(long startIncl, long endExcl) {
     return CompletableFuture.runAsync(() -> {
       try {
-        long totalSize = pane.getFileSize(); // Get the total size from the pane
+        long totalSize = pane.getTotalSize(); // Get the total size from the pane
         if (totalSize <= 0) {
           return; // Or handle as appropriate for an empty file
         }

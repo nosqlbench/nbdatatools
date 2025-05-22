@@ -23,7 +23,6 @@ import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -54,6 +53,7 @@ import java.util.Objects;
 //@DataType(int[].class) TODO: This needs something to distinguish it from int[] types, since the
 // consumed type in memory is different, even though the storage format is the same.
 @Encoding(FileType.xvec)
+@DataType(int[].class)
 public class UniformBvecReader extends ImmutableSizedReader<int[]> implements VectorFileArray<int[]> {
     private Path filePath;
     private int dimension;

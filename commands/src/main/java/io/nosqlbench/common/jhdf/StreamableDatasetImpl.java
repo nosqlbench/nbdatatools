@@ -8,7 +8,7 @@
  * MIT License see 'LICENSE' file
  */
 
-package io.nosqlbench.command.nbvectors.common.jhdf;
+package io.nosqlbench.common.jhdf;
 
 /*
  * Copyright (c) nosqlbench

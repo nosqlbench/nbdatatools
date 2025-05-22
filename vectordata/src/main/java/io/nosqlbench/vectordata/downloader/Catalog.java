@@ -19,8 +19,8 @@ package io.nosqlbench.vectordata.downloader;
 
 
 import com.google.gson.reflect.TypeToken;
-import io.nosqlbench.vectordata.utils.SHARED;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
+import io.nosqlbench.vectordata.utils.SHARED;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -28,6 +28,8 @@ import okhttp3.Response;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -64,6 +66,10 @@ public record Catalog(List<DatasetEntry> datasets) {
     List<DatasetEntry> entries = new ArrayList<>();
 
     for (URL location : config.locations()) {
+      location = sanitizeUrlPath(location);
+      if (location.getPath().endsWith("/")) {
+
+      }
       URL fileUrl = fileFor(location);
       try {
         String content;
@@ -166,6 +172,13 @@ public record Catalog(List<DatasetEntry> datasets) {
   }
 
   private static URL sanitizeUrlPath(URL path) {
+    if (!path.getPath().endsWith("/")) {
+      try {
+        path = URI.create(path.toString()+"/").toURL();
+      } catch (MalformedURLException e) {
+        throw new RuntimeException(e);
+      }
+    }
     return path;
   }
 

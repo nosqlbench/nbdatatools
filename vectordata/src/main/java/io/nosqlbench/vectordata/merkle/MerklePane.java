@@ -99,10 +99,11 @@ public class MerklePane implements AutoCloseable {
   public MerklePane(Path filePath, Path merklePath, Path referenceTreePath, String sourceUrl) {
     this.filePath = filePath;
     this.merklePath = merklePath;
-
     this.merkleTree = MerklePaneSetup.initTree(filePath, merklePath, sourceUrl);
 
     try {
+      this.refTree = MerkleTree.load(referenceTreePath);
+
       // Open the data file for reading and writing
       this.channel = FileChannel.open(filePath, StandardOpenOption.READ, StandardOpenOption.WRITE);
       this.fileSize = channel.size();
@@ -509,7 +510,7 @@ public class MerklePane implements AutoCloseable {
     try {
       // Get the file size
       long fileSize = Files.size(merklePath);
-      if (fileSize < MerkleFooter.FIXED_FOOTER_SIZE + MerkleFooter.DIGEST_SIZE) {
+      if (fileSize < MerkleFooter.FIXED_FOOTER_SIZE) {
         // File is too small to have a valid footer
         return null;
       }
@@ -582,7 +583,7 @@ public class MerklePane implements AutoCloseable {
       buffer.flip();
 
       // Make sure we read enough data
-      if (buffer.remaining() < MerkleFooter.FIXED_FOOTER_SIZE + MerkleFooter.DIGEST_SIZE) {
+      if (buffer.remaining() < MerkleFooter.FIXED_FOOTER_SIZE) {
         return null;
       }
 
@@ -631,8 +632,8 @@ public class MerklePane implements AutoCloseable {
       return false;
     }
 
-    // Compare digests
-    return Arrays.equals(localFooter.digest(), remoteFooter.digest());
+    // Since digest has been removed, we consider footers equal if chunk size and total size match
+    return true;
   }
 
   /// Returns the MerklePane as a string

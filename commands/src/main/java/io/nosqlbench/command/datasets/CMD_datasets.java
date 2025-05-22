@@ -87,7 +87,8 @@ public class CMD_datasets implements Callable<Integer>, BundledCommand {
             .replace("${HOME}", System.getProperty("user.home")));
     Gson gson = new Gson();
     TestDataSources config =
-        new TestDataSources().configure(this.configdir).addCatalogs(this.catalogs);
+        new TestDataSources().configure(this.configdir);
+    config=config.addCatalogs(this.catalogs);
     LinkedList<String> commandStream = new LinkedList<>(this.query);
 
     while (!commandStream.isEmpty()) {
@@ -97,7 +98,10 @@ public class CMD_datasets implements Callable<Integer>, BundledCommand {
         case list, ls -> {
           Catalog catalog = Catalog.of(config);
           catalog.datasets().forEach(entry -> {
-            System.out.println(entry.name());
+            entry.profiles().forEach((pr,prv) -> {
+              System.out.println(entry.name()+":"+pr);
+            });
+//            System.out.println(entry.name());
             if (verbose) {
               catalog.datasets().forEach(dataset -> {
                 System.out.println(" DATASET:" + dataset.toString());

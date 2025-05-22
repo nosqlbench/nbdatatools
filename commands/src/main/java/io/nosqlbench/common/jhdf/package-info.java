@@ -1,5 +1,5 @@
 /// Streaming DataSet impl for use with jhdf
-package io.nosqlbench.command.nbvectors.common.jhdf;
+package io.nosqlbench.common.jhdf;
 
 /*
  * Copyright (c) nosqlbench

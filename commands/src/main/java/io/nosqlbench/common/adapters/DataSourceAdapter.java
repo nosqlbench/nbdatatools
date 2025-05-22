@@ -1,4 +1,4 @@
-package io.nosqlbench.command.nbvectors.common.adapters;
+package io.nosqlbench.common.adapters;
 
 /*
  * Copyright (c) nosqlbench

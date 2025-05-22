@@ -30,6 +30,8 @@ package io.nosqlbench.command.nbvectors.common.jhdf;
 import io.jhdf.HdfFile;
 import io.jhdf.WritableHdfFile;
 import io.jhdf.exceptions.HdfWritingException;
+import io.nosqlbench.common.jhdf.StreamableDataset;
+import io.nosqlbench.common.jhdf.StreamableDatasetImpl;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import java.io.IOException;

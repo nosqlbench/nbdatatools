@@ -333,7 +333,6 @@ public class CMD_merkle implements Callable<Integer>, BundledCommand {
     summary.append(String.format("Chunk Size: %s\n", formatByteSize(footer.chunkSize())));
     summary.append(String.format("Total Size: %s\n", formatByteSize(footer.totalSize())));
     summary.append(String.format("Footer Length: %d bytes\n", footer.footerLength()));
-    summary.append(String.format("Digest: %s\n", bytesToHex(footer.digest())));
 
     // If this is a reference file, add information about the original file
     if (merklePath.getFileName().toString().endsWith(".mref")) {
@@ -368,7 +367,7 @@ public class CMD_merkle implements Callable<Integer>, BundledCommand {
       long fileSize = Files.size(merklePath);
 
       // File too small to be valid
-      if (fileSize < MerkleFooter.FIXED_FOOTER_SIZE + MerkleFooter.DIGEST_SIZE) {
+      if (fileSize < MerkleFooter.FIXED_FOOTER_SIZE) {
         logger.debug("Merkle file too small to be valid: {}", merklePath);
         return false;
       }
@@ -449,7 +448,7 @@ public class CMD_merkle implements Callable<Integer>, BundledCommand {
       // Handle empty or very small files
       if (fileSize == 0) {
         // Return a default footer
-        return MerkleFooter.create(4096, 0, new byte[MerkleFooter.DIGEST_SIZE]);
+        return MerkleFooter.create(4096, 0);
       }
 
       // Try to read the footer length byte (last byte of the file)
@@ -458,7 +457,7 @@ public class CMD_merkle implements Callable<Integer>, BundledCommand {
       int bytesRead = channel.read(footerLengthBuffer);
       if (bytesRead != 1) {
         // Couldn't read footer length, create a default footer
-        return MerkleFooter.create(4096, fileSize, new byte[MerkleFooter.DIGEST_SIZE]);
+        return MerkleFooter.create(4096, fileSize);
       }
       footerLengthBuffer.flip();
       byte footerLength = footerLengthBuffer.get();
@@ -466,7 +465,7 @@ public class CMD_merkle implements Callable<Integer>, BundledCommand {
       // Validate footer length
       if (footerLength <= 0 || footerLength > fileSize) {
         // Invalid footer length, create a default footer
-        return MerkleFooter.create(4096, fileSize, new byte[MerkleFooter.DIGEST_SIZE]);
+        return MerkleFooter.create(4096, fileSize);
       }
 
       // Read the entire footer
@@ -475,7 +474,7 @@ public class CMD_merkle implements Callable<Integer>, BundledCommand {
       bytesRead = channel.read(footerBuffer);
       if (bytesRead != footerLength) {
         // Couldn't read full footer, create a default footer
-        return MerkleFooter.create(4096, fileSize, new byte[MerkleFooter.DIGEST_SIZE]);
+        return MerkleFooter.create(4096, fileSize);
       }
       footerBuffer.flip();
 
