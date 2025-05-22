@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.layoutv2;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -33,6 +33,15 @@ public class DSInterval {
   /// The exclusive maximum boundary of the interval
   public long maxExcl;
 
+  /// This pattern captures common variations of these interval syntax:
+  /// ```
+  ///(0..10)
+  ///[0..10]
+  ///(0-10)
+  ///[0-10]
+  ///(0→10) If font ligatures are on, this is actually (0 - > 10) without the space
+  ///[0→10]
+  ///```
   public final static Pattern PATTERN = Pattern.compile(
       """
           [(\\[]? \\s*
@@ -44,8 +53,10 @@ public class DSInterval {
   );
 
   /// Creates an interval with the specified boundaries.
-  /// @param min The inclusive minimum boundary
-  /// @param max The exclusive maximum boundary
+  /// @param min
+  ///     The inclusive minimum boundary
+  /// @param max
+  ///     The exclusive maximum boundary
   public DSInterval(long min, long max) {
     this.minIncl = min;
     this.maxExcl = max;
@@ -56,8 +67,9 @@ public class DSInterval {
   }
 
   /// Create an interval object from another representative form.
-  /// @param objdata any object which can be converted, including the target type,
-  /// a map of fields, or a string.
+  /// @param objdata
+  ///     any object which can be converted, including the target type,
+  ///     a map of fields, or a string.
   /// @return A {@link DSInterval} object
   public static DSInterval fromData(Object objdata) {
     if (objdata instanceof DSInterval dsi) {
@@ -65,10 +77,7 @@ public class DSInterval {
     } else if (objdata instanceof Map<?, ?> m) {
       Double min = (Double) m.get("minIncl");
       Double max = (Double) m.get("maxExcl");
-      return new DSInterval(
-          min.longValue(),
-          max.longValue()
-      );
+      return new DSInterval(min.longValue(), max.longValue());
     } else if (objdata instanceof String sObj) {
       return parse(sObj);
     } else {
@@ -77,7 +86,8 @@ public class DSInterval {
   }
 
   /// parse a dataset interval
-  /// @param interval A string spec for interval, like '[10..1000)'
+  /// @param interval
+  ///     A string spec for interval, like '[10..1000)'
   /// @return A DSInterval object
   public static DSInterval parse(String interval) {
     Matcher matcher = PATTERN.matcher(interval);
@@ -94,10 +104,10 @@ public class DSInterval {
           .orElseThrow(() -> new RuntimeException("invalid " + "intervals format:" + interval));
       return new DSInterval(start, end);
     }
-    throw new RuntimeException("invalid intervals format:" + interval + ", expected [startInclusive..end] "
-                               + "or any similar pattern with optional ( or [, digits, .. or - or "
-                               + "→, digits, and optional ) or ], like '[10..1000)', or '10 → 20' "
-                               + "for example.");
+    throw new RuntimeException(
+        "invalid intervals format:" + interval + ", expected [startInclusive..end] "
+        + "or any similar pattern with optional ( or [, digits, .. or - or "
+        + "→, digits, and optional ) or ], like '[10..1000)', or '10 → 20' " + "for example.");
 
   }
 
@@ -111,13 +121,15 @@ public class DSInterval {
   }
 
   /// Sets the exclusive maximum boundary of the interval.
-  /// @param maxExcl The exclusive maximum boundary
+  /// @param maxExcl
+  ///     The exclusive maximum boundary
   public void setMaxExcl(long maxExcl) {
     this.maxExcl = maxExcl;
   }
 
   /// Sets the inclusive minimum boundary of the interval.
-  /// @param minIncl The inclusive minimum boundary
+  /// @param minIncl
+  ///     The inclusive minimum boundary
   public void setMinIncl(long minIncl) {
     this.minIncl = minIncl;
   }
@@ -135,7 +147,8 @@ public class DSInterval {
   }
 
   /// Compares this interval with another object for equality.
-  /// @param o The object to compare with
+  /// @param o
+  ///     The object to compare with
   /// @return True if the objects are equal, false otherwise
   @Override
   public final boolean equals(Object o) {

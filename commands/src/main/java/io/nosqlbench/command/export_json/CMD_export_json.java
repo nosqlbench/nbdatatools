@@ -45,7 +45,8 @@ import java.util.concurrent.Callable;
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
-    },subcommands = {CommandLine.HelpCommand.class})
+    },
+    subcommands = {CommandLine.HelpCommand.class})
 public class CMD_export_json implements Callable<Integer>, BundledCommand {
 
   private static final Logger logger = LogManager.getLogger(CMD_export_json.class);
@@ -65,6 +66,10 @@ public class CMD_export_json implements Callable<Integer>, BundledCommand {
                     + " ${DEFAULT-VALUE} valid values: ${COMPLETION-CANDIDATES})",
       defaultValue = "raw")
   private Mode mode = Mode.raw;
+
+  /// Create the default CMD_export_json command
+  public CMD_export_json() {
+  }
 
   /// run an export_json command
   /// @param args
@@ -99,7 +104,7 @@ public class CMD_export_json implements Callable<Integer>, BundledCommand {
       String summary = null;
       summary = switch (this.mode) {
         case raw -> summarizer.apply(path);
-//        case cooked -> new TestDataGroup(path).toJson();
+        //        case cooked -> new TestDataGroup(path).toJson();
         default -> throw new RuntimeException("unknown mode: " + mode);
       };
       if (this.save) {

@@ -38,13 +38,13 @@ import java.util.concurrent.Callable;
 public class CMD_cleanfvec implements Callable<Integer>, BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_cleanfvec.class);
 
-    @CommandLine.Parameters(description = "Files and/or directories to catalog; Directories will be traversed to find dataset.yaml and .hdf5 files", arity = "0..*")
-    private List<Path> inputs;
+    @CommandLine.Parameters(description = "Files and/or directories to clean; Directories will be traversed to find .fvec files", arity = "0..*")
+    private List<Path> inputs = List.of(Path.of("."));
 
+    /// Run CMD_cleanvec
+    /// @param args Command line arguments
     public static void main(String[] args) {
-        CMD_cleanfvec cmd = new CMD_cleanfvec();
-        int exitCode = new CommandLine(cmd).execute(args);
-        System.exit(exitCode);
+        System.exit(new CommandLine(new CMD_cleanfvec()).execute(args));
     }
 
     @Override

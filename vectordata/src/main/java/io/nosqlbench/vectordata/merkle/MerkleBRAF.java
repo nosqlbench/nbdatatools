@@ -99,7 +99,7 @@ public class MerkleBRAF extends RandomAccessFile implements BufferedRandomAccess
       throw new IOException("Seek position beyond file size: " + pos + " > " + painter.totalSize());
     }
 
-    // Ensure the chunk containing this position is available
+    // Ensure the chunk containing this position is available, but asynchronously
     painter.paint(pos, pos + 1);
 
     // Perform the seek operation
@@ -203,6 +203,7 @@ public class MerkleBRAF extends RandomAccessFile implements BufferedRandomAccess
     return painter.paintAsync(position, endPosition);
   }
 
+
   /**
    * Closes this random access file and releases any system resources associated with it.
    * Also closes the associated MerklePainter.
@@ -217,16 +218,6 @@ public class MerkleBRAF extends RandomAccessFile implements BufferedRandomAccess
     // Close the painter
     if (painter != null) {
       painter.close();
-    }
-  }
-
-  @Override
-  public void awaitPrebuffer(long minIncl, long maxExcl) {
-    prebuffer(minIncl, maxExcl - minIncl);
-    try {
-      painter.awaitAllDownloads();
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
     }
   }
 }

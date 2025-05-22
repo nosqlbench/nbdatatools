@@ -24,6 +24,10 @@ import picocli.CommandLine;
 /// A converter for the {@link AttrSet} type
 /// @see AttrSet
 public class AttrSetConverter implements CommandLine.ITypeConverter<AttrSet> {
+
+  /// Create the default converter
+  public AttrSetConverter() {}
+  
   @Override
   public AttrSet convert(String value)  {
     return AttrSet.parse(value);

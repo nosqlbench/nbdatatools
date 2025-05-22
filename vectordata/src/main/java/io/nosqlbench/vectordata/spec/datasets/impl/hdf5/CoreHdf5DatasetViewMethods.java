@@ -28,6 +28,7 @@ import java.lang.reflect.Array;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PrimitiveIterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -93,12 +94,10 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
   }
 
   @Override
-  public void prebuffer(long startIncl, long endExcl) {
+  public CompletableFuture<Void> prebuffer(long startIncl, long endExcl) {
+    return CompletableFuture.completedFuture(null);
   }
 
-  @Override
-  public void awaitPrebuffer(long minIncl, long maxExcl) {
-  }
 
   /// Validates and adjusts the provided window against dataset dimensions
   /// @param window

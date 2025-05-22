@@ -58,6 +58,9 @@ public class CMD_datasets implements Callable<Integer>, BundledCommand {
   @CommandLine.Option(names = {"--verbose", "-v"}, description = "Show more information")
   private boolean verbose = false;
 
+  /// create the CMD_datasets command
+  public CMD_datasets() {}
+
   /// run a datasets command
   /// @param args
   ///     command line args

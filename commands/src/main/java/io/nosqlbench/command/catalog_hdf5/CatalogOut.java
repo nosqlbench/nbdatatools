@@ -130,6 +130,9 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   }
 
   /// Overloaded method for backward compatibility
+  /// @param paths The paths to be loaded
+  /// @param commonParent The common parent for this catalog
+  /// @return A catalog
   public static CatalogOut loadAll(List<Path> paths, Path commonParent) {
     return loadAll(paths, commonParent, "catalog");
   }

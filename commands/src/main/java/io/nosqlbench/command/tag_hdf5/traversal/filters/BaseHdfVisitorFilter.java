@@ -29,6 +29,10 @@ import io.nosqlbench.command.tag_hdf5.traversal.visitors.HdfVisitor;
 /// This allows you to selectively expose HDF structure to an [HdfVisitor] implementation.
 public class BaseHdfVisitorFilter implements HdfVisitorFilter {
 
+
+  /// Create the default base visitor filter
+  public BaseHdfVisitorFilter() {}
+
   /// {@inheritDoc}
   @Override
   public boolean enterNode(Node node) {

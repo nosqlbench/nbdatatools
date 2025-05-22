@@ -89,10 +89,15 @@ public class MerkleTree {
   private final long chunkSize;
   private final long totalSize;
 
-  /**
-   Builds a Merkle tree from raw data buffer.
-   All nodes are fully computed and marked valid.
-   */
+  /// Builds a Merkle tree from raw data buffer.
+  /// All nodes are fully computed and marked valid.
+  /// @param data
+  ///     The raw data buffer.
+  /// @param chunkSize
+  ///     The size of each chunk.
+  /// @param range
+  ///     The range within the data buffer to build the tree from.
+  /// @return The built Merkle tree.
   public static MerkleTree fromData(ByteBuffer data, long chunkSize, MerkleRange range) {
     // Validate chunkSize: must be positive power-of-two
     if (chunkSize <= 0 || Long.bitCount(chunkSize) != 1) {
@@ -139,9 +144,12 @@ public class MerkleTree {
     return new MerkleTree(hashes, valid, leafCount, cap, offset, chunkSize, range.length());
   }
 
-  /**
-   Creates an empty (all stale) Merkle tree for given size.
-   */
+  /// Creates an empty (all stale) Merkle tree for given size.
+  /// @param totalSize
+  ///     The total size of the data the tree represents.
+  /// @param chunkSize
+  ///     The size of each chunk.
+  /// @return The created empty Merkle tree.
   public static MerkleTree createEmpty(long totalSize, long chunkSize) {
     // Validate chunkSize: must be positive power-of-two
     if (chunkSize <= 0 || Long.bitCount(chunkSize) != 1) {
@@ -206,6 +214,9 @@ public class MerkleTree {
     emptyTree.save(emptyMerkleFile);
   }
 
+  /// Synchronizes a remote Merkle tree for a data file URL to local paths.
+  /// Downloads the data file and its corresponding .mrkl tree if needed,
+  /// then loads and returns the MerkleTree instance.
   /// This method is used to fetch a remote merkle tree file from a url
   /// to a local file. It occurs in a few steps:
   /// 1. The size of the remote merkle tree is determined by a head request with okhttp
@@ -213,11 +224,6 @@ public class MerkleTree {
   /// 3. If the local file exists already and has the same size and has the same footer
   /// contents (determined by MerkleFooter.equals), then the local file is left as is.
   /// 4. In all other cases, the local file is downloaded again.
-  /**
-   Synchronizes a remote Merkle tree for a data file URL to local paths.
-   Downloads the data file and its corresponding .mrkl tree if needed,
-   then loads and returns the MerkleTree instance.
-   */
   public static MerkleTree syncFromRemote(URL dataUrl, Path localDataPath) throws IOException {
     // Derive merkle URL and local merkle path
     String dataUrlStr = dataUrl.toString();
@@ -358,18 +364,27 @@ public class MerkleTree {
     }
   }
 
+  /// Get the chunk size of this merkle tree.
+  /// @return The chunk size.
   public long getChunkSize() {
     return chunkSize;
   }
 
+  /// Get the size of the content described by this merkle tree.
+  /// @return The total size of the content
   public long totalSize() {
     return totalSize;
   }
 
+  /// Get the number of leaf nodes in this merkle tree
+  /// @return The number of leaf nodes
   public int getNumberOfLeaves() {
     return leafCount;
   }
 
+  /// Get the boundaries for a leaf index.
+  /// @param leafIndex The leaf index for the boundaries
+  /// @return The boundaries for the leaf
   public MerkleMismatch getBoundariesForLeaf(int leafIndex) {
     long start = leafIndex * chunkSize;
     long end = Math.min(start + chunkSize, totalSize);
@@ -377,14 +392,12 @@ public class MerkleTree {
     return new MerkleMismatch(leafIndex, start, length);
   }
 
-  /**
-   Retrieves the hash for any node in the tree, computing it if necessary.
-   This is package-private to allow tests to access internal nodes, including the root.
-   This method is synchronized to ensure thread safety during concurrent access.
-   @param idx
-   The index of the node in the hashes array
-   @return The hash value for the node
-   */
+  /// Retrieves the hash for any node in the tree, computing it if necessary.
+  /// This is package-private to allow tests to access internal nodes, including the root.
+  /// This method is synchronized to ensure thread safety during concurrent access.
+  /// @param idx
+  /// The index of the node in the hashes array
+  /// @return The hash value for the node
   synchronized byte[] getHash(int idx) {
     if (valid.get(idx))
       return hashes[idx];
@@ -412,20 +425,23 @@ public class MerkleTree {
     return hashes[idx];
   }
 
-  /**
-   Returns the hash for a leaf, computing internals lazily.
-   This method is synchronized to ensure thread safety during concurrent access.
-   */
+  /// Returns the hash for a leaf, computing internals lazily.
+  /// This method is synchronized to ensure thread safety during concurrent access.
+  /// @param leafIndex
+  ///     The index for the leaf to get the hash for
+  /// @return The hash value for the leaf
   public synchronized byte[] getHashForLeaf(int leafIndex) {
     if (leafIndex < 0 || leafIndex >= leafCount)
       throw new IllegalArgumentException("Invalid leaf index");
     return getHash(offset + leafIndex);
   }
 
-  /**
-   Marks and recomputes a leaf hash, invalidating ancestors.
-   This method is synchronized to ensure thread safety during concurrent access.
-   */
+  /// Marks and recomputes a leaf hash, invalidating ancestors.
+  /// This method is synchronized to ensure thread safety during concurrent access.
+  /// @param leafIndex
+  ///     The index for the leaf to update the hash for
+  /// @param newHash
+  ///     The new hash value for the leaf
   public synchronized void updateLeafHash(int leafIndex, byte[] newHash) {
     int idx = offset + leafIndex;
     hashes[idx] = newHash;
@@ -442,21 +458,24 @@ public class MerkleTree {
     getHash(0);
   }
 
-  /**
-   Updates a leaf hash and persists the tree to disk.
-   This method is synchronized to ensure thread safety during concurrent access.
-   */
-  public synchronized void updateLeafHash(int leafIndex, byte[] newHash, Path filePath)
+  /// Updates a leaf hash and persists the tree to disk.
+  /// This method is synchronized to ensure thread safety during concurrent access.
+  /// @param leafIndex The index for the leaf to update the hash for
+  /// @param newHash The new hash for the leaf
+  /// @param filePath The path to the merkle tree file to save to
+  /// @throws IOException If an I/O error occurs
+  public synchronized void updateLeafHash(
+      int leafIndex, byte[] newHash, Path filePath)
       throws IOException
   {
     updateLeafHash(leafIndex, newHash);
     save(filePath);
   }
 
-  /**
-   Saves hashes and footer to file.
-   This method is synchronized to ensure thread safety during concurrent access.
-   */
+  /// Saves hashes and footer to file.
+  /// This method is synchronized to ensure thread safety during concurrent access.
+  /// @param path The path to save to
+  /// @throws IOException If an I/O error occurs
   public synchronized void save(Path path) throws IOException {
     int numLeaves = capLeaf;
     // If an existing merkle file is present, verify integrity before overwriting
@@ -501,9 +520,10 @@ public class MerkleTree {
   }
 
 
-  /**
-   Loads a tree from file, marking all nodes valid.
-   */
+   /// Loads a tree from file, marking all nodes valid.
+   /// @param path The path to load the merkle tree data from
+   /// @return The loaded MerkleTree instance
+   /// @throws IOException If an I/O error occurs
   public static MerkleTree load(Path path) throws IOException {
     long fileSize = Files.size(path);
     // read footer

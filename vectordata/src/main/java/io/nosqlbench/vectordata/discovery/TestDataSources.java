@@ -91,6 +91,8 @@ public record TestDataSources(List<URL> locations) {
     return new TestDataSources(loadConfig(configdir), this.locations);
   }
 
+  /// Configure the test data catalog with the default configuration from ~/.config/nbvectors/catalogs.yaml
+  /// @return A new TestDataSources with the default configuration
   public TestDataSources configure() {
     return new TestDataSources((loadConfig(Path.of("~/.config/nbvectors"))));
   }

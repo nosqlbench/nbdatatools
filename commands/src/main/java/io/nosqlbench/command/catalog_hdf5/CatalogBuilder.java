@@ -36,16 +36,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Builds catalog files for HDF5 files and dataset.yaml files.
- * The catalog files are created at each directory level, with paths relative to the catalog location.
- */
+ /// Builds catalog files for HDF5 files and dataset.yaml files.
+ /// The catalog files are created at each directory level, with paths relative to the catalog location.
 public class CatalogBuilder {
     private static final Logger logger = LogManager.getLogger(CatalogBuilder.class);
     private static final Hdf5JsonSummarizer jsonSummarizer = new Hdf5JsonSummarizer();
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final Dump dump = new Dump(DumpSettings.builder().build());
 
+    /// Create the default CatalogBuilder instance
+    public CatalogBuilder() {}
     /**
      * Builds catalog files for the specified path and all subdirectories.
      * The catalog files are created at each directory level, with paths relative to the catalog location.

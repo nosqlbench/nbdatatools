@@ -100,7 +100,13 @@ public class CMD_convert implements Callable<Integer>, BundledCommand {
      * Callback interface for conversion progress and completion.
      */
     public interface ConversionCallback {
+        /// Called when there was a successful conversion.
+        /// @param inputFile The input to the conversion task
+        /// @param outputFile The output from the conversion task
+        /// @param vectorsProcessed The number of vectors processed
         void onSuccess(Path inputFile, Path outputFile, int vectorsProcessed);
+        /// Called when there was an error during conversion.
+        /// @param message The error message indicating what caused the conversion to fail
         void onError(String message);
     }
 
@@ -208,6 +214,8 @@ public class CMD_convert implements Callable<Integer>, BundledCommand {
     )
     private boolean helpRequested = false;
 
+    /// Run CMD_convert
+    /// @param args Command line arguments
     public static void main(String[] args) {
         CMD_convert cmd = new CMD_convert();
         int exitCode = new CommandLine(cmd).execute(args);

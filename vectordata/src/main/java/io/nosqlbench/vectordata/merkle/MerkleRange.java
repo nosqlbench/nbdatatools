@@ -23,6 +23,7 @@ package io.nosqlbench.vectordata.merkle;
 /// @param start The starting offset of the range
 /// @param end The ending offset of the range
 public record MerkleRange(long start, long end) {
+    /// Constructs a new MerkleRange object with the given start and end offsets
     public MerkleRange {
         if (start < 0 || end < start) {
             throw new IllegalArgumentException("Invalid range: [" + start + ", " + end + "]");
@@ -95,6 +96,8 @@ public record MerkleRange(long start, long end) {
         return result;
     }
 
+    /// Returns the length of this range in bytes
+    /// @return The length of this range
     public long length() {
         return end - start;
     }

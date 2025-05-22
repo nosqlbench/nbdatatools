@@ -75,6 +75,7 @@ public enum TestDataKind {
       "The neighbor distances dataset, containing all correct distances, organized by index",
       NeighborDistancesAttributes.class
   ),
+  /// The queries for this dataset, containing all query predicates, organized by index
   query_predicates(
       "/query_predicates",
       "The optional query predicates dataset, containing all query predicates, organized by index",
@@ -142,6 +143,8 @@ public enum TestDataKind {
     return Optional.empty();
   }
 
+  /// Get all the possible names for this test data kind
+  /// @return a set of valid test data kinds
   public Set<String> getAllNames() {
     Set<String> names = new LinkedHashSet<>();
     names.add(name());

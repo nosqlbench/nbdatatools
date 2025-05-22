@@ -31,6 +31,9 @@ import java.util.List;
 /// [HdfVisitorInjector] methods you care about
 public class BaseHdfVisitorInjector implements HdfVisitorInjector {
 
+  /// Create the default BaseHdfVisitorInjector
+  public BaseHdfVisitorInjector() {}
+
   /// {@inheritDoc}
   @Override
   public List<Node> enterNode(Node node) {

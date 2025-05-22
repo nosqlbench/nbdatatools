@@ -43,6 +43,7 @@ public class TestDataFiles {
   ///   random vectors to set all components to zero. Zeroes should not overlap with duplicates.
   /// @param duplicatesProportion There should be this many duplicate vectors in the dataset by
   ///   choosing other random source vectors. Duplicates should not overlap with zero vectors.
+  /// @return an array of float vectors
   public static float[][] genVectors(int count, int dimensions, long seed, double variability,
       double scale, double zeroesProportion, double duplicatesProportion) {
     // Initialize random with provided seed

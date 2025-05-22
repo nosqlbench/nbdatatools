@@ -390,7 +390,7 @@ public class UnitConversions {
   ///
   /// This enum defines the possible units for duration values, such as nanoseconds, microseconds,
   /// milliseconds, etc.
-  public enum Duration {
+  public static enum Duration {
     /// Second (1,000,000,000 nanoseconds)
     SECOND("s", "seconds", nanoPerSecond),
     /// Millisecond (1,000,000 nanoseconds)
@@ -421,6 +421,9 @@ public class UnitConversions {
       this.nanos = nanos;
     }
 
+    /// get the canonical unit value of a given suffix
+    /// @param spec - The string provided by the user
+    /// @return a Duration object
     public static Duration valueOfSuffix(String spec) {
       for (Duration duration : Duration.values()) {
         if (duration.label.equalsIgnoreCase(spec)) {

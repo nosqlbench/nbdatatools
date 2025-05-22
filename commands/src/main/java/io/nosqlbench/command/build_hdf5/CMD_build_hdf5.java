@@ -66,6 +66,9 @@ public class CMD_build_hdf5 implements Callable<Integer>, BundledCommand {
       description = "The yaml file containing the layout " + "instructions.")
   private Path layoutPath;
 
+  /// Create the CMD_build_hdf5 command.
+  public CMD_build_hdf5() {}
+
   /// run a build_hdf5 command
   /// @param args
   ///     command line args

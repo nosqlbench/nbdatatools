@@ -30,6 +30,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class CatalogAccessTest {
@@ -57,9 +59,17 @@ public class CatalogAccessTest {
         d1m.getBaseVectors().orElseThrow(() -> new RuntimeException("base vectors not found"));
     int count = basev.getCount();
     System.out.println("count:" + count);
-    basev.prebuffer(0,1024*1024*100);
-    basev.awaitPrebuffer(1024*1024*100,1024*1024*200);
-///    Object values = basev.get(0);
+    CompletableFuture<Void> pbfuture = basev.prebuffer(0, 1024 * 1024 * 100);
+
+    CompletableFuture<Void> pbfuture2 = basev.prebuffer(1024 * 1024 * 100, 1024 * 1024 * 200);
+    try {
+      pbfuture2.get();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      throw new RuntimeException(e);
+    }
+    ///    Object values = basev.get(0);
 ///    System.out.println("values:" + Arrays.toString(values));
 
 

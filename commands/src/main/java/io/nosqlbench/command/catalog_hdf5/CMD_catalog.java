@@ -55,6 +55,7 @@ import java.util.stream.Collectors;
                   " and .hdf5 files, and produce catalog.json and catalog.yaml files at each directory level.",
     exitCodeList = {"0: success", "1: error processing files"})
 public class CMD_catalog implements Callable<Integer>, BundledCommand {
+
     private static final Logger logger = LogManager.getLogger(CMD_catalog.class);
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final Dump yamlDumper = new Dump(DumpSettings.builder().build());
@@ -66,6 +67,11 @@ public class CMD_catalog implements Callable<Integer>, BundledCommand {
     @CommandLine.Option(names = "--basename", description = "Base name for catalog files (no extension)", defaultValue = "catalog")
     private String basename;
 
+    ///  reate the CMD_catalog command
+    public CMD_catalog() {}
+
+    /// run a CMD_catalog command
+    /// @param args command line arguments
     public static void main(String[] args) {
         CMD_catalog cmd = new CMD_catalog();
         int exitCode = new CommandLine(cmd).execute(args);

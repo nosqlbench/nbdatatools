@@ -53,18 +53,6 @@ public class LocalRandomAccessFile extends RandomAccessFile implements BufferedR
     }
 
     /**
-     * No-op implementation of awaitPrebuffer for local files.
-     * Does nothing since no prebuffering is needed for local files.
-     *
-     * @param minIncl The inclusive minimum position
-     * @param maxExcl The exclusive maximum position
-     */
-    @Override
-    public void awaitPrebuffer(long minIncl, long maxExcl) {
-        // No-op for local files
-    }
-
-    /**
      * Reads bytes into the provided array.
      *
      * @param b The buffer into which the data is read

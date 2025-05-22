@@ -31,6 +31,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /// Core implementation of DatasetView for xvec file formats.
@@ -83,13 +84,8 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   }
 
   @Override
-  public void prebuffer(long startIncl, long endExcl) {
-    randomio.prebuffer(startIncl, endExcl);
-  }
-
-  @Override
-  public void awaitPrebuffer(long minIncl, long maxExcl) {
-    randomio.awaitPrebuffer(minIncl, maxExcl);
+  public CompletableFuture<Void> prebuffer(long startIncl, long endExcl) {
+    return randomio.prebuffer(startIncl, endExcl);
   }
 
   /**

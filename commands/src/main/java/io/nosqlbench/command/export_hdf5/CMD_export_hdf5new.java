@@ -87,6 +87,9 @@ public class CMD_export_hdf5new implements Callable<Integer>, BundledCommand {
                     + " even if no changes to mapping since last export")
   private boolean force = false;
 
+  /// Create the default CMD_export_hdf5new command
+  public CMD_export_hdf5new() {}
+
   /// run an export_hdf5 command
   /// @param args
   ///     command line args
