@@ -49,7 +49,7 @@ public class TestWebServerFixtureTest {
         server = new TestWebServerFixture();
         server.start();
         baseUrl = server.getBaseUrl();
-        
+
         // Update the catalog.json file with the correct server URL
         // This is necessary because the catalog.json file contains URLs with localhost:0
         // which need to be replaced with the actual server port
@@ -78,7 +78,7 @@ public class TestWebServerFixtureTest {
             byte[] data = in.readAllBytes();
             assertTrue(data.length > 0);
             String content = new String(data);
-            assertTrue(content.contains("test_dataset"));
+            assertTrue(content.contains("testxvec"));
         }
     }
 
@@ -86,83 +86,83 @@ public class TestWebServerFixtureTest {
     public void testCatalogAccess() {
         // Create a TestDataSources instance with the server URL
         TestDataSources sources = TestDataSources.ofUrl(baseUrl.toString());
-        
+
         // Get the catalog
         Catalog catalog = sources.catalog();
         assertNotNull(catalog);
-        
+
         // Verify that the catalog contains the expected datasets
         List<DatasetEntry> datasets = catalog.datasets();
         assertNotNull(datasets);
-        assertTrue(datasets.size() >= 2);
-        
+        assertTrue(datasets.size() >= 1);
+
         // Find a specific dataset
-        Optional<DatasetEntry> datasetOpt = catalog.findExact("test_dataset");
+        Optional<DatasetEntry> datasetOpt = catalog.findExact("testxvec");
         assertTrue(datasetOpt.isPresent());
-        
+
         // Verify dataset attributes
         DatasetEntry dataset = datasetOpt.get();
-        assertEquals("test_dataset", dataset.name());
+        assertEquals("testxvec", dataset.name());
         assertNotNull(dataset.attributes());
-        assertTrue(dataset.attributes().containsKey("description"));
-        assertEquals("A test dataset for integration testing", dataset.attributes().get("description"));
+        assertTrue(dataset.attributes().containsKey("url"));
+        assertEquals("https://github.com/nosqlbench/nbdatatools", dataset.attributes().get("url"));
     }
 
     @Test
     public void testDatasetAccess() {
         // Create a TestDataSources instance with the server URL
         TestDataSources sources = TestDataSources.ofUrl(baseUrl.toString());
-        
+
         // Get the catalog
         Catalog catalog = sources.catalog();
-        
+
         // Find a specific dataset
-        Optional<DatasetEntry> datasetOpt = catalog.findExact("test_dataset");
+        Optional<DatasetEntry> datasetOpt = catalog.findExact("testxvec");
         assertTrue(datasetOpt.isPresent());
-        
+
         // Get the dataset
         DatasetEntry dataset = datasetOpt.get();
-        
+
         // Select a profile
         ProfileSelector profiles = dataset.select();
         assertNotNull(profiles);
-        
+
         // Get a specific profile
-        TestDataView smallView = profiles.profile("small");
-        assertNotNull(smallView);
-        
+        TestDataView defaultView = profiles.profile("default");
+        assertNotNull(defaultView);
+
         // Verify that the profile contains the expected data
-        Optional<BaseVectors> baseVectorsOpt = smallView.getBaseVectors();
+        Optional<BaseVectors> baseVectorsOpt = defaultView.getBaseVectors();
         assertTrue(baseVectorsOpt.isPresent());
-        
+
         BaseVectors baseVectors = baseVectorsOpt.get();
-        assertEquals(100, baseVectors.getCount());
+        assertEquals(25000, baseVectors.getCount());
     }
 
     @Test
     public void testMerkleDatasetAccess() {
         // Create a TestDataSources instance with the server URL
         TestDataSources sources = TestDataSources.ofUrl(baseUrl.toString());
-        
+
         // Get the catalog
         Catalog catalog = sources.catalog();
-        
-        // Find the merkle dataset
-        Optional<DatasetEntry> datasetOpt = catalog.findExact("test_dataset_with_merkle");
+
+        // Find the dataset (testxvec has merkle tree files)
+        Optional<DatasetEntry> datasetOpt = catalog.findExact("testxvec");
         assertTrue(datasetOpt.isPresent());
-        
+
         // Get the dataset
         DatasetEntry dataset = datasetOpt.get();
-        
+
         // Select a profile
         ProfileSelector profiles = dataset.select();
-        TestDataView smallView = profiles.profile("small");
-        
+        TestDataView defaultView = profiles.profile("default");
+
         // Verify that the profile contains the expected data
-        Optional<BaseVectors> baseVectorsOpt = smallView.getBaseVectors();
+        Optional<BaseVectors> baseVectorsOpt = defaultView.getBaseVectors();
         assertTrue(baseVectorsOpt.isPresent());
-        
+
         BaseVectors baseVectors = baseVectorsOpt.get();
-        assertEquals(100, baseVectors.getCount());
+        assertEquals(25000, baseVectors.getCount());
     }
 }

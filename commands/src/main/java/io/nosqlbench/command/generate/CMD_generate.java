@@ -48,12 +48,13 @@ import java.util.List;
     description = """
         This provides a set of basic procedural generation utilities for
         the purposes of preparing test data. The command includes subcommands
-        for generating shuffled integer vectors (ivec-shuffle) and extracting
-        data from floating-point vector files (fvec-extract).
+        for generating shuffled integer vectors (ivec-shuffle), extracting
+        data from floating-point vector files (fvec-extract), and generating
+        vector files with specified types and dimensions (vector-generate).
         """,
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
-    subcommands = {IvecShuffle.class, FvecExtract.class, CommandLine.HelpCommand.class})
+    subcommands = {IvecShuffle.class, FvecExtract.class, VectorGenerate.class, CommandLine.HelpCommand.class})
 
 public class CMD_generate implements BundledCommand {
   /// Logger for this class

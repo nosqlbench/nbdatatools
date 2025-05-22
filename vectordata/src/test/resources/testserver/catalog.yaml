@@ -1,0 +1,12 @@
+- layout:
+    attributes: {model: null, url: 'https://github.com/nosqlbench/nbdatatools', distance_function: COSINE,
+      license: APL, vendor: null}
+    profiles:
+      default:
+        base: {source: testxvec_base.fvec}
+        query: {source: testxvec_query.fvec}
+        distances: {source: testxvec_distances.fvec}
+        indices: {source: testxvec_indices.ivec}
+  dataset_type: dataset.yaml
+  name: testxvec
+  path: rawdatasets/testxvec/dataset.yaml
