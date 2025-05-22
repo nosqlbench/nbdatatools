@@ -33,11 +33,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class CsvJsonArrayStreamerTest {
+/// Test class for CsvJsonArrayStreamer.
+/// This class tests the functionality of the CsvJsonArrayStreamer, which reads CSV files
+/// containing JSON arrays and converts them to float arrays.
+public class CsvJsonArrayStreamerTest {
+
+    /// Default constructor for the test class.
+    /// JUnit creates an instance of this class for each test method.
+    public CsvJsonArrayStreamerTest() {
+    }
 
     @TempDir
     Path tempDir;
 
+    /// Tests reading JSON arrays from the first column of a CSV file.
+    /// This test verifies that the streamer correctly extracts and parses JSON arrays
+    /// when they appear in the first column of a CSV file.
     @Test
     void testJsonArrayInFirstColumn() throws IOException {
         Path testFile = tempDir.resolve("vectors_first_column.csv");
@@ -46,25 +57,28 @@ class CsvJsonArrayStreamerTest {
             "[4.0, 5.0, 6.0]",label2,description2
             "[7.0, 8.0, 9.0]",label3,description3"""
         );
-        
+
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
         Iterator<float[]> iterator = streamer.iterator();
-        
+
         assertTrue(iterator.hasNext());
         float[] vector1 = iterator.next();
         assertArrayEquals(new float[]{1.0f, 2.0f, 3.0f}, vector1, 0.0001f);
-        
+
         assertTrue(iterator.hasNext());
         float[] vector2 = iterator.next();
         assertArrayEquals(new float[]{4.0f, 5.0f, 6.0f}, vector2, 0.0001f);
-        
+
         assertTrue(iterator.hasNext());
         float[] vector3 = iterator.next();
         assertArrayEquals(new float[]{7.0f, 8.0f, 9.0f}, vector3, 0.0001f);
-        
+
         assertFalse(iterator.hasNext());
     }
-    
+
+    /// Tests reading JSON arrays from the middle column of a CSV file.
+    /// This test verifies that the streamer correctly extracts and parses JSON arrays
+    /// when they appear in the middle column of a CSV file.
     @Test
     void testJsonArrayInMiddleColumn() throws IOException {
         Path testFile = tempDir.resolve("vectors_middle_column.csv");
@@ -74,23 +88,26 @@ class CsvJsonArrayStreamerTest {
             id3,"[7.0, 8.0, 9.0]",meta3
             """
         );
-        
+
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
         Iterator<float[]> iterator = streamer.iterator();
-        
+
         assertTrue(iterator.hasNext());
         float[] vector1 = iterator.next();
         assertArrayEquals(new float[]{1.0f, 2.0f, 3.0f}, vector1, 0.0001f);
-        
+
         assertTrue(iterator.hasNext());
         float[] vector2 = iterator.next();
         assertArrayEquals(new float[]{4.0f, 5.0f, 6.0f}, vector2, 0.0001f);
-        
+
         assertTrue(iterator.hasNext());
         float[] vector3 = iterator.next();
         assertArrayEquals(new float[]{7.0f, 8.0f, 9.0f}, vector3, 0.0001f);
     }
-    
+
+    /// Tests reading CSV files with header rows containing column names.
+    /// This test verifies that the streamer correctly handles CSV files with a header row
+    /// and still extracts the JSON arrays from the data rows.
     @Test
     void testHeaderWithColumnNames() throws IOException {
         Path testFile = tempDir.resolve("vectors_with_header.csv");
@@ -99,21 +116,24 @@ class CsvJsonArrayStreamerTest {
             id1,"[1.0, 2.0, 3.0]",desc1
             id2,"[4.0, 5.0, 6.0]",desc2"""
         );
-        
+
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
         Iterator<float[]> iterator = streamer.iterator();
-        
+
         assertTrue(iterator.hasNext());
         float[] vector1 = iterator.next();
         assertArrayEquals(new float[]{1.0f, 2.0f, 3.0f}, vector1, 0.0001f);
-        
+
         assertTrue(iterator.hasNext());
         float[] vector2 = iterator.next();
         assertArrayEquals(new float[]{4.0f, 5.0f, 6.0f}, vector2, 0.0001f);
-        
+
         assertFalse(iterator.hasNext());
     }
-    
+
+    /// Tests header detection with a more complex CSV structure.
+    /// This test verifies that the streamer correctly handles CSV files with a complex header
+    /// and multiple columns, still extracting the JSON arrays correctly.
     @Test
     void testHeaderDetectionWithComplexStructure() throws IOException {
         Path testFile = tempDir.resolve("vectors_complex_header.csv");
@@ -122,21 +142,24 @@ class CsvJsonArrayStreamerTest {
             doc123,"[1.5, 2.5, 3.5, 4.5]",0.98,science
             doc456,"[5.5, 6.5, 7.5, 8.5]",0.87,history"""
         );
-        
+
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
         Iterator<float[]> iterator = streamer.iterator();
-        
+
         assertTrue(iterator.hasNext());
         float[] vector1 = iterator.next();
         assertArrayEquals(new float[]{1.5f, 2.5f, 3.5f, 4.5f}, vector1, 0.0001f);
-        
+
         assertTrue(iterator.hasNext());
         float[] vector2 = iterator.next();
         assertArrayEquals(new float[]{5.5f, 6.5f, 7.5f, 8.5f}, vector2, 0.0001f);
-        
+
         assertFalse(iterator.hasNext());
     }
-    
+
+    /// Tests handling of JSON arrays with variable dimensions.
+    /// This test verifies that the streamer correctly handles CSV files containing JSON arrays
+    /// with different numbers of elements (different dimensions).
     @Test
     void testJsonArrayWithVariableDimensions() throws IOException {
         Path testFile = tempDir.resolve("vectors_variable_dimensions.csv");
@@ -145,22 +168,25 @@ class CsvJsonArrayStreamerTest {
             id2,"[4.0, 5.0, 6.0, 7.0]",meta2
             id3,"[8.0, 9.0]",meta3"""
         );
-        
+
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
         Iterator<float[]> iterator = streamer.iterator();
-        
+
         List<float[]> vectors = new ArrayList<>();
         while (iterator.hasNext()) {
             vectors.add(iterator.next());
         }
-        
+
         assertEquals(3, vectors.size(), "Should read 3 vectors with different dimensions");
-        
+
         assertArrayEquals(new float[]{1.0f, 2.0f, 3.0f}, vectors.get(0), 0.0001f);
         assertArrayEquals(new float[]{4.0f, 5.0f, 6.0f, 7.0f}, vectors.get(1), 0.0001f);
         assertArrayEquals(new float[]{8.0f, 9.0f}, vectors.get(2), 0.0001f);
     }
-    
+
+    /// Tests the behavior of multiple iterators on the same streamer.
+    /// This test verifies that creating multiple iterators from the same streamer
+    /// works correctly, with each iterator starting from the beginning of the data.
     @Test
     void testMultipleIterators() throws IOException {
         Path testFile = tempDir.resolve("multiple_iterators.csv");
@@ -169,9 +195,9 @@ class CsvJsonArrayStreamerTest {
             "[3.0, 4.0]",B
             "[5.0, 6.0]",C"""
         );
-        
+
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
-        
+
         // First iterator should get all the data
         Iterator<float[]> iterator1 = streamer.iterator();
         assertTrue(iterator1.hasNext());
@@ -181,7 +207,7 @@ class CsvJsonArrayStreamerTest {
         assertTrue(iterator1.hasNext());
         assertArrayEquals(new float[]{5.0f, 6.0f}, iterator1.next(), 0.0001f);
         assertFalse(iterator1.hasNext());
-        
+
         // Second iterator should start from the beginning again
         Iterator<float[]> iterator2 = streamer.iterator();
         assertTrue(iterator2.hasNext());
