@@ -21,31 +21,91 @@ package io.nosqlbench.vectordata.downloader;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.downloader.DownloadStatus;
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class CatalogAccessTest {
 
-  private static TestDataSources sources = TestDataSources.ofUrl(
-      "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/");
+  private TestWebServerFixture server;
+  private URL baseUrl;
+  private TestDataSources sources;
+  private Path tempCatalogFile;
+
+  @BeforeEach
+  public void setUp() throws IOException {
+    // Create a unique resource path for this test
+    Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
+
+    // Start the web server with the unique resource path
+    server = new TestWebServerFixture(uniqueResourceRoot);
+    server.start();
+    baseUrl = server.getBaseUrl();
+
+    // Create a temporary directory for this test
+    Path tempDir = Files.createTempDirectory("catalog_test_" + UUID.randomUUID().toString().substring(0, 8));
+
+    // Create a copy of the catalog.json file with the correct server URL
+    String catalogJson = new String(Files.readAllBytes(
+        Paths.get("src/test/resources/testserver/catalog.json")));
+    catalogJson = catalogJson.replace("localhost:0", "localhost:" + baseUrl.getPort());
+
+    // Write to a temporary file instead of modifying the shared one
+    tempCatalogFile = tempDir.resolve("catalog.json");
+    Files.write(tempCatalogFile, catalogJson.getBytes());
+
+    // Create a TestDataSources instance with the server URL
+    sources = TestDataSources.ofUrl(baseUrl.toString());
+  }
+
+  @AfterEach
+  public void tearDown() {
+    // Stop the web server
+    if (server != null) {
+      server.close();
+    }
+
+    // Clean up temporary files
+    if (tempCatalogFile != null) {
+      try {
+        // Delete the temporary catalog file
+        Files.deleteIfExists(tempCatalogFile);
+
+        // Delete the parent directory (the temporary directory)
+        Files.deleteIfExists(tempCatalogFile.getParent());
+      } catch (IOException e) {
+        // Log the error but don't fail the test
+        System.err.println("Error cleaning up temporary files: " + e.getMessage());
+      }
+    }
+  }
 
   @Test
-  @Disabled("Requires internet access and real data")
   public void testLayoutDownloadAndRealization() {
     Catalog catalog = sources.catalog();
     List<DatasetEntry> dsentries = catalog.datasets();
     dsentries.forEach(System.out::println);
-    Optional<DatasetEntry> dsOpt = catalog.findExact("ANN_SIFT1B");
+    Optional<DatasetEntry> dsOpt = catalog.findExact("testxvec");
     if (!dsOpt.isPresent()) {
       throw new RuntimeException("Dataset not found");
     }
@@ -54,47 +114,53 @@ public class CatalogAccessTest {
     System.out.println("Found dataset: " + ds.name());
     System.out.println("Attributes: " + ds.attributes());
     ProfileSelector profiles = ds.select();
-    TestDataView d1m = profiles.profile("1M");
+    TestDataView defaultView = profiles.profile("default");
     BaseVectors basev =
-        d1m.getBaseVectors().orElseThrow(() -> new RuntimeException("base vectors not found"));
+        defaultView.getBaseVectors().orElseThrow(() -> new RuntimeException("base vectors not found"));
     int count = basev.getCount();
     System.out.println("count:" + count);
-    CompletableFuture<Void> pbfuture = basev.prebuffer(0, 1024 * 1024 * 100);
 
-    CompletableFuture<Void> pbfuture2 = basev.prebuffer(1024 * 1024 * 100, 1024 * 1024 * 200);
+    // No need for large prebuffer with test data
+    CompletableFuture<Void> pbfuture = basev.prebuffer(0, 1024);
     try {
-      pbfuture2.get();
+      pbfuture.get();
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     } catch (ExecutionException e) {
       throw new RuntimeException(e);
     }
-    ///    Object values = basev.get(0);
-///    System.out.println("values:" + Arrays.toString(values));
-
-
   }
 
-  @Disabled
   @Test
   public void testDatasetDownload() {
     Catalog catalog = sources.catalog();
     List<DatasetEntry> datasets = catalog.datasets();
-    DatasetEntry datasetEntry = datasets.get(0);
+
+    // Find the testxvec dataset
+    Optional<DatasetEntry> datasetOpt = catalog.findExact("testxvec");
+    if (!datasetOpt.isPresent()) {
+      throw new RuntimeException("Dataset not found");
+    }
+    DatasetEntry datasetEntry = datasetOpt.get();
+
     try {
       Path testdir = Files.createTempDirectory("testdir");
       DownloadProgress progress = datasetEntry.download(testdir);
       DownloadResult result;
       try {
-        while ((result = progress.poll(1, TimeUnit.SECONDS)) == null) {
+        // Poll for results with a shorter timeout for test data
+        while ((result = progress.poll(100, TimeUnit.MILLISECONDS)) == null) {
           System.out.println(
               progress.getProgress() + "( " + progress.currentBytes() + "/" + progress.totalBytes()
               + " bytes)");
-          System.out.println("progress:" +progress);
-          System.out.println("result:"+result);
+          System.out.println("progress:" + progress);
         }
-        System.out.println("final progress:" +progress);
-        System.out.println("final result:"+result);
+        System.out.println("final progress:" + progress);
+        System.out.println("final result:" + result);
+
+        // Verify the download was successful
+        assertNotNull(result, "Download result should not be null");
+        assertTrue(result.isSuccess(), "Download should complete successfully");
 
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
@@ -102,7 +168,6 @@ public class CatalogAccessTest {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
   }
 
 }

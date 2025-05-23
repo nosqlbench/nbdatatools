@@ -18,22 +18,21 @@ package io.nosqlbench.vectordata.merkle;
  */
 
 
-import org.junit.jupiter.api.Tag;
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MerklePainterTest {
-
-    @TempDir
-    Path tempDir;
 
     /**
      * Test that MerklePainter can download and submit chunks to MerklePane.
@@ -41,61 +40,60 @@ public class MerklePainterTest {
      * 1. Create a MerklePainter with a local path and remote URL
      * 2. Download a specific chunk using the downloadAndSubmitChunk method
      * 3. Verify that the chunk was downloaded and the merkle tree was updated
-     *
-     * Note: This test is tagged as "integration" since it requires internet access
-     * and downloads real data, which may take longer than a typical unit test.
      */
     @Test
-    @Tag("integration")
-    void testDownloadAndSubmitChunk() throws IOException {
-        // Skip this test for now as it requires internet access
-        assumeTrue(false, "Skipping test that requires internet access");
-        // Define the remote URL for the dataset
-        String remoteUrl = "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/bigann_query.bvecs";
+    void testDownloadAndSubmitChunk(@TempDir Path tempDir) throws IOException {
+        // Create a unique resource path for this test
+        Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
 
-        // Create a local file path for the data
-        Path localPath = tempDir.resolve("bigann_query_painter.bvecs");
+        // Start a dedicated web server for this test with the unique resource path
+        try (TestWebServerFixture server = new TestWebServerFixture(uniqueResourceRoot)) {
+            server.start();
+            URL baseUrl = server.getBaseUrl();
 
-        try {
+            // Define the path to the test file
+            String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
+
+            // Create a URL for the test file
+            URL fileUrl = new URL(baseUrl, testFilePath);
+
+            // Create a unique local file path for the data
+            String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
+            Path localPath = tempDir.resolve(uniqueFileName);
+
             // Create a MerklePainter instance
-            MerklePainter painter = new MerklePainter(localPath, remoteUrl);
+            MerklePainter painter = new MerklePainter(localPath, fileUrl.toString());
 
-            // Verify that the files exist
-            assertTrue(Files.exists(localPath), "Local file should exist");
-            Path merklePath = localPath.resolveSibling(localPath.getFileName().toString() + ".mrkl");
-            assertTrue(Files.exists(merklePath), "Merkle file should exist");
-            Path referenceTreePath = localPath.resolveSibling(localPath.getFileName().toString() + ".mref");
-            assertTrue(Files.exists(referenceTreePath), "Reference merkle file should exist");
+            try {
+                // Verify that the files exist
+                assertTrue(Files.exists(localPath), "Local file should exist");
+                Path merklePath = painter.merklePath();
+                assertTrue(Files.exists(merklePath), "Merkle file should exist");
+                Path referenceTreePath = painter.referenceTreePath();
+                assertTrue(Files.exists(referenceTreePath), "Reference merkle file should exist");
 
-            // Get the MerklePane from the painter
-            MerklePane pane = painter.pane();
+                // Get the MerklePane from the painter
+                MerklePane pane = painter.pane();
 
-            // Get the initial verification state
-            boolean initialVerification = pane.verifyChunk(0);
+                // Get the initial verification state
+                boolean initialVerification = pane.verifyChunk(0);
 
-            // Download and submit the first chunk
-            boolean success = painter.downloadAndSubmitChunk(0);
-            assertTrue(success, "Download and submit should succeed");
+                // Download and submit the first chunk
+                boolean success = painter.downloadAndSubmitChunk(0);
+                assertTrue(success, "Download and submit should succeed");
 
-            // Now the chunk should have data
-            ByteBuffer chunk = pane.readChunk(0);
-            assertTrue(chunk.remaining() > 0, "Chunk should have data");
+                // Now the chunk should have data
+                ByteBuffer chunk = pane.readChunk(0);
+                assertTrue(chunk.remaining() > 0, "Chunk should have data");
 
-            // The verification state might change, but we can't guarantee it
-            // since the initial state might already be valid
+                // The verification state might change, but we can't guarantee it
+                // since the initial state might already be valid
 
-            // Clean up
-            painter.close();
-
-            System.out.println("Successfully tested MerklePainter.downloadAndSubmitChunk");
-        } catch (java.io.FileNotFoundException e) {
-            // This might happen if the remote file doesn't exist
-            System.out.println("Remote file not found: " + e.getMessage());
-            // Skip the test rather than fail it
-            assumeTrue(false, "Remote file not available");
-        } catch (java.io.IOException e) {
-            System.out.println("Error during test: " + e.getMessage());
-            throw e;
+                System.out.println("Successfully tested MerklePainter.downloadAndSubmitChunk");
+            } finally {
+                // Clean up
+                painter.close();
+            }
         }
     }
 }

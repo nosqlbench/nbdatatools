@@ -86,11 +86,14 @@ public class MerklePaneSetup {
       String remoteContentPath
   )
   {
-    // Validate arguments: remoteContentPath must be provided
-    if (localContentPath == null || localMerklePath == null || remoteContentPath == null) {
+    // Validate arguments: localContentPath and localMerklePath must be provided
+    if (localContentPath == null || localMerklePath == null) {
       throw new IllegalArgumentException(
-          "Content path, Merkle path, and remote content path must be non-null");
+          "Content path and Merkle path must be non-null");
     }
+
+    // If remoteContentPath is null, we'll create a local-only setup without remote synchronization
+    boolean hasRemoteContent = remoteContentPath != null;
     try {
       // Ensure parent directories
       Files.createDirectories(localContentPath.getParent());
@@ -98,40 +101,65 @@ public class MerklePaneSetup {
       // Step 1: Handle remote reference Merkle tree if remoteContentPath provided
       Path localMrefPath =
           localContentPath.resolveSibling(localContentPath.getFileName().toString() + ".mref");
-      URL remoteMrefUrl = new URI(remoteContentPath + ".mrkl").toURL();
-      IOException lastEx = null;
-      int maxAttempts = 3;
-      for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          if (Files.exists(localMrefPath) && Files.size(localMrefPath) > 0) {
+
+      if (hasRemoteContent) {
+        // Only attempt to download the remote merkle tree if remoteContentPath is provided
+        URL remoteMrefUrl = new URI(remoteContentPath + ".mrkl").toURL();
+        IOException lastEx = null;
+        int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            if (Files.exists(localMrefPath) && Files.size(localMrefPath) > 0) {
+              MerkleTree.load(localMrefPath);
+              break;
+            }
+            Files.createDirectories(localMrefPath.getParent());
+            try (InputStream in = remoteMrefUrl.openStream();
+                 OutputStream out = Files.newOutputStream(localMrefPath))
+            {
+              in.transferTo(out);
+            }
             MerkleTree.load(localMrefPath);
             break;
+          } catch (IOException e) {
+            logger.warn(
+                "Failed to obtain a valid merkle tree reference (attempt {}/{}): {}",
+                attempt,
+                maxAttempts,
+                e.getMessage(),
+                e
+            );
+            Files.deleteIfExists(localMrefPath);
+            lastEx = e;
           }
-          Files.createDirectories(localMrefPath.getParent());
-          try (InputStream in = remoteMrefUrl.openStream();
-               OutputStream out = Files.newOutputStream(localMrefPath))
-          {
-            in.transferTo(out);
-          }
-          MerkleTree.load(localMrefPath);
-          break;
-        } catch (IOException e) {
-          logger.warn(
-              "Failed to obtain a valid merkle tree reference (attempt {}/{}): {}",
-              attempt,
-              maxAttempts,
-              e.getMessage(),
-              e
-          );
-          Files.deleteIfExists(localMrefPath);
-          lastEx = e;
         }
-      }
-      if (!Files.exists(localMrefPath)) {
-        throw new IOException(
-            "Failed to obtain valid reference Merkle tree after 3 attempts: " + (
-                lastEx == null ? "unknown error" : lastEx.getMessage()), lastEx
-        );
+        if (!Files.exists(localMrefPath)) {
+          throw new IOException(
+              "Failed to obtain valid reference Merkle tree after 3 attempts: " + (
+                  lastEx == null ? "unknown error" : lastEx.getMessage()), lastEx
+          );
+        }
+      } else {
+        // For local-only setup, create a reference merkle tree from the local content file
+        if (!Files.exists(localMrefPath) || Files.size(localMrefPath) == 0) {
+          // Ensure content file exists
+          if (!Files.exists(localContentPath)) {
+            Files.createFile(localContentPath);
+          }
+
+          // Create a minimal merkle tree for the content file
+          long chunkSize = 1024; // Default chunk size
+          long contentSize = Files.size(localContentPath);
+          ByteBuffer buf = ByteBuffer.allocate((int) Math.min(contentSize, Integer.MAX_VALUE));
+          if (contentSize > 0) {
+            try (FileChannel ch = FileChannel.open(localContentPath, StandardOpenOption.READ)) {
+              ch.read(buf);
+            }
+            buf.flip();
+          }
+          MerkleTree refTree = MerkleTree.fromData(buf, chunkSize, new MerkleRange(0, contentSize));
+          refTree.save(localMrefPath);
+        }
       }
       // Ensure local MRKL exists (create empty if missing)
       if (!Files.exists(localMerklePath) || Files.size(localMerklePath) == 0) {

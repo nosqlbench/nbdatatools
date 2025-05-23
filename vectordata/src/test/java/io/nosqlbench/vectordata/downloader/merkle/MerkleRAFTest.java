@@ -18,24 +18,25 @@ package io.nosqlbench.vectordata.downloader.merkle;
  */
 
 
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
 import io.nosqlbench.vectordata.merkle.MerkleBRAF;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MerkleRAFTest {
-
-    @TempDir
-    Path tempDir;
 
     /**
      * Test that MerkleRAF can create its own MerklePainter instance.
@@ -43,27 +44,29 @@ public class MerkleRAFTest {
      * 1. Use the new constructor that takes a localPath and remoteUrl
      * 2. Verify that MerkleRAF creates and manages its own MerklePainter
      * 3. Test that reading and writing work correctly
-     *
-     * Note: This test is tagged as "integration" since it requires internet access
-     * and downloads real data, which may take longer than a typical unit test.
      */
     @Test
-    @Tag("integration")
-    void testMerkleRAFWithInternalPainter() throws IOException {
-        // Skip this test for now as it requires internet access
-        assumeTrue(false, "Skipping test that requires internet access");
+    void testMerkleRAFWithInternalPainter(@TempDir Path tempDir) throws IOException {
+        // Create a unique resource path for this test
+        Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
 
-        // Define the remote URL for the dataset
-        String remoteUrl = "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/bigann_query.bvecs";
+        // Start a dedicated web server for this test with the unique resource path
+        try (TestWebServerFixture server = new TestWebServerFixture(uniqueResourceRoot)) {
+            server.start();
+            URL baseUrl = server.getBaseUrl();
 
-        // Create a local file path for the data
-        Path localPath = tempDir.resolve("bigann_query_internal.bvecs");
+            // Define the path to the test file
+            String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
 
-        try {
+            // Create a URL for the test file
+            URL fileUrl = new URL(baseUrl, testFilePath);
+
+            // Create a unique local file path for the data
+            String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
+            Path localPath = tempDir.resolve(uniqueFileName);
+
             // Create a MerkleRAF instance with its own internal MerklePainter
-            // Use deleteOnExit=true for clean test execution
-            try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, remoteUrl)) {
-                // No need to set test mode anymore
+            try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, fileUrl.toString())) {
                 // Verify that the file exists
                 assertTrue(Files.exists(localPath), "Local file should exist");
 
@@ -94,15 +97,6 @@ public class MerkleRAFTest {
                 System.out.println("Successfully tested MerkleRAF with internal MerklePainter");
                 System.out.println("File size: " + merkleRAF.length() + " bytes");
             }
-            // The MerklePainter should be automatically closed when MerkleRAF is closed
-        } catch (java.io.FileNotFoundException e) {
-            // This might happen if the remote file doesn't exist
-            System.out.println("Remote file not found: " + e.getMessage());
-            // Skip the test rather than fail it
-            assumeTrue(false, "Remote file not available");
-        } catch (java.io.IOException e) {
-            System.out.println("Error during test: " + e.getMessage());
-            throw e;
         }
     }
 
@@ -113,37 +107,41 @@ public class MerkleRAFTest {
      * 2. Call prebuffer to asynchronously download a range of data
      * 3. Verify that the prebuffer operation completes successfully
      * 4. Verify that the data can be read without additional downloads
-     *
-     * Note: This test is tagged as "integration" since it requires internet access
-     * and downloads real data, which may take longer than a typical unit test.
      */
     @Test
-    @Tag("integration")
-    void testPrebuffer() throws Exception {
-        // Skip this test for now as it requires internet access
-        assumeTrue(false, "Skipping test that requires internet access");
-        // Define the remote URL for the dataset
-        String remoteUrl = "https://jvector-datasets-shared.s3.us-east-1.amazonaws.com/faed719b5520a075f2281efb8c820834/ANN_SIFT1B/bigann_query.bvecs";
+    void testPrebuffer(@TempDir Path tempDir) throws Exception {
+        // Create a unique resource path for this test
+        Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
 
-        // Create a local file path for the data
-        Path localPath = tempDir.resolve("bigann_query_prebuffer.bvecs");
+        // Start a dedicated web server for this test with the unique resource path
+        try (TestWebServerFixture server = new TestWebServerFixture(uniqueResourceRoot)) {
+            server.start();
+            URL baseUrl = server.getBaseUrl();
 
-        try {
+            // Define the path to the test file
+            String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
+
+            // Create a URL for the test file
+            URL fileUrl = new URL(baseUrl, testFilePath);
+
+            // Create a unique local file path for the data
+            String uniqueFileName = "testxvec_base_prebuffer_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
+            Path localPath = tempDir.resolve(uniqueFileName);
+
             // Create a MerkleRAF instance with its own internal MerklePainter
-            // Use deleteOnExit=true for clean test execution
-            try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, remoteUrl)) {
+            try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, fileUrl.toString())) {
                 // Verify that the file exists
                 assertTrue(Files.exists(localPath), "Local file should exist");
 
                 // Define a range to prebuffer
-                long startPosition = 1024;
-                long length = 2048; // 2KB
+                long startPosition = 0;
+                long length = 1024; // 1KB
 
                 // Call prebuffer to asynchronously download the range
                 CompletableFuture<Void> future = merkleRAF.prebuffer(startPosition, length);
 
                 // Wait for the prebuffer operation to complete
-                future.get(30, TimeUnit.SECONDS);
+                future.get(5, TimeUnit.SECONDS);
 
                 // Now read from the prebuffered range - this should not trigger any downloads
                 merkleRAF.seek(startPosition);
@@ -165,15 +163,6 @@ public class MerkleRAFTest {
 
                 System.out.println("Successfully tested MerkleRAF.prebuffer");
             }
-            // The MerklePainter should be automatically closed when MerkleRAF is closed
-        } catch (java.io.FileNotFoundException e) {
-            // This might happen if the remote file doesn't exist
-            System.out.println("Remote file not found: " + e.getMessage());
-            // Skip the test rather than fail it
-            assumeTrue(false, "Remote file not available");
-        } catch (java.io.IOException e) {
-            System.out.println("Error during test: " + e.getMessage());
-            throw e;
         }
     }
 }

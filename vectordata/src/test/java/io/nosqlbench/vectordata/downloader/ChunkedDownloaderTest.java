@@ -18,8 +18,10 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
 import io.nosqlbench.vectordata.status.StdoutDownloadEventSink;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -27,26 +29,66 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ChunkedDownloaderTest {
 
-    @Disabled("direct example")
+    private TestWebServerFixture server;
+    private URL baseUrl;
+
+    @BeforeEach
+    public void setUp() throws IOException {
+        // Create a unique resource path for this test
+        Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
+
+        // Start the web server with the unique resource path
+        server = new TestWebServerFixture(uniqueResourceRoot);
+        server.start();
+        baseUrl = server.getBaseUrl();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        // Stop the web server
+        if (server != null) {
+            server.close();
+        }
+    }
+
     @Test
     public void directDownloadTest() {
       try {
+        // Use the test server URL with the testxvec_base.fvec file
+        URL fileUrl = new URL(baseUrl, "rawdatasets/testxvec/testxvec_base.fvec");
+
         ChunkedDownloader downloader = new ChunkedDownloader(
-            new URL("https://jvector-datasets-public.s3.us-east-1.amazonaws.com/voyage-3-large-binary_d256_b10000_q10000_mk100.hdf5"),
+            fileUrl,
             "test",
-            1024*1024*16,
-            10,
+            1024*1024, // 1MB chunks
+            5, // 5 concurrent downloads
             new StdoutDownloadEventSink()
         );
-          Path testout = Files.createTempFile("test", ".hdf5");
+
+        // Create a unique file name for this test
+        String uniquePrefix = "test_" + UUID.randomUUID().toString().substring(0, 8);
+        Path testout = Files.createTempFile(uniquePrefix, ".fvec");
         DownloadProgress download = downloader.download(testout, false);
         DownloadResult result = download.get();
-        System.out.println("final progress:" +download);
-        System.out.println("final result:"+result);
+
+        System.out.println("final progress:" + download);
+        System.out.println("final result:" + result);
+
+        // Verify the download was successful
+        assertTrue(Files.exists(testout));
+        assertEquals(10100000, Files.size(testout), "Downloaded file size should match the original");
+
+        // Clean up
+        Files.deleteIfExists(testout);
       } catch (MalformedURLException e) {
         throw new RuntimeException(e);
       } catch (IOException e) {
@@ -56,6 +98,5 @@ public class ChunkedDownloaderTest {
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
-
     }
 }
