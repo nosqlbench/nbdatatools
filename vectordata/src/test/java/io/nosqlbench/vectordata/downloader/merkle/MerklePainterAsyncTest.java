@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.downloader.merkle;
  */
 
 
-import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerExtension;
 import io.nosqlbench.vectordata.merkle.MerklePainter;
 import io.nosqlbench.vectordata.merkle.MerklePane;
 import io.nosqlbench.vectordata.merkle.MerkleTree;
@@ -30,8 +30,6 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -51,75 +49,69 @@ public class MerklePainterAsyncTest {
      */
     @Test
     void testPaintAsync(@TempDir Path tempDir) throws Exception {
-        // Create a unique resource path for this test
-        Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
 
-        // Start a dedicated web server for this test with the unique resource path
-        try (TestWebServerFixture server = new TestWebServerFixture(uniqueResourceRoot)) {
-            server.start();
-            URL baseUrl = server.getBaseUrl();
+        // Define the path to the test file
+        String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
 
-            // Define the path to the test file
-            String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
+        // Create a URL for the test file
+        URL fileUrl = new URL(baseUrl, testFilePath);
 
-            // Create a URL for the test file
-            URL fileUrl = new URL(baseUrl, testFilePath);
+        // Create a unique local file path for the data
+        String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
+        Path localPath = tempDir.resolve(uniqueFileName);
 
-            // Create a unique local file path for the data
-            String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
-            Path localPath = tempDir.resolve(uniqueFileName);
+        // Create a MerklePainter instance
+        MerklePainter painter = new MerklePainter(localPath, fileUrl.toString());
 
-            // Create a MerklePainter instance
-            MerklePainter painter = new MerklePainter(localPath, fileUrl.toString());
+        try {
+            // Verify that the files exist
+            assertTrue(Files.exists(localPath), "Local file should exist");
+            Path merklePath = painter.merklePath();
+            assertTrue(Files.exists(merklePath), "Merkle file should exist");
+            Path referenceTreePath = painter.referenceTreePath();
+            assertTrue(Files.exists(referenceTreePath), "Reference merkle file should exist");
 
-            try {
-                // Verify that the files exist
-                assertTrue(Files.exists(localPath), "Local file should exist");
-                Path merklePath = painter.merklePath();
-                assertTrue(Files.exists(merklePath), "Merkle file should exist");
-                Path referenceTreePath = painter.referenceTreePath();
-                assertTrue(Files.exists(referenceTreePath), "Reference merkle file should exist");
+            // Get the MerklePane from the painter
+            MerklePane pane = painter.pane();
 
-                // Get the MerklePane from the painter
-                MerklePane pane = painter.pane();
+            // Define a range to download
+            long startPosition = 0;
+            long endPosition = 1024; // Download first 1KB
 
-                // Define a range to download
-                long startPosition = 0;
-                long endPosition = 1024; // Download first 1KB
+            // Start the asynchronous download
+            CompletableFuture<Void> future = painter.paintAsync(startPosition, endPosition);
 
-                // Start the asynchronous download
-                CompletableFuture<Void> future = painter.paintAsync(startPosition, endPosition);
+            // Give the download a moment to start
+            Thread.sleep(100);
 
-                // Give the download a moment to start
-                Thread.sleep(100);
+            // Wait for the download to complete (with timeout)
+            future.get(5, TimeUnit.SECONDS);
 
-                // Wait for the download to complete (with timeout)
-                future.get(5, TimeUnit.SECONDS);
+            // Now the future should be completed
+            assertTrue(future.isDone(), "Download should be complete");
 
-                // Now the future should be completed
-                assertTrue(future.isDone(), "Download should be complete");
+            // Verify that the chunks are intact
+            MerkleTree merkleTree = pane.getMerkleTree();
+            int startChunk = pane.getChunkIndexForPosition(startPosition);
+            int endChunk = pane.getChunkIndexForPosition(endPosition - 1);
 
-                // Verify that the chunks are intact
-                MerkleTree merkleTree = pane.getMerkleTree();
-                int startChunk = pane.getChunkIndexForPosition(startPosition);
-                int endChunk = pane.getChunkIndexForPosition(endPosition - 1);
+            for (int i = startChunk; i <= endChunk; i++) {
+                assertTrue(pane.isChunkIntact(i), "Chunk " + i + " should be intact");
 
-                for (int i = startChunk; i <= endChunk; i++) {
-                    assertTrue(pane.isChunkIntact(i), "Chunk " + i + " should be intact");
-
-                    // Read the chunk and verify it has data
-                    ByteBuffer chunk = pane.readChunk(i);
-                    assertTrue(chunk.remaining() > 0, "Chunk " + i + " should have data");
-                }
-
-                System.out.println("Successfully tested MerklePainter.paintAsync");
-            } catch (IOException e) {
-                System.out.println("Error during test: " + e.getMessage());
-                throw e;
-            } finally {
-                // Clean up
-                painter.close();
+                // Read the chunk and verify it has data
+                ByteBuffer chunk = pane.readChunk(i);
+                assertTrue(chunk.remaining() > 0, "Chunk " + i + " should have data");
             }
+
+            System.out.println("Successfully tested MerklePainter.paintAsync");
+        } catch (IOException e) {
+            System.out.println("Error during test: " + e.getMessage());
+            throw e;
+        } finally {
+            // Clean up
+            painter.close();
         }
     }
 //

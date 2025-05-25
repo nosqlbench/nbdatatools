@@ -23,8 +23,6 @@ import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -38,39 +36,15 @@ import static org.junit.jupiter.api.Assertions.*;
 ///
 /// This test verifies that the web server fixture correctly serves catalog and dataset files,
 /// and that the catalog and datasets can be accessed using the existing API.
+/// The test web server is automatically started by the TestWebServerExtension's static initializer,
+/// so no annotation is needed.
 public class TestWebServerFixtureTest {
-
-    private TestWebServerFixture server;
-    private URL baseUrl;
-
-    @BeforeEach
-    public void setUp() throws IOException {
-        // Start the web server
-        server = new TestWebServerFixture();
-        server.start();
-        baseUrl = server.getBaseUrl();
-
-        // Update the catalog.json file with the correct server URL
-        // This is necessary because the catalog.json file contains URLs with localhost:0
-        // which need to be replaced with the actual server port
-        String catalogJson = new String(java.nio.file.Files.readAllBytes(
-            java.nio.file.Paths.get("src/test/resources/testserver/catalog.json")));
-        catalogJson = catalogJson.replace("localhost:0", "localhost:" + baseUrl.getPort());
-        java.nio.file.Files.write(
-            java.nio.file.Paths.get("src/test/resources/testserver/catalog.json"), 
-            catalogJson.getBytes());
-    }
-
-    @AfterEach
-    public void tearDown() {
-        // Stop the web server
-        if (server != null) {
-            server.close();
-        }
-    }
 
     @Test
     public void testServerStartsAndServesFiles() throws IOException {
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
+
         // Test that the server is running and serving files
         URL catalogUrl = new URL(baseUrl, "catalog.json");
         try (java.io.InputStream in = catalogUrl.openStream()) {
@@ -84,6 +58,9 @@ public class TestWebServerFixtureTest {
 
     @Test
     public void testCatalogAccess() {
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
+
         // Create a TestDataSources instance with the server URL
         TestDataSources sources = TestDataSources.ofUrl(baseUrl.toString());
 
@@ -110,6 +87,9 @@ public class TestWebServerFixtureTest {
 
     @Test
     public void testDatasetAccess() {
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
+
         // Create a TestDataSources instance with the server URL
         TestDataSources sources = TestDataSources.ofUrl(baseUrl.toString());
 
@@ -141,6 +121,9 @@ public class TestWebServerFixtureTest {
 
     @Test
     public void testMerkleDatasetAccess() {
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
+
         // Create a TestDataSources instance with the server URL
         TestDataSources sources = TestDataSources.ofUrl(baseUrl.toString());
 

@@ -527,6 +527,12 @@ public class MerkleTree {
   public static MerkleTree load(Path path) throws IOException {
     long fileSize = Files.size(path);
     // read footer
+    if (fileSize == 0) {
+      throw new RuntimeException("File is empty: " + path);
+    }
+    if (!Files.exists(path)) {
+      throw new RuntimeException("File does not exist: " + path);
+    }
     MerkleFooter footer = MerkleFooter.fromByteBuffer(readFooterBuffer(path, fileSize));
     long chunkSize = footer.chunkSize();
     long totalSize = footer.totalSize();
@@ -608,6 +614,7 @@ public class MerkleTree {
 
   private static ByteBuffer readFooterBuffer(Path path, long fileSize) throws IOException {
     try (FileChannel ch = FileChannel.open(path, StandardOpenOption.READ)) {
+      System.out.println("fileSize = " + fileSize);
       ByteBuffer len = ByteBuffer.allocate(1);
       ch.position(fileSize - 1);
       ch.read(len);

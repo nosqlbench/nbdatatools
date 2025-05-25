@@ -17,17 +17,13 @@ package io.nosqlbench.vectordata.merkle;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -36,34 +32,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Test for loading a merkle file. */
 public class MerkleTreeRealFileTest {
 
-    private TestWebServerFixture server;
-    private URL baseUrl;
-    private Path uniqueResourceRoot;
-
-    @BeforeEach
-    public void setUp() throws IOException {
-        // Create a unique resource path for this test
-        uniqueResourceRoot = Paths.get("src/test/resources/testserver");
-
-        // Start the web server with the unique resource path
-        server = new TestWebServerFixture(uniqueResourceRoot);
-        server.start();
-        baseUrl = server.getBaseUrl();
-    }
-
-    @AfterEach
-    public void tearDown() {
-        // Stop the web server
-        if (server != null) {
-            server.close();
-        }
-    }
-
     @TempDir
     Path tempDir;
 
     @Test
     void testLoadMerkleFile() throws Exception {
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
+
         // Path to a merkle file in the test resources
         String merklePath = "rawdatasets/testxvec/testxvec_base.fvec.mrkl";
 

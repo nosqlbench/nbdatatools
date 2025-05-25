@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -72,13 +73,13 @@ public class MerklePaneSetup {
   /// documented in this javadoc, an exception should be thrown.
   /// @param localContentPath
   ///     The path of the local content file to be fetched incrementall by
-  ///                                 other classes acting on this class.
+  ///                                     other classes acting on this class.
   /// @param localMerklePath
   ///     the local merkle tree file path which represents the state of the local
-  ///                                 content path.
+  ///                                     content path.
   /// @param remoteContentPath
   ///     the remote path of the content which will be fetched with range requests to fill in the
-  ///     local content path, as a result of other classes acting on this class
+  ///         local content path, as a result of other classes acting on this class
   /// @return a MerkleTree instance
   public static MerkleTree initTree(
       Path localContentPath,
@@ -88,8 +89,7 @@ public class MerklePaneSetup {
   {
     // Validate arguments: localContentPath and localMerklePath must be provided
     if (localContentPath == null || localMerklePath == null) {
-      throw new IllegalArgumentException(
-          "Content path and Merkle path must be non-null");
+      throw new IllegalArgumentException("Content path and Merkle path must be non-null");
     }
 
     // If remoteContentPath is null, we'll create a local-only setup without remote synchronization
@@ -105,6 +105,14 @@ public class MerklePaneSetup {
       if (hasRemoteContent) {
         // Only attempt to download the remote merkle tree if remoteContentPath is provided
         URL remoteMrefUrl = new URI(remoteContentPath + ".mrkl").toURL();
+        logger.debug("remote merkle tree path: {}", remoteMrefUrl.toString());
+        long size = getSizeOfRemoteResource(remoteMrefUrl);
+        logger.debug("remote merkle tree size: {}", size);
+        if (size == 0) {
+          throw new RuntimeException("invalid remote merkle tree size: " + size + " bytes for "
+                                     + remoteMrefUrl.toString());
+        }
+
         IOException lastEx = null;
         int maxAttempts = 3;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -190,6 +198,25 @@ public class MerklePaneSetup {
     } catch (IOException | URISyntaxException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  ///  Use a head request to get the size of the remote resource.
+  /// @param remoteMrefUrl the remote url
+  /// @return the size of the resource in bytes
+  private static long getSizeOfRemoteResource(URL remoteMrefUrl) throws IOException {
+    HttpURLConnection conn = (HttpURLConnection) remoteMrefUrl.openConnection();
+    conn.setRequestMethod("HEAD");
+    conn.setConnectTimeout(5000);
+    conn.setReadTimeout(5000);
+    conn.connect();
+
+    int responseCode = conn.getResponseCode();
+    if (responseCode != HttpURLConnection.HTTP_OK) {
+      throw new IOException("Failed to get size of remote resource: " + remoteMrefUrl + 
+                           ", HTTP response code: " + responseCode);
+    }
+
+    return conn.getContentLengthLong();
   }
 
 

@@ -17,22 +17,27 @@ package io.nosqlbench.vectordata.downloader.testserver;
  * under the License.
  */
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
+import org.apache.hc.core5.http.*;
+import org.apache.hc.core5.http.impl.bootstrap.HttpServer;
+import org.apache.hc.core5.http.impl.bootstrap.ServerBootstrap;
+import org.apache.hc.core5.http.io.HttpRequestHandler;
+import org.apache.hc.core5.http.io.entity.FileEntity;
+import org.apache.hc.core5.http.io.entity.InputStreamEntity;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.io.CloseMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /// A test fixture that starts a simple web server to host datasets and catalogs.
 ///
@@ -50,40 +55,41 @@ import java.util.concurrent.Executors;
 /// ```
 public class TestWebServerFixture implements AutoCloseable {
     private static final Logger logger = LogManager.getLogger(TestWebServerFixture.class);
-    
+
     private HttpServer server;
     private int port;
     private final Path resourcesRoot;
-    
+
     /// Creates a new TestWebServerFixture with the default resources directory.
     public TestWebServerFixture() {
         this(Paths.get("src/test/resources/testserver"));
     }
-    
+
     /// Creates a new TestWebServerFixture with the specified resources directory.
     ///
     /// @param resourcesRoot The root directory containing the resources to serve
     public TestWebServerFixture(Path resourcesRoot) {
         this.resourcesRoot = resourcesRoot;
     }
-    
+
     /// Starts the web server on a random available port.
     ///
     /// @throws IOException If the server cannot be started
     public void start() throws IOException {
         // Find an available port
         this.port = findAvailablePort();
-        
+
         // Create and configure the server
-        server = HttpServer.create(new InetSocketAddress(port), 0);
-        server.createContext("/", new FileHandler(resourcesRoot));
-        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-        
+        server = ServerBootstrap.bootstrap()
+                .setListenerPort(port)
+                .register("*", new FileHandler(resourcesRoot))
+                .create();
+
         // Start the server
         server.start();
         logger.info("Test web server started on port {}", port);
     }
-    
+
     /// Gets the base URL of the server.
     ///
     /// @return The base URL of the server
@@ -94,16 +100,16 @@ public class TestWebServerFixture implements AutoCloseable {
             throw new RuntimeException("Failed to create server URL", e);
         }
     }
-    
+
     /// Stops the server and releases resources.
     @Override
     public void close() {
         if (server != null) {
-            server.stop(0);
+            server.close(CloseMode.GRACEFUL);
             logger.info("Test web server stopped");
         }
     }
-    
+
     /// Finds an available port to use for the server.
     ///
     /// @return An available port number
@@ -115,120 +121,135 @@ public class TestWebServerFixture implements AutoCloseable {
             throw new RuntimeException("Failed to find available port", e);
         }
     }
-    
+
     /// HTTP handler that serves files from the resources directory.
-    private static class FileHandler implements HttpHandler {
+    protected static class FileHandler implements HttpRequestHandler {
         private final Path resourcesRoot;
-        
+
         public FileHandler(Path resourcesRoot) {
             this.resourcesRoot = resourcesRoot;
         }
-        
+
         @Override
-        public void handle(HttpExchange exchange) throws IOException {
-            String path = exchange.getRequestURI().getPath();
-            
+        public void handle(ClassicHttpRequest request, ClassicHttpResponse response, HttpContext context) throws HttpException, IOException {
+            String path = request.getPath();
+
             // Remove leading slash and normalize path
             if (path.startsWith("/")) {
                 path = path.substring(1);
             }
-            
+
             // Default to catalog.json if path is empty or ends with /
             if (path.isEmpty() || path.endsWith("/")) {
                 path = path + "catalog.json";
             }
-            
+
             Path filePath = resourcesRoot.resolve(path);
-            
+
             // Check if the file exists
             if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
                 // Handle range requests for partial content
-                String rangeHeader = exchange.getRequestHeaders().getFirst("Range");
+                Header rangeHeader = request.getHeader("Range");
                 if (rangeHeader != null) {
-                    handleRangeRequest(exchange, filePath, rangeHeader);
+                    handleRangeRequest(response, filePath, rangeHeader.getValue());
                 } else {
                     // Serve the entire file
-                    serveFile(exchange, filePath);
+                    serveFile(response, filePath);
                 }
             } else {
                 // File not found
-                exchange.sendResponseHeaders(404, 0);
-                exchange.getResponseBody().close();
+                response.setCode(HttpStatus.SC_NOT_FOUND);
+                response.setEntity(new StringEntity("File not found: " + path));
             }
         }
-        
+
         /// Serves the entire file.
         ///
-        /// @param exchange The HTTP exchange
+        /// @param response The HTTP response
         /// @param filePath The path to the file to serve
-        private void serveFile(HttpExchange exchange, Path filePath) throws IOException {
-            try (InputStream in = Files.newInputStream(filePath)) {
-                exchange.sendResponseHeaders(200, Files.size(filePath));
-                try (OutputStream out = exchange.getResponseBody()) {
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-                    while ((bytesRead = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, bytesRead);
-                    }
-                }
-            }
+        private void serveFile(ClassicHttpResponse response, Path filePath) throws IOException {
+            response.setCode(HttpStatus.SC_OK);
+            response.setEntity(new FileEntity(filePath.toFile(), ContentType.APPLICATION_OCTET_STREAM));
         }
-        
+
         /// Handles a range request for partial content.
         ///
-        /// @param exchange The HTTP exchange
+        /// @param response The HTTP response
         /// @param filePath The path to the file to serve
         /// @param rangeHeader The Range header value
-        private void handleRangeRequest(HttpExchange exchange, Path filePath, String rangeHeader) throws IOException {
+        private void handleRangeRequest(ClassicHttpResponse response, Path filePath, String rangeHeader) throws IOException {
             // Parse the range header
             if (!rangeHeader.startsWith("bytes=")) {
-                exchange.sendResponseHeaders(416, 0);
-                exchange.getResponseBody().close();
+                response.setCode(HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
                 return;
             }
-            
+
             long fileSize = Files.size(filePath);
+            System.out.println("fileSize = " + fileSize);
             String[] ranges = rangeHeader.substring(6).split("-");
-            
+
             long start = 0;
             long end = fileSize - 1;
-            
+
             if (ranges.length > 0 && !ranges[0].isEmpty()) {
                 start = Long.parseLong(ranges[0]);
             }
-            
+
             if (ranges.length > 1 && !ranges[1].isEmpty()) {
                 end = Long.parseLong(ranges[1]);
             }
-            
+
             // Validate the range
             if (start >= fileSize || end >= fileSize || start > end) {
-                exchange.sendResponseHeaders(416, 0);
-                exchange.getResponseBody().close();
+                response.setCode(HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
                 return;
             }
-            
+
             // Set the response headers
-            exchange.getResponseHeaders().set("Content-Range", "bytes " + start + "-" + end + "/" + fileSize);
-            exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
-            
-            // Send the partial content
+            response.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + fileSize);
+            response.setHeader("Accept-Ranges", "bytes");
+            response.setCode(HttpStatus.SC_PARTIAL_CONTENT);
+
+            // Calculate content length
             long contentLength = end - start + 1;
-            exchange.sendResponseHeaders(206, contentLength);
-            
-            try (InputStream in = Files.newInputStream(filePath);
-                 OutputStream out = exchange.getResponseBody()) {
-                in.skip(start);
-                
-                byte[] buffer = new byte[8192];
-                long remaining = contentLength;
-                int bytesRead;
-                
-                while (remaining > 0 && (bytesRead = in.read(buffer, 0, (int) Math.min(buffer.length, remaining))) != -1) {
-                    out.write(buffer, 0, bytesRead);
-                    remaining -= bytesRead;
+
+            // Read the requested range into a byte array
+            byte[] buffer = new byte[(int)contentLength];
+            try (InputStream in = Files.newInputStream(filePath)) {
+                long skipped = in.skip(start);
+                if (skipped < start) {
+                    // Handle case where skip didn't skip enough bytes
+                    long remaining = start - skipped;
+                    while (remaining > 0) {
+                        long skippedMore = in.skip(remaining);
+                        if (skippedMore <= 0) break;
+                        remaining -= skippedMore;
+                    }
+                }
+
+                // Read the content into the buffer
+                int bytesRead = 0;
+                int totalBytesRead = 0;
+                int bytesToRead = (int)contentLength;
+
+                while (totalBytesRead < bytesToRead && 
+                       (bytesRead = in.read(buffer, totalBytesRead, bytesToRead - totalBytesRead)) != -1) {
+                    totalBytesRead += bytesRead;
+                }
+
+                // If we couldn't read all the bytes, adjust the content length
+                if (totalBytesRead < bytesToRead) {
+                    contentLength = totalBytesRead;
+                    response.setHeader("Content-Range", "bytes " + start + "-" + (start + totalBytesRead - 1) + "/" + fileSize);
                 }
             }
+
+            // Create an entity from the buffer
+            response.setEntity(new InputStreamEntity(
+                new java.io.ByteArrayInputStream(buffer, 0, (int)contentLength), 
+                contentLength, 
+                ContentType.APPLICATION_OCTET_STREAM
+            ));
         }
     }
 }

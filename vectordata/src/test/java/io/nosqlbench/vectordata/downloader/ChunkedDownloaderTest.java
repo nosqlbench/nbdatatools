@@ -18,10 +18,8 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 
-import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerExtension;
 import io.nosqlbench.vectordata.status.StdoutDownloadEventSink;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -29,7 +27,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
@@ -38,31 +35,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ChunkedDownloaderTest {
 
-    private TestWebServerFixture server;
-    private URL baseUrl;
-
-    @BeforeEach
-    public void setUp() throws IOException {
-        // Create a unique resource path for this test
-        Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
-
-        // Start the web server with the unique resource path
-        server = new TestWebServerFixture(uniqueResourceRoot);
-        server.start();
-        baseUrl = server.getBaseUrl();
-    }
-
-    @AfterEach
-    public void tearDown() {
-        // Stop the web server
-        if (server != null) {
-            server.close();
-        }
-    }
-
     @Test
     public void directDownloadTest() {
       try {
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
+
         // Use the test server URL with the testxvec_base.fvec file
         URL fileUrl = new URL(baseUrl, "rawdatasets/testxvec/testxvec_base.fvec");
 

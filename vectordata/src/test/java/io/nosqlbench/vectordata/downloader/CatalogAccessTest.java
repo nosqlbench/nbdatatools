@@ -21,17 +21,13 @@ package io.nosqlbench.vectordata.downloader;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.discovery.TestDataView;
-import io.nosqlbench.vectordata.downloader.DownloadStatus;
-import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerExtension;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.net.URL;
@@ -47,20 +43,13 @@ import java.util.concurrent.TimeUnit;
 
 public class CatalogAccessTest {
 
-  private TestWebServerFixture server;
-  private URL baseUrl;
   private TestDataSources sources;
   private Path tempCatalogFile;
 
   @BeforeEach
   public void setUp() throws IOException {
-    // Create a unique resource path for this test
-    Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
-
-    // Start the web server with the unique resource path
-    server = new TestWebServerFixture(uniqueResourceRoot);
-    server.start();
-    baseUrl = server.getBaseUrl();
+    // Get the base URL from the TestWebServerExtension
+    URL baseUrl = TestWebServerExtension.getBaseUrl();
 
     // Create a temporary directory for this test
     Path tempDir = Files.createTempDirectory("catalog_test_" + UUID.randomUUID().toString().substring(0, 8));
@@ -76,28 +65,6 @@ public class CatalogAccessTest {
 
     // Create a TestDataSources instance with the server URL
     sources = TestDataSources.ofUrl(baseUrl.toString());
-  }
-
-  @AfterEach
-  public void tearDown() {
-    // Stop the web server
-    if (server != null) {
-      server.close();
-    }
-
-    // Clean up temporary files
-    if (tempCatalogFile != null) {
-      try {
-        // Delete the temporary catalog file
-        Files.deleteIfExists(tempCatalogFile);
-
-        // Delete the parent directory (the temporary directory)
-        Files.deleteIfExists(tempCatalogFile.getParent());
-      } catch (IOException e) {
-        // Log the error but don't fail the test
-        System.err.println("Error cleaning up temporary files: " + e.getMessage());
-      }
-    }
   }
 
   @Test

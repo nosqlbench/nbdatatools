@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.downloader.merkle;
  */
 
 
-import io.nosqlbench.vectordata.downloader.testserver.TestWebServerFixture;
+import io.nosqlbench.vectordata.downloader.testserver.TestWebServerExtension;
 import io.nosqlbench.vectordata.merkle.MerkleBRAF;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -47,56 +47,50 @@ public class MerkleRAFTest {
      */
     @Test
     void testMerkleRAFWithInternalPainter(@TempDir Path tempDir) throws IOException {
-        // Create a unique resource path for this test
-        Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
 
-        // Start a dedicated web server for this test with the unique resource path
-        try (TestWebServerFixture server = new TestWebServerFixture(uniqueResourceRoot)) {
-            server.start();
-            URL baseUrl = server.getBaseUrl();
+        // Define the path to the test file
+        String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
 
-            // Define the path to the test file
-            String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
+        // Create a URL for the test file
+        URL fileUrl = new URL(baseUrl, testFilePath);
 
-            // Create a URL for the test file
-            URL fileUrl = new URL(baseUrl, testFilePath);
+        // Create a unique local file path for the data
+        String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
+        Path localPath = tempDir.resolve(uniqueFileName);
 
-            // Create a unique local file path for the data
-            String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
-            Path localPath = tempDir.resolve(uniqueFileName);
+        // Create a MerkleRAF instance with its own internal MerklePainter
+        try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, fileUrl.toString())) {
+            // Verify that the file exists
+            assertTrue(Files.exists(localPath), "Local file should exist");
 
-            // Create a MerkleRAF instance with its own internal MerklePainter
-            try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, fileUrl.toString())) {
-                // Verify that the file exists
-                assertTrue(Files.exists(localPath), "Local file should exist");
+            // Verify that the merkle file exists
+            Path merklePath = localPath.resolveSibling(localPath.getFileName().toString() + ".mrkl");
+            assertTrue(Files.exists(merklePath), "Merkle file should exist");
 
-                // Verify that the merkle file exists
-                Path merklePath = localPath.resolveSibling(localPath.getFileName().toString() + ".mrkl");
-                assertTrue(Files.exists(merklePath), "Merkle file should exist");
+            // Verify that the reference merkle file exists
+            Path referenceTreePath = localPath.resolveSibling(localPath.getFileName().toString() + ".mref");
+            assertTrue(Files.exists(referenceTreePath), "Reference merkle file should exist");
 
-                // Verify that the reference merkle file exists
-                Path referenceTreePath = localPath.resolveSibling(localPath.getFileName().toString() + ".mref");
-                assertTrue(Files.exists(referenceTreePath), "Reference merkle file should exist");
-
-                // Test writing and reading back
-                merkleRAF.seek(0);
-                byte[] writeData = new byte[100];
-                for (int i = 0; i < writeData.length; i++) {
-                    writeData[i] = (byte) (i + 10);
-                }
-                merkleRAF.write(writeData);
-
-                // Read back what we wrote
-                merkleRAF.seek(0);
-                byte[] readBack = new byte[100];
-                int bytesRead = merkleRAF.read(readBack);
-                assertEquals(100, bytesRead, "Should read the requested number of bytes");
-                assertArrayEquals(writeData, readBack, "Should read back what was written");
-
-                // Print some information about the file
-                System.out.println("Successfully tested MerkleRAF with internal MerklePainter");
-                System.out.println("File size: " + merkleRAF.length() + " bytes");
+            // Test writing and reading back
+            merkleRAF.seek(0);
+            byte[] writeData = new byte[100];
+            for (int i = 0; i < writeData.length; i++) {
+                writeData[i] = (byte) (i + 10);
             }
+            merkleRAF.write(writeData);
+
+            // Read back what we wrote
+            merkleRAF.seek(0);
+            byte[] readBack = new byte[100];
+            int bytesRead = merkleRAF.read(readBack);
+            assertEquals(100, bytesRead, "Should read the requested number of bytes");
+            assertArrayEquals(writeData, readBack, "Should read back what was written");
+
+            // Print some information about the file
+            System.out.println("Successfully tested MerkleRAF with internal MerklePainter");
+            System.out.println("File size: " + merkleRAF.length() + " bytes");
         }
     }
 
@@ -110,59 +104,53 @@ public class MerkleRAFTest {
      */
     @Test
     void testPrebuffer(@TempDir Path tempDir) throws Exception {
-        // Create a unique resource path for this test
-        Path uniqueResourceRoot = Paths.get("src/test/resources/testserver");
+        // Get the base URL from the TestWebServerExtension
+        URL baseUrl = TestWebServerExtension.getBaseUrl();
 
-        // Start a dedicated web server for this test with the unique resource path
-        try (TestWebServerFixture server = new TestWebServerFixture(uniqueResourceRoot)) {
-            server.start();
-            URL baseUrl = server.getBaseUrl();
+        // Define the path to the test file
+        String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
 
-            // Define the path to the test file
-            String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
+        // Create a URL for the test file
+        URL fileUrl = new URL(baseUrl, testFilePath);
 
-            // Create a URL for the test file
-            URL fileUrl = new URL(baseUrl, testFilePath);
+        // Create a unique local file path for the data
+        String uniqueFileName = "testxvec_base_prebuffer_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
+        Path localPath = tempDir.resolve(uniqueFileName);
 
-            // Create a unique local file path for the data
-            String uniqueFileName = "testxvec_base_prebuffer_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
-            Path localPath = tempDir.resolve(uniqueFileName);
+        // Create a MerkleRAF instance with its own internal MerklePainter
+        try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, fileUrl.toString())) {
+            // Verify that the file exists
+            assertTrue(Files.exists(localPath), "Local file should exist");
 
-            // Create a MerkleRAF instance with its own internal MerklePainter
-            try (MerkleBRAF merkleRAF = new MerkleBRAF(localPath, fileUrl.toString())) {
-                // Verify that the file exists
-                assertTrue(Files.exists(localPath), "Local file should exist");
+            // Define a range to prebuffer
+            long startPosition = 0;
+            long length = 1024; // 1KB
 
-                // Define a range to prebuffer
-                long startPosition = 0;
-                long length = 1024; // 1KB
+            // Call prebuffer to asynchronously download the range
+            CompletableFuture<Void> future = merkleRAF.prebuffer(startPosition, length);
 
-                // Call prebuffer to asynchronously download the range
-                CompletableFuture<Void> future = merkleRAF.prebuffer(startPosition, length);
+            // Wait for the prebuffer operation to complete
+            future.get(5, TimeUnit.SECONDS);
 
-                // Wait for the prebuffer operation to complete
-                future.get(5, TimeUnit.SECONDS);
+            // Now read from the prebuffered range - this should not trigger any downloads
+            merkleRAF.seek(startPosition);
+            byte[] buffer = new byte[(int)length];
+            int bytesRead = merkleRAF.read(buffer);
 
-                // Now read from the prebuffered range - this should not trigger any downloads
-                merkleRAF.seek(startPosition);
-                byte[] buffer = new byte[(int)length];
-                int bytesRead = merkleRAF.read(buffer);
+            // Verify that we read the expected number of bytes
+            assertEquals(length, bytesRead, "Should read the requested number of bytes");
 
-                // Verify that we read the expected number of bytes
-                assertEquals(length, bytesRead, "Should read the requested number of bytes");
-
-                // Verify that the buffer contains data (not all zeros)
-                boolean hasNonZeroData = false;
-                for (byte b : buffer) {
-                    if (b != 0) {
-                        hasNonZeroData = true;
-                        break;
-                    }
+            // Verify that the buffer contains data (not all zeros)
+            boolean hasNonZeroData = false;
+            for (byte b : buffer) {
+                if (b != 0) {
+                    hasNonZeroData = true;
+                    break;
                 }
-                assertTrue(hasNonZeroData, "Buffer should contain non-zero data");
-
-                System.out.println("Successfully tested MerkleRAF.prebuffer");
             }
+            assertTrue(hasNonZeroData, "Buffer should contain non-zero data");
+
+            System.out.println("Successfully tested MerkleRAF.prebuffer");
         }
     }
 }
