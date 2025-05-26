@@ -53,7 +53,7 @@ public class TestWebServerFixtureWithPort extends TestWebServerFixture {
     ///
     /// @param port The port to use for the server
     public TestWebServerFixtureWithPort(int port) {
-        this(Paths.get("src/test/resources/testserver"), port);
+        this(Paths.get("vectordata/src/test/resources/testserver"), port);
     }
 
     /// Creates a new TestWebServerFixtureWithPort with the specified resources directory and port.

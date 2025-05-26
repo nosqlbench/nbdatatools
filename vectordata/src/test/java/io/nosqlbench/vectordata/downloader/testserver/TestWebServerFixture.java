@@ -130,21 +130,28 @@ public class TestWebServerFixture implements AutoCloseable {
             this.resourcesRoot = resourcesRoot;
         }
 
+
+
         @Override
         public void handle(ClassicHttpRequest request, ClassicHttpResponse response, HttpContext context) throws HttpException, IOException {
             String path = request.getPath();
+            String method = request.getMethod();
 
             // Remove leading slash and normalize path
             if (path.startsWith("/")) {
                 path = path.substring(1);
             }
 
-            // Default to catalog.json if path is empty or ends with /
-            if (path.isEmpty() || path.endsWith("/")) {
-                path = path + "catalog.json";
-            }
-
             Path filePath = resourcesRoot.resolve(path);
+
+            // Return 404 for directory URLs (ending with /) but only if the path doesn't exist as a file
+            if ((path.endsWith("/") || path.isEmpty()) && !(Files.exists(filePath) && Files.isRegularFile(filePath))) {
+                response.setCode(HttpStatus.SC_NOT_FOUND);
+                if (!"HEAD".equalsIgnoreCase(method)) {
+                    response.setEntity(new StringEntity("Directory access not allowed: " + path));
+                }
+                return;
+            }
 
             // Check if the file exists
             if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
@@ -153,13 +160,20 @@ public class TestWebServerFixture implements AutoCloseable {
                 if (rangeHeader != null) {
                     handleRangeRequest(response, filePath, rangeHeader.getValue());
                 } else {
-                    // Serve the entire file
-                    serveFile(response, filePath);
+                    // For HEAD requests, set headers but don't include body
+                    if ("HEAD".equalsIgnoreCase(method)) {
+                        handleHeadRequest(response, filePath);
+                    } else {
+                        // Serve the entire file for GET and other methods
+                        serveFile(response, filePath);
+                    }
                 }
             } else {
                 // File not found
                 response.setCode(HttpStatus.SC_NOT_FOUND);
-                response.setEntity(new StringEntity("File not found: " + path));
+                if (!"HEAD".equalsIgnoreCase(method)) {
+                    response.setEntity(new StringEntity("File not found: " + path));
+                }
             }
         }
 
@@ -170,6 +184,26 @@ public class TestWebServerFixture implements AutoCloseable {
         private void serveFile(ClassicHttpResponse response, Path filePath) throws IOException {
             response.setCode(HttpStatus.SC_OK);
             response.setEntity(new FileEntity(filePath.toFile(), ContentType.APPLICATION_OCTET_STREAM));
+        }
+
+        /// Handles a HEAD request by setting headers without a response body.
+        ///
+        /// @param response The HTTP response
+        /// @param filePath The path to the file
+        private void handleHeadRequest(ClassicHttpResponse response, Path filePath) throws IOException {
+            response.setCode(HttpStatus.SC_OK);
+
+            // Set Content-Type header
+            response.setHeader("Content-Type", ContentType.APPLICATION_OCTET_STREAM.toString());
+
+            // Set Content-Length header
+            long fileSize = Files.size(filePath);
+            response.setHeader("Content-Length", String.valueOf(fileSize));
+
+            // Set Accept-Ranges header
+            response.setHeader("Accept-Ranges", "bytes");
+
+            // No entity (body) is set for HEAD requests
         }
 
         /// Handles a range request for partial content.

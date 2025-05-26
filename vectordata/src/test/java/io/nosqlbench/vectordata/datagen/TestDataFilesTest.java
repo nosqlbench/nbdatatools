@@ -35,7 +35,7 @@ import java.util.List;
 public class TestDataFilesTest {
 
   @Test
-  void testGenVectorsAllZero() {
+  public void testGenVectorsAllZero() {
     int count = 5;
     int dims = 3;
     // variability=0 and scale=0 => all zeros, no zeros/duplicates overrides
@@ -52,7 +52,7 @@ public class TestDataFilesTest {
   }
 
   @Test
-  void testSaveToFileFvec(@TempDir Path tmp) throws Exception {
+  public void testSaveToFileFvec(@TempDir Path tmp) throws Exception {
     float[][] tv = new float[][] { {1.1f, 2.2f}, {3.3f, 4.4f} };
     Path file = tmp.resolve("test.fvec");
     TestDataFiles.saveToFile(tv, file, TestDataFiles.Format.fvec);

@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,8 +50,20 @@ public class MerkleTreeRealFileTest {
         // Create a unique local file path for the data
         String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec.mrkl";
         Path localPath = tempDir.resolve(uniqueFileName);
-        try (var in = merkleUrl.openStream()) {
-            Files.copy(in, localPath);
+
+        // Use HttpURLConnection to check status code
+        java.net.HttpURLConnection connection = (java.net.HttpURLConnection) merkleUrl.openConnection();
+        try {
+            // Check the HTTP status code
+            int statusCode = connection.getResponseCode();
+            assertEquals(200, statusCode, "HTTP status code should be 200");
+
+            // Download the file
+            try (var in = connection.getInputStream()) {
+                Files.copy(in, localPath);
+            }
+        } finally {
+            connection.disconnect();
         }
 
         // Verify the file was downloaded

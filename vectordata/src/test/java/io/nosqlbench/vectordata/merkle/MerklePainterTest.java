@@ -45,14 +45,12 @@ public class MerklePainterTest {
      */
     @Test
     void testDownloadAndSubmitChunk(@TempDir Path tempDir) throws IOException, InterruptedException, java.util.concurrent.ExecutionException, java.util.concurrent.TimeoutException {
-        // Get the base URL from the TestWebServerExtension
-        URL baseUrl = TestWebServerExtension.getBaseUrl();
-
-        // Define the path to the test file
-        String testFilePath = "rawdatasets/testxvec/testxvec_base.fvec";
+        // Use a direct file URL to the test resources directory
+        Path resourcesDir = Paths.get("src/test/resources/testserver").toAbsolutePath();
+        Path testFilePath = resourcesDir.resolve("rawdatasets/testxvec/testxvec_base.fvec");
 
         // Create a URL for the test file
-        URL fileUrl = new URL(baseUrl, testFilePath);
+        URL fileUrl = testFilePath.toUri().toURL();
 
         // Create a unique local file path for the data
         String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";

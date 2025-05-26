@@ -237,14 +237,25 @@ public class MerklePainter implements Closeable {
             return ByteBuffer.wrap(buffer.readByteArray());
           }
         } else {
-          eventSink.error("Error downloading range " + start + "-" + (start + length - 1) +
-                          ", status code: " + response.code());
-          return null; // Or throw an exception depending on your error handling
+          String errorBody = "";
+          try {
+            if (response.body() != null) {
+              errorBody = response.body().string();
+            }
+          } catch (Exception ignored) {
+            // Ignore any errors reading the body
+          }
+          String errorMessage = "Error downloading range " + start + "-" + (start + length - 1) +
+                          ", status code: " + response.code() + 
+                          (errorBody.isEmpty() ? "" : ": " + errorBody);
+          eventSink.error(errorMessage);
+          throw new IOException(errorMessage);
         }
       }
     } catch (Exception e) {
-      eventSink.error("Error downloading range " + start + "-" + (start + length - 1) + ": " + e.getMessage());
-      return null; // Or throw an exception
+      String errorMessage = "Error downloading range " + start + "-" + (start + length - 1) + ": " + e.getMessage();
+      eventSink.error(errorMessage);
+      throw new RuntimeException(errorMessage, e);
     }
   }
 
@@ -281,16 +292,16 @@ public class MerklePainter implements Closeable {
     if (downloadTasks.isEmpty()) {
       return true; // No downloads to wait for
     }
-    
+
     try {
       // Convert all individual futures into a single future that completes when all complete
       CompletableFuture<Void> allFutures = CompletableFuture.allOf(
         downloadTasks.values().toArray(new CompletableFuture[0])
       );
-      
+
       // Wait with timeout
       allFutures.get(timeout, unit);
-      
+
       // If we reach here, all downloads completed before the timeout
       downloadTasks.clear(); // Clear the completed tasks
       return true;

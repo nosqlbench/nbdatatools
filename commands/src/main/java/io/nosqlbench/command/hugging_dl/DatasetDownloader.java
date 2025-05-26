@@ -104,8 +104,21 @@ public class DatasetDownloader implements AutoCloseable {
       return client.execute(
           head, response -> {
             if (response.getCode() != 200) {
+              String errorBody = "";
+              try {
+                if (response.getEntity() != null) {
+                  // Read the entity content as a string
+                  try (var content = response.getEntity().getContent()) {
+                    java.util.Scanner s = new java.util.Scanner(content).useDelimiter("\\A");
+                    errorBody = s.hasNext() ? s.next() : "";
+                  }
+                }
+              } catch (Exception ignored) {
+                // Ignore any errors reading the body
+              }
               throw new IOException(
-                  "HTTP " + response.getCode() + " error while getting file size for " + url);
+                  "HTTP " + response.getCode() + " error while getting file size for " + url + 
+                  (errorBody.isEmpty() ? "" : ": " + errorBody));
             }
 
             if (response.getEntity() == null) {
@@ -314,6 +327,25 @@ public class DatasetDownloader implements AutoCloseable {
       HttpURLConnection conn = (HttpURLConnection) url.openConnection();
       if (TOKEN != null && !TOKEN.isEmpty()) {
         conn.setRequestProperty(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN);
+      }
+
+      // Check the HTTP status code before attempting to read the stream
+      int statusCode = conn.getResponseCode();
+      if (statusCode < 200 || statusCode >= 300) {
+        String errorBody = "";
+        try {
+          // When there's an error, the error stream contains the response body
+          try (java.io.InputStream errorStream = conn.getErrorStream()) {
+            if (errorStream != null) {
+              java.util.Scanner s = new java.util.Scanner(errorStream).useDelimiter("\\A");
+              errorBody = s.hasNext() ? s.next() : "";
+            }
+          }
+        } catch (Exception ignored) {
+          // Ignore any errors reading the body
+        }
+        throw new IOException("HTTP " + statusCode + " error while downloading " + fileInfo.path() + 
+                             (errorBody.isEmpty() ? "" : ": " + errorBody));
       }
 
       try (InputStream in = conn.getInputStream();

@@ -204,19 +204,34 @@ public class MerklePaneSetup {
   /// @param remoteMrefUrl the remote url
   /// @return the size of the resource in bytes
   private static long getSizeOfRemoteResource(URL remoteMrefUrl) throws IOException {
-    HttpURLConnection conn = (HttpURLConnection) remoteMrefUrl.openConnection();
-    conn.setRequestMethod("HEAD");
-    conn.setConnectTimeout(5000);
-    conn.setReadTimeout(5000);
-    conn.connect();
+    if ("file".equals(remoteMrefUrl.getProtocol())) {
+      // For file URLs, get the size directly from the file
+      try {
+        Path filePath = Path.of(remoteMrefUrl.toURI());
+        if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
+          return Files.size(filePath);
+        } else {
+          throw new IOException("File not found or not a regular file: " + filePath);
+        }
+      } catch (java.net.URISyntaxException e) {
+        throw new IOException("Invalid URI: " + remoteMrefUrl, e);
+      }
+    } else {
+      // For HTTP URLs, use HttpURLConnection
+      HttpURLConnection conn = (HttpURLConnection) remoteMrefUrl.openConnection();
+      conn.setRequestMethod("HEAD");
+      conn.setConnectTimeout(5000);
+      conn.setReadTimeout(5000);
+      conn.connect();
 
-    int responseCode = conn.getResponseCode();
-    if (responseCode != HttpURLConnection.HTTP_OK) {
-      throw new IOException("Failed to get size of remote resource: " + remoteMrefUrl + 
-                           ", HTTP response code: " + responseCode);
+      int responseCode = conn.getResponseCode();
+      if (responseCode < 200 || responseCode >= 300) {
+        throw new IOException("Failed to get size of remote resource: " + remoteMrefUrl + 
+                             ", HTTP response code: " + responseCode);
+      }
+
+      return conn.getContentLengthLong();
     }
-
-    return conn.getContentLengthLong();
   }
 
 

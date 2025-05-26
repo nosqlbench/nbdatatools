@@ -88,7 +88,15 @@ public record Catalog(List<DatasetEntry> datasets) {
 
           try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-              throw new IOException("Unexpected code " + response);
+              String errorBody = "";
+              try {
+                if (response.body() != null) {
+                  errorBody = response.body().string();
+                }
+              } catch (Exception ignored) {
+                // Ignore any errors reading the body
+              }
+              throw new IOException("Unexpected code " + response + (errorBody.isEmpty() ? "" : ": " + errorBody));
             }
             content = response.body().string();
           }

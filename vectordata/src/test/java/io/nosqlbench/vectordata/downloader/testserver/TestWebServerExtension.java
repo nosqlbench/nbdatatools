@@ -53,7 +53,7 @@ public class TestWebServerExtension implements BeforeAllCallback, AfterAllCallba
     private static final AtomicInteger referenceCount = new AtomicInteger(0);
     private static TestWebServerFixture server;
     private static URL baseUrl;
-    private static final Path DEFAULT_RESOURCES_ROOT = Paths.get("src/test/resources/testserver");
+    private static final Path DEFAULT_RESOURCES_ROOT = Paths.get("src/test/resources/testserver").toAbsolutePath();
     private static final Object lock = new Object();
 
     // Static initializer to start the server when the class is loaded

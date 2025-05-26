@@ -44,27 +44,17 @@ import java.util.concurrent.TimeUnit;
 public class CatalogAccessTest {
 
   private TestDataSources sources;
-  private Path tempCatalogFile;
 
   @BeforeEach
   public void setUp() throws IOException {
-    // Get the base URL from the TestWebServerExtension
-    URL baseUrl = TestWebServerExtension.getBaseUrl();
+    // Use a direct file URL to the directory containing the catalog.json file
+    // The Catalog class will append "catalog.json" to this URL
+    // This will use the inbuilt content in the test resources
+    Path resourcesDir = Paths.get("src/test/resources/testserver").toAbsolutePath();
+    URL resourcesUrl = resourcesDir.toUri().toURL();
 
-    // Create a temporary directory for this test
-    Path tempDir = Files.createTempDirectory("catalog_test_" + UUID.randomUUID().toString().substring(0, 8));
-
-    // Create a copy of the catalog.json file with the correct server URL
-    String catalogJson = new String(Files.readAllBytes(
-        Paths.get("src/test/resources/testserver/catalog.json")));
-    catalogJson = catalogJson.replace("localhost:0", "localhost:" + baseUrl.getPort());
-
-    // Write to a temporary file instead of modifying the shared one
-    tempCatalogFile = tempDir.resolve("catalog.json");
-    Files.write(tempCatalogFile, catalogJson.getBytes());
-
-    // Create a TestDataSources instance with the server URL
-    sources = TestDataSources.ofUrl(baseUrl.toString());
+    // Create a TestDataSources instance with the file URL to the directory
+    sources = TestDataSources.ofUrl(resourcesUrl.toString());
   }
 
   @Test
