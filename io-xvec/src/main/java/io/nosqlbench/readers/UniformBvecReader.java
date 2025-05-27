@@ -61,6 +61,10 @@ public class UniformBvecReader extends ImmutableSizedReader<int[]> implements Ve
     private int size;
     private RandomAccessFile randomAccessFile;
 
+    /// Constructs a new UniformBvecReader.
+    public UniformBvecReader() {
+    }
+
     /// Creates a new BvecReader for the given file path.
     ///
     /// @param filePath The path to the bvec file

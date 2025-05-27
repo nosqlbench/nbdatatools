@@ -55,6 +55,10 @@ public class UniformBvecStreamer implements BoundedVectorFileStream<int[]> {
   private int size;
   private RandomAccessFile randomAccessFile;
 
+  /// Constructs a new UniformBvecStreamer.
+  public UniformBvecStreamer() {
+  }
+
   /// Creates a new UniformBvecReader for the given file path.
   /// @param filePath
   ///     The path to the bvec file

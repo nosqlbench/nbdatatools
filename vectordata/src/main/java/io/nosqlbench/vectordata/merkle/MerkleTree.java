@@ -224,6 +224,10 @@ public class MerkleTree {
   /// 3. If the local file exists already and has the same size and has the same footer
   /// contents (determined by MerkleFooter.equals), then the local file is left as is.
   /// 4. In all other cases, the local file is downloaded again.
+  /// @param dataUrl The path of the remote merkle tree
+  /// @param localDataPath the path of the local merkle tree
+  /// @throws IOException for IO errors
+  /// @return The loaded MerkleTree instance
   public static MerkleTree syncFromRemote(URL dataUrl, Path localDataPath) throws IOException {
     // Derive merkle URL and local merkle path
     String dataUrlStr = dataUrl.toString();

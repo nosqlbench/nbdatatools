@@ -23,7 +23,6 @@ import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -59,6 +58,10 @@ public class UniformDvecReader extends ImmutableSizedReader<double[]> implements
     private int recordSize;
     private int size;
     private RandomAccessFile randomAccessFile;
+
+    /// Creates a new UniformDvecReader.
+    public UniformDvecReader() {
+    }
 
     /// Creates a new DvecReader for the given file path.
     ///

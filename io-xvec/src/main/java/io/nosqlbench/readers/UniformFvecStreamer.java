@@ -56,6 +56,10 @@ public class UniformFvecStreamer implements BoundedVectorFileStream<float[]> {
   private int size;
   private RandomAccessFile randomAccessFile;
 
+  /// Creates a new UniformFvecReader.
+  public UniformFvecStreamer() {
+  }
+
   /// Creates a new UniformFvecReader for the given file path.
   /// @param filePath
   ///     The path to the fvec file

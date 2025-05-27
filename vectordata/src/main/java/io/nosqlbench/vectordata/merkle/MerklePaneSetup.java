@@ -39,6 +39,10 @@ import java.nio.file.StandardOpenOption;
  data. */
 public class MerklePaneSetup {
 
+  /// Construct a new MerklePaneSetup.
+  public MerklePaneSetup() {
+  }
+
   private final static Logger logger = LogManager.getLogger(MerklePaneSetup.class);
 
   /// This should initialize the merkle tree and content file state, given four parameters.

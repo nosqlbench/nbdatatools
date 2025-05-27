@@ -55,6 +55,10 @@ public class UniformDvecStreamer implements BoundedVectorFileStream<double[]> {
     private int size;
     private RandomAccessFile randomAccessFile;
 
+    /// Constructs a new UniformDvecStreamer.
+    public UniformDvecStreamer() {
+    }
+
     /// Creates a new UniformDvecStreamer for the given file path.
     ///
     /// @param filePath The path to the dvec file

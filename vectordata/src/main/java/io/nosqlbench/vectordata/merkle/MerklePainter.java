@@ -260,6 +260,7 @@ public class MerklePainter implements Closeable {
   }
 
   /// Await all download streams which are pending before unblocking the caller.
+  /// @throws InterruptedException if the current thread is interrupted while waiting
   public void awaitAllDownloads() throws InterruptedException {
     while (downloadTasks.values().stream().anyMatch(f -> !f.isDone())) {
       Thread.sleep(100); // Check periodically

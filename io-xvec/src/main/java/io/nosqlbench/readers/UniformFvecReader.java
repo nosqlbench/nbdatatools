@@ -23,7 +23,6 @@ import io.nosqlbench.nbvectors.api.services.DataType;
 import io.nosqlbench.nbvectors.api.services.Encoding;
 import io.nosqlbench.nbvectors.api.services.FileType;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -59,6 +58,10 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
     private int recordSize;
     private int size;
     private RandomAccessFile randomAccessFile;
+
+    /// Constructs a new UniformFvecReader.
+    public UniformFvecReader() {
+    }
 
     /// Creates a new FvecReader for the given file path.
     ///

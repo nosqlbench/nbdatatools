@@ -23,6 +23,7 @@ package io.nosqlbench.vectordata.status;
 /// This class implements the DownloadEventSink interface but does nothing with the events.
 /// It's useful when you don't need to log or process download events.
 public class NoOpDownloadEventSink implements EventSink {
+
     @Override
     public void debug(String format, Object... args) {}
 

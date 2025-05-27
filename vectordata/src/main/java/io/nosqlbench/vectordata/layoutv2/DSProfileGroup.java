@@ -27,6 +27,10 @@ import java.util.Map;
 /// Extends LinkedHashMap to store profiles by name.
 public class DSProfileGroup extends LinkedHashMap<String, DSProfile> {
 
+  /// Constructs a new instance of DSProfileGroup.
+  public DSProfileGroup() {
+  }
+
   /// Adds a new profile with the specified name to this group.
   /// @param profile1 The name of the profile to add
   /// @return The newly created profile
