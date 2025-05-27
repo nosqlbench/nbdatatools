@@ -24,6 +24,11 @@ package io.nosqlbench.vectordata.status;
 /// It's useful when you don't need to log or process download events.
 public class NoOpDownloadEventSink implements EventSink {
 
+    /// Construct a NoOpDownloadEventSink.
+    ///
+    /// Creates a new instance that ignores all events.
+    public NoOpDownloadEventSink() {}
+
     @Override
     public void debug(String format, Object... args) {}
 

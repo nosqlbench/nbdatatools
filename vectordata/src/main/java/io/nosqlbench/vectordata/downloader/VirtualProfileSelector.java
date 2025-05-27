@@ -41,6 +41,9 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "jvec
     this.datasetEntry = datasetEntry;
   }
 
+  /// Gets the set of available profile names.
+  ///
+  /// @return A set of strings containing all available profile names
   public Set<String> profiles() {
     return datasetEntry.profiles().keySet();
   }

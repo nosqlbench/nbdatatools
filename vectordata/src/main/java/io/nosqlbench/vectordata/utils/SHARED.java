@@ -38,6 +38,11 @@ import java.util.Map;
 ///
 /// This class provides utility methods for working with JSON data and other shared functionality.
 public class SHARED {
+
+  /// Construct a SHARED instance.
+  ///
+  /// Private constructor to prevent instantiation of this utility class.
+  private SHARED() {}
   /// gson instance
   public final static Gson gson = new GsonBuilder().setPrettyPrinting().create();
   private final static LoadSettings loadSettings = LoadSettings.builder().setLabel("load").build();

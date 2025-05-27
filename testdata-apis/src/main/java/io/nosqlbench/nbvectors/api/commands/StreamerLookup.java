@@ -34,6 +34,11 @@ import java.util.stream.StreamSupport;
 /// It allows finding streamers based on their DataType and Encoding annotations.
 public class StreamerLookup {
 
+    /// Construct a StreamerLookup instance.
+    ///
+    /// Private constructor to prevent instantiation of this utility class.
+    private StreamerLookup() {}
+
     private static final ServiceLoader<VectorFileStream> serviceLoader = ServiceLoader.load(
         VectorFileStream.class);
 
@@ -82,7 +87,7 @@ public class StreamerLookup {
             return Optional.empty();
         }
     }
-    
+
     /// Finds a Streamer implementation that matches the specified encoding and dataType,
     /// and instantiates it with the given path.
     ///
@@ -99,7 +104,7 @@ public class StreamerLookup {
             .flatMap(provider -> instantiateWithPath(provider, path))
             .map(streamer -> (VectorFileStream<T>) streamer);
     }
-    
+
     /// Finds a Streamer implementation that matches the specified encoding name and dataType,
     /// and instantiates it with the given path.
     ///
@@ -117,16 +122,16 @@ public class StreamerLookup {
             return Optional.empty();
         }
     }
-    
+
     // Convenience methods for specific types have been removed in favor of the generic parameterized methods
-    
+
     /// Returns a stream of all available Streamer providers.
     ///
     /// @return A stream of ServiceLoader.Provider<Streamer>
     private static Stream<ServiceLoader.Provider<VectorFileStream>> providers() {
         return StreamSupport.stream(serviceLoader.stream().spliterator(), false);
     }
-    
+
     /// Checks if the provider has a matching DataType annotation.
     ///
     /// @param provider The Streamer provider to check
@@ -137,7 +142,7 @@ public class StreamerLookup {
         DataType dataTypeAnnotation = type.getAnnotation(DataType.class);
         return dataTypeAnnotation != null && dataTypeAnnotation.value().equals(dataType);
     }
-    
+
     /// Attempts to instantiate a Streamer using a constructor that takes a Path.
     ///
     /// @param provider The ServiceLoader.Provider for the Streamer implementation

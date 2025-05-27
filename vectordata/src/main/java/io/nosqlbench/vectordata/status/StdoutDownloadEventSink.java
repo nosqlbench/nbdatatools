@@ -23,6 +23,11 @@ package io.nosqlbench.vectordata.status;
 /// This class implements the DownloadEventSink interface and logs events to standard output.
 /// It's useful for debugging and monitoring download progress.
 public class StdoutDownloadEventSink implements EventSink {
+
+    /// Construct a StdoutDownloadEventSink.
+    ///
+    /// Creates a new instance that logs events to standard output.
+    public StdoutDownloadEventSink() {}
     @Override
     public void debug(String format, Object... args) {
         System.out.println("DEBUG: " + String.format(format.replace("{}", "%s"), args));

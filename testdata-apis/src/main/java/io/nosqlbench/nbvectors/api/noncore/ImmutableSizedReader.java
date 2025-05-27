@@ -30,6 +30,11 @@ import java.util.ListIterator;
 /// @param <T> the type of data to read
 public abstract class ImmutableSizedReader<T> implements VectorRandomAccessReader<T> {
 
+    /// Construct an ImmutableSizedReader.
+    ///
+    /// Protected constructor for use by subclasses.
+    protected ImmutableSizedReader() {}
+
     /// The error message used when mutation is attempted
     private static final String IMMUTABLE_ERROR = "This reader is immutable.";
 
@@ -37,67 +42,67 @@ public abstract class ImmutableSizedReader<T> implements VectorRandomAccessReade
     public final T set(int index, T element) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final boolean add(T t) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final void add(int index, T element) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final boolean addAll(Collection<? extends T> c) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final boolean addAll(int index, Collection<? extends T> c) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final T remove(int index) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final boolean remove(Object o) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final boolean removeAll(Collection<?> c) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final boolean retainAll(Collection<?> c) {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final void clear() {
         throw new UnsupportedOperationException(IMMUTABLE_ERROR);
     }
-    
+
     @Override
     public final Iterator<T> iterator() {
         return listIterator();
     }
-    
+
     @Override
     public final ListIterator<T> listIterator() {
         return listIterator(0);
     }
-    
+
     @Override
     public final ListIterator<T> listIterator(int index) {
         return new ImmutableListIterator<>(this, index);
     }
-    
+
     /// Returns a string representation of this reader.
     ///
     /// @return A string representation including the class name and size
@@ -107,34 +112,34 @@ public abstract class ImmutableSizedReader<T> implements VectorRandomAccessReade
     }
 
     /// Abstract methods from List interface that subclasses must implement
-    
+
     @Override
     public abstract T get(int index);
-    
+
     @Override
     public abstract boolean contains(Object o);
-    
+
     @Override
     public abstract int indexOf(Object o);
-    
+
     @Override
     public abstract int lastIndexOf(Object o);
-    
+
     @Override
     public abstract List<T> subList(int fromIndex, int toIndex);
-    
+
     @Override
     public abstract boolean isEmpty();
-    
+
     @Override
     public abstract int size();
-    
+
     @Override
     public abstract boolean containsAll(Collection<?> c);
-    
+
     @Override
     public abstract Object[] toArray();
-    
+
     @Override
     public abstract <E> E[] toArray(E[] a);
 }

@@ -29,6 +29,11 @@ import java.util.stream.StreamSupport;
 /// It allows finding readers based on their DataType and Selector annotations.
 public class SizedStreamerLookup {
 
+    /// Construct a SizedStreamerLookup instance.
+    ///
+    /// Private constructor to prevent instantiation of this utility class.
+    private SizedStreamerLookup() {}
+
     private static final ServiceLoader<BoundedVectorFileStream> serviceLoader = ServiceLoader.load(
         BoundedVectorFileStream.class);
 
@@ -77,16 +82,16 @@ public class SizedStreamerLookup {
             return Optional.empty();
         }
     }
-    
+
     // Convenience methods for specific types have been removed in favor of the generic parameterized methods
-    
+
     /// Returns a stream of all available SizedReader providers.
     ///
     /// @return A stream of ServiceLoader.Provider<SizedReader>
     private static Stream<ServiceLoader.Provider<BoundedVectorFileStream>> providers() {
         return StreamSupport.stream(serviceLoader.stream().spliterator(), false);
     }
-    
+
     ///
     /// @param provider The SizedReader provider to check
     /// @param dataType The data type class to match

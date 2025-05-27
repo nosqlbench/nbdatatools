@@ -31,6 +31,11 @@ import java.util.Random;
 /// Utility class for creating test ivec files with various configurations.
 public class TestUtils {
 
+    /// Construct a TestUtils instance.
+    ///
+    /// Private constructor to prevent instantiation of this utility class.
+    private TestUtils() {}
+
     /// Creates a test ivec file with the specified number of vectors and dimensions.
     /// All vectors will have the same dimension.
     /// 

@@ -27,6 +27,11 @@ import java.util.regex.Pattern;
 /// with units and converting them to the desired unit.
 public class UnitConversions {
 
+  /// Construct a UnitConversions instance.
+  ///
+  /// Private constructor to prevent instantiation of this utility class.
+  private UnitConversions() {}
+
   private static final Pattern numberFmtPattern = Pattern.compile(
       " *(?<number>(?<whole>[0-9]+)(?<fractional>\\.[0-9]+)?(?<to10power>E[0-9]+)?) *(?<unit>[^ ]+?)? *");
   private static final Pattern numberExponentPattern = Pattern.compile(
@@ -297,6 +302,10 @@ public class UnitConversions {
       this.multiplier = multiplier;
     }
 
+    /// Get the Count enum value for a given suffix.
+    ///
+    /// @param suffix The suffix string to match
+    /// @return The matching Count enum value, or null if no match is found
     public static Count valueOfSuffix(String suffix) {
       for (Count count : Count.values()) {
         if (count.toString().equalsIgnoreCase(suffix)) {
@@ -312,6 +321,9 @@ public class UnitConversions {
       return null;
     }
 
+    /// Get the multiplier value for this count unit.
+    ///
+    /// @return The multiplier value
     public double getMultiplier() {
       return multiplier;
     }
@@ -381,6 +393,9 @@ public class UnitConversions {
       return null;
     }
 
+    /// Get the number of bytes for this byte unit.
+    ///
+    /// @return The number of bytes
     public long getBytes() {
       return bytes;
     }
@@ -439,6 +454,9 @@ public class UnitConversions {
       return null;
     }
 
+    /// Get the number of nanoseconds for this duration unit.
+    ///
+    /// @return The number of nanoseconds
     public long getNanos() {
       return nanos;
     }

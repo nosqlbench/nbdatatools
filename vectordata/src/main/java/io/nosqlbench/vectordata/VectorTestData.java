@@ -29,6 +29,11 @@ import java.nio.file.Path;
 /// and for accessing catalogs of available test datasets.
 public class VectorTestData {
 
+  /// Construct a VectorTestData instance.
+  ///
+  /// Private constructor to prevent instantiation of this utility class.
+  private VectorTestData() {}
+
 //  public static TestDataProfile lookup(String path, String profile) {
 //    return lookup().find().lookup(name);
 //  }

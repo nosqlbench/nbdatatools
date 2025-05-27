@@ -27,6 +27,11 @@ import java.nio.file.attribute.PosixFilePermissions;
 /// A collection of file path utilities for the nbvectors tool
 public class FilePaths {
 
+  /// Construct a FilePaths instance.
+  ///
+  /// Private constructor to prevent instantiation of this utility class.
+  private FilePaths() {}
+
   /// relink a path to a new path
   /// @param fromPath the path to relink
   /// @param toPath the path to relink to

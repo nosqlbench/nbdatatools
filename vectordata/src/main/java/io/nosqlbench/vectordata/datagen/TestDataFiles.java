@@ -30,6 +30,11 @@ import java.util.Collections;
 /// here are not meant for larger-than-memory testing.
 public class TestDataFiles {
 
+  /// Construct a TestDataFiles instance.
+  ///
+  /// Private constructor to prevent instantiation of this utility class.
+  private TestDataFiles() {}
+
   /// Generate a sequence of vectors at the given dimensionality,
   /// with the given statistical shaping. By default, the values of a given vector should average
   ///  to zero, with the range of values varying between -0.0 and 1.0.
@@ -89,11 +94,19 @@ public class TestDataFiles {
     return vectors;
   }
 
+  /// Supported file formats for vector data.
+  ///
+  /// This enum defines the different file formats that can be used to store vector data.
   public static enum Format {
+    /// Integer vector format (32-bit integers)
     ivec,
+    /// Float vector format (32-bit floats)
     fvec,
+    /// Byte vector format (8-bit integers)
     bvec,
+    /// JSON array format
     json,
+    /// YAML sequence format
     yaml
   }
   /// Write the given vectors to the specified path in one of the supported formats.

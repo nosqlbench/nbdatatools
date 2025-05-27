@@ -38,6 +38,11 @@ import java.util.stream.StreamSupport;
 /// It allows finding readers based on their DataType and Encoding annotations.
 public class VectorFileIO {
 
+    /// Construct a VectorFileIO instance.
+    ///
+    /// Private constructor to prevent instantiation of this utility class.
+    private VectorFileIO() {}
+
     private static final ServiceLoader<VectorRandomAccessReader> serviceLoader = ServiceLoader.load(
         VectorRandomAccessReader.class);
 
