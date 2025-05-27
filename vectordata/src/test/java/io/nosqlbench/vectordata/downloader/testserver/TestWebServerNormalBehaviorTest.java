@@ -44,6 +44,7 @@ public class TestWebServerNormalBehaviorTest {
             // Test accessing a directory (URL ending with /)
             URL directoryUrl = new URL(baseUrl, "testxvec/");
             HttpURLConnection connection = (HttpURLConnection) directoryUrl.openConnection();
+            System.out.println("TESTDEBUG connection is " + connection.getClass().getCanonicalName());
             try {
                 // Check the HTTP status code - should be 404 since we removed the special case
                 int statusCode = connection.getResponseCode();

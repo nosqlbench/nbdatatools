@@ -196,11 +196,13 @@ public class MerklePaneSetup {
       // Load and return primary Merkle tree
       return MerkleTree.load(localMerklePath);
     } catch (IOException | URISyntaxException e) {
+      logger.error(e.getMessage(),e);
       throw new RuntimeException(e);
     }
   }
 
-  ///  Use a head request to get the size of the remote resource.
+  ///  Get the size of the remote resource using a GET request.
+  /// This method uses a GET request instead of a HEAD request to avoid potential issues with HEAD requests.
   /// @param remoteMrefUrl the remote url
   /// @return the size of the resource in bytes
   private static long getSizeOfRemoteResource(URL remoteMrefUrl) throws IOException {
@@ -217,9 +219,9 @@ public class MerklePaneSetup {
         throw new IOException("Invalid URI: " + remoteMrefUrl, e);
       }
     } else {
-      // For HTTP URLs, use HttpURLConnection
+      // For HTTP URLs, use GET instead of HEAD to avoid potential issues with HEAD requests
       HttpURLConnection conn = (HttpURLConnection) remoteMrefUrl.openConnection();
-      conn.setRequestMethod("HEAD");
+      conn.setRequestMethod("GET");
       conn.setConnectTimeout(5000);
       conn.setReadTimeout(5000);
       conn.connect();
@@ -230,7 +232,18 @@ public class MerklePaneSetup {
                              ", HTTP response code: " + responseCode);
       }
 
-      return conn.getContentLengthLong();
+      // Get the content length from the response headers
+      long contentLength = conn.getContentLengthLong();
+
+      // If content length is not available from headers, read the content and get its length
+      if (contentLength < 0) {
+        try (InputStream in = conn.getInputStream()) {
+          byte[] content = in.readAllBytes();
+          contentLength = content.length;
+        }
+      }
+
+      return contentLength;
     }
   }
 

@@ -62,6 +62,11 @@ public class MerklePainterAsyncTest {
         String uniqueFileName = "testxvec_base_" + UUID.randomUUID().toString().substring(0, 8) + ".fvec";
         Path localPath = tempDir.resolve(uniqueFileName);
 
+        // First, use MerkleTree.syncFromRemote to download the files
+        // This ensures the reference tree is properly downloaded and initialized before the test runs,
+        // which prevents race conditions or timing issues in certain environments
+        MerkleTree tree = MerkleTree.syncFromRemote(fileUrl, localPath);
+
         // Create a MerklePainter instance
         MerklePainter painter = new MerklePainter(localPath, fileUrl.toString());
 

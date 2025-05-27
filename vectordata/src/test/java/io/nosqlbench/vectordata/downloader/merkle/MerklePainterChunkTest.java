@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.merkle;
+package io.nosqlbench.vectordata.downloader.merkle;
 
 /*
  * Copyright (c) nosqlbench
@@ -19,6 +19,9 @@ package io.nosqlbench.vectordata.merkle;
 
 
 import io.nosqlbench.vectordata.downloader.testserver.TestWebServerExtension;
+import io.nosqlbench.vectordata.merkle.MerklePainter;
+import io.nosqlbench.vectordata.merkle.MerklePane;
+import io.nosqlbench.vectordata.merkle.MerkleTree;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -33,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class MerklePainterTest {
+public class MerklePainterChunkTest {
 
     /**
      * Test that MerklePainter can download and submit chunks to MerklePane.
@@ -59,7 +62,7 @@ public class MerklePainterTest {
 
         // First, use MerkleTree.syncFromRemote to download the files
         MerkleTree tree = MerkleTree.syncFromRemote(fileUrl, localPath);
-
+        
         // Now create a MerklePainter instance
         MerklePainter painter = new MerklePainter(localPath, fileUrl.toString());
 

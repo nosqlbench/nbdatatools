@@ -17,14 +17,18 @@ package io.nosqlbench.vectordata.downloader.testserver;
  * under the License.
  */
 
-import org.apache.hc.core5.http.*;
+import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpException;
+import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.impl.bootstrap.HttpServer;
 import org.apache.hc.core5.http.impl.bootstrap.ServerBootstrap;
 import org.apache.hc.core5.http.io.HttpRequestHandler;
 import org.apache.hc.core5.http.io.entity.FileEntity;
 import org.apache.hc.core5.http.io.entity.InputStreamEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.apache.hc.core5.http.message.BasicHeader;
 import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.io.CloseMode;
 import org.apache.logging.log4j.LogManager;
@@ -32,12 +36,20 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.net.URL;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.TimeUnit;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /// A test fixture that starts a simple web server to host datasets and catalogs.
 ///
@@ -59,6 +71,7 @@ public class TestWebServerFixture implements AutoCloseable {
     private HttpServer server;
     private int port;
     private final Path resourcesRoot;
+    private final Map<Path, FileTime> fileTimestamps = new HashMap<>();
 
     /// Creates a new TestWebServerFixture with the default resources directory.
     public TestWebServerFixture() {
@@ -69,7 +82,37 @@ public class TestWebServerFixture implements AutoCloseable {
     ///
     /// @param resourcesRoot The root directory containing the resources to serve
     public TestWebServerFixture(Path resourcesRoot) {
+        logger.debug("resourcesRoot: {}", resourcesRoot);
         this.resourcesRoot = resourcesRoot;
+
+        // Ensure the resources directory exists
+        if (!Files.exists(resourcesRoot)) {
+            throw new UncheckedIOException(new IOException("Resources directory does not exist: " + resourcesRoot));
+        }
+
+        // Install a security check to prevent modifications to the testserver directory
+        installReadOnlyCheck(resourcesRoot);
+    }
+
+    /// Takes a snapshot of file timestamps in the testserver directory.
+    ///
+    /// This method records the last modified time of all files in the directory
+    /// so we can detect if any files are modified during the test.
+    ///
+    /// @param directory The directory to snapshot
+    private void installReadOnlyCheck(Path directory) {
+        try {
+            Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    fileTimestamps.put(file, Files.getLastModifiedTime(file));
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            logger.debug("Took timestamp snapshot of {} files in {}", fileTimestamps.size(), directory);
+        } catch (IOException e) {
+            logger.warn("Failed to take file timestamp snapshot: {}", e.getMessage());
+        }
     }
 
     /// Starts the web server on a random available port.
@@ -95,18 +138,74 @@ public class TestWebServerFixture implements AutoCloseable {
     /// @return The base URL of the server
     public URL getBaseUrl() {
         try {
-            return new URL("http://localhost:" + port + "/");
+            return new URL("http://127.0.0.1:" + port + "/");
         } catch (Exception e) {
             throw new RuntimeException("Failed to create server URL", e);
         }
     }
 
     /// Stops the server and releases resources.
+    /// Also verifies that no files in the testserver directory have been modified.
     @Override
     public void close() {
         if (server != null) {
             server.close(CloseMode.GRACEFUL);
             logger.info("Test web server stopped");
+        }
+
+        // Check if any files in the testserver directory have been modified
+        checkForModifiedFiles();
+    }
+
+    /// Checks if any files in the testserver directory have been modified.
+    /// Throws an exception if any files have been modified.
+    private void checkForModifiedFiles() {
+        if (fileTimestamps.isEmpty()) {
+            return; // No files were recorded, nothing to check
+        }
+
+        try {
+            for (Map.Entry<Path, FileTime> entry : fileTimestamps.entrySet()) {
+                Path file = entry.getKey();
+                FileTime originalTime = entry.getValue();
+
+                if (Files.exists(file)) {
+                    FileTime currentTime = Files.getLastModifiedTime(file);
+                    if (!currentTime.equals(originalTime)) {
+                        throw new IllegalStateException(
+                            "Unit tests are not allowed to modify files in the testserver directory. " +
+                            "File was modified: " + file);
+                    }
+                } else {
+                    throw new IllegalStateException(
+                        "Unit tests are not allowed to delete files in the testserver directory. " +
+                        "File was deleted: " + file);
+                }
+            }
+
+            // Also check for new files
+            final Path directory = resourcesRoot;
+            final Set<Path> currentFiles = new HashSet<>();
+
+            Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    currentFiles.add(file);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+
+            // Check if there are any new files that weren't in the original snapshot
+            for (Path currentFile : currentFiles) {
+                if (!fileTimestamps.containsKey(currentFile)) {
+                    throw new IllegalStateException(
+                        "Unit tests are not allowed to create new files in the testserver directory. " +
+                        "New file was created: " + currentFile);
+                }
+            }
+
+        } catch (IOException e) {
+            logger.warn("Failed to check for modified files: {}", e.getMessage());
         }
     }
 
@@ -148,7 +247,7 @@ public class TestWebServerFixture implements AutoCloseable {
             if ((path.endsWith("/") || path.isEmpty()) && !(Files.exists(filePath) && Files.isRegularFile(filePath))) {
                 response.setCode(HttpStatus.SC_NOT_FOUND);
                 if (!"HEAD".equalsIgnoreCase(method)) {
-                    response.setEntity(new StringEntity("Directory access not allowed: " + path));
+                    response.setEntity(new StringEntity("Directory access not allowed: " + path + ". URLs must resolve to files."));
                 }
                 return;
             }
@@ -215,11 +314,11 @@ public class TestWebServerFixture implements AutoCloseable {
             // Parse the range header
             if (!rangeHeader.startsWith("bytes=")) {
                 response.setCode(HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+                response.setEntity(new StringEntity("Invalid range header format. Expected 'bytes=start-end' format."));
                 return;
             }
 
             long fileSize = Files.size(filePath);
-            System.out.println("fileSize = " + fileSize);
             String[] ranges = rangeHeader.substring(6).split("-");
 
             long start = 0;
@@ -236,6 +335,8 @@ public class TestWebServerFixture implements AutoCloseable {
             // Validate the range
             if (start >= fileSize || end >= fileSize || start > end) {
                 response.setCode(HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+                response.setEntity(new StringEntity("Invalid range values. Requested range (" + start + "-" + end + 
+                    ") is outside the valid range for the file (0-" + (fileSize - 1) + ")."));
                 return;
             }
 

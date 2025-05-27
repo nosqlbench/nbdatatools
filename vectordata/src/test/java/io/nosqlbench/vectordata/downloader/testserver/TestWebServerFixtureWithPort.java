@@ -88,7 +88,7 @@ public class TestWebServerFixtureWithPort extends TestWebServerFixture {
     @Override
     public URL getBaseUrl() {
         try {
-            return new URL("http://localhost:" + port + "/");
+            return new URL("http://127.0..0.1:" + port + "/");
         } catch (Exception e) {
             throw new RuntimeException("Failed to create server URL", e);
         }
