@@ -4,28 +4,44 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>io.nosqlbench</groupId>
   <artifactId>nbdatatools</artifactId>
   <version>${revision}</version>
   <packaging>pom</packaging>
   <description>A collection of test data tools</description>
-  <properties>
-    <revision>0.1.2-SNAPSHOT</revision>
-  </properties>
+
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <artifactId>mvn-defaults</artifactId>
+    <version>${revision}</version>
+    <relativePath>mvn-defaults</relativePath>
+  </parent>
 
   <!-- NOTE: This reactor project uses the container project for defaults.
              If necessary, a separate defaults module should be created. -->
 
   <dependencies>
+<!--    <dependency>-->
+<!--      <groupId>org.apache.maven.plugins</groupId>-->
+<!--      <artifactId>maven-deploy-plugin</artifactId>-->
+<!--      <version>3.1.4</version>-->
+<!--    </dependency>-->
     <dependency>
-      <groupId>org.apache.maven.plugins</groupId>
-      <artifactId>maven-enforcer-plugin</artifactId>
-      <version>3.5.0</version>
+      <groupId>org.sonatype.central</groupId>
+      <artifactId>central-publishing-maven-plugin</artifactId>
+      <version>0.7.0</version>
     </dependency>
   </dependencies>
 
   <modules>
+    <module>commands</module>
+    <module>mvn-defaults</module>
+    <module>testdata-apis</module>
+    <module>vectordata</module>
     <module>nbvectors</module>
+    <module>io-xvec</module>
+    <module>io-transport</module>
+    <module>jetty-test-server</module>
+    <module>parquet-reader</module>
   </modules>
 
   <developers>
@@ -52,14 +68,14 @@
 
   <build>
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-deploy-plugin</artifactId>
-        <version>3.1.3</version>
-        <configuration>
-          <skip>true</skip>
-        </configuration>
-      </plugin>
+<!--      <plugin>-->
+<!--        <groupId>org.apache.maven.plugins</groupId>-->
+<!--        <artifactId>maven-deploy-plugin</artifactId>-->
+<!--        <version>3.1.3</version>-->
+<!--        <configuration>-->
+<!--          <skip>true</skip>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
 
       <plugin>
         <groupId>org.sonatype.central</groupId>
@@ -86,6 +102,7 @@
         </executions>
         <configuration>
           <includes>
+            <include>META-INF/services/**</include>
             <include>**/*.java</include>
           </includes>
           <excludes>

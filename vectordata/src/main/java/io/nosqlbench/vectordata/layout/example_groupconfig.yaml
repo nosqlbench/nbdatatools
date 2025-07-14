@@ -1,0 +1,15 @@
+facets:
+  1M:
+    base_vectors:
+      source: bigann_base.bvecs[0..1_000_000,0..128)
+      window: [0..1_000_000,0..128)
+    query_vectors:
+      source: bigann_query.bvecs[0..10_000,0..128)
+      window: [0..10_000,0..1000)
+    indices:
+      source: gnd/idx_1M.ivecs[0..10_000,0..1000)
+      window: [0..10000,0..1000)
+    distances:
+      source: gnd/dis_1M.fvecs[0..10_000,0..1000)
+      window: [0..10000,0..1000)
+

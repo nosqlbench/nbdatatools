@@ -1,0 +1,83 @@
+attributes:
+  model: ANN_SIFT1B
+  url: https://corpus-texmex.irisa.fr/
+  distance_function: COSINE
+  license: public domain
+  vendor: INRIA
+  notes: This is a test dataset
+  tags:
+    tag1: value1
+    tag2: value2
+profiles:
+  1M:
+    base:
+      source: bigann_base.bvecs
+      window: 1000000
+    indices:
+      source: gnd/idx_1M.ivecs
+    distances:
+      source: gnd/dis_1M.fvecs
+  2M:
+    base:
+      source:  bigann_base.bvecs
+      window:  (0..2000000)
+    indices:   gnd/idx_2M.ivecs
+    distances: gnd/dis_2M.fvecs 
+  5M:
+    base:
+      source:  bigann_base.bvecs
+      window:  (0..5M)
+    indices:   gnd/idx_5M.ivecs
+    distances: gnd/dis_5M.fvecs
+  10M:
+    base:
+      source:  bigann_base.bvecs
+      window:  10M
+    indices:   gnd/idx_10M.ivecs
+    distances: gnd/dis_10M.fvecs
+  20M:
+    base:
+      source:  bigann_base.bvecs
+      window:  20M
+    indices:   gnd/idx_20M.ivecs
+    distances: gnd/dis_20M.fvecs
+  50M:
+    base:
+      source:  bigann_base.bvecs
+      window:  50M
+    indices:   gnd/idx_50M.ivecs
+    distances: gnd/dis_50M.fvecs
+  100M:
+    base:
+      source:  bigann_base.bvecs
+      window:  100M
+    indices:   gnd/idx_100M.ivecs
+    distances: gnd/dis_100M.fvecs
+  200M:
+    base:
+      source:  bigann_base.bvecs
+      window:  200M
+    indices:   gnd/idx_200M.ivecs
+    distances: gnd/dis_200M.fvecs
+  500M:
+    base:
+      source:  bigann_base.bvecs
+      window:  500M
+    indices:   gnd/idx_500M.ivecs
+    distances: gnd/dis_500M.fvecs
+  1000M:
+    base:
+      source:  bigann_base.bvecs
+      window:  1000M
+    indices:   gnd/idx_1000M.ivecs
+    distances: gnd/dis_1000M.fvecs
+
+
+defaults:
+    base:
+      source: bigann_base.bvecs
+    indices:
+      source: gnd/idx_1M.ivecs
+ 
+add_files:
+ - gnd/README

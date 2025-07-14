@@ -1,0 +1,148 @@
+[
+  {
+    "name": "ada_002_d1536_b1000_q1000_mk100.hdf5",
+    "attributes": {
+      "license": "proprietary",
+      "_jHDF": "jHDF - null - Linux - amd64 - LE",
+      "vendor": "openai",
+      "model": "ada_002",
+      "distance_function": "COSINE",
+      "url": "https://platform.openai.com/docs/guides/embeddings#embedding-models"
+    },
+    "datasets": {
+      "neighbor_distances": {
+        "data_size": 4,
+        "data_class": 1,
+        "java_type": "float",
+        "layout": "CONTIGUOUS",
+        "attributes": {
+          "count": "1000",
+          "max_k": "100"
+        },
+        "data_version": 1,
+        "dimensions": "[1000, 100]"
+      },
+      "query_vectors": {
+        "data_size": 4,
+        "data_class": 1,
+        "java_type": "float",
+        "layout": "CONTIGUOUS",
+        "attributes": {
+          "count": "1000",
+          "model": "ada_002",
+          "dimensions": "1536"
+        },
+        "data_version": 1,
+        "dimensions": "[1000, 1536]"
+      },
+      "neighbor_indices": {
+        "data_size": 4,
+        "data_class": 0,
+        "java_type": "int",
+        "layout": "CONTIGUOUS",
+        "attributes": {
+          "count": "1000",
+          "max_k": "100"
+        },
+        "data_version": 1,
+        "dimensions": "[1000, 100]"
+      },
+      "base_vectors": {
+        "data_size": 4,
+        "data_class": 1,
+        "java_type": "float",
+        "layout": "CONTIGUOUS",
+        "attributes": {
+          "count": "1000",
+          "model": "ada_002",
+          "distance_function": "COSINE",
+          "dimensions": "1536"
+        },
+        "data_version": 1,
+        "dimensions": "[1000, 1536]"
+      }
+    },
+    "tokens": {
+      "base_vectors": "1000",
+      "query_vectors": "1000",
+      "neighbor_indices": "1000",
+      "model": "ada_002",
+      "dimensions": "1536",
+      "max_k": "100",
+      "vendor": "openai"
+    }
+  },
+  {
+    "name": "voyage-3-large-binary_d256_b10000_q10000_mk100.hdf5",
+    "attributes": {
+      "license": "proprietary",
+      "_jHDF": "jHDF - null - Linux - amd64 - LE",
+      "vendor": "voyage.ai",
+      "model": "voyage-3-large-binary",
+      "distance_function": "COSINE",
+      "url": "https://docs.voyageai.com/docs/embeddings"
+    },
+    "datasets": {
+      "neighbor_distances": {
+        "data_size": 4,
+        "data_class": 1,
+        "java_type": "float",
+        "layout": "CONTIGUOUS",
+        "attributes": {
+          "count": "10000",
+          "max_k": "100"
+        },
+        "data_version": 1,
+        "dimensions": "[10000, 100]"
+      },
+      "query_vectors": {
+        "data_size": 4,
+        "data_class": 1,
+        "java_type": "float",
+        "layout": "CONTIGUOUS",
+        "attributes": {
+          "count": "10000",
+          "model": "voyage-3-large-binary",
+          "dimensions": "256"
+        },
+        "data_version": 1,
+        "dimensions": "[10000, 256]"
+      },
+      "neighbor_indices": {
+        "data_size": 4,
+        "data_class": 0,
+        "java_type": "int",
+        "layout": "CONTIGUOUS",
+        "attributes": {
+          "count": "10000",
+          "max_k": "100"
+        },
+        "data_version": 1,
+        "dimensions": "[10000, 100]"
+      },
+      "base_vectors": {
+        "data_size": 4,
+        "data_class": 1,
+        "java_type": "float",
+        "layout": "CONTIGUOUS",
+        "attributes": {
+          "count": "100000",
+          "model": "voyage-3-large-binary",
+          "distance_function": "COSINE",
+          "dimensions": "256"
+        },
+        "data_version": 1,
+        "dimensions": "[100000, 256]"
+      }
+    },
+    "tokens": {
+      "base_vectors": "100000",
+      "query_vectors": "10000",
+      "neighbor_indices": "10000",
+      "model": "voyage-3-large-binary",
+      "dimensions": "256",
+      "max_k": "100",
+      "vendor": "voyage.ai"
+    }
+  }
+]

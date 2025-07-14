@@ -1,0 +1,19 @@
+attributes:
+  model: test_model2
+  url: https://example.com/test2
+  distance_function: EUCLIDEAN
+  license: Apache-2.0
+  vendor: Test Vendor 2
+  notes: This is another test dataset
+  tags:
+    tag1: value1
+    tag3: value3
+profiles:
+  default:
+    base:
+      source: data.hdf5
+      window: 2000
+    indices:
+      source: indices.bin
+    distances:
+      source: distances.bin

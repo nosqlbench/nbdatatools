@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <artifactId>io-transport</artifactId>
+  <name>${project.artifactId}</name>
+  <description>Reader and Writer Implementations for vector test data</description>
+  <url>https://github.com/nosqlbench/nbdatatools</url>
+
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <artifactId>mvn-defaults</artifactId>
+    <version>${revision}</version>
+    <relativePath>../mvn-defaults</relativePath>
+  </parent>
+  <packaging>jar</packaging>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>testdata-apis</artifactId>
+    </dependency>
+    
+    <!-- Test dependencies -->
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>jetty-test-server</artifactId>
+      <version>${revision}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <includes>
+          <include>META-INF/services/**</include>
+        </includes>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <sourcepath>${project.basedir}/src/main/java:${project.basedir}/../testdata-apis/src/main/java</sourcepath>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

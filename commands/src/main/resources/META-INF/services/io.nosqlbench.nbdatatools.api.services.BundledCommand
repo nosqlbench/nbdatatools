@@ -1,0 +1,10 @@
+io.nosqlbench.command.hdf5.CMD_hdf5
+io.nosqlbench.command.merkle.CMD_merkle
+io.nosqlbench.command.generate.CMD_generate
+io.nosqlbench.command.fetch.CMD_fetch
+io.nosqlbench.command.datasets.CMD_datasets
+io.nosqlbench.command.convert.CMD_convert
+io.nosqlbench.command.compute.CMD_compute
+io.nosqlbench.command.cleanup.CMD_cleanup
+io.nosqlbench.command.catalog.CMD_catalog
+io.nosqlbench.command.analyze.CMD_analyze
