@@ -19,7 +19,8 @@ package io.nosqlbench.command.merkle.subcommands;
 
 import io.nosqlbench.nbdatatools.api.types.bitimage.Glyphs;
 import io.nosqlbench.vectordata.merkle.MerkleMismatch;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine.Command;
@@ -109,12 +110,12 @@ public class CMD_merkle_diff implements Callable<Integer> {
                 return false;
             }
 
-            // Load the Merkle trees
-            MerkleTree tree1 = MerkleTree.load(merklePath1);
-            MerkleTree tree2 = MerkleTree.load(merklePath2);
+            // Load the Merkle references
+            MerkleDataImpl ref1 = MerkleRefFactory.load(merklePath1);
+            MerkleDataImpl ref2 = MerkleRefFactory.load(merklePath2);
 
             // Display the diff summary
-            displayDiffSummary(tree1, tree2, merklePath1, merklePath2);
+            displayDiffSummary(ref1, ref2, merklePath1, merklePath2);
 
             return true;
         } catch (Exception e) {
@@ -124,19 +125,19 @@ public class CMD_merkle_diff implements Callable<Integer> {
     }
 
     /**
-     * Displays a summary of differences between two Merkle trees.
+     * Displays a summary of differences between two Merkle references.
      *
-     * @param tree1 The first Merkle tree
-     * @param tree2 The second Merkle tree
-     * @param path1 The path to the first Merkle tree file
-     * @param path2 The path to the second Merkle tree file
+     * @param ref1 The first Merkle reference
+     * @param ref2 The second Merkle reference
+     * @param path1 The path to the first Merkle reference file
+     * @param path2 The path to the second Merkle reference file
      */
-    private void displayDiffSummary(MerkleTree tree1, MerkleTree tree2, Path path1, Path path2) {
+    private void displayDiffSummary(MerkleDataImpl ref1, MerkleDataImpl ref2, Path path1, Path path2) {
         StringBuilder summary = new StringBuilder();
 
         // Add header
-        summary.append("\nMERKLE TREE DIFF SUMMARY\n");
-        summary.append("=======================\n");
+        summary.append("\nMERKLE REFERENCE DIFF SUMMARY\n");
+        summary.append("============================\n");
         summary.append(String.format("File 1: %s\n", path1.toAbsolutePath()));
         summary.append(String.format("File 2: %s\n", path2.toAbsolutePath()));
         summary.append("\n");
@@ -146,8 +147,8 @@ public class CMD_merkle_diff implements Callable<Integer> {
         summary.append("----------------------------\n");
 
         // Compare chunk sizes
-        long chunkSize1 = tree1.getChunkSize();
-        long chunkSize2 = tree2.getChunkSize();
+        long chunkSize1 = ref1.getChunkSize();
+        long chunkSize2 = ref2.getChunkSize();
         boolean chunkSizesMatch = chunkSize1 == chunkSize2;
         summary.append(String.format("Chunk Size: %s vs %s %s\n", 
             formatByteSize(chunkSize1), 
@@ -155,8 +156,8 @@ public class CMD_merkle_diff implements Callable<Integer> {
             chunkSizesMatch ? "(MATCH)" : "(MISMATCH)"));
 
         // Compare total sizes
-        long totalSize1 = tree1.totalSize();
-        long totalSize2 = tree2.totalSize();
+        long totalSize1 = ref1.totalSize();
+        long totalSize2 = ref2.totalSize();
         boolean totalSizesMatch = totalSize1 == totalSize2;
         summary.append(String.format("Total Size: %s vs %s %s\n", 
             formatByteSize(totalSize1), 
@@ -164,17 +165,17 @@ public class CMD_merkle_diff implements Callable<Integer> {
             totalSizesMatch ? "(MATCH)" : "(MISMATCH)"));
 
         // Compare number of leaves
-        int leafCount1 = tree1.getNumberOfLeaves();
-        int leafCount2 = tree2.getNumberOfLeaves();
+        int leafCount1 = ref1.getNumberOfLeaves();
+        int leafCount2 = ref2.getNumberOfLeaves();
         boolean leafCountsMatch = leafCount1 == leafCount2;
         summary.append(String.format("Leaf Count: %d vs %d %s\n", 
             leafCount1, 
             leafCount2,
             leafCountsMatch ? "(MATCH)" : "(MISMATCH)"));
 
-        // If chunk sizes don't match, we can't compare the trees
+        // If chunk sizes don't match, we can't compare the references
         if (!chunkSizesMatch) {
-            summary.append("\nCannot compare trees with different chunk sizes.\n");
+            summary.append("\nCannot compare references with different chunk sizes.\n");
             System.out.println(summary);
             return;
         }
@@ -182,9 +183,9 @@ public class CMD_merkle_diff implements Callable<Integer> {
         // Find mismatched chunks
         List<MerkleMismatch> mismatches;
         try {
-            mismatches = tree1.findMismatchedChunks(tree2);
+            mismatches = ref1.findMismatchedChunks(ref2);
         } catch (IllegalArgumentException e) {
-            summary.append("\nError comparing trees: ").append(e.getMessage()).append("\n");
+            summary.append("\nError comparing references: ").append(e.getMessage()).append("\n");
             System.out.println(summary);
             return;
         }
@@ -222,7 +223,7 @@ public class CMD_merkle_diff implements Callable<Integer> {
             summary.append("Each dot represents a mismatched chunk\n");
             summary.append(brailleImage).append("\n\n");
         } else {
-            summary.append("The Merkle trees are identical.\n");
+            summary.append("The Merkle references are identical.\n");
         }
 
         // Print the complete summary

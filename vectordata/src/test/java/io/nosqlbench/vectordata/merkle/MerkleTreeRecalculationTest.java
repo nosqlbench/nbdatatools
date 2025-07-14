@@ -17,6 +17,8 @@ package io.nosqlbench.vectordata.merkle;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.merklev2.MerkleShape;
+import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -29,9 +31,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
-import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for verifying the hash recalculation functionality in MerkleTree.
@@ -258,7 +262,7 @@ public class MerkleTreeRecalculationTest {
     @Test
     void testUpdateEmptyTree() throws NoSuchAlgorithmException {
         // Create an empty tree
-        ChunkGeometryDescriptor geometry = ChunkGeometryDescriptor.fromContentSize(TEST_DATA_SIZE);
+        MerkleShape geometry = MerkleShape.fromContentSize(TEST_DATA_SIZE);
         MerkleTree emptyTree = MerkleTree.createEmpty(geometry, new NoOpDownloadEventSink());
 
         // Create test data for one chunk

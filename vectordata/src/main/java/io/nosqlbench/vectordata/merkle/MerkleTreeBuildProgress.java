@@ -17,15 +17,20 @@ package io.nosqlbench.vectordata.merkle;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.merklev2.MerkleBuildProgress;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /// Tracks the progress of building a Merkle tree.
+///
+/// Note: This class still uses MerkleTree for backward compatibility
+/// during the transition to the new merklev2 architecture.
 /// This class provides information about the number of chunks processed and the total number of chunks.
 /// It also contains a CompletableFuture that completes when the Merkle tree is built.
 /// The progress is tracked through different stages of processing, each with its own progress meter.
-public class MerkleTreeBuildProgress {
+public class MerkleTreeBuildProgress implements MerkleBuildProgress<MerkleTree> {
     /// Enum representing the different stages of Merkle tree creation
     public enum Stage {
         /// The initial stage before any processing has started

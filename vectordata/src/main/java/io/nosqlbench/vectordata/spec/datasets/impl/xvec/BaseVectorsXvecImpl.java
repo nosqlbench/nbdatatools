@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
 
 
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
-import io.nosqlbench.vectordata.merkle.MerkleAsyncFileChannel;
+import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 
 /// Implementation of BaseVectors interface for xvec file format.
@@ -28,11 +28,11 @@ import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 public class BaseVectorsXvecImpl extends FloatVectorsXvecImpl implements BaseVectors {
   /// Creates a new BaseVectorsXvecImpl instance.
   ///
-  /// @param channel The MerkleAsyncFileChannel to read from
+  /// @param channel The MAFileChannel to read from
   /// @param sourceSize The size of the source file in bytes
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
-  public BaseVectorsXvecImpl(MerkleAsyncFileChannel channel, long sourceSize, DSWindow window, String extension)
+  public BaseVectorsXvecImpl(MAFileChannel channel, long sourceSize, DSWindow window, String extension)
   {
     super(channel, sourceSize, window, extension);
   }

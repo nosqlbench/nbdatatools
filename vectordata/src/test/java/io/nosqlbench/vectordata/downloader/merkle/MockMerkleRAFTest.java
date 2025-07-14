@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Mock tests for the MerkleRAF functionality.
  * 
  * This test class isolates the errors with MerkleRAFTest by using a simple RandomAccessFile
- * instead of MerkleAsyncFileChannel, focusing on the basic file operations without relying on the
+ * instead of the legacy async file channel, focusing on the basic file operations without relying on the
  * complex download mechanism.
  */
 public class MockMerkleRAFTest {

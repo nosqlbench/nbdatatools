@@ -101,7 +101,8 @@ public class FileByteRangeFetcher implements ChunkedTransportClient {
     }
 
     @Override
-    public CompletableFuture<ByteBuffer> fetchRange(long offset, int length) throws IOException {
+    @Deprecated
+    public CompletableFuture<ByteBuffer> fetchRangeRaw(long offset, int length) throws IOException {
         validateNotClosed();
         
         if (offset < 0) {

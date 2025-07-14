@@ -21,8 +21,9 @@ import io.nosqlbench.command.merkle.MerkleUtils;
 import io.nosqlbench.command.merkle.console.MerkleConsoleDisplay;
 import io.nosqlbench.vectordata.merkle.MerkleMismatch;
 import io.nosqlbench.vectordata.merkle.MerkleRange;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine.Command;
@@ -158,17 +159,17 @@ public class CMD_merkle_verify implements Callable<Integer> {
             int numChunks = (int) ((fileSize + chunkSize - 1) / chunkSize);
             display.log("Processing file in %d chunks", numChunks);
 
-            // Load the original Merkle tree from file
-            display.setStatus("Loading original Merkle tree");
-            MerkleTree originalTree = MerkleTree.load(merklePath);
-            display.log("Original Merkle tree loaded successfully");
+            // Load the original Merkle reference from file
+            display.setStatus("Loading original Merkle reference");
+            MerkleDataImpl originalRef = MerkleRefFactory.load(merklePath);
+            display.log("Original Merkle reference loaded successfully");
 
-            // Create a new Merkle tree from the current file content using the Path version of fromData
-            display.setStatus("Building verification Merkle tree");
-            display.log("Using MerkleTree.fromData for direct file processing");
+            // Create a new Merkle reference from the current file content using the Path version of fromData
+            display.setStatus("Building verification Merkle reference");
+            display.log("Using MerkleRefFactory.fromData for direct file processing");
 
-            // Start the Merkle tree creation process
-            MerkleTreeBuildProgress progress = MerkleTree.fromData(file);
+            // Start the Merkle reference creation process
+            MerkleRefBuildProgress progress = MerkleRefFactory.fromData(file);
 
             // Set up a thread to monitor progress
             Thread progressMonitorThread = new Thread(() -> {
@@ -187,7 +188,7 @@ public class CMD_merkle_verify implements Callable<Integer> {
 
                         // Update the display
                         display.updateProgress(bytesProcessed, totalBytes, processedChunks, totalChunks);
-                        display.setStatus("Building verification Merkle tree: " + progress.getPhase());
+                        display.setStatus("Building verification Merkle reference: " + progress.getPhase());
 
                         // Check if the future is done
                         if (progress.getFuture().isDone()) {
@@ -206,27 +207,27 @@ public class CMD_merkle_verify implements Callable<Integer> {
             progressMonitorThread.start();
 
             try {
-                // Wait for the Merkle tree to be built
-                MerkleTree currentTree = progress.getFuture().get();
+                // Wait for the Merkle reference to be built
+                MerkleDataImpl currentRef = progress.getFuture().get();
 
                 // Stop the progress monitor thread
                 progressMonitorThread.interrupt();
                 progressMonitorThread.join();
 
-                // Compare the trees
-                display.setStatus("Comparing Merkle trees");
-                boolean isEqual = originalTree.equals(currentTree);
+                // Compare the references
+                display.setStatus("Comparing Merkle references");
+                boolean isEqual = originalRef.equals(currentRef);
 
                 if (isEqual) {
-                    display.log("Verification successful: %s matches its Merkle tree", file);
-                    logger.info("Verification successful: {} matches its Merkle tree", file);
+                    display.log("Verification successful: %s matches its Merkle reference", file);
+                    logger.info("Verification successful: {} matches its Merkle reference", file);
                 } else {
-                    // Find mismatches between the trees
-                    display.setStatus("Finding mismatches between trees");
-                    List<MerkleMismatch> mismatches = originalTree.findMismatchedChunks(currentTree);
-                    display.log("Verification failed: %s does not match its Merkle tree", file);
+                    // Find mismatches between the references
+                    display.setStatus("Finding mismatches between references");
+                    List<MerkleMismatch> mismatches = originalRef.findMismatchedChunks(currentRef);
+                    display.log("Verification failed: %s does not match its Merkle reference", file);
                     display.log("Found %d mismatched sections", mismatches.size());
-                    logger.error("Verification failed: {} does not match its Merkle tree", file);
+                    logger.error("Verification failed: {} does not match its Merkle reference", file);
                     logger.error("Found {} mismatched sections", mismatches.size());
 
                     // Log details of the first few mismatches

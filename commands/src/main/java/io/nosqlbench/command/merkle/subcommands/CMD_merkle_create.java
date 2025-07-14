@@ -1,16 +1,14 @@
 package io.nosqlbench.command.merkle.subcommands;
 
-import io.nosqlbench.common.types.VectorFileExtension;
-
 /*
  * Copyright (c) nosqlbench
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * 
  *   http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -19,13 +17,16 @@ import io.nosqlbench.common.types.VectorFileExtension;
  * under the License.
  */
 
+
 import io.nosqlbench.command.merkle.MerkleUtils;
 import io.nosqlbench.command.merkle.console.MerkleConsoleDisplay;
 import io.nosqlbench.command.merkle.console.SimpleProgressReporter;
+import io.nosqlbench.common.types.VectorFileExtension;
 import io.nosqlbench.vectordata.merkle.MerkleRange;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.merkle.ChunkGeometryDescriptor;
-import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleShape;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine.Command;
@@ -290,7 +291,7 @@ public class CMD_merkle_create implements Callable<Integer> {
                         // Calculate the number of blocks for this file
                         long fileSize = Files.size(file);
                         MerkleRange fullRange = new MerkleRange(0, fileSize);
-                        ChunkGeometryDescriptor geometry = MerkleTree.calculateGeometry(fileSize);
+                        MerkleShape geometry = MerkleShape.fromContentSize(fileSize);
                         // Only count leaf chunks in progress since internal nodes are processed very quickly
                         int leafChunks = geometry.getTotalChunks();
                         int internalNodes = geometry.getInternalNodeCount();
@@ -431,7 +432,7 @@ public class CMD_merkle_create implements Callable<Integer> {
     public void createMerkleFile(Path file, long chunkSize, AtomicLong totalBlocksProcessed, long totalBlocks, boolean noTui, int progressInterval) throws Exception {
         // Calculate total blocks for this file (only count leaf chunks for progress tracking)
         long fileSize = Files.size(file);
-        ChunkGeometryDescriptor geometry = MerkleTree.calculateGeometry(fileSize);
+        MerkleShape geometry = MerkleShape.fromContentSize(fileSize);
         int leafChunks = geometry.getTotalChunks();
         int internalNodes = geometry.getInternalNodeCount();
         int totalFileBlocks = leafChunks; // Only count leaf chunks for progress
@@ -494,10 +495,10 @@ public class CMD_merkle_create implements Callable<Integer> {
         display.log("Using MerkleTree.fromData for direct file processing");
 
         // Create the merkle tree file path
-        Path merkleFile = file.resolveSibling(file.getFileName() + MerkleUtils.MRKL);
+        Path merkleFile = file.resolveSibling(file.getFileName() + MerkleUtils.MREF);
 
         // Start the Merkle tree creation process
-        MerkleTreeBuildProgress progress = MerkleTree.fromData(file);
+        MerkleRefBuildProgress progress = MerkleRefFactory.fromData(file);
 
         // Set up a thread to monitor progress
         Thread progressMonitorThread = new Thread(() -> {
@@ -563,7 +564,7 @@ public class CMD_merkle_create implements Callable<Integer> {
 
         try {
           // Wait for the Merkle tree to be built
-          MerkleTree merkleTree = progress.getFuture().get();
+          MerkleDataImpl merkleRef = progress.getFuture().get();
 
           // Stop the progress monitor thread
           progressMonitorThread.interrupt();
@@ -571,7 +572,7 @@ public class CMD_merkle_create implements Callable<Integer> {
 
           // Save the Merkle tree to the file
           display.setStatus("Saving Merkle tree to file");
-          merkleTree.save(merkleFile);
+          merkleRef.save(merkleFile);
 
           // Update the session-wide counter with the total blocks from this file
           if (totalBlocksProcessed != null) {
@@ -633,21 +634,21 @@ public class CMD_merkle_create implements Callable<Integer> {
         reporter.log("Using MerkleTree.fromData for direct file processing");
 
         // Create the merkle tree file path
-        Path merkleFile = file.resolveSibling(file.getFileName() + MerkleUtils.MRKL);
+        Path merkleFile = file.resolveSibling(file.getFileName() + MerkleUtils.MREF);
 
         // Start the Merkle tree creation process
-        MerkleTreeBuildProgress progress = MerkleTree.fromData(file);
+        MerkleRefBuildProgress progress = MerkleRefFactory.fromData(file);
 
         // Start the progress reporting
         reporter.startReporting(progress);
 
         try {
           // Wait for the Merkle tree to be built
-          MerkleTree merkleTree = progress.getFuture().get();
+          MerkleDataImpl merkleRef = progress.getFuture().get();
 
           // Save the Merkle tree to the file
           reporter.setStatus("Saving Merkle tree to file");
-          merkleTree.save(merkleFile);
+          merkleRef.save(merkleFile);
 
           // Update the session-wide counter with the total blocks from this file
           if (totalBlocksProcessed != null) {

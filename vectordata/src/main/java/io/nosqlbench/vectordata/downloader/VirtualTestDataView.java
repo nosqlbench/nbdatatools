@@ -19,8 +19,7 @@ package io.nosqlbench.vectordata.downloader;
 
 
 import io.nosqlbench.vectordata.discovery.TestDataView;
-import io.nosqlbench.vectordata.merkle.MerkleAsyncFileChannel;
-import io.nosqlbench.vectordata.merkle.AsyncRandomAccessFile;
+import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
@@ -112,7 +111,7 @@ public class VirtualTestDataView implements TestDataView {
       Path contentPath =
           cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(sourcePath);
 
-      MerkleAsyncFileChannel channel = resolveMerkleAsyncFileChannel(contentPath,
+      MAFileChannel channel = resolveMAFileChannel(contentPath,
           sourceContentURL);
 
       String extension =
@@ -125,22 +124,22 @@ public class VirtualTestDataView implements TestDataView {
     }
   }
 
-  /// Creates a MerkleAsyncFileChannel for both local and remote URLs.
+  /// Creates a MAFileChannel for both local and remote URLs.
   ///
-  /// This method now uses MerkleAsyncFileChannel directly for both local and remote files,
+  /// This method now uses MAFileChannel directly for both local and remote files,
   /// providing consistent behavior and thread-safe access with absolute positioning.
   ///
   /// @param contentPath 
   ///     The local path where the content should be cached
   /// @param sourceContentURL 
   ///     The URL of the source content
-  /// @return A MerkleAsyncFileChannel for accessing the content
+  /// @return A MAFileChannel for accessing the content
   /// @throws IOException If there is an error accessing the file
-  private MerkleAsyncFileChannel resolveMerkleAsyncFileChannel(Path contentPath, URL sourceContentURL)
+  private MAFileChannel resolveMAFileChannel(Path contentPath, URL sourceContentURL)
       throws IOException
   {
-    // Use MerkleAsyncFileChannel for both local and remote resources
-    return new MerkleAsyncFileChannel(contentPath, sourceContentURL.toString());
+    // Use MAFileChannel for both local and remote resources
+    return MAFileChannel.create(contentPath, contentPath.resolveSibling(contentPath.getFileName() + ".mref"), sourceContentURL.toString());
   }
 
   /// Finds a view in the profile that matches the given view kind or its synonyms.
@@ -178,7 +177,7 @@ public class VirtualTestDataView implements TestDataView {
     try {
       URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
       Path contentPath = cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(view.getSource().getPath());
-      MerkleAsyncFileChannel channel = resolveMerkleAsyncFileChannel(contentPath, sourceURL);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceURL);
       FloatVectorsXvecImpl newview = new FloatVectorsXvecImpl(
           channel,
           channel.size(),
@@ -210,7 +209,7 @@ public class VirtualTestDataView implements TestDataView {
     try {
       URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
       Path contentPath = cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(view.getSource().getPath());
-      MerkleAsyncFileChannel channel = resolveMerkleAsyncFileChannel(contentPath, sourceURL);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceURL);
       // Assuming there's an implementation for NeighborIndices similar to BaseVectorsXvecImpl
       // This would need to be implemented or adapted from existing code
       // For now, returning empty to avoid compilation errors
@@ -238,7 +237,7 @@ public class VirtualTestDataView implements TestDataView {
     try {
       URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
       Path contentPath = cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(view.getSource().getPath());
-      MerkleAsyncFileChannel channel = resolveMerkleAsyncFileChannel(contentPath, sourceURL);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceURL);
       // Assuming there's an implementation for NeighborDistances similar to BaseVectorsXvecImpl
       // This would need to be implemented or adapted from existing code
       // For now, returning empty to avoid compilation errors

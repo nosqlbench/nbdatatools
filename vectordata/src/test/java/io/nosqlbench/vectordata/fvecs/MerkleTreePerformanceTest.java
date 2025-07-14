@@ -17,10 +17,9 @@ package io.nosqlbench.vectordata.fvecs;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.ChunkGeometryDescriptor;
-import io.nosqlbench.vectordata.merkle.MerkleRange;
 import io.nosqlbench.vectordata.merkle.MerkleTree;
 import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleShape;
 import io.nosqlbench.vectordata.status.EventType;
 import io.nosqlbench.vectordata.status.MemoryEventSink;
 import jdk.jfr.Configuration;
@@ -197,7 +196,7 @@ public class MerkleTreePerformanceTest {
         ));
 
         // Log dimension calculation
-        ChunkGeometryDescriptor geometry = MerkleTree.calculateGeometry(fileSize, CHUNK_SIZE);
+        MerkleShape geometry = MerkleShape.fromContentSize(fileSize);
         logEvent(MerkleCreationStage.DIMENSION_CALCULATION, Map.of(
             "timestamp", Instant.now(),
             "leafCount", geometry.getLeafCount(),

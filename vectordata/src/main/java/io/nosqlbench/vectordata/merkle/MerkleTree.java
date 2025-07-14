@@ -20,12 +20,16 @@ package io.nosqlbench.vectordata.merkle;
 
 // Removed OkHttp dependencies to allow standard URLConnection for test stubbing
 
+import io.nosqlbench.vectordata.merkle.tasks.TreeBuildingTask;
+import io.nosqlbench.vectordata.merklev2.BaseMerkleShape;
+import io.nosqlbench.vectordata.merklev2.MerkleShape;
+import io.nosqlbench.vectordata.status.EventSink;
+import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -46,15 +50,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.StringJoiner;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import io.nosqlbench.vectordata.merkle.tasks.TreeBuildingTask;
-import io.nosqlbench.vectordata.status.EventSink;
-import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
-
+/// @deprecated This class is deprecated and will be removed in a future version.
+/// Use the merklev2 package instead: MerkleRefFactory, MerkleRef, MerkleState, MerkleData.
+/// 
+/// Migration guide:
+/// - MerkleTree.fromData(path) → MerkleRefFactory.fromData(path)
+/// - MerkleTree.load(path) → MerkleRefFactory.load(path)
+/// - tree.save(path) → ref.save(path)
+/// - tree.equals(other) → ref.equals(other)
+///
 /// # IDEA: Consider replacing this with https://github.com/crums-io/merkle-tree
 ///
 /// # REQUIREMENTS:
@@ -83,6 +92,7 @@ import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
 /// The hashes are stored in root-first order, meaning that the leaf nodes start somewhere on the
 /// interior of the hash data. This is represented by the offset value.
 
+@Deprecated
 public class MerkleTree implements AutoCloseable {
   /// SHA-256 hash size in bytes
   public static final int HASH_SIZE = 32;
@@ -135,29 +145,6 @@ public class MerkleTree implements AutoCloseable {
     return closed.get();
   }
 
-  /// Calculates the chunk-related values based on total size and chunk size.
-  /// @param totalSize
-  ///     The total size of the data
-  /// @param chunkSize
-  ///     The chunk size (ignored - kept for backward compatibility)
-  /// @return A ChunkGeometryDescriptor containing the calculated values
-  /// @deprecated Use calculateGeometry(long) instead as chunk size is now automatically calculated
-  @Deprecated
-  public static ChunkGeometryDescriptor calculateGeometry(long totalSize, long chunkSize) {
-    // ChunkGeometryDescriptor is now the sole authority for chunk size calculation
-    // Ignore the chunkSize parameter and use automatic calculation
-    return new ChunkGeometryDescriptor(totalSize);
-  }
-
-  /// Calculates the chunk-related values based on total size only.
-  /// @param totalSize
-  ///     The total size of the data
-  /// @return A ChunkGeometryDescriptor containing the calculated values
-  public static ChunkGeometryDescriptor calculateGeometry(long totalSize) {
-    // Create a ChunkGeometryDescriptor with automatic chunk size calculation
-    return new ChunkGeometryDescriptor(totalSize);
-  }
-
 
   static {
     try {
@@ -200,7 +187,7 @@ public class MerkleTree implements AutoCloseable {
   // Tree structure and metadata
   private final BitSet valid;
   /// Geometry descriptor containing all the tree dimensions and chunk properties
-  private final ChunkGeometryDescriptor geometry;
+  private final MerkleShape geometry;
 
   // These properties are derived from the geometry descriptor
   // They are kept for backward compatibility with existing code
@@ -233,7 +220,7 @@ public class MerkleTree implements AutoCloseable {
       final long effectiveLength = data.capacity();
 
       // Calculate chunk-related values using the provided chunk size if specified
-      ChunkGeometryDescriptor calc = calculateGeometry(effectiveLength);
+      BaseMerkleShape calc = BaseMerkleShape.fromContentSize(effectiveLength);
 
       // Get the chunk size (either provided or automatically calculated)
       long calculatedChunkSize = calc.getChunkSize();
@@ -248,7 +235,8 @@ public class MerkleTree implements AutoCloseable {
 
       // Calculate the total file size needed
       long dataRegionSize = (calc.getCapLeaf() + calc.getOffset()) * HASH_SIZE;
-      long footerSize = MerkleFooter.create(calculatedChunkSize, effectiveLength, bitSetSize).footerLength();
+      long footerSize =
+          MerkleFooter.create(calculatedChunkSize, effectiveLength, bitSetSize).footerLength();
       long totalFileSize = dataRegionSize + bitSetSize + footerSize;
 
       // Create the file but don't physically allocate space
@@ -276,18 +264,13 @@ public class MerkleTree implements AutoCloseable {
 
         BitSet tracker = valid;
         // Create the MerkleTree with memory-mapped access
-        MerkleTree merkleTree = new MerkleTree(
-            tracker,
-            calc,
-            merkleFileChannel,
-            mappedBuffer
-        );
+        MerkleTree merkleTree = new MerkleTree(tracker, calc, merkleFileChannel, mappedBuffer);
 
         // Process the data directly from the ByteBuffer
         // Reset the position to read from the beginning
         dataSlice.rewind();
 
-        // Get total number of chunks from ChunkGeometryDescriptor
+        // Get total number of chunks from MerkleShape
         int totalChunks = calc.getTotalChunks();
 
         // Process each chunk
@@ -342,7 +325,7 @@ public class MerkleTree implements AutoCloseable {
       final long effectiveLength = data.capacity();
 
       // Calculate chunk-related values using automatic chunk size calculation
-      final ChunkGeometryDescriptor calc = calculateGeometry(effectiveLength);
+      final MerkleShape calc = BaseMerkleShape.fromContentSize(effectiveLength);
       // Get the automatically calculated chunk size
       long calculatedChunkSize = calc.getChunkSize();
       // Get the total number of chunks from the calculated dimensions
@@ -350,12 +333,11 @@ public class MerkleTree implements AutoCloseable {
       int internalNodeCount = calc.getInternalNodeCount();
 
       // Create progress tracker
-      MerkleTreeBuildProgress progress =
-          new MerkleTreeBuildProgress(
-              totalChunks + internalNodeCount,
-              effectiveLength,
-              MerkleTreeBuildProgress.Stage.INITIALIZING
-          );
+      MerkleTreeBuildProgress progress = new MerkleTreeBuildProgress(
+          totalChunks + internalNodeCount,
+          effectiveLength,
+          MerkleTreeBuildProgress.Stage.INITIALIZING
+      );
 
       // Run the actual tree building in a separate thread to avoid blocking
       CompletableFuture.runAsync(() -> {
@@ -385,7 +367,8 @@ public class MerkleTree implements AutoCloseable {
           {
             // Write the footer with the BitSet size at the end of the file
             // Use absolute positioning for thread safety
-            MerkleFooter footer = MerkleFooter.create(calculatedChunkSize, effectiveLength, bitSetSize);
+            MerkleFooter footer =
+                MerkleFooter.create(calculatedChunkSize, effectiveLength, bitSetSize);
             channel.write(footer.toByteBuffer(), dataRegionSize + bitSetSize);
           }
 
@@ -400,12 +383,7 @@ public class MerkleTree implements AutoCloseable {
           BitSet valid = new BitSet(calc.getNodeCount());
 
           // Create the MerkleTree with memory-mapped access
-          MerkleTree merkleTree = new MerkleTree(
-              valid,
-              calc,
-              merkleFileChannel,
-              mappedBuffer
-          );
+          MerkleTree merkleTree = new MerkleTree(valid, calc, merkleFileChannel, mappedBuffer);
 
           // Process the data directly from the ByteBuffer
           progress.setStage(MerkleTreeBuildProgress.Stage.LEAF_NODE_PROCESSING);
@@ -447,7 +425,8 @@ public class MerkleTree implements AutoCloseable {
           // Complete the progress with the built tree
           progress.complete(merkleTree);
         } catch (Exception e) {
-          progress.completeExceptionally(new RuntimeException("Failed to create MerkleTree from data: " + e.getMessage(),
+          progress.completeExceptionally(new RuntimeException(
+              "Failed to create MerkleTree from data: " + e.getMessage(),
               e
           ));
         }
@@ -481,7 +460,8 @@ public class MerkleTree implements AutoCloseable {
     return fromDataInternal(filePath, new NoOpDownloadEventSink());
   }
 
-  /// Builds a Merkle tree from a file of arbitrary size using a shared read-ahead buffer with a specified event sink.
+  /// Builds a Merkle tree from a file of arbitrary size using a shared read-ahead buffer with a
+  /// specified event sink.
   /// All nodes are fully computed and marked valid.
   /// This method uses virtual threads for parallel processing and is thread-safe.
   /// The shared buffer improves I/O efficiency by pre-reading data from the file.
@@ -549,7 +529,7 @@ public class MerkleTree implements AutoCloseable {
   ///  │  └───────────────────────────────────────────────┘   │
   ///  │                                                       │
   ///  └───────────────────────────────────────────────────────┘
-  /// ```
+  ///```
   ///
   /// The file format can have four variations depending on the tree structure:
   /// 1. Padded Tree Format: Contains all nodes (leaves and internal nodes) with padding
@@ -579,18 +559,17 @@ public class MerkleTree implements AutoCloseable {
       final MerkleRange range = new MerkleRange(0, fileSize);
 
       // Calculate chunk-related values using automatic chunk size calculation
-      final ChunkGeometryDescriptor calc = calculateGeometry(fileSize);
+      final MerkleShape calc = BaseMerkleShape.fromContentSize(fileSize);
       // Get the automatically calculated chunk size
       long calculatedChunkSize = calc.getChunkSize();
       // Get the total number of chunks from the calculated dimensions
       int totalChunks = calc.getTotalChunks();
       int internalNodeCount = calc.getInternalNodeCount();
-      MerkleTreeBuildProgress progress =
-          new MerkleTreeBuildProgress(
-              totalChunks + internalNodeCount,
-              fileSize,
-              MerkleTreeBuildProgress.Stage.INITIALIZING
-          );
+      MerkleTreeBuildProgress progress = new MerkleTreeBuildProgress(
+          totalChunks + internalNodeCount,
+          fileSize,
+          MerkleTreeBuildProgress.Stage.INITIALIZING
+      );
 
       // Create a single AsyncFileChannel to be shared by all subtasks
       AsynchronousFileChannel fileChannel = null;
@@ -601,8 +580,10 @@ public class MerkleTree implements AutoCloseable {
       // Run the actual tree building in a separate thread to avoid blocking
       CompletableFuture.runAsync(new TreeBuildingTask(
           progress,
-          fileSize, filePath,
-          range, calc,
+          fileSize,
+          filePath,
+          range,
+          calc,
           fileChannel,
           eventSink
       ));
@@ -610,7 +591,8 @@ public class MerkleTree implements AutoCloseable {
       return progress;
     } catch (IOException e) {
       MerkleTreeBuildProgress progress = new MerkleTreeBuildProgress(0, 0);
-      progress.completeExceptionally(new RuntimeException("Failed to create memory-mapped MerkleTree: " + e.getMessage(),
+      progress.completeExceptionally(new RuntimeException(
+          "Failed to create memory-mapped MerkleTree: " + e.getMessage(),
           e
       ));
       return progress;
@@ -630,10 +612,11 @@ public class MerkleTree implements AutoCloseable {
   ///     The path to the file to build the tree from.
   /// @param chunkSize
   ///     The size of each chunk (ignored, kept for backward compatibility).
-  ///     Chunk size is now automatically calculated based on content size.
+  ///         Chunk size is now automatically calculated based on content size.
   /// @param range
-  ///     The range within the file to build the tree from (ignored, kept for backward compatibility).
-  ///     The range is now automatically determined from the file size (0 to file size).
+  ///     The range within the file to build the tree from (ignored, kept for backward
+  ///     compatibility).
+  ///         The range is now automatically determined from the file size (0 to file size).
   /// @return The built Merkle tree.
   /// @throws IOException
   ///     If there's an error reading the file.
@@ -652,17 +635,22 @@ public class MerkleTree implements AutoCloseable {
   ///     The path to the file to build the tree from.
   /// @param chunkSize
   ///     The size of each chunk (ignored, kept for backward compatibility).
-  ///     Chunk size is now automatically calculated based on content size.
+  ///         Chunk size is now automatically calculated based on content size.
   /// @param range
-  ///     The range within the file to build the tree from (ignored, kept for backward compatibility).
-  ///     The range is now automatically determined from the file size (0 to file size).
+  ///     The range within the file to build the tree from (ignored, kept for backward
+  ///     compatibility).
+  ///         The range is now automatically determined from the file size (0 to file size).
   /// @param eventSink
   ///     The event sink for instrumentation and testing.
   /// @return The built Merkle tree.
   /// @throws IOException
   ///     If there's an error reading the file.
-  public static MerkleTree fromFile(Path filePath, long chunkSize, MerkleRange range, EventSink eventSink)
-      throws IOException
+  public static MerkleTree fromFile(
+      Path filePath,
+      long chunkSize,
+      MerkleRange range,
+      EventSink eventSink
+  ) throws IOException
   {
     // Note: chunkSize parameter is ignored as it's now calculated automatically
     // based on content size. This parameter is kept for backward compatibility.
@@ -705,7 +693,7 @@ public class MerkleTree implements AutoCloseable {
   ///     The total size of the data the tree represents.
   /// @param chunkSize
   ///     The size of each chunk (ignored, kept for backward compatibility).
-  ///     Chunk size is now automatically calculated based on content size.
+  ///         Chunk size is now automatically calculated based on content size.
   /// @param eventSink
   ///     The event sink for instrumentation and testing.
   /// @return The created empty Merkle tree.
@@ -714,15 +702,15 @@ public class MerkleTree implements AutoCloseable {
   public static MerkleTree createEmpty(long totalSize, long chunkSize, EventSink eventSink) {
     return createEmpty(totalSize, eventSink);
   }
-  
-  /// Creates an empty (all stale) Merkle tree using a specific ChunkGeometryDescriptor.
+
+  /// Creates an empty (all stale) Merkle tree using a specific MerkleShape.
   /// This method is intended for testing purposes where specific chunk sizes are needed.
   /// @param calc
-  ///     The ChunkGeometryDescriptor containing pre-calculated chunk geometry.
+  ///     The MerkleShape containing pre-calculated chunk geometry.
   /// @param eventSink
   ///     The event sink for instrumentation and testing.
   /// @return The created empty Merkle tree.
-  public static MerkleTree createEmpty(ChunkGeometryDescriptor calc, EventSink eventSink) {
+  public static MerkleTree createEmpty(MerkleShape calc, EventSink eventSink) {
     // Get the chunk size from the descriptor
     long chunkSize = calc.getChunkSize();
     long totalSize = calc.getTotalContentSize();
@@ -765,13 +753,7 @@ public class MerkleTree implements AutoCloseable {
             fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, dataRegionSize);
 
         // Create the MerkleTree with memory-mapped access
-        return new MerkleTree(
-            valid,
-            calc,
-            fileChannel,
-            mappedBuffer,
-            eventSink
-        );
+        return new MerkleTree(valid, calc, fileChannel, mappedBuffer, eventSink);
       } catch (Exception e) {
         // Close the file channel if there's an error
         fileChannel.close();
@@ -789,8 +771,8 @@ public class MerkleTree implements AutoCloseable {
   ///     The event sink for instrumentation and testing.
   /// @return The created empty Merkle tree.
   public static MerkleTree createEmpty(long totalSize, EventSink eventSink) {
-    // Calculate chunk-related values using ChunkGeometryDescriptor as sole authority
-    ChunkGeometryDescriptor calc = calculateGeometry(totalSize);
+    // Calculate chunk-related values using MerkleShape as sole authority
+    MerkleShape calc = BaseMerkleShape.fromContentSize(totalSize);
 
     // Get the automatically calculated chunk size
     long calculatedChunkSize = calc.getChunkSize();
@@ -806,7 +788,8 @@ public class MerkleTree implements AutoCloseable {
 
       // Calculate the total file size needed
       long dataRegionSize = (calc.getCapLeaf() + calc.getOffset()) * HASH_SIZE;
-      long footerSize = MerkleFooter.create(calculatedChunkSize, totalSize, bitSetSize).footerLength();
+      long footerSize =
+          MerkleFooter.create(calculatedChunkSize, totalSize, bitSetSize).footerLength();
       long totalFileSize = dataRegionSize + bitSetSize + footerSize;
 
       // Create the file but don't physically allocate space
@@ -833,13 +816,7 @@ public class MerkleTree implements AutoCloseable {
             fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, dataRegionSize);
 
         // Create the MerkleTree with memory-mapped access
-        return new MerkleTree(
-            valid,
-            calc,
-            fileChannel,
-            mappedBuffer,
-            eventSink
-        );
+        return new MerkleTree(valid, calc, fileChannel, mappedBuffer, eventSink);
       } catch (Exception e) {
         // Close the file channel if there's an error
         fileChannel.close();
@@ -858,7 +835,7 @@ public class MerkleTree implements AutoCloseable {
    @param valid
    The BitSet for tracking valid nodes
    @param descriptor
-   The ChunkGeometryDescriptor containing all geometry and Merkle tree dimensions
+   The MerkleShape containing all geometry and Merkle tree dimensions
    @param fileChannel
    The file channel for the memory-mapped file
    @param mappedBuffer
@@ -866,7 +843,7 @@ public class MerkleTree implements AutoCloseable {
    */
   public MerkleTree(
       BitSet valid,
-      ChunkGeometryDescriptor descriptor,
+      MerkleShape descriptor,
       FileChannel fileChannel,
       ByteBuffer mappedBuffer
   )
@@ -880,7 +857,7 @@ public class MerkleTree implements AutoCloseable {
    @param valid
    The BitSet for tracking valid nodes
    @param descriptor
-   The ChunkGeometryDescriptor containing all geometry and Merkle tree dimensions
+   The MerkleShape containing all geometry and Merkle tree dimensions
    @param fileChannel
    The file channel for the memory-mapped file
    @param mappedBuffer
@@ -890,7 +867,7 @@ public class MerkleTree implements AutoCloseable {
    */
   public MerkleTree(
       BitSet valid,
-      ChunkGeometryDescriptor descriptor,
+      MerkleShape descriptor,
       FileChannel fileChannel,
       ByteBuffer mappedBuffer,
       EventSink eventSink
@@ -1044,11 +1021,20 @@ public class MerkleTree implements AutoCloseable {
           try {
             boolean writeSuccess = writeHashToBuffer(hashPosition, hash);
             if (!writeSuccess) {
-              eventSink.error("MerkleTree.hashData: Failed to write hash to buffer for leafIndex={}, idx={}", leafIndex, idx);
+              eventSink.error(
+                  "MerkleTree.hashData: Failed to write hash to buffer for leafIndex={}, idx={}",
+                  leafIndex,
+                  idx
+              );
               continue; // Skip marking this leaf as valid if we couldn't write the hash
             }
           } catch (IllegalStateException e) {
-            eventSink.error("MerkleTree.hashData: Critical error writing hash for leafIndex={}, idx={}: {}", leafIndex, idx, e.getMessage());
+            eventSink.error(
+                "MerkleTree.hashData: Critical error writing hash for leafIndex={}, idx={}: {}",
+                leafIndex,
+                idx,
+                e.getMessage()
+            );
             throw new RuntimeException("Failed to write hash data to merkle tree", e);
           }
         }
@@ -1058,7 +1044,7 @@ public class MerkleTree implements AutoCloseable {
 
         // Add to the set of updated leaf indices
         updatedLeafIndices.add(leafIndex);
-        
+
         // Force memory synchronization by immediately verifying the stored hash
         // This ensures the hash is properly committed before continuing
         getHashForLeaf(leafIndex);
@@ -1069,16 +1055,20 @@ public class MerkleTree implements AutoCloseable {
     // Start from the lowest level of internal nodes and work up to the root
     // SKIP internal node computation during tree building
     // Internal nodes will be computed after all leaf processing is complete
-    eventSink.debug("MerkleTree.hashData: Deferring internal node computation until tree building is complete. Updated {} leaf nodes.", updatedLeafIndices.size());
+    eventSink.debug(
+        "MerkleTree.hashData: Deferring internal node computation until tree building is complete. Updated {} leaf nodes.",
+        updatedLeafIndices.size()
+    );
   }
 
   /// Computes all missing internal node hashes after tree building is complete.
   /// This method should be called after all leaf nodes have been processed to ensure
   /// the merkle tree has a complete and consistent internal node structure.
-  /// @throws RuntimeException if there are errors computing internal node hashes
+  /// @throws RuntimeException
+  ///     if there are errors computing internal node hashes
   public synchronized void computeAllInternalNodes() {
     eventSink.debug("MerkleTree.computeAllInternalNodes: Starting computation of all internal nodes");
-    
+
     // Collect all internal nodes that need computation
     Set<Integer> internalNodesToCompute = new HashSet<>();
     for (int leafIndex = 0; leafIndex < leafCount; leafIndex++) {
@@ -1089,77 +1079,97 @@ public class MerkleTree implements AutoCloseable {
         idx = (idx - 1) / 2;
         while (idx >= 0) {
           internalNodesToCompute.add(idx);
-          if (idx == 0) break;
+          if (idx == 0)
+            break;
           idx = (idx - 1) / 2;
         }
       }
     }
-    
+
     // Sort internal nodes from lowest level to root (reverse order = bottom-up)
     List<Integer> sortedInternalNodes = new ArrayList<>(internalNodesToCompute);
     Collections.sort(sortedInternalNodes, Collections.reverseOrder());
-    
-    eventSink.debug("MerkleTree.computeAllInternalNodes: Computing {} internal nodes", sortedInternalNodes.size());
-    
+
+    eventSink.debug(
+        "MerkleTree.computeAllInternalNodes: Computing {} internal nodes",
+        sortedInternalNodes.size()
+    );
+
     // Compute hashes for all internal nodes
     for (int idx : sortedInternalNodes) {
       if (!valid.get(idx)) { // Only compute if not already valid
         int left = 2 * idx + 1;
         int right = left + 1;
-        
+
         // Verify children are available
         boolean leftAvailable = (left < offset) || valid.get(left);
         boolean rightAvailable = (right >= 2 * capLeaf - 1) || (right < offset) || valid.get(right);
-        
+
         if (!leftAvailable || !rightAvailable) {
-          eventSink.warn("MerkleTree.computeAllInternalNodes: Skipping internal node {} due to missing children (left={}, right={})", 
-              idx, leftAvailable, rightAvailable);
+          eventSink.warn(
+              "MerkleTree.computeAllInternalNodes: Skipping internal node {} due to missing children (left={}, right={})",
+              idx,
+              leftAvailable,
+              rightAvailable
+          );
           continue;
         }
-        
+
         try (ObjectPool.Borrowed<MessageDigest> borrowed = DIGEST_POOL.borrowObject()) {
           MessageDigest digest = borrowed.get();
-          
+
           // Get child hashes
           byte[] leftHash = getHash(left);
           digest.update(leftHash);
-          
+
           if (right < 2 * capLeaf - 1) {
             byte[] rightHash = getHash(right);
             digest.update(rightHash);
           }
-          
+
           byte[] hash = digest.digest();
-          
+
           // Write hash to buffer
           if (mappedBuffer != null) {
             int hashPosition = (capLeaf + idx) * HASH_SIZE;
             try {
               boolean writeSuccess = writeHashToBuffer(hashPosition, hash);
               if (!writeSuccess) {
-                eventSink.error("MerkleTree.computeAllInternalNodes: Failed to write hash for internal node {}", idx);
+                eventSink.error(
+                    "MerkleTree.computeAllInternalNodes: Failed to write hash for internal node {}",
+                    idx
+                );
                 continue;
               }
             } catch (IllegalStateException e) {
-              eventSink.error("MerkleTree.computeAllInternalNodes: Error writing hash for internal node {}: {}", idx, e.getMessage());
+              eventSink.error(
+                  "MerkleTree.computeAllInternalNodes: Error writing hash for internal node {}: {}",
+                  idx,
+                  e.getMessage()
+              );
               throw new RuntimeException("Failed to write internal node hash", e);
             }
           }
-          
+
           // Mark as valid
           valid.set(idx);
-          eventSink.debug("MerkleTree.computeAllInternalNodes: Computed hash for internal node {}", idx);
+          eventSink.debug(
+              "MerkleTree.computeAllInternalNodes: Computed hash for internal node {}",
+              idx
+          );
         }
       }
     }
-    
-    eventSink.debug("MerkleTree.computeAllInternalNodes: Completed computation of all internal nodes");
+
+    eventSink.debug(
+        "MerkleTree.computeAllInternalNodes: Completed computation of all internal nodes");
   }
 
   /// Helper method to normalize empty chunk data to ensure consistent hashing.
   /// All empty chunks should be treated as a single zero byte to maintain consistency
   /// across all hash calculations in the merkle tree.
-  /// @param chunkData The original chunk data
+  /// @param chunkData
+  ///     The original chunk data
   /// @return The normalized chunk data (single zero byte if empty, otherwise unchanged)
   private static byte[] normalizeEmptyChunkData(byte[] chunkData) {
     if (chunkData == null || chunkData.length == 0) {
@@ -1183,7 +1193,8 @@ public class MerkleTree implements AutoCloseable {
   /// @param hash
   ///     The hash to write
   /// @return true if the hash was successfully written, false otherwise
-  /// @throws IllegalStateException if the buffer is closed or corrupted
+  /// @throws IllegalStateException
+  ///     if the buffer is closed or corrupted
   private boolean writeHashToBuffer(int hashPosition, byte[] hash) throws IllegalStateException {
     if (closed.get()) {
       throw new IllegalStateException("Cannot write to buffer: MerkleTree has been closed");
@@ -1195,7 +1206,11 @@ public class MerkleTree implements AutoCloseable {
     }
 
     if (hashPosition < 0 || hashPosition + HASH_SIZE > mappedBuffer.capacity()) {
-      eventSink.debug("Cannot write hash: invalid position {} (buffer capacity: {})", hashPosition, mappedBuffer.capacity());
+      eventSink.debug(
+          "Cannot write hash: invalid position {} (buffer capacity: {})",
+          hashPosition,
+          mappedBuffer.capacity()
+      );
       return false;
     }
 
@@ -1213,7 +1228,12 @@ public class MerkleTree implements AutoCloseable {
       return true;
     } catch (Exception e) {
       // Log the error and throw an exception for critical failures
-      logger.error("Critical error writing hash to buffer at position {}: {}", hashPosition, e.getMessage(), e);
+      logger.error(
+          "Critical error writing hash to buffer at position {}: {}",
+          hashPosition,
+          e.getMessage(),
+          e
+      );
       throw new IllegalStateException("Failed to write hash to buffer", e);
     }
   }
@@ -1244,9 +1264,9 @@ public class MerkleTree implements AutoCloseable {
     long totalSize = footer.totalSize();
 
     // Create a new empty tree with the same total size
-    // ChunkGeometryDescriptor will automatically calculate the optimal chunk size
+    // MerkleShape will automatically calculate the optimal chunk size
     MerkleTree emptyTree = createEmpty(totalSize);
-    
+
     // Save the empty tree to the target file
     emptyTree.save(emptyMerkleFile);
   }
@@ -1269,24 +1289,35 @@ public class MerkleTree implements AutoCloseable {
   /// @throws IOException
   ///     for IO errors
   public static MerkleTree syncFromRemote(URL dataUrl, Path localDataPath) throws IOException {
-    return syncFromRemote(dataUrl, localDataPath, new io.nosqlbench.vectordata.downloader.ChunkedResourceTransportService());
+    return syncFromRemote(
+        dataUrl,
+        localDataPath,
+        new io.nosqlbench.vectordata.downloader.ChunkedResourceTransportService()
+    );
   }
 
   /**
-   * Synchronizes data and Merkle tree files from remote URLs to local paths.
-   * 
-   * Downloads both the data file and its corresponding .mrkl file from remote URLs,
-   * but only if the local versions don't match the remote versions. This method
-   * provides efficient synchronization by avoiding unnecessary downloads.
-   * 
-   * @param dataUrl The remote URL of the data file
-   * @param localDataPath The local path where the data file should be stored
-   * @param transportService The transport service to use for downloads and metadata checks
-   * @return A MerkleTree loaded from the synchronized .mrkl file
-   * @throws IOException If an error occurs during download or file operations
+   Synchronizes data and Merkle tree files from remote URLs to local paths.
+
+   Downloads both the data file and its corresponding .mrkl file from remote URLs,
+   but only if the local versions don't match the remote versions. This method
+   provides efficient synchronization by avoiding unnecessary downloads.
+   @param dataUrl
+   The remote URL of the data file
+   @param localDataPath
+   The local path where the data file should be stored
+   @param transportService
+   The transport service to use for downloads and metadata checks
+   @return A MerkleTree loaded from the synchronized .mrkl file
+   @throws IOException
+   If an error occurs during download or file operations
    */
-  public static MerkleTree syncFromRemote(URL dataUrl, Path localDataPath, 
-                                        io.nosqlbench.vectordata.downloader.ResourceTransportService transportService) throws IOException {
+  public static MerkleTree syncFromRemote(
+      URL dataUrl,
+      Path localDataPath,
+      io.nosqlbench.vectordata.downloader.ResourceTransportService transportService
+  ) throws IOException
+  {
     // Derive merkle URL and local merkle path
     String dataUrlStr = dataUrl.toString();
     URL merkleUrl = new URL(dataUrlStr + ".mrkl");
@@ -1295,7 +1326,7 @@ public class MerkleTree implements AutoCloseable {
     // Check if files need downloading by comparing with remote
     boolean downloadData = true;
     boolean downloadMerkle = true;
-    
+
     try {
       // Check if local files match remote versions
       if (Files.exists(localDataPath)) {
@@ -1311,11 +1342,11 @@ public class MerkleTree implements AutoCloseable {
 
     if (downloadData || downloadMerkle) {
       Files.createDirectories(localDataPath.getParent());
-      
+
       // Download data file using chunk transport
       if (downloadData) {
         logger.debug("Downloading data file from {} to {}", dataUrl, localDataPath);
-        io.nosqlbench.vectordata.downloader.DownloadProgress dataProgress = 
+        io.nosqlbench.vectordata.downloader.DownloadProgress dataProgress =
             transportService.downloadResource(dataUrl, localDataPath, true);
         try {
           io.nosqlbench.vectordata.downloader.DownloadResult dataResult = dataProgress.get();
@@ -1326,11 +1357,11 @@ public class MerkleTree implements AutoCloseable {
           throw new IOException("Error downloading data file: " + e.getMessage(), e);
         }
       }
-      
+
       // Download merkle file using chunk transport
       if (downloadMerkle) {
         logger.debug("Downloading merkle file from {} to {}", merkleUrl, localMerklePath);
-        io.nosqlbench.vectordata.downloader.DownloadProgress merkleProgress = 
+        io.nosqlbench.vectordata.downloader.DownloadProgress merkleProgress =
             transportService.downloadResource(merkleUrl, localMerklePath, true);
         try {
           io.nosqlbench.vectordata.downloader.DownloadResult merkleResult = merkleProgress.get();
@@ -1341,12 +1372,11 @@ public class MerkleTree implements AutoCloseable {
           throw new IOException("Error downloading merkle file: " + e.getMessage(), e);
         }
       }
-      
+
       // Create reference tree file (.mref) from downloaded merkle file
       // This is needed for MerklePainter which expects a reference tree
       Path localRefPath = localDataPath.resolveSibling(localDataPath.getFileName() + ".mref");
-      Files.copy(localMerklePath, localRefPath, 
-                 java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      Files.copy(localMerklePath, localRefPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
     }
 
     // Load and return the MerkleTree from local merkle file
@@ -1490,7 +1520,7 @@ public class MerkleTree implements AutoCloseable {
 
   /// Get the geometry descriptor for this merkle tree
   /// @return The geometry descriptor
-  public ChunkGeometryDescriptor getGeometry() {
+  public MerkleShape getGeometry() {
     return geometry;
   }
 
@@ -1536,7 +1566,11 @@ public class MerkleTree implements AutoCloseable {
     // Check if the hash is in the cache
     byte[] cachedHash = hashCache.get(idx);
     if (cachedHash != null) {
-      eventSink.debug("MerkleTree.getHash: idx={}, found in cache, hash={}", idx, Arrays.toString(cachedHash));
+      eventSink.debug(
+          "MerkleTree.getHash: idx={}, found in cache, hash={}",
+          idx,
+          Arrays.toString(cachedHash)
+      );
       return Arrays.copyOf(cachedHash, HASH_SIZE); // Return a defensive copy
     }
 
@@ -1547,7 +1581,11 @@ public class MerkleTree implements AutoCloseable {
         // For leaf nodes, we need to ensure we're using the correct hash
         // This is especially important for verification
         if (idx >= offset) {
-          eventSink.debug("MerkleTree.getHash: idx={}, is a leaf node (idx >= offset={})", idx, offset);
+          eventSink.debug(
+              "MerkleTree.getHash: idx={}, is a leaf node (idx >= offset={})",
+              idx,
+              offset
+          );
           // This is a leaf node, try to read its hash from the memory-mapped buffer
           if (mappedBuffer != null && fileChannel != null && fileChannel.isOpen()) {
             try {
@@ -1570,13 +1608,21 @@ public class MerkleTree implements AutoCloseable {
                   }
                 }
 
-                eventSink.debug("MerkleTree.getHash: idx={}, read from buffer, allZeros={}, hash={}", idx, allZeros, Arrays.toString(hash));
+                eventSink.debug(
+                    "MerkleTree.getHash: idx={}, read from buffer, allZeros={}, hash={}",
+                    idx,
+                    allZeros,
+                    Arrays.toString(hash)
+                );
                 if (!allZeros) {
                   // Cache the hash
                   hashCache.put(idx, Arrays.copyOf(hash, HASH_SIZE));
                   return Arrays.copyOf(hash, HASH_SIZE); // Return a defensive copy
                 } else {
-                  eventSink.debug("MerkleTree.getHash: idx={}, hash is all zeros, will compute from children", idx);
+                  eventSink.debug(
+                      "MerkleTree.getHash: idx={}, hash is all zeros, will compute from children",
+                      idx
+                  );
                 }
               }
             } catch (Throwable t) {
@@ -1584,18 +1630,31 @@ public class MerkleTree implements AutoCloseable {
               eventSink.warn("Error reading hash from buffer for idx {}: {}", idx, t.getMessage());
             }
           } else {
-            eventSink.debug("MerkleTree.getHash: idx={}, mappedBuffer={}, fileChannel={}, fileChannel.isOpen={}", 
-                idx, (mappedBuffer != null), (fileChannel != null), (fileChannel != null && fileChannel.isOpen()));
+            eventSink.debug(
+                "MerkleTree.getHash: idx={}, mappedBuffer={}, fileChannel={}, fileChannel.isOpen={}",
+                idx,
+                (mappedBuffer != null),
+                (fileChannel != null),
+                (fileChannel != null && fileChannel.isOpen())
+            );
           }
         } else {
-          eventSink.debug("MerkleTree.getHash: idx={}, is an internal node (idx < offset={})", idx, offset);
+          eventSink.debug(
+              "MerkleTree.getHash: idx={}, is an internal node (idx < offset={})",
+              idx,
+              offset
+          );
         }
 
         // If we couldn't read the hash from the buffer or it's an internal node,
         // compute it from children
         eventSink.debug("MerkleTree.getHash: idx={}, computing hash from children", idx);
         byte[] hash = computeHashFromChildren(idx);
-        eventSink.debug("MerkleTree.getHash: idx={}, computed hash from children: {}", idx, Arrays.toString(hash));
+        eventSink.debug(
+            "MerkleTree.getHash: idx={}, computed hash from children: {}",
+            idx,
+            Arrays.toString(hash)
+        );
         // Cache the hash
         hashCache.put(idx, Arrays.copyOf(hash, HASH_SIZE));
         return Arrays.copyOf(hash, HASH_SIZE); // Return a defensive copy
@@ -1609,7 +1668,11 @@ public class MerkleTree implements AutoCloseable {
     eventSink.debug("MerkleTree.getHash: idx={}, node is not valid or couldn't compute hash", idx);
     // Compute the hash from children
     byte[] hash = computeHashFromChildren(idx);
-    eventSink.debug("MerkleTree.getHash: idx={}, computed hash from children (not valid): {}", idx, Arrays.toString(hash));
+    eventSink.debug(
+        "MerkleTree.getHash: idx={}, computed hash from children (not valid): {}",
+        idx,
+        Arrays.toString(hash)
+    );
     // Cache the hash
     hashCache.put(idx, Arrays.copyOf(hash, HASH_SIZE));
     return Arrays.copyOf(hash, HASH_SIZE); // Return a defensive copy
@@ -1627,7 +1690,11 @@ public class MerkleTree implements AutoCloseable {
     if (idx >= offset) {
       // This is a leaf node, we should use the actual data from the file
       int leafIndex = idx - offset;
-      eventSink.debug("MerkleTree.computeHashFromChildren: idx={} is a leaf node (leafIndex={})", idx, leafIndex);
+      eventSink.debug(
+          "MerkleTree.computeHashFromChildren: idx={} is a leaf node (leafIndex={})",
+          idx,
+          leafIndex
+      );
 
       // Get a digest instance from the pool using try-with-resources to ensure it's returned
       try (ObjectPool.Borrowed<MessageDigest> borrowed = DIGEST_POOL.borrowObject()) {
@@ -1642,15 +1709,22 @@ public class MerkleTree implements AutoCloseable {
         // Check if this is a padded leaf node (beyond the actual file data)
         if (leafIndex >= leafCount) {
           // This is a padded leaf - generate a zero hash
-          eventSink.debug("MerkleTree.computeHashFromChildren: Generating zero hash for padded leaf {} (leafIndex >= leafCount {})", leafIndex, leafCount);
+          eventSink.debug(
+              "MerkleTree.computeHashFromChildren: Generating zero hash for padded leaf {} (leafIndex >= leafCount {})",
+              leafIndex,
+              leafCount
+          );
           // Padded leaves get a zero hash
           digest.update(new byte[0]); // Hash of empty data
         } else {
           // For real leaf nodes (not padded), generate a placeholder hash
           // This allows trees created by createEmpty() to have individual leaf updates
           // and also handles other edge cases gracefully
-          eventSink.debug("MerkleTree.computeHashFromChildren: Generating placeholder hash for leaf {}", leafIndex);
-          
+          eventSink.debug(
+              "MerkleTree.computeHashFromChildren: Generating placeholder hash for leaf {}",
+              leafIndex
+          );
+
           // Create a simple placeholder hash based on leaf index
           // Using a consistent pattern that's different from real data hashes
           byte[] placeholderData = ("empty_leaf_" + leafIndex).getBytes();
@@ -1668,16 +1742,27 @@ public class MerkleTree implements AutoCloseable {
           int hashPosition = (idx - offset) * HASH_SIZE;
           boolean writeSuccess = writeHashToBuffer(hashPosition, hashCopy);
           if (!writeSuccess) {
-            eventSink.debug("MerkleTree.computeHashFromChildren: Failed to write hash to buffer for leaf idx={}", idx);
+            eventSink.debug(
+                "MerkleTree.computeHashFromChildren: Failed to write hash to buffer for leaf idx={}",
+                idx
+            );
             // Continue without throwing - we can still return the computed hash
           }
         } catch (IllegalStateException e) {
-          eventSink.warn("MerkleTree.computeHashFromChildren: Critical error writing hash for leaf idx={}: {}", idx, e.getMessage());
+          eventSink.warn(
+              "MerkleTree.computeHashFromChildren: Critical error writing hash for leaf idx={}: {}",
+              idx,
+              e.getMessage()
+          );
           // Continue without throwing - we can still return the computed hash
         }
 
         valid.set(idx);
-        eventSink.debug("MerkleTree.computeHashFromChildren: idx={}, computed hash for leaf: {}", idx, Arrays.toString(hashCopy));
+        eventSink.debug(
+            "MerkleTree.computeHashFromChildren: idx={}, computed hash for leaf: {}",
+            idx,
+            Arrays.toString(hashCopy)
+        );
         return Arrays.copyOf(hashCopy, HASH_SIZE); // Return a defensive copy
       }
     }
@@ -1722,11 +1807,18 @@ public class MerkleTree implements AutoCloseable {
         }
         boolean writeSuccess = writeHashToBuffer(hashPosition, hashCopy);
         if (!writeSuccess) {
-          eventSink.debug("MerkleTree.computeHashFromChildren: Failed to write hash to buffer for internal node idx={}", idx);
+          eventSink.debug(
+              "MerkleTree.computeHashFromChildren: Failed to write hash to buffer for internal node idx={}",
+              idx
+          );
           // Continue without throwing - we can still return the computed hash
         }
       } catch (IllegalStateException e) {
-        eventSink.warn("MerkleTree.computeHashFromChildren: Critical error writing hash for internal node idx={}: {}", idx, e.getMessage());
+        eventSink.warn(
+            "MerkleTree.computeHashFromChildren: Critical error writing hash for internal node idx={}: {}",
+            idx,
+            e.getMessage()
+        );
         // Continue without throwing - we can still return the computed hash
       }
 
@@ -1746,7 +1838,11 @@ public class MerkleTree implements AutoCloseable {
       throw new IllegalArgumentException("Invalid leaf index");
     eventSink.debug("MerkleTree.getHashForLeaf: leafIndex={}", leafIndex);
     byte[] hash = getHash(offset + leafIndex);
-    eventSink.debug("MerkleTree.getHashForLeaf: leafIndex={}, hash={}", leafIndex, Arrays.toString(hash));
+    eventSink.debug(
+        "MerkleTree.getHashForLeaf: leafIndex={}, hash={}",
+        leafIndex,
+        Arrays.toString(hash)
+    );
     return hash;
   }
 
@@ -1761,9 +1857,10 @@ public class MerkleTree implements AutoCloseable {
   }
 
   /**
-   * Invalidate a leaf (chunk) and all its ancestors in the Merkle tree.
-   * This clears the valid bit and removes cached hashes, marking the chunk as unverified.
-   * @param leafIndex the index of the leaf (chunk) to invalidate
+   Invalidate a leaf (chunk) and all its ancestors in the Merkle tree.
+   This clears the valid bit and removes cached hashes, marking the chunk as unverified.
+   @param leafIndex
+   the index of the leaf (chunk) to invalidate
    */
   public synchronized void invalidateLeaf(int leafIndex) {
     if (leafIndex < 0 || leafIndex >= leafCount) {
@@ -1779,7 +1876,8 @@ public class MerkleTree implements AutoCloseable {
     while (parent >= 0) {
       valid.clear(parent);
       hashCache.remove(parent);
-      if (parent == 0) break;
+      if (parent == 0)
+        break;
       parent = (parent - 1) / 2;
     }
   }
@@ -1895,14 +1993,21 @@ public class MerkleTree implements AutoCloseable {
       try {
         boolean updateSuccess = updateLeafHash(leafIndex, computedHash);
         if (!updateSuccess) {
-          eventSink.error("MerkleTree.hashDataIfMatchesExpected: Failed to update leaf hash for leafIndex={}", leafIndex);
+          eventSink.error(
+              "MerkleTree.hashDataIfMatchesExpected: Failed to update leaf hash for leafIndex={}",
+              leafIndex
+          );
           return false;
         }
         // Verify what was actually stored
         byte[] storedHash = getHashForLeaf(leafIndex);
         return true;
       } catch (IllegalStateException e) {
-        eventSink.error("MerkleTree.hashDataIfMatchesExpected: Critical error updating leaf hash for leafIndex={}: {}", leafIndex, e.getMessage());
+        eventSink.error(
+            "MerkleTree.hashDataIfMatchesExpected: Critical error updating leaf hash for leafIndex={}: {}",
+            leafIndex,
+            e.getMessage()
+        );
         throw new RuntimeException("Failed to update leaf hash in merkle tree", e);
       }
     }
@@ -1944,11 +2049,20 @@ public class MerkleTree implements AutoCloseable {
     try {
       boolean writeSuccess = writeHashToBuffer(hashPosition, hashCopy);
       if (!writeSuccess) {
-        eventSink.error("MerkleTree.updateLeafHash: Failed to write hash to buffer for leafIndex={}, idx={}", leafIndex, idx);
+        eventSink.error(
+            "MerkleTree.updateLeafHash: Failed to write hash to buffer for leafIndex={}, idx={}",
+            leafIndex,
+            idx
+        );
         return false;
       }
     } catch (IllegalStateException e) {
-      eventSink.error("MerkleTree.updateLeafHash: Critical error writing hash for leafIndex={}, idx={}: {}", leafIndex, idx, e.getMessage());
+      eventSink.error(
+          "MerkleTree.updateLeafHash: Critical error writing hash for leafIndex={}, idx={}: {}",
+          leafIndex,
+          idx,
+          e.getMessage()
+      );
       throw e; // Re-throw to let caller handle the critical error
     }
 
@@ -2014,7 +2128,10 @@ public class MerkleTree implements AutoCloseable {
         throw new IOException("Failed to update leaf hash for leafIndex=" + leafIndex);
       }
     } catch (IllegalStateException e) {
-      throw new IOException("Failed to update leaf hash for leafIndex=" + leafIndex + ": " + e.getMessage(), e);
+      throw new IOException(
+          "Failed to update leaf hash for leafIndex=" + leafIndex + ": " + e.getMessage(),
+          e
+      );
     }
   }
 
@@ -2054,7 +2171,8 @@ public class MerkleTree implements AutoCloseable {
         StandardOpenOption.CREATE,
         StandardOpenOption.WRITE,
         StandardOpenOption.TRUNCATE_EXISTING
-    )) {
+    ))
+    {
       // Write the hash data region (leaves and internal nodes)
       // Explicit hash computation and writing for all cases
       // write real leafCount leaves
@@ -2122,9 +2240,10 @@ public class MerkleTree implements AutoCloseable {
   ///     The path to load the merkle tree data from
   /// @param verify
   ///     Whether to verify the integrity of the loaded file. Set to false to skip verification,
-  ///                 which can be useful when loading a file immediately after saving it to avoid
-  ///         redundant
-  ///             verification.
+  ///                     which can be useful when loading a file immediately after saving it to
+  ///     avoid
+  ///             redundant
+  ///                 verification.
   /// @return The loaded MerkleTree instance
   /// @throws IOException
   ///     If an I/O error occurs
@@ -2150,8 +2269,8 @@ public class MerkleTree implements AutoCloseable {
       long totalSize = footer.totalSize();
       int bitSetSize = footer.bitSetSize();
 
-      // Calculate chunk-related values using ChunkGeometryDescriptor
-      ChunkGeometryDescriptor descriptor = calculateGeometry(totalSize);
+      // Calculate chunk-related values using MerkleShape
+      MerkleShape descriptor = BaseMerkleShape.fromContentSize(totalSize);
 
       // Determine actual data region size (excluding footer and BitSet data)
       int fl = footer.footerLength();
@@ -2167,12 +2286,7 @@ public class MerkleTree implements AutoCloseable {
         BitSet valid = new BitSet(descriptor.getNodeCount());
 
         // Return an empty tree
-        return new MerkleTree(
-            valid,
-            descriptor,
-            null,
-            null
-        );
+        return new MerkleTree(valid, descriptor, null, null);
       }
 
       if (dataRegionSize % HASH_SIZE != 0) {
@@ -2183,11 +2297,12 @@ public class MerkleTree implements AutoCloseable {
 
       int regionEntries = (int) (dataRegionSize / HASH_SIZE);
       int expectedNodeCount = descriptor.getNodeCount();
-      
+
       // Verify that the file contains the expected number of hash entries
       if (regionEntries != expectedNodeCount) {
         throw new IOException(
-            "Invalid merkle tree file: expected " + expectedNodeCount + " hash entries but found " + regionEntries + " in file: " + path);
+            "Invalid merkle tree file: expected " + expectedNodeCount + " hash entries but found "
+            + regionEntries + " in file: " + path);
       }
 
       // Verification is now handled in unit tests, not in production code
@@ -2220,15 +2335,10 @@ public class MerkleTree implements AutoCloseable {
       // Copy the loaded BitSet to our valid BitSet
       valid.clear();  // Clear any existing bits
       valid.or(loadedBitSet);  // Set bits from the loaded BitSet
-      
+
 
       // Create the MerkleTree with memory-mapped access
-      MerkleTree tree = new MerkleTree(
-          valid,
-          descriptor,
-          fileChannel,
-          mappedBuffer
-      );
+      MerkleTree tree = new MerkleTree(valid, descriptor, fileChannel, mappedBuffer);
 
       // Instead of forcing computation of the root hash, we'll preserve the hashes from the file
       // This ensures that the loaded tree has the same hashes as the original tree

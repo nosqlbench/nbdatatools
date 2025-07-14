@@ -17,11 +17,11 @@ package io.nosqlbench.vectordata.merkle.tasks;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.ChunkGeometryDescriptor;
 import io.nosqlbench.vectordata.merkle.MerkleFooter;
 import io.nosqlbench.vectordata.merkle.MerkleRange;
 import io.nosqlbench.vectordata.merkle.MerkleTree;
 import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleShape;
 import io.nosqlbench.vectordata.status.EventSink;
 import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
 
@@ -46,7 +46,7 @@ public class TreeBuildingTask implements Runnable {
     private final long chunkSize;
     private final Path filePath;
     private final MerkleRange range;
-    private final ChunkGeometryDescriptor calc;
+    private final MerkleShape calc;
     private final AsynchronousFileChannel fileChannel;
     private final EventSink eventSink;
 
@@ -70,7 +70,7 @@ public class TreeBuildingTask implements Runnable {
         long effectiveLength, Path filePath,
         MerkleRange range,
         long fileSize,
-        ChunkGeometryDescriptor calc,
+        MerkleShape calc,
         AsynchronousFileChannel fileChannel
     )
     {
@@ -95,7 +95,7 @@ public class TreeBuildingTask implements Runnable {
     public TreeBuildingTask(
         MerkleTreeBuildProgress progress,
         long effectiveLength, Path filePath,
-        MerkleRange range, ChunkGeometryDescriptor calc,
+        MerkleRange range, MerkleShape calc,
         AsynchronousFileChannel fileChannel,
         EventSink eventSink
     )
@@ -120,14 +120,13 @@ public class TreeBuildingTask implements Runnable {
 
             // Check if the file exists
             if (!Files.exists(filePath)) {
-                // If the file doesn't exist, create an empty merkle tree
-                MerkleTree merkleTree = MerkleTree.createEmpty(effectiveLength);
-                progress.setStage(MerkleTreeBuildProgress.Stage.COMPLETED, "File does not exist, returning empty merkle tree");
-                progress.complete(merkleTree);
+                // If the file doesn't exist, we cannot create a merkle tree
+                progress.setStage(MerkleTreeBuildProgress.Stage.COMPLETED, "File does not exist");
+                progress.completeExceptionally(new IOException("Cannot create merkle tree for non-existent file: " + filePath));
                 return;
             }
 
-            // Use the ChunkGeometryDescriptor passed to the constructor
+            // Use the MerkleShape passed to the constructor
 
             // Create an empty BitSet for tracking valid nodes
             BitSet valid = new BitSet(calc.getNodeCount());
@@ -139,7 +138,7 @@ public class TreeBuildingTask implements Runnable {
             // Note: Using deleteOnExit() instead of shutdown hook for better performance
 
             // Calculate the total file size needed
-            long dataRegionSize = (long) (calc.getCapLeaf() + calc.getOffset()) * MerkleTree.HASH_SIZE;
+            long dataRegionSize = (long) (calc.getCapLeaf() + calc.getOffset()) * 32; // SHA-256 hash size
             long footerSize = MerkleFooter.create(chunkSize, effectiveLength, bitSetSize).footerLength();
             long totalFileSize = dataRegionSize + bitSetSize + footerSize;
 

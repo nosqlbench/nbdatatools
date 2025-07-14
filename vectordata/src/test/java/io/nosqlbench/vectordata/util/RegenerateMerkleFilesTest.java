@@ -18,15 +18,15 @@ package io.nosqlbench.vectordata.util;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleData;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.nio.file.Files;
 
 /**
- * Test to regenerate .mrkl files for test data with correct hashes
+ * Test to regenerate .mref files for test data with correct merklev2 format
  */
 public class RegenerateMerkleFilesTest {
     
@@ -46,26 +46,26 @@ public class RegenerateMerkleFilesTest {
                 continue;
             }
             
-            Path merklePath = Path.of(testFile + ".mrkl");
+            Path mrefPath = Path.of(testFile + ".mref");
             
-            System.out.println("Regenerating: " + merklePath);
+            System.out.println("Regenerating: " + mrefPath);
             
             // Remove existing merkle file
-            Files.deleteIfExists(merklePath);
+            Files.deleteIfExists(mrefPath);
             
-            // Create new merkle tree from data
-            MerkleTreeBuildProgress progress = MerkleTree.fromData(dataPath);
-            MerkleTree tree = progress.getFuture().get();
+            // Create new merkle data from source file using merklev2
+            var progress = MerkleRefFactory.fromData(dataPath);
+            var merkleData = progress.getFuture().get();
             
-            // Save the merkle tree
-            tree.save(merklePath);
+            // Save the merkle data
+            merkleData.save(mrefPath);
             
-            System.out.println("Generated: " + merklePath + " (size: " + Files.size(merklePath) + " bytes)");
+            System.out.println("Generated: " + mrefPath + " (size: " + Files.size(mrefPath) + " bytes)");
             
-            // Close the tree
-            tree.close();
+            // Close the merkle data
+            merkleData.close();
         }
         
-        System.out.println("Done regenerating merkle files!");
+        System.out.println("Done regenerating .mref files with merklev2 format!");
     }
 }

@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleAsyncFileChannel;
+import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
@@ -44,7 +44,7 @@ import java.util.function.Function;
 /// @param <T> The type of vector returned by this view (e.g., float[], int[], byte[])
 public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
 
-  private final MerkleAsyncFileChannel channel;
+  private final MAFileChannel channel;
   private final DSWindow window;
   private Class<?> type;
   private Class<?> aryType;
@@ -55,12 +55,12 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
 
   /// Creates a new CoreXVecDatasetViewMethods instance.
   ///
-  /// @param channel The MerkleAsyncFileChannel to read from
+  /// @param channel The MAFileChannel to read from
   /// @param sourceSize The size of the source file in bytes
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
   public CoreXVecDatasetViewMethods(
-      MerkleAsyncFileChannel channel,
+      MAFileChannel channel,
       long sourceSize,
       DSWindow window,
       String extension
@@ -134,7 +134,7 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
       ByteBuffer dimBuffer = ByteBuffer.allocate(4);
       dimBuffer.order(ByteOrder.LITTLE_ENDIAN);
       
-      // Use absolute positioning with MerkleAsyncFileChannel
+      // Use absolute positioning with MAFileChannel
       int bytesRead = channel.read(dimBuffer, 0).get();
       
       if (bytesRead != 4) {
@@ -211,6 +211,13 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   @Override
   public Class<?> getDataType() {
     return aryType;
+  }
+
+  /// Returns the MAFileChannel used by this dataset view.
+  ///
+  /// @return The MAFileChannel instance
+  public AsynchronousFileChannel getChannel() {
+    return channel;
   }
 
   /// Retrieves a vector at the specified index.

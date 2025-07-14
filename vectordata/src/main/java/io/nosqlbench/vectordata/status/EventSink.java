@@ -17,7 +17,7 @@ package io.nosqlbench.vectordata.status;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.MerklePainterEvent; // For backward compatibility
+// Legacy MerklePainterEvent for backward compatibility only
 
 import java.util.Map;
 

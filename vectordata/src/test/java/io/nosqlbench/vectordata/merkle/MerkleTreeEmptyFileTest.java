@@ -17,6 +17,8 @@ package io.nosqlbench.vectordata.merkle;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -49,14 +51,13 @@ public class MerkleTreeEmptyFileTest {
         // Define file size - chunk size will be calculated automatically
         int fileSize = 10 * 1024; // 10 KB
 
-        // Create a MerkleTree for the non-existent file (chunk size ignored, calculated automatically)
-        MerkleTreeBuildProgress progress = MerkleTree.fromData(nonExistentFile);
-        MerkleTree tree = progress.getFuture().get();
+        // Create an empty MerkleRef for the future file content
+        MerkleDataImpl emptyTree = MerkleRefFactory.createEmpty(fileSize);
 
-        // Verify the tree was created
-        assertNotNull(tree, "MerkleTree should not be null");
-        assertTrue(tree.getChunkSize() > 0, "Chunk size should be positive");
-        assertEquals(0, tree.totalSize(), "Total size should be 0 for non-existent file");
+        // Verify the empty tree was created
+        assertNotNull(emptyTree, "MerkleRef should not be null");
+        assertTrue(emptyTree.getShape().getChunkSize() > 0, "Chunk size should be positive");
+        assertEquals(fileSize, emptyTree.getShape().getTotalContentSize(), "Total size should match expected file size");
 
         // Now create the file with random data
         byte[] data = new byte[fileSize];
@@ -66,44 +67,39 @@ public class MerkleTreeEmptyFileTest {
         // Verify the file now exists
         assertTrue(Files.exists(nonExistentFile), "File should now exist");
 
-        // Create a new MerkleTree for the now-existing file
-        MerkleTreeBuildProgress newProgress = MerkleTree.fromData(nonExistentFile);
-        MerkleTree newTree = newProgress.getFuture().get();
+        // Create a new MerkleRef for the now-existing file
+        var newProgress = MerkleRefFactory.fromData(nonExistentFile);
+        MerkleDataImpl newTree = newProgress.getFuture().get();
 
         // Verify the new tree was created
-        assertNotNull(newTree, "New MerkleTree should not be null");
-        assertEquals(tree.getChunkSize(), newTree.getChunkSize(), "Chunk size should match between trees");
-        assertEquals(fileSize, newTree.totalSize(), "Total size should match");
+        assertNotNull(newTree, "New MerkleRef should not be null");
+        assertEquals(emptyTree.getShape().getChunkSize(), newTree.getShape().getChunkSize(), "Chunk size should match between trees");
+        assertEquals(fileSize, newTree.getShape().getTotalContentSize(), "Total size should match");
 
-        // Create a MerkleTree from the data buffer for comparison (using auto-calculated chunk size)
+        // Create a MerkleRef from the data buffer for comparison
         ByteBuffer buffer = ByteBuffer.wrap(data);
-        MerkleTree bufferTree = MerkleTree.fromData(buffer);
+        var bufferFuture = MerkleRefFactory.fromData(buffer);
+        MerkleDataImpl bufferTree = bufferFuture.get();
 
         // Print debug information
-        System.out.println("[DEBUG_LOG] Buffer tree root hash: " + java.util.Arrays.toString(bufferTree.getHash(0)));
-        System.out.println("[DEBUG_LOG] New tree root hash: " + java.util.Arrays.toString(newTree.getHash(0)));
-        System.out.println("[DEBUG_LOG] Original tree root hash: " + java.util.Arrays.toString(tree.getHash(0)));
+        System.out.println("[DEBUG_LOG] Buffer tree root hash: " + java.util.Arrays.toString(bufferTree.getHashForIndex(0)));
+        System.out.println("[DEBUG_LOG] New tree root hash: " + java.util.Arrays.toString(newTree.getHashForIndex(0)));
+        System.out.println("[DEBUG_LOG] Empty tree root hash: " + java.util.Arrays.toString(emptyTree.getHashForIndex(0)));
 
         // Create another tree from the file to verify consistency
-        MerkleTreeBuildProgress anotherProgress = MerkleTree.fromData(nonExistentFile);
-        MerkleTree anotherTree = anotherProgress.getFuture().get();
+        var anotherProgress = MerkleRefFactory.fromData(nonExistentFile);
+        MerkleDataImpl anotherTree = anotherProgress.getFuture().get();
 
         // Verify that trees created from the same file are consistent
-        assertArrayEquals(newTree.getHash(0), anotherTree.getHash(0), "Trees created from the same file should have identical hashes");
+        assertArrayEquals(newTree.getHashForIndex(0), anotherTree.getHashForIndex(0), "Trees created from the same file should have identical hashes");
 
-        // Close the additional tree
-        anotherTree.close();
-
-        // Verify the original tree's root hash is different from the new tree's
-        // This is because the original tree was empty, while the new one contains actual data
+        // Verify the empty tree's root hash is different from the new tree's
+        // This is because the empty tree has no actual data, while the new one contains actual data
         assertFalse(
-            java.util.Arrays.equals(tree.getHash(0), newTree.getHash(0)), 
-            "Original and new tree root hashes should be different"
+            java.util.Arrays.equals(emptyTree.getHashForIndex(0), newTree.getHashForIndex(0)), 
+            "Empty and populated tree root hashes should be different"
         );
 
-        // Clean up
-        tree.close();
-        newTree.close();
-        bufferTree.close();
+        // Note: MerkleDataImpl doesn't need explicit closing like the old MerkleTree
     }
 }

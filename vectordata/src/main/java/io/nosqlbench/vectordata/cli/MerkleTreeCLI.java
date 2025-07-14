@@ -18,11 +18,14 @@ package io.nosqlbench.vectordata.cli;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleData;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.BitSet;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Command-line interface for merkle tree operations.
@@ -37,14 +40,14 @@ import java.nio.file.Path;
  * - info &lt;merkle_file&gt;   - Show information about the merkle tree file
  */
 public class MerkleTreeCLI {
-    
+
     /**
      * Default constructor for MerkleTreeCLI.
      */
     public MerkleTreeCLI() {
         // Default constructor
     }
-    
+
     /**
      * Main entry point for the MerkleTreeCLI application.
      * 
@@ -55,10 +58,10 @@ public class MerkleTreeCLI {
             printUsage();
             System.exit(1);
         }
-        
+
         String command = args[0];
         String filePath = args[1];
-        
+
         try {
             switch (command.toLowerCase()) {
                 case "create":
@@ -81,136 +84,133 @@ public class MerkleTreeCLI {
             System.exit(1);
         }
     }
-    
+
     private static void createMerkleTree(String dataFilePath) throws Exception {
         Path dataPath = Path.of(dataFilePath);
         if (!Files.exists(dataPath)) {
             throw new IllegalArgumentException("Data file not found: " + dataFilePath);
         }
-        
+
         Path merklePath = Path.of(dataFilePath + ".mrkl");
-        
+
         System.out.println("Creating merkle tree for: " + dataPath);
         System.out.println("Output file: " + merklePath);
-        
+
         // Remove existing merkle file if it exists
         if (Files.exists(merklePath)) {
             Files.delete(merklePath);
             System.out.println("Removed existing merkle file");
         }
-        
-        // Create merkle tree from data
-        MerkleTreeBuildProgress progress = MerkleTree.fromData(dataPath);
-        MerkleTree tree = progress.getFuture().get();
-        
-        // Save the merkle tree
-        tree.save(merklePath);
-        
+
+        // Create merkle reference from data
+        CompletableFuture<MerkleDataImpl> refFuture = MerkleDataImpl.fromData(dataPath);
+        MerkleDataImpl ref = refFuture.get();
+
+        // Create merkle data from reference
+        MerkleDataImpl data = MerkleDataImpl.createFromRef(ref, merklePath);
+
         long fileSize = Files.size(dataPath);
         long merkleSize = Files.size(merklePath);
-        int chunkCount = tree.getNumberOfLeaves();
-        long chunkSize = tree.getChunkSize();
-        
+        int chunkCount = ref.getShape().getLeafCount();
+        long chunkSize = ref.getShape().getChunkSize();
+
         System.out.println("Merkle tree created successfully!");
         System.out.println("Data file size: " + fileSize + " bytes");
         System.out.println("Merkle file size: " + merkleSize + " bytes");
         System.out.println("Chunk count: " + chunkCount);
         System.out.println("Chunk size: " + chunkSize + " bytes");
-        
-        // Close the tree
-        tree.close();
+
+        // Close the ref and data
+        ref.close();
+        data.close();
     }
-    
+
     private static void verifyMerkleTree(String dataFilePath) throws Exception {
         Path dataPath = Path.of(dataFilePath);
         Path merklePath = Path.of(dataFilePath + ".mrkl");
-        
+
         if (!Files.exists(dataPath)) {
             throw new IllegalArgumentException("Data file not found: " + dataFilePath);
         }
-        
+
         if (!Files.exists(merklePath)) {
             throw new IllegalArgumentException("Merkle file not found: " + merklePath);
         }
-        
+
         System.out.println("Verifying merkle tree for: " + dataPath);
-        
-        // Load existing merkle tree
-        MerkleTree existingTree = MerkleTree.load(merklePath);
-        
-        // Create new merkle tree from data
-        MerkleTreeBuildProgress progress = MerkleTree.fromData(dataPath);
-        MerkleTree newTree = progress.getFuture().get();
-        
+
+        // Load existing merkle data
+        MerkleData existingData = MerkleDataImpl.load(merklePath);
+
+        // Create new merkle reference from data
+        CompletableFuture<MerkleDataImpl> refFuture = MerkleDataImpl.fromData(dataPath);
+        MerkleDataImpl newRef = refFuture.get();
+
         // Compare basic properties
         boolean valid = true;
-        if (existingTree.getNumberOfLeaves() != newTree.getNumberOfLeaves()) {
+        if (existingData.getShape().getLeafCount() != newRef.getShape().getLeafCount()) {
             System.err.println("ERROR: Chunk count mismatch");
             valid = false;
         }
-        
-        if (existingTree.getChunkSize() != newTree.getChunkSize()) {
+
+        if (existingData.getShape().getChunkSize() != newRef.getShape().getChunkSize()) {
             System.err.println("ERROR: Chunk size mismatch");
             valid = false;
         }
-        
-        if (existingTree.totalSize() != newTree.totalSize()) {
+
+        if (existingData.getShape().getTotalContentSize() != newRef.getShape().getTotalContentSize()) {
             System.err.println("ERROR: Total size mismatch");
             valid = false;
         }
-        
+
         // Compare hashes for each chunk
-        int chunkCount = existingTree.getNumberOfLeaves();
+        int chunkCount = existingData.getShape().getLeafCount();
         for (int i = 0; i < chunkCount; i++) {
-            byte[] existingHash = existingTree.getHashForLeaf(i);
-            byte[] newHash = newTree.getHashForLeaf(i);
-            
+            byte[] existingHash = existingData.getHashForLeaf(i);
+            byte[] newHash = newRef.getHashForLeaf(i);
+
             if (!java.util.Arrays.equals(existingHash, newHash)) {
                 System.err.println("ERROR: Hash mismatch for chunk " + i);
                 valid = false;
             }
         }
-        
+
         if (valid) {
             System.out.println("Merkle tree is VALID");
         } else {
             System.err.println("Merkle tree is INVALID");
             System.exit(1);
         }
-        
-        // Close trees
-        existingTree.close();
-        newTree.close();
+
+        // Close data and ref
+        existingData.close();
+        newRef.close();
     }
-    
+
     private static void showMerkleInfo(String merkleFilePath) throws Exception {
         Path merklePath = Path.of(merkleFilePath);
-        
+
         if (!Files.exists(merklePath)) {
             throw new IllegalArgumentException("Merkle file not found: " + merkleFilePath);
         }
-        
+
         System.out.println("Merkle tree information for: " + merklePath);
-        
-        MerkleTree tree = MerkleTree.load(merklePath);
-        
+
+        MerkleData data = MerkleDataImpl.load(merklePath);
+
         System.out.println("File size: " + Files.size(merklePath) + " bytes");
-        System.out.println("Total content size: " + tree.totalSize() + " bytes");
-        System.out.println("Chunk count: " + tree.getNumberOfLeaves());
-        System.out.println("Chunk size: " + tree.getChunkSize() + " bytes");
-        
+        System.out.println("Total content size: " + data.getShape().getTotalContentSize() + " bytes");
+        System.out.println("Chunk count: " + data.getShape().getLeafCount());
+        System.out.println("Chunk size: " + data.getShape().getChunkSize() + " bytes");
+
         // Show valid chunks
-        int validChunks = 0;
-        for (int i = 0; i < tree.getNumberOfLeaves(); i++) {
-            if (tree.isLeafValid(i)) {
-                validChunks++;
-            }
-        }
-        System.out.println("Valid chunks: " + validChunks + "/" + tree.getNumberOfLeaves());
-        
-        tree.close();
+        BitSet validChunks = data.getValidChunks();
+        int validCount = validChunks.cardinality();
+        System.out.println("Valid chunks: " + validCount + "/" + data.getShape().getLeafCount());
+
+        data.close();
     }
-    
+
     private static void printUsage() {
         System.out.println("Usage: java -cp ... io.nosqlbench.vectordata.cli.MerkleTreeCLI <command> <file_path>");
         System.out.println();

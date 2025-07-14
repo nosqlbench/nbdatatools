@@ -21,6 +21,7 @@ import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.jetty.testserver.JettyFileServerFixture;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportIO;
+import io.nosqlbench.nbdatatools.api.transport.FetchResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -77,9 +78,10 @@ public class HttpTransportIntegrationTest {
                 assertTrue(size > 0);
                 assertEquals(testContent.getBytes().length, size.longValue());
                 
-                // Test range request
-                CompletableFuture<ByteBuffer> rangeFuture = transport.fetchRange(0, 10);
-                ByteBuffer buffer = rangeFuture.get();
+                // Test range request  
+                CompletableFuture<? extends FetchResult<?>> rangeFuture = transport.fetchRange(0, 10);
+                FetchResult<?> result = rangeFuture.get();
+                ByteBuffer buffer = result.getData();
                 assertNotNull(buffer);
                 assertEquals(10, buffer.remaining());
                 

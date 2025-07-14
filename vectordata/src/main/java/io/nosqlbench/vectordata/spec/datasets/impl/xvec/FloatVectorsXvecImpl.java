@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
 
 
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
-import io.nosqlbench.vectordata.merkle.MerkleAsyncFileChannel;
+import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 
 /// Implementation of float vector access for xvec file formats.
 ///
@@ -28,12 +28,12 @@ import io.nosqlbench.vectordata.merkle.MerkleAsyncFileChannel;
 public class FloatVectorsXvecImpl extends CoreXVecDatasetViewMethods<float[]> {
   /// Creates a new FloatVectorsXvecImpl instance.
   ///
-  /// @param channel The MerkleAsyncFileChannel to read from
+  /// @param channel The MAFileChannel to read from
   /// @param sourceSize The size of the source file in bytes
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
   public FloatVectorsXvecImpl(
-      MerkleAsyncFileChannel channel,
+      MAFileChannel channel,
       long sourceSize,
       DSWindow window,
       String extension

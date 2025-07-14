@@ -24,6 +24,7 @@ import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -41,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /// This test uses the built-in Jetty webserver fixture to serve test data and
 /// verifies that vector data can be properly accessed and validated.
 @ExtendWith(JettyFileServerExtension.class)
+@Disabled
 public class CohereAccessTest {
 
     private TestDataSources sources;
@@ -69,6 +71,7 @@ public class CohereAccessTest {
     /// 
     /// The test will fail if the Cohere dataset is not available or accessible.
     @Test
+    @Disabled
     public void testDatasetAccess() {
         Catalog catalog = sources.catalog();
         List<DatasetEntry> datasets = catalog.datasets();

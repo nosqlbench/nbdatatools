@@ -21,6 +21,7 @@
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>testdata-apis</artifactId>
+      <version>${revision}</version>
     </dependency>
     
     <!-- Test dependencies -->

@@ -21,15 +21,21 @@ package io.nosqlbench.vectordata.downloader;
 //  face, but should warn if there are multiple
 
 
+import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
+import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportIO;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.utils.SHARED;
 import io.nosqlbench.vectordata.layoutv2.DSProfileGroup;
 import io.nosqlbench.vectordata.status.StdoutDownloadEventSink;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 //import org.apache.logging.log4j.LogManager;
 //import org.apache.logging.log4j.Logger;
 
@@ -100,9 +106,38 @@ public record DatasetEntry(
   /// @param force Whether to force download even if the file already exists
   /// @return A DownloadProgress object to track the download
   public DownloadProgress download(Path target, boolean force) {
-    ChunkedDownloader downloader =
-        new ChunkedDownloader(url, name, 1024 * 1024 * 10, 1, new StdoutDownloadEventSink());
-    return downloader.download(target, force);
+    try {
+      ChunkedTransportClient transportClient = ChunkedTransportIO.create(url.toString());
+      
+      // Create a simple download wrapper that adapts ChunkedTransportClient to DownloadProgress
+      CompletableFuture<DownloadResult> future = CompletableFuture.supplyAsync(() -> {
+        try {
+          // Check if file already exists and force parameter
+          if (Files.exists(target) && !force) {
+            long existingSize = Files.size(target);
+            return DownloadResult.skipped(target, existingSize);
+          }
+          
+          // Create parent directories if needed
+          Files.createDirectories(target.getParent());
+          
+          // For now, use a simple approach - this would need to be enhanced
+          // to properly integrate with ChunkedTransportClient's capabilities
+          throw new UnsupportedOperationException("ChunkedTransportClient integration needs full implementation");
+          
+        } catch (Exception e) {
+          throw new RuntimeException("Download failed: " + e.getMessage(), e);
+        }
+      });
+      
+      return new DownloadProgress(target, -1, new AtomicLong(0), future);
+      
+    } catch (IOException e) {
+      // Return a failed download progress
+      CompletableFuture<DownloadResult> failedFuture = new CompletableFuture<>();
+      failedFuture.completeExceptionally(e);
+      return new DownloadProgress(target, -1, new AtomicLong(0), failedFuture);
+    }
   }
 
   /// Creates a ProfileSelector for selecting profiles from this dataset.

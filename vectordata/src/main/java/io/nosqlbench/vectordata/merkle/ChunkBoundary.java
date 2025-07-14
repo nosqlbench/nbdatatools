@@ -58,6 +58,16 @@ public record ChunkBoundary(int chunkIndex, long startInclusive, long endExclusi
     }
     
     /**
+     * Gets the length of this chunk in bytes.
+     * This is an alias for size() for compatibility.
+     * 
+     * @return The length of the chunk (endExclusive - startInclusive)
+     */
+    public long length() {
+        return size();
+    }
+    
+    /**
      * Checks if this chunk contains the specified file position.
      * 
      * @param position The file position to check

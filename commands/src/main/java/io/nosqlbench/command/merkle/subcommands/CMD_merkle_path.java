@@ -17,7 +17,8 @@ package io.nosqlbench.command.merkle.subcommands;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine.Command;
@@ -78,10 +79,10 @@ public class CMD_merkle_path implements Callable<Integer> {
                 return false;
             }
 
-            // Load the MerkleTree from the file
+            // Load the MerkleRef from the file
             // Then get the path from the leaf to the root
-            MerkleTree merkleTree = MerkleTree.load(merklePath);
-            List<byte[]> path = merkleTree.getPathToRoot(chunkIndex);
+            MerkleDataImpl merkleRef = MerkleRefFactory.load(merklePath);
+            List<byte[]> path = merkleRef.getPathToRoot(chunkIndex);
 
             // Display the path
             System.out.println("Hash path from leaf node " + chunkIndex + " to root:");

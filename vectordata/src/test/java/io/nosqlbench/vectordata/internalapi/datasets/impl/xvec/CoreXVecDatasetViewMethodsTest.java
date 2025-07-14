@@ -19,10 +19,9 @@ package io.nosqlbench.vectordata.internalapi.datasets.impl.xvec;
 
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
-import io.nosqlbench.vectordata.merkle.MerkleAsyncFileChannel;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MAFileChannel;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
-import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -87,17 +86,17 @@ public class CoreXVecDatasetViewMethodsTest {
         createEmptyMerkleTreeFile(fvecFile);
 
         // Test with different file extensions using local file URLs and NoOpDownloadEventSink
-        MerkleAsyncFileChannel bvecChannel = new MerkleAsyncFileChannel(bvecFile, bvecFile.toUri().toString(), new NoOpDownloadEventSink(), true);
+        MAFileChannel bvecChannel = MAFileChannel.create(bvecFile, bvecFile.resolveSibling(bvecFile.getFileName() + ".mref"), bvecFile.toUri().toString());
         CoreXVecDatasetViewMethods<?> bvecView = new CoreXVecDatasetViewMethods<>(
             bvecChannel, Files.size(bvecFile), null, "bvecs");
         assertEquals(Byte.BYTES, bvecView.componentBytes());
 
-        MerkleAsyncFileChannel ivecChannel = new MerkleAsyncFileChannel(ivecFile, ivecFile.toUri().toString(), new NoOpDownloadEventSink(), true);
+        MAFileChannel ivecChannel = MAFileChannel.create(ivecFile, ivecFile.resolveSibling(ivecFile.getFileName() + ".mref"), ivecFile.toUri().toString());
         CoreXVecDatasetViewMethods<?> ivecView = new CoreXVecDatasetViewMethods<>(
             ivecChannel, Files.size(ivecFile), null, "ivecs");
         assertEquals(Integer.BYTES, ivecView.componentBytes());
 
-        MerkleAsyncFileChannel fvecChannel = new MerkleAsyncFileChannel(fvecFile, fvecFile.toUri().toString(), new NoOpDownloadEventSink(), true);
+        MAFileChannel fvecChannel = MAFileChannel.create(fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
         CoreXVecDatasetViewMethods<?> fvecView = new CoreXVecDatasetViewMethods<>(
             fvecChannel, Files.size(fvecFile), null, "fvecs");
         assertEquals(Float.BYTES, fvecView.componentBytes());
@@ -151,10 +150,10 @@ public class CoreXVecDatasetViewMethodsTest {
         createEmptyMerkleTreeFile(localFvecFile);
         
         // Copy the merkle files to the server directory as well
-        Path localBvecMerkle = localBvecFile.resolveSibling(localBvecFile.getFileName() + ".mrkl");
-        Path localFvecMerkle = localFvecFile.resolveSibling(localFvecFile.getFileName() + ".mrkl");
-        Path serverBvecMerkle = bvecServerFile.resolveSibling(bvecServerFile.getFileName() + ".mrkl");
-        Path serverFvecMerkle = fvecServerFile.resolveSibling(fvecServerFile.getFileName() + ".mrkl");
+        Path localBvecMerkle = localBvecFile.resolveSibling(localBvecFile.getFileName() + ".mref");
+        Path localFvecMerkle = localFvecFile.resolveSibling(localFvecFile.getFileName() + ".mref");
+        Path serverBvecMerkle = bvecServerFile.resolveSibling(bvecServerFile.getFileName() + ".mref");
+        Path serverFvecMerkle = fvecServerFile.resolveSibling(fvecServerFile.getFileName() + ".mref");
         Files.copy(localBvecMerkle, serverBvecMerkle);
         Files.copy(localFvecMerkle, serverFvecMerkle);
 
@@ -169,12 +168,12 @@ public class CoreXVecDatasetViewMethodsTest {
         
         // Test MerkleAsyncFileChannel with HTTP URLs
         // This tests that MerkleAsyncFileChannel can handle HTTP URLs properly
-        MerkleAsyncFileChannel httpBvecChannel = new MerkleAsyncFileChannel(localBvecFile, bvecHttpUrl, new NoOpDownloadEventSink(), false);
+        MAFileChannel httpBvecChannel = MAFileChannel.create(localBvecFile, localBvecFile.resolveSibling(localBvecFile.getFileName() + ".mref"), bvecHttpUrl);
         CoreXVecDatasetViewMethods<?> httpBvecView = new CoreXVecDatasetViewMethods<>(
             httpBvecChannel, Files.size(bvecServerFile), null, "bvecs");
         assertEquals(Byte.BYTES, httpBvecView.componentBytes());
 
-        MerkleAsyncFileChannel httpFvecChannel = new MerkleAsyncFileChannel(localFvecFile, fvecHttpUrl, new NoOpDownloadEventSink(), false);
+        MAFileChannel httpFvecChannel = MAFileChannel.create(localFvecFile, localFvecFile.resolveSibling(localFvecFile.getFileName() + ".mref"), fvecHttpUrl);
         CoreXVecDatasetViewMethods<?> httpFvecView = new CoreXVecDatasetViewMethods<>(
             httpFvecChannel, Files.size(fvecServerFile), null, "fvecs");
         assertEquals(Float.BYTES, httpFvecView.componentBytes());
@@ -232,10 +231,10 @@ public class CoreXVecDatasetViewMethodsTest {
         }
         System.out.println();
 
-        // Use a file:// URL so the MerklePaneSetup treats this as local-only
+        // Use a file:// URL for local file access
         String fileUrl = bvecFile.toUri().toString();
         System.out.println("[DEBUG_LOG] File URL: " + fileUrl);
-        MerkleAsyncFileChannel channel = new MerkleAsyncFileChannel(bvecFile, fileUrl, new NoOpDownloadEventSink(), true);
+        MAFileChannel channel = MAFileChannel.create(bvecFile, bvecFile.resolveSibling(bvecFile.getFileName() + ".mref"), fileUrl);
 
         // Create the view
         CoreXVecDatasetViewMethods<byte[]> view = new CoreXVecDatasetViewMethods<>(
@@ -277,28 +276,22 @@ public class CoreXVecDatasetViewMethodsTest {
     }
 
     /**
-     * Creates a merkle tree file for the given file using fromData and save methods.
+     * Creates a merkle reference file for the given file using MerkleRefFactory.
      *
      * @param filePath The path to the file
      * @throws IOException If there's an error creating the file
      */
     private void createEmptyMerkleTreeFile(Path filePath) throws IOException {
-        // Get the actual size of the file we're creating a merkle tree for
-        long fileSize = Files.size(filePath);
-        
-        // Create a buffer with the same size as the file
-        ByteBuffer fileData = ByteBuffer.allocate((int) fileSize);
-        
-        // Read the actual file data
-        byte[] actualData = Files.readAllBytes(filePath);
-        fileData.put(actualData);
-        fileData.flip();
-
-        // Create a merkle tree from the actual file data
-        MerkleTree tree = MerkleTree.fromData(fileData);
-
-        // Save the tree to the file
-        Path merklePath = filePath.resolveSibling(filePath.getFileName().toString() + ".mrkl");
-        tree.save(merklePath);
+        try {
+            // Create merkle reference tree from data
+            var progress = MerkleRefFactory.fromData(filePath);
+            var merkleRef = progress.getFuture().get();
+            
+            // Save as .mref file
+            Path merklePath = filePath.resolveSibling(filePath.getFileName().toString() + ".mref");
+            merkleRef.save(merklePath);
+        } catch (Exception e) {
+            throw new IOException("Failed to create merkle reference file", e);
+        }
     }
 }

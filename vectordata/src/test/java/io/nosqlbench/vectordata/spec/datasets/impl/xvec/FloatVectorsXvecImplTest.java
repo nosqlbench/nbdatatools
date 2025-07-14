@@ -18,9 +18,7 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
-import io.nosqlbench.vectordata.merkle.MerkleAsyncFileChannel;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
+import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -97,18 +95,17 @@ public class FloatVectorsXvecImplTest {
      * @throws IOException If there's an error creating the merkle tree
      */
     private void createMerkleTreeFile(Path filePath) throws IOException {
-        long fileSize = Files.size(filePath);
-        
-        // Create a buffer with the file data
-        ByteBuffer fileData = ByteBuffer.allocate((int) fileSize);
-        byte[] actualData = Files.readAllBytes(filePath);
-        fileData.put(actualData);
-        fileData.flip();
-
-        // Create merkle tree and save it
-        MerkleTree tree = MerkleTree.fromData(fileData);
-        Path merklePath = filePath.resolveSibling(filePath.getFileName().toString() + ".mrkl");
-        tree.save(merklePath);
+        try {
+            // Create merkle reference tree from data
+            var progress = io.nosqlbench.vectordata.merklev2.MerkleRefFactory.fromData(filePath);
+            var merkleRef = progress.getFuture().get();
+            
+            // Save as .mref file
+            Path merklePath = filePath.resolveSibling(filePath.getFileName().toString() + ".mref");
+            merkleRef.save(merklePath);
+        } catch (Exception e) {
+            throw new IOException("Failed to create merkle tree file", e);
+        }
     }
 
     @Test
@@ -126,8 +123,8 @@ public class FloatVectorsXvecImplTest {
         createMerkleTreeFile(fvecFile);
         
         // Test with local file URL
-        MerkleAsyncFileChannel channel = new MerkleAsyncFileChannel(
-            fvecFile, fvecFile.toUri().toString(), new NoOpDownloadEventSink(), true);
+        MAFileChannel channel = MAFileChannel.create(
+            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");
@@ -184,8 +181,8 @@ public class FloatVectorsXvecImplTest {
         createMerkleTreeFile(fvecFile);
         
         // Test with local file URL
-        MerkleAsyncFileChannel channel = new MerkleAsyncFileChannel(
-            fvecFile, fvecFile.toUri().toString(), new NoOpDownloadEventSink(), true);
+        MAFileChannel channel = MAFileChannel.create(
+            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");
@@ -230,8 +227,8 @@ public class FloatVectorsXvecImplTest {
         createMerkleTreeFile(fvecFile);
         
         // Test with local file URL
-        MerkleAsyncFileChannel channel = new MerkleAsyncFileChannel(
-            fvecFile, fvecFile.toUri().toString(), new NoOpDownloadEventSink(), true);
+        MAFileChannel channel = MAFileChannel.create(
+            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");
@@ -280,8 +277,8 @@ public class FloatVectorsXvecImplTest {
         createMerkleTreeFile(localFile);
         
         // Copy merkle tree to server
-        Path localMerkle = localFile.resolveSibling(localFile.getFileName() + ".mrkl");
-        Path serverMerkle = serverFile.resolveSibling(serverFile.getFileName() + ".mrkl");
+        Path localMerkle = localFile.resolveSibling(localFile.getFileName() + ".mref");
+        Path serverMerkle = serverFile.resolveSibling(serverFile.getFileName() + ".mref");
         Files.copy(localMerkle, serverMerkle);
         
         // Test with HTTP URL
@@ -290,8 +287,8 @@ public class FloatVectorsXvecImplTest {
         
         System.out.println("[DEBUG_LOG] Testing FloatVectorsXvecImpl with HTTP URL: " + httpUrl);
         
-        MerkleAsyncFileChannel channel = new MerkleAsyncFileChannel(
-            localFile, httpUrl, new NoOpDownloadEventSink(), false);
+        MAFileChannel channel = MAFileChannel.create(
+            localFile, localFile.resolveSibling(localFile.getFileName() + ".mref"), httpUrl);
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(serverFile), null, "fvecs");
@@ -333,8 +330,8 @@ public class FloatVectorsXvecImplTest {
         createMerkleTreeFile(fvecFile);
         
         // Test with local file URL
-        MerkleAsyncFileChannel channel = new MerkleAsyncFileChannel(
-            fvecFile, fvecFile.toUri().toString(), new NoOpDownloadEventSink(), true);
+        MAFileChannel channel = MAFileChannel.create(
+            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");
@@ -382,8 +379,8 @@ public class FloatVectorsXvecImplTest {
         createMerkleTreeFile(fvecFile);
         
         // Test with local file URL
-        MerkleAsyncFileChannel channel = new MerkleAsyncFileChannel(
-            fvecFile, fvecFile.toUri().toString(), new NoOpDownloadEventSink(), true);
+        MAFileChannel channel = MAFileChannel.create(
+            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");

@@ -20,7 +20,8 @@ package io.nosqlbench.command.merkle.subcommands;
 import io.nosqlbench.command.merkle.MerkleUtils;
 import io.nosqlbench.nbdatatools.api.types.bitimage.Glyphs;
 import io.nosqlbench.vectordata.merkle.MerkleFooter;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -193,7 +194,7 @@ public class CMD_merkle_summary implements Callable<Integer> {
     /// @throws IOException If there's an error reading the file
     private void displayMerkleFileSummary(Path merklePath) throws IOException {
         // Load the Merkle tree from the file
-        MerkleTree merkleTree = MerkleTree.load(merklePath);
+        MerkleDataImpl merkleRef = MerkleRefFactory.load(merklePath);
 
         // Get the file size
         long fileSize = Files.size(merklePath);
@@ -215,30 +216,18 @@ public class CMD_merkle_summary implements Callable<Integer> {
         long contentFileSize = Files.exists(contentFilePath) ? Files.size(contentFilePath) : 0;
 
         // Get the number of chunks
-        int numberOfChunks = merkleTree.getNumberOfLeaves();
+        int numberOfChunks = merkleRef.getShape().getLeafCount();
 
         // Count valid and total nodes
         int totalLeafNodes = numberOfChunks;
         int totalParentNodes;
 
-        // Extract capLeaf value from the toString() output
-        if (merkleTree.toString().contains("capLeaf=")) {
-            String capLeafStr = merkleTree.toString().split("capLeaf=")[1].split(",")[0];
-            // Remove any non-numeric characters
-            capLeafStr = capLeafStr.replaceAll("[^0-9]", "");
-            totalParentNodes = Integer.parseInt(capLeafStr) - 1;
-        } else {
-            totalParentNodes = (int) Math.pow(2, Math.ceil(Math.log(numberOfChunks) / Math.log(2))) - 1;
-        }
+        // Get total parent nodes from the shape
+        totalParentNodes = merkleRef.getShape().getInternalNodeCount();
         int totalAllNodes = totalLeafNodes + totalParentNodes;
 
-        // Count valid leaf nodes
-        int validLeafNodes = 0;
-        for (int i = 0; i < totalLeafNodes; i++) {
-            if (merkleTree.isLeafValid(i)) {
-                validLeafNodes++;
-            }
-        }
+        // For reference trees, all leaves are considered valid
+        int validLeafNodes = totalLeafNodes;
 
         // For parent nodes, we can't directly check if they're valid
         // We'll estimate based on the tree structure
@@ -254,13 +243,9 @@ public class CMD_merkle_summary implements Callable<Integer> {
 
         int validAllNodes = validLeafNodes + validParentNodes;
 
-        // Create a BitSet to represent the leaf node status
+        // For reference trees, all leaf nodes are valid
         BitSet leafStatus = new BitSet(totalLeafNodes);
-        for (int i = 0; i < totalLeafNodes; i++) {
-            if (merkleTree.isLeafValid(i)) {
-                leafStatus.set(i);
-            }
-        }
+        leafStatus.set(0, totalLeafNodes);
 
         // Generate the braille-formatted image
         String brailleImage = Glyphs.braille(leafStatus);
@@ -281,8 +266,8 @@ public class CMD_merkle_summary implements Callable<Integer> {
 
         summary.append(String.format("Number of Chunks: %d\n\n", numberOfChunks));
 
-        // Append the Merkle tree's toString output
-        summary.append(merkleTree.toString()).append("\n");
+        // Append the Merkle shape information
+        summary.append(String.format("Shape: %s\n", merkleRef.getShape().toString()));
 
         // Add node count information
         summary.append("Node Counts:\n");
@@ -323,5 +308,8 @@ public class CMD_merkle_summary implements Callable<Integer> {
 
         // Print the complete summary
         System.out.println(summary);
+        
+        // Close the merkle reference
+        merkleRef.close();
     }
 }

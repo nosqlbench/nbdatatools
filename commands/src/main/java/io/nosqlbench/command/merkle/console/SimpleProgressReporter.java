@@ -17,7 +17,7 @@ package io.nosqlbench.command.merkle.console;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleBuildProgress;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -70,7 +70,7 @@ public class SimpleProgressReporter implements AutoCloseable {
      * 
      * @param progress The progress object to monitor
      */
-    public void startReporting(MerkleTreeBuildProgress progress) {
+    public void startReporting(MerkleBuildProgress<?> progress) {
         if (reportingThread != null) {
             return; // Already started
         }
@@ -111,7 +111,7 @@ public class SimpleProgressReporter implements AutoCloseable {
      * 
      * @param progress The progress object to report on
      */
-    private void reportProgress(MerkleTreeBuildProgress progress) {
+    private void reportProgress(MerkleBuildProgress<?> progress) {
         int processedChunks = progress.getProcessedChunks();
         int totalChunks = progress.getTotalChunks();
         long totalBytes = progress.getTotalBytes();
@@ -150,7 +150,7 @@ public class SimpleProgressReporter implements AutoCloseable {
     
     /// Reports the final progress when processing is complete.
     /// @param progress The progress object to report on
-    private void reportFinalProgress(MerkleTreeBuildProgress progress) {
+    private void reportFinalProgress(MerkleBuildProgress<?> progress) {
         long elapsedTime = System.currentTimeMillis() - startTime;
         double elapsedSeconds = elapsedTime / 1000.0;
         

@@ -17,7 +17,8 @@ package io.nosqlbench.command.merkle.subcommands;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine.Command;
@@ -149,11 +150,11 @@ public class CMD_merkle_treeview implements Callable<Integer> {
                 return false;
             }
 
-            // Load the MerkleTree from the file
-            MerkleTree merkleTree = MerkleTree.load(merklePath);
+            // Load the MerkleRef from the file
+            MerkleDataImpl merkleRef = MerkleRefFactory.load(merklePath);
 
             // Get the total number of leaves
-            int leafCount = merkleTree.getNumberOfLeaves();
+            int leafCount = merkleRef.getNumberOfLeaves();
             int totalNodes = 2 * leafCount - 1;
 
             // Validate the base node
@@ -177,7 +178,7 @@ public class CMD_merkle_treeview implements Callable<Integer> {
                 }
 
                 // Check if the selected base node and highlight nodes are part of the same tree branch
-                int rangeSubtreeBase = findSubtreeBase(merkleTree, startNode, endNode);
+                int rangeSubtreeBase = findSubtreeBase(merkleRef, startNode, endNode);
 
                 // Check if the selected base is an ancestor of the range subtree base
                 boolean isAncestor = isAncestor(baseNode, rangeSubtreeBase);
@@ -196,7 +197,7 @@ public class CMD_merkle_treeview implements Callable<Integer> {
             }
 
             // Render the tree
-            renderTree(merkleTree, baseNode, startNode, endNode, hashLength, maxWidth);
+            renderTree(merkleRef, baseNode, startNode, endNode, hashLength, maxWidth);
 
             return true;
         } catch (Exception e) {
@@ -281,13 +282,13 @@ public class CMD_merkle_treeview implements Callable<Integer> {
      * @param endNode    The end of the range (inclusive), or -1 if no range
      * @return The index of the subtree base
      */
-    private int findSubtreeBase(MerkleTree merkleTree, int startNode, int endNode) {
+    private int findSubtreeBase(MerkleDataImpl merkleRef, int startNode, int endNode) {
         // If no range is specified, return the base of the entire tree
         if (startNode < 0 || endNode < 0) {
             return 0;
         }
 
-        int leafCount = merkleTree.getNumberOfLeaves();
+        int leafCount = merkleRef.getNumberOfLeaves();
 
         // Calculate the lowest common ancestor of startNode and endNode
         // First, convert leaf indices to their positions in the complete binary tree
@@ -317,8 +318,8 @@ public class CMD_merkle_treeview implements Callable<Integer> {
      * @param hashLength The number of bytes of hash to display
      * @param maxWidth   The maximum number of nodes to display at the finest level
      */
-    private void renderTree(MerkleTree merkleTree, int baseIndex, int startNode, int endNode, int hashLength, int maxWidth) {
-        int leafCount = merkleTree.getNumberOfLeaves();
+    private void renderTree(MerkleDataImpl merkleRef, int baseIndex, int startNode, int endNode, int hashLength, int maxWidth) {
+        int leafCount = merkleRef.getNumberOfLeaves();
         int totalNodes = 2 * leafCount - 1;
 
         // Create a map to store the tree structure
@@ -350,7 +351,7 @@ public class CMD_merkle_treeview implements Callable<Integer> {
         System.out.println();
 
         // Render the tree recursively
-        renderNode(merkleTree, baseIndex, treeMap, "", "", startNode, endNode, hashLength, leafCount, maxWidth, 0);
+        renderNode(merkleRef, baseIndex, treeMap, "", "", startNode, endNode, hashLength, leafCount, maxWidth, 0);
     }
 
     /**
@@ -389,11 +390,11 @@ public class CMD_merkle_treeview implements Callable<Integer> {
      * @param maxWidth     The maximum number of nodes to display at the finest level
      * @param currentDepth The current depth in the tree (0 for base)
      */
-    private void renderNode(MerkleTree merkleTree, int nodeIndex, Map<Integer, List<Integer>> treeMap,
+    private void renderNode(MerkleDataImpl merkleRef, int nodeIndex, Map<Integer, List<Integer>> treeMap,
                            String prefix, String childPrefix, int startNode, int endNode, 
                            int hashLength, int leafCount, int maxWidth, int currentDepth) {
         // Get the hash for this node
-        byte[] hash = merkleTree.getHash(nodeIndex);
+        byte[] hash = merkleRef.getHash(nodeIndex);
 
         // Determine if this is a leaf node
         boolean isLeaf = nodeIndex >= leafCount - 1;
@@ -451,7 +452,7 @@ public class CMD_merkle_treeview implements Callable<Integer> {
                     boolean isLast = (i == maxWidth - 1);
                     String newPrefix = childPrefix + (isLast ? "└── " : "├── ");
                     String newChildPrefix = childPrefix + (isLast ? "    " : "│   ");
-                    renderNode(merkleTree, children.get(i), treeMap, newPrefix, newChildPrefix, 
+                    renderNode(merkleRef, children.get(i), treeMap, newPrefix, newChildPrefix, 
                               startNode, endNode, hashLength, leafCount, maxWidth, currentDepth + 1);
                 }
 
@@ -466,7 +467,7 @@ public class CMD_merkle_treeview implements Callable<Integer> {
                     boolean isLast = (i == children.size() - 1);
                     String newPrefix = childPrefix + (isLast ? "└── " : "├── ");
                     String newChildPrefix = childPrefix + (isLast ? "    " : "│   ");
-                    renderNode(merkleTree, children.get(i), treeMap, newPrefix, newChildPrefix, 
+                    renderNode(merkleRef, children.get(i), treeMap, newPrefix, newChildPrefix, 
                               startNode, endNode, hashLength, leafCount, maxWidth, currentDepth + 1);
                 }
             }

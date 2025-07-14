@@ -208,19 +208,12 @@
 /// * A separate method to check whether a range of requested chunks is already valid should be
 /// created, and used as an early-exit check for both synchronous and asynchronous paint methods.
 ///
-/// ## Merkle Pane Setup
+/// ## Merkle File Setup
 ///
-/// * When MerklePane is setup the primary logic should be kept in MerklePaneSetup class to
-/// centralize and simplify this logic.
-/// * It should be invalid to try to create a MerklePane without a remote content URL.
-///   * When a MerklePane setup is initializing for a local file which does not exist, the first
-///   call to the remote file should simply be a presence check to determine whether there is
-///   actually an accessible resource. The same check should be done for the remote mrkl file.
-///   * If either the remote content file or the remote merkle file is not accessible, then an
-///   error should be thrown and merkle pane setup should be aborted.
-/// * If the protocol scheme for the remote content URL is "file", then an error should be
-/// thrown explaining to the user that remote merkle file for local content is not allowed to avoid
-/// duplication of data on disk.
+/// * The merklev2 package provides the current implementation for merkle tree functionality.
+/// * Remote content access should be handled through the MAFileChannel implementation.
+/// * If the protocol scheme for the remote content URL is "file", local file access should be
+/// optimized to avoid duplication of data on disk.
 ///
 /// ## Auto-Buffering Behavior
 ///
