@@ -18,7 +18,8 @@ package io.nosqlbench.command.merkle.subcommands;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -64,9 +66,8 @@ public class SummaryCommandTest {
         // Create a merkle tree file for the test file
         merkleFile = createMerkleFile(testFile);
 
-        // Create a reference file by copying the merkle file
-        refFile = testFile.resolveSibling(testFile.getFileName() + ".mref");
-        Files.copy(merkleFile, refFile);
+        // The merkle file is now already a .mref file, so we can use it directly
+        refFile = merkleFile;
     }
 
     @AfterEach
@@ -102,20 +103,20 @@ public class SummaryCommandTest {
      * @throws IOException If an I/O error occurs
      */
     private Path createMerkleFile(Path filePath) throws IOException {
-        // Read the file into a ByteBuffer
-        long fileSize = Files.size(filePath);
-        ByteBuffer fileData = ByteBuffer.allocate((int)fileSize);
-        Files.newByteChannel(filePath).read(fileData);
-        fileData.flip();
+        try {
+            // Create a MerkleDataImpl from the file data using merklev2 factory
+            MerkleDataImpl merkleRef = MerkleRefFactory.fromDataSimple(filePath).get();
 
-        // Create a MerkleTree from the file data
-        MerkleTree merkleTree = MerkleTree.fromData(fileData);
+            // Save the MerkleRef to a .mref file (since we're creating reference trees)
+            Path merklePath = filePath.resolveSibling(filePath.getFileName() + ".mref");
+            
+            // Save using the implementation method
+            merkleRef.save(merklePath);
 
-        // Save the MerkleTree to a file
-        Path merklePath = filePath.resolveSibling(filePath.getFileName() + ".mrkl");
-        merkleTree.save(merklePath);
-
-        return merklePath;
+            return merklePath;
+        } catch (InterruptedException | ExecutionException e) {
+            throw new IOException("Failed to create merkle file for " + filePath, e);
+        }
     }
 
     @Test
@@ -207,7 +208,7 @@ public class SummaryCommandTest {
         // The displayMerkleFileSummary method uses System.out.println
         String output = outContent.toString();
         assertFalse(output.isEmpty(), "Summary output should not be empty");
-        assertTrue(output.contains("MERKLE TREE FILE SUMMARY"), "Summary should contain the header");
+        assertTrue(output.contains("MERKLE REFERENCE FILE SUMMARY"), "Summary should contain the header");
     }
 
     @Test

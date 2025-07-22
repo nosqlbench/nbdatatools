@@ -20,7 +20,9 @@ package io.nosqlbench.command.merkle;
 
 import io.nosqlbench.common.types.VectorFileExtension;
 import io.nosqlbench.vectordata.merkle.MerkleFooter;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -249,14 +251,15 @@ public class MerkleUtils {
                 }
                 logger.info("[DEBUG_LOG] Tree data size: {}", treeDataSize);
 
-                // Check if data size is a multiple of hash size
-                if (treeDataSize % MerkleTree.HASH_SIZE != 0) {
+                // Check if data size is a multiple of hash size (32 bytes for SHA-256)
+                final int HASH_SIZE = 32; // SHA-256 hash size
+                if (treeDataSize % HASH_SIZE != 0) {
                     logger.info("[DEBUG_LOG] Tree data size is not a multiple of hash size: {}", merklePath);
                     return false;
                 }
 
                 // Calculate the number of hashes in the file
-                int hashCount = (int) (treeDataSize / MerkleTree.HASH_SIZE);
+                int hashCount = (int) (treeDataSize / HASH_SIZE);
                 int leafCount = (int) Math.ceil((double) footer.totalSize() / footer.chunkSize());
                 logger.info("[DEBUG_LOG] Hash count: {}, Leaf count: {}", hashCount, leafCount);
 
@@ -366,28 +369,28 @@ public class MerkleUtils {
         return bar.toString();
     }
 
-    /// Saves a Merkle tree to a file using the current MerkleTree implementation.
+    /// Saves a Merkle reference to a file using the current merklev2 implementation.
     ///
     /// @param file The source file path
-    /// @param merkleTree The MerkleTree to save
     /// @throws IOException If there's an error writing to the file
-    public static void saveMerkleTree(Path file, MerkleTree merkleTree) throws IOException {
-        Path merkleFile = file.resolveSibling(file.getFileName() + MRKL);
+    public static void saveMerkleRef(Path file) throws IOException {
+        Path merkleFile = file.resolveSibling(file.getFileName() + MREF);
         try {
-            merkleTree.save(merkleFile);
-            logger.info("Saved Merkle tree to {}", merkleFile);
-        } catch (IOException e) {
-            // If the exception is due to corruption, the file has been renamed
-            // and we should recreate it from scratch
-            if (e.getMessage() != null && e.getMessage().contains("Merkle tree digest verification failed")) {
-                logger.warn("Detected corruption in Merkle file. Recreating from scratch.");
-                // The corrupted file has already been renamed by MerkleTree.save()
-                // Just save the tree again to create a new file
-                merkleTree.save(merkleFile);
-                logger.info("Recreated Merkle tree at {}", merkleFile);
+            // Create merkle tree with progress tracking
+            MerkleRefBuildProgress progress = MerkleRefFactory.fromData(file);
+            
+            // Wait for completion and get the result
+            MerkleDataImpl merkleData = progress.getFuture().get();
+            
+            // Save to .mref file
+            merkleData.save(merkleFile);
+            logger.info("Saved Merkle reference to {}", merkleFile);
+        } catch (Exception e) {
+            logger.error("Error saving Merkle reference for file: {}", file, e);
+            if (e instanceof IOException) {
+                throw (IOException) e;
             } else {
-                // For other types of IO exceptions, propagate them
-                throw e;
+                throw new IOException("Error creating merkle reference", e);
             }
         }
     }

@@ -20,7 +20,8 @@ package io.nosqlbench.vectordata.cli;
 
 import io.nosqlbench.vectordata.merklev2.MerkleData;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
-import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,7 +36,7 @@ import java.util.concurrent.CompletableFuture;
  * Usage: java -cp ... io.nosqlbench.vectordata.cli.MerkleTreeCLI &lt;command&gt; &lt;file_path&gt;
  * 
  * Commands:
- * - create &lt;data_file&gt;   - Create a .mrkl file for the given data file
+ * - create &lt;data_file&gt;   - Create a .mref file for the given data file
  * - verify &lt;data_file&gt;   - Verify the merkle tree for the given data file
  * - info &lt;merkle_file&gt;   - Show information about the merkle tree file
  */
@@ -91,7 +92,7 @@ public class MerkleTreeCLI {
             throw new IllegalArgumentException("Data file not found: " + dataFilePath);
         }
 
-        Path merklePath = Path.of(dataFilePath + ".mrkl");
+        Path merklePath = Path.of(dataFilePath + ".mref");
 
         System.out.println("Creating merkle tree for: " + dataPath);
         System.out.println("Output file: " + merklePath);
@@ -102,12 +103,12 @@ public class MerkleTreeCLI {
             System.out.println("Removed existing merkle file");
         }
 
-        // Create merkle reference from data
-        CompletableFuture<MerkleDataImpl> refFuture = MerkleDataImpl.fromData(dataPath);
-        MerkleDataImpl ref = refFuture.get();
+        // Create merkle reference from data with progress tracking
+        MerkleRefBuildProgress progress = MerkleRefFactory.fromData(dataPath);
+        MerkleDataImpl ref = progress.getFuture().get();
 
-        // Create merkle data from reference
-        MerkleDataImpl data = MerkleDataImpl.createFromRef(ref, merklePath);
+        // Save the merkle reference to file
+        ref.save(merklePath);
 
         long fileSize = Files.size(dataPath);
         long merkleSize = Files.size(merklePath);
@@ -120,14 +121,13 @@ public class MerkleTreeCLI {
         System.out.println("Chunk count: " + chunkCount);
         System.out.println("Chunk size: " + chunkSize + " bytes");
 
-        // Close the ref and data
+        // Close the ref
         ref.close();
-        data.close();
     }
 
     private static void verifyMerkleTree(String dataFilePath) throws Exception {
         Path dataPath = Path.of(dataFilePath);
-        Path merklePath = Path.of(dataFilePath + ".mrkl");
+        Path merklePath = Path.of(dataFilePath + ".mref");
 
         if (!Files.exists(dataPath)) {
             throw new IllegalArgumentException("Data file not found: " + dataFilePath);
@@ -140,11 +140,11 @@ public class MerkleTreeCLI {
         System.out.println("Verifying merkle tree for: " + dataPath);
 
         // Load existing merkle data
-        MerkleData existingData = MerkleDataImpl.load(merklePath);
+        MerkleData existingData = MerkleRefFactory.load(merklePath);
 
         // Create new merkle reference from data
-        CompletableFuture<MerkleDataImpl> refFuture = MerkleDataImpl.fromData(dataPath);
-        MerkleDataImpl newRef = refFuture.get();
+        MerkleRefBuildProgress progress = MerkleRefFactory.fromData(dataPath);
+        MerkleDataImpl newRef = progress.getFuture().get();
 
         // Compare basic properties
         boolean valid = true;
@@ -196,7 +196,7 @@ public class MerkleTreeCLI {
 
         System.out.println("Merkle tree information for: " + merklePath);
 
-        MerkleData data = MerkleDataImpl.load(merklePath);
+        MerkleData data = MerkleRefFactory.load(merklePath);
 
         System.out.println("File size: " + Files.size(merklePath) + " bytes");
         System.out.println("Total content size: " + data.getShape().getTotalContentSize() + " bytes");
@@ -215,13 +215,13 @@ public class MerkleTreeCLI {
         System.out.println("Usage: java -cp ... io.nosqlbench.vectordata.cli.MerkleTreeCLI <command> <file_path>");
         System.out.println();
         System.out.println("Commands:");
-        System.out.println("  create <data_file>   - Create a .mrkl file for the given data file");
+        System.out.println("  create <data_file>   - Create a .mref file for the given data file");
         System.out.println("  verify <data_file>   - Verify the merkle tree for the given data file");  
         System.out.println("  info <merkle_file>   - Show information about the merkle tree file");
         System.out.println();
         System.out.println("Examples:");
         System.out.println("  java -cp ... io.nosqlbench.vectordata.cli.MerkleTreeCLI create data.bin");
         System.out.println("  java -cp ... io.nosqlbench.vectordata.cli.MerkleTreeCLI verify data.bin");
-        System.out.println("  java -cp ... io.nosqlbench.vectordata.cli.MerkleTreeCLI info data.bin.mrkl");
+        System.out.println("  java -cp ... io.nosqlbench.vectordata.cli.MerkleTreeCLI info data.bin.mref");
     }
 }

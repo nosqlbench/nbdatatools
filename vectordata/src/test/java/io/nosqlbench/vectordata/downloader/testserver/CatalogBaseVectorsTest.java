@@ -26,10 +26,13 @@ import io.nosqlbench.vectordata.downloader.DatasetEntry;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,14 +55,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class CatalogBaseVectorsTest {
 
     private TestDataSources sources;
+    
+    @TempDir
+    private Path tempDir;
 
     @BeforeEach
-    public void setUp() throws IOException {
+    public void setUp(TestInfo testInfo) throws IOException {
         // Use the test web server URL
         URL baseUrl = JettyFileServerExtension.getBaseUrl();
 
+        // Create a test-specific cache directory to avoid conflicts between tests
+        String testName = "CBVT_" + testInfo.getTestMethod().get().getName() + "_" + System.currentTimeMillis();
+        Path testCacheDir = tempDir.resolve("cache_" + testName);
+
         // Create a TestDataSources instance with the web server URL
         sources = TestDataSources.ofUrl(baseUrl.toString());
+        
+        // Configure test-specific cache directory for all ProfileSelectors
+        sources.catalog().datasets().forEach(dataset -> {
+            dataset.select().setCacheDir(testCacheDir.toString());
+        });
     }
 
     @Test

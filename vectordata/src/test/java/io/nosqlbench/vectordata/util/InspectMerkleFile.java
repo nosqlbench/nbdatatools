@@ -18,7 +18,8 @@ package io.nosqlbench.vectordata.util;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 
 import java.nio.file.Path;
 import java.util.HexFormat;
@@ -39,18 +40,18 @@ public class InspectMerkleFile {
         
         System.out.println("Loading merkle file: " + merklePath);
         
-        MerkleTree tree = MerkleTree.load(merklePath);
+        MerkleDataImpl tree = MerkleRefFactory.load(merklePath);
         
         try {
-            System.out.println("Total size: " + tree.totalSize() + " bytes");
-            System.out.println("Chunk count: " + tree.getNumberOfLeaves());
-            System.out.println("Chunk size: " + tree.getChunkSize() + " bytes");
+            System.out.println("Total size: " + tree.getShape().getTotalContentSize() + " bytes");
+            System.out.println("Chunk count: " + tree.getShape().getLeafCount());
+            System.out.println("Chunk size: " + tree.getShape().getChunkSize() + " bytes");
             System.out.println();
             
             if (chunkIndex >= 0) {
                 // Show specific chunk
-                if (chunkIndex >= tree.getNumberOfLeaves()) {
-                    System.err.println("Error: Chunk index " + chunkIndex + " is out of range (0-" + (tree.getNumberOfLeaves() - 1) + ")");
+                if (chunkIndex >= tree.getShape().getLeafCount()) {
+                    System.err.println("Error: Chunk index " + chunkIndex + " is out of range (0-" + (tree.getShape().getLeafCount() - 1) + ")");
                     System.exit(1);
                 }
                 
@@ -58,20 +59,20 @@ public class InspectMerkleFile {
                 String hexHash = HexFormat.of().formatHex(hash);
                 
                 System.out.println("Chunk " + chunkIndex + " hash: " + hexHash);
-                System.out.println("Chunk " + chunkIndex + " valid: " + tree.isLeafValid(chunkIndex));
+                System.out.println("Chunk " + chunkIndex + " valid: " + tree.isValid(chunkIndex));
             } else {
                 // Show first few chunks
-                int numToShow = Math.min(5, tree.getNumberOfLeaves());
+                int numToShow = Math.min(5, tree.getShape().getLeafCount());
                 System.out.println("First " + numToShow + " chunk hashes:");
                 
                 for (int i = 0; i < numToShow; i++) {
                     byte[] hash = tree.getHashForLeaf(i);
                     String hexHash = HexFormat.of().formatHex(hash);
-                    System.out.println("  Chunk " + i + ": " + hexHash + " (valid: " + tree.isLeafValid(i) + ")");
+                    System.out.println("  Chunk " + i + ": " + hexHash + " (valid: " + tree.isValid(i) + ")");
                 }
                 
-                if (tree.getNumberOfLeaves() > numToShow) {
-                    System.out.println("  ... (" + (tree.getNumberOfLeaves() - numToShow) + " more chunks)");
+                if (tree.getShape().getLeafCount() > numToShow) {
+                    System.out.println("  ... (" + (tree.getShape().getLeafCount() - numToShow) + " more chunks)");
                 }
             }
         } finally {

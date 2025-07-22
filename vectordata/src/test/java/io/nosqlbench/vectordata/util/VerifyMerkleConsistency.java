@@ -18,8 +18,9 @@ package io.nosqlbench.vectordata.util;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 
 import java.nio.file.Path;
 import java.util.HexFormat;
@@ -36,32 +37,32 @@ public class VerifyMerkleConsistency {
         }
         
         Path dataPath = Path.of(args[0]);
-        Path merklePath = Path.of(args[0] + ".mrkl");
+        Path merklePath = Path.of(args[0] + ".mref");
         
         System.out.println("Verifying merkle consistency for: " + dataPath);
         System.out.println();
         
         // Load existing merkle tree
         System.out.println("Loading existing merkle tree from: " + merklePath);
-        MerkleTree existingTree = MerkleTree.load(merklePath);
+        MerkleDataImpl existingTree = MerkleRefFactory.load(merklePath);
         
         // Create new merkle tree from data
         System.out.println("Computing fresh merkle tree from data...");
-        MerkleTreeBuildProgress progress = MerkleTree.fromData(dataPath);
-        MerkleTree freshTree = progress.getFuture().get();
+        MerkleRefBuildProgress progress = MerkleRefFactory.fromData(dataPath);
+        MerkleDataImpl freshTree = progress.getFuture().get();
         
         try {
             // Compare properties
             System.out.println("\nTree properties:");
-            System.out.println("Chunk count: " + existingTree.getNumberOfLeaves());
-            System.out.println("Chunk size: " + existingTree.getChunkSize());
-            System.out.println("Total size: " + existingTree.totalSize());
+            System.out.println("Chunk count: " + existingTree.getShape().getLeafCount());
+            System.out.println("Chunk size: " + existingTree.getShape().getChunkSize());
+            System.out.println("Total size: " + existingTree.getShape().getTotalContentSize());
             
             // Compare chunk hashes
             System.out.println("\nComparing chunk hashes:");
             boolean allMatch = true;
             
-            for (int i = 0; i < existingTree.getNumberOfLeaves(); i++) {
+            for (int i = 0; i < existingTree.getShape().getLeafCount(); i++) {
                 byte[] existingHash = existingTree.getHashForLeaf(i);
                 byte[] freshHash = freshTree.getHashForLeaf(i);
                 
@@ -70,7 +71,7 @@ public class VerifyMerkleConsistency {
                 
                 boolean matches = java.util.Arrays.equals(existingHash, freshHash);
                 
-                if (!matches || i < 3 || i == existingTree.getNumberOfLeaves() - 1) {
+                if (!matches || i < 3 || i == existingTree.getShape().getLeafCount() - 1) {
                     System.out.println("Chunk " + i + ":");
                     System.out.println("  Stored hash: " + existingHex);
                     System.out.println("  Fresh hash:  " + freshHex);

@@ -17,8 +17,9 @@ package io.nosqlbench.command.merkle.subcommands;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.MerkleRange;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleRef;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -102,20 +104,20 @@ public class DiffCommandTest {
      * @throws IOException If an I/O error occurs
      */
     private Path createMerkleFile(Path filePath) throws IOException {
-        // Read the file into a ByteBuffer
-        long fileSize = Files.size(filePath);
-        ByteBuffer fileData = ByteBuffer.allocate((int)fileSize);
-        Files.newByteChannel(filePath).read(fileData);
-        fileData.flip();
+        try {
+            // Create a MerkleDataImpl from the file data using merklev2 factory
+            MerkleDataImpl merkleRef = MerkleRefFactory.fromDataSimple(filePath).get();
 
-        // Create a MerkleTree from the file data
-        MerkleTree merkleTree = MerkleTree.fromData(fileData);
+            // Save the MerkleRef to a .mref file (since we're creating reference trees)
+            Path merklePath = filePath.resolveSibling(filePath.getFileName() + ".mref");
+            
+            // Save using the implementation method
+            merkleRef.save(merklePath);
 
-        // Save the MerkleTree to a file
-        Path merklePath = filePath.resolveSibling(filePath.getFileName() + ".mrkl");
-        merkleTree.save(merklePath);
-
-        return merklePath;
+            return merklePath;
+        } catch (Exception e) {
+            throw new IOException("Failed to create merkle file for " + filePath, e);
+        }
     }
 
     @Test
@@ -160,7 +162,7 @@ public class DiffCommandTest {
         CMD_merkle_diff diffCommand = new CMD_merkle_diff();
 
         // Test with a non-existent file, including class name to avoid collisions
-        Path nonExistentFile = tempDir.resolve("DiffCommandTest_non_existent_file.txt");
+        Path nonExistentFile = tempDir.resolve("DiffCommandTest_non_existent_file.mref");
         boolean success = diffCommand.execute(merkleFile1, nonExistentFile);
 
         // Verify the command failed

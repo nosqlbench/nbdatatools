@@ -37,10 +37,12 @@ public class MerkleRefFactory {
      * Creates a MerkleRef from a data file with progress tracking.
      * This is the recommended method for creating merkle trees with progress monitoring.
      * 
+     * @deprecated Use {@link MerkleRef#fromData(Path)} instead
      * @param dataPath The path to the data file
      * @return A MerkleRefBuildProgress that tracks the building process
      * @throws IOException If an I/O error occurs
      */
+    @Deprecated
     public static MerkleRefBuildProgress fromData(Path dataPath) throws IOException {
         return MerkleDataImpl.fromDataWithProgress(dataPath);
     }
@@ -49,10 +51,12 @@ public class MerkleRefFactory {
      * Creates a MerkleRef from a data file without progress tracking.
      * This method is simpler but doesn't provide progress information.
      * 
+     * @deprecated Use {@link MerkleRef#fromDataSimple(Path)} instead
      * @param dataPath The path to the data file
      * @return A CompletableFuture that will complete with the MerkleDataImpl
      * @throws IOException If an I/O error occurs
      */
+    @Deprecated
     public static CompletableFuture<MerkleDataImpl> fromDataSimple(Path dataPath) throws IOException {
         return MerkleDataImpl.fromData(dataPath);
     }
@@ -60,9 +64,11 @@ public class MerkleRefFactory {
     /**
      * Creates a MerkleRef from a ByteBuffer without progress tracking.
      * 
+     * @deprecated Use {@link MerkleRef#fromData(ByteBuffer)} instead
      * @param data The data buffer
      * @return A CompletableFuture that will complete with the MerkleDataImpl
      */
+    @Deprecated
     public static CompletableFuture<MerkleDataImpl> fromData(ByteBuffer data) {
         return MerkleDataImpl.fromData(data);
     }
@@ -70,10 +76,12 @@ public class MerkleRefFactory {
     /**
      * Loads a MerkleRef from an existing .mref file.
      * 
+     * @deprecated Use {@link MerkleRef#load(Path)} for .mref files or {@link MerkleState#load(Path)} for .mrkl files
      * @param path The path to the .mref file
      * @return A loaded MerkleDataImpl
      * @throws IOException If an I/O error occurs during loading
      */
+    @Deprecated
     public static MerkleDataImpl load(Path path) throws IOException {
         if (!Files.exists(path)) {
             throw new IOException("File does not exist: " + path);
@@ -142,7 +150,7 @@ public class MerkleRefFactory {
             
             // Create a new MerkleDataImpl from the loaded hashes using the static factory method
             // We need to use the in-memory constructor since we have the hashes loaded
-            return MerkleDataImpl.createFromHashes(shape, hashes);
+            return MerkleDataImpl.createFromHashesAndBitSet(shape, hashes, validBits);
         }
     }
 
@@ -150,9 +158,11 @@ public class MerkleRefFactory {
      * Creates an empty MerkleRef for the given content size.
      * All hashes will be null/empty.
      * 
+     * @deprecated Use {@link MerkleRef#createEmpty(long)} instead
      * @param contentSize The total size of the content
      * @return An empty MerkleDataImpl
      */
+    @Deprecated
     public static MerkleDataImpl createEmpty(long contentSize) {
         return MerkleDataImpl.createEmpty(contentSize);
     }

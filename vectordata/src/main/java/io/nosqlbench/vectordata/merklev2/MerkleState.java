@@ -18,7 +18,9 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.BitSet;
 import java.util.function.Consumer;
 
@@ -72,4 +74,38 @@ public interface MerkleState extends AutoCloseable {
 
   /// Close the merkle state
   public void close();
+
+  /// Creates a MerkleRef from this MerkleState if all chunks have been validated.
+  /// This method checks that all chunks are marked as valid (validated and saved)
+  /// before creating the reference. If any chunks are still invalid, throws an exception.
+  ///
+  /// @return A MerkleRef interface view of this fully validated state
+  /// @throws IncompleteMerkleStateException If not all chunks have been validated
+  public MerkleRef toRef();
+
+  // Static factory methods for creating MerkleState instances
+
+  /// Creates a MerkleState from an existing MerkleRef.
+  /// This initializes a new state file with all chunks marked as invalid (not yet verified).
+  /// The state file is created and persisted before this method returns.
+  /// 
+  /// @param merkleRef The reference merkle tree to base the state on
+  /// @param statePath The path where the .mrkl state file will be created
+  /// @return A new MerkleState based on the reference tree
+  /// @throws IOException If an I/O error occurs during creation
+  static MerkleState fromRef(MerkleRef merkleRef, Path statePath) throws IOException {
+    return merkleRef.createEmptyState(statePath);
+  }
+
+  /// Loads an existing MerkleState from a .mrkl file.
+  /// This restores a previously saved state including validation progress.
+  /// 
+  /// @param statePath The path to the .mrkl state file
+  /// @return The loaded MerkleState with preserved validation state
+  /// @throws IOException If an I/O error occurs during loading
+  static MerkleState load(Path statePath) throws IOException {
+    // MerkleRefFactory.load returns MerkleDataImpl which implements both interfaces
+    // When loading a .mrkl file, we return it as MerkleState interface
+    return MerkleRefFactory.load(statePath);
+  }
 }

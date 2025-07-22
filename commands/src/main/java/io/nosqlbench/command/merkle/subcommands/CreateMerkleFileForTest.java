@@ -19,7 +19,9 @@ package io.nosqlbench.command.merkle.subcommands;
 
 
 import io.nosqlbench.vectordata.merkle.MerkleRange;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -29,7 +31,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
 public class CreateMerkleFileForTest {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         if (args.length < 1) {
             System.out.println("Usage: CreateMerkleFileForTest <file_path>");
             System.exit(1);
@@ -47,19 +49,16 @@ public class CreateMerkleFileForTest {
             fileData.flip();
         }
         
-        // Create a MerkleTree from the file data
-        MerkleTree merkleTree = MerkleTree.fromData(fileData);
+        // Create a MerkleData from the file data using merklev2
+        MerkleRefBuildProgress progress = MerkleRefFactory.fromData(filePath);
         
-        // Save the MerkleTree to a file
-        Path merklePath = filePath.resolveSibling(filePath.getFileName() + ".mrkl");
-        merkleTree.save(merklePath);
+        // Wait for completion and get the result
+        MerkleDataImpl merkleData = progress.getFuture().get();
         
-        System.out.println("Merkle tree file created at: " + merklePath);
+        // Save the MerkleData to a file
+        Path merklePath = filePath.resolveSibling(filePath.getFileName() + ".mref");
+        merkleData.save(merklePath);
         
-        // Create a reference file by copying the merkle file
-        Path refPath = filePath.resolveSibling(filePath.getFileName() + ".mref");
-        java.nio.file.Files.copy(merklePath, refPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        
-        System.out.println("Reference file created at: " + refPath);
+        System.out.println("Merkle reference file created at: " + merklePath);
     }
 }

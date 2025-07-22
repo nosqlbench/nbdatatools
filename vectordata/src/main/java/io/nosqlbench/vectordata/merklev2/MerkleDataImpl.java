@@ -341,6 +341,18 @@ public class MerkleDataImpl implements MerkleData {
     }
     
     /**
+     * Creates a MerkleDataImpl from pre-computed hashes and BitSet.
+     * 
+     * @param shape The merkle shape
+     * @param hashes The pre-computed hashes
+     * @param validChunks The BitSet indicating which chunks are valid
+     * @return A MerkleDataImpl with the given hashes and BitSet
+     */
+    public static MerkleDataImpl createFromHashesAndBitSet(MerkleShape shape, byte[][] hashes, BitSet validChunks) {
+        return new MerkleDataImpl(shape, hashes, validChunks);
+    }
+    
+    /**
      * Computes the internal nodes of the merkle tree.
      * 
      * @param hashes The array of hashes
@@ -385,10 +397,10 @@ public class MerkleDataImpl implements MerkleData {
         FileChannel channel = FileChannel.open(path, StandardOpenOption.READ, StandardOpenOption.WRITE);
 
         // Read footer to get shape information
-        MerkleShape shape = readShapeFromFooter(channel);
+        MerkleShape shape = readRefStateShapeFromFooter(channel);
 
         // Read valid chunks bitset
-        BitSet validChunks = readValidChunksFromFile(channel, shape);
+        BitSet validChunks = readStateValidChunksFromFile(channel, shape);
 
         return new MerkleDataImpl(shape, channel, validChunks);
     }
@@ -403,14 +415,14 @@ public class MerkleDataImpl implements MerkleData {
         MerkleShape shape = ref.getShape();
 
         // Copy all hashes from reference
-        copyHashesFromRef(channel, ref, shape);
+        copyHashesFromRefToState(channel, ref, shape);
 
         // Initialize bitset - all false (unverified)
         BitSet validChunks = new BitSet(shape.getLeafCount());
-        writeValidChunksToFile(channel, validChunks, shape);
+        writeStateValidChunksToFile(channel, validChunks, shape);
 
         // Write footer
-        writeShapeToFooter(channel, shape);
+        writeRefStateShapeToFooter(channel, shape);
 
         return new MerkleDataImpl(shape, channel, validChunks);
     }
@@ -433,6 +445,23 @@ public class MerkleDataImpl implements MerkleData {
         this.shape = shape;
         this.channel = null;
         this.validChunks = new BitSet(shape.getLeafCount());
+        // For in-memory trees created from data, all chunks are valid
+        this.validChunks.set(0, shape.getLeafCount());
+        this.hashes = hashes;
+        this.isFileChannel = false;
+    }
+    
+    /**
+     * Creates a new MerkleDataImpl with the given shape, hashes, and BitSet (in-memory).
+     * 
+     * @param shape The merkle shape
+     * @param hashes The array of hashes
+     * @param validChunks The BitSet indicating which chunks are valid
+     */
+    private MerkleDataImpl(MerkleShape shape, byte[][] hashes, BitSet validChunks) {
+        this.shape = shape;
+        this.channel = null;
+        this.validChunks = validChunks;
         this.hashes = hashes;
         this.isFileChannel = false;
     }
@@ -537,7 +566,7 @@ public class MerkleDataImpl implements MerkleData {
 
             // Persist valid chunks to file (only for file-based implementations)
             if (isFileChannel) {
-                writeValidChunksToFile(channel, validChunks, shape);
+                writeStateValidChunksToFile(channel, validChunks, shape);
                 // Force to disk
                 flush();
             }
@@ -655,8 +684,32 @@ public class MerkleDataImpl implements MerkleData {
         }
     }
 
+    @Override
+    public MerkleRef toRef() {
+        lock.readLock().lock();
+        try {
+            if (closed) {
+                throw new IllegalStateException("MerkleState is closed");
+            }
+            
+            // Check if all chunks are validated
+            int totalChunks = shape.getLeafCount();
+            int validCount = validChunks.cardinality();
+            
+            if (validCount != totalChunks) {
+                throw new IncompleteMerkleStateException(validCount, totalChunks);
+            }
+            
+            // All chunks are validated - return this instance as MerkleRef interface
+            return this;
+            
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
     // Helper methods for file I/O
-    private static void copyHashesFromRef(FileChannel channel, MerkleRef ref, MerkleShape shape) throws IOException {
+    private static void copyHashesFromRefToState(FileChannel channel, MerkleRef ref, MerkleShape shape) throws IOException {
         // Copy all node hashes
         for (int i = 0; i < shape.getNodeCount(); i++) {
             byte[] hash = ref.getHashForIndex(i);
@@ -668,7 +721,7 @@ public class MerkleDataImpl implements MerkleData {
         }
     }
 
-    private static void writeValidChunksToFile(FileChannel channel, BitSet validChunks, MerkleShape shape) throws IOException {
+    private static void writeStateValidChunksToFile(FileChannel channel, BitSet validChunks, MerkleShape shape) throws IOException {
         long bitsetPosition = (long) shape.getNodeCount() * HASH_SIZE;
 
         // Convert BitSet to byte array
@@ -683,7 +736,7 @@ public class MerkleDataImpl implements MerkleData {
         channel.write(bitsetBuffer, bitsetPosition);
     }
 
-    private static BitSet readValidChunksFromFile(FileChannel channel, MerkleShape shape) throws IOException {
+    private static BitSet readStateValidChunksFromFile(FileChannel channel, MerkleShape shape) throws IOException {
         long bitsetPosition = (long) shape.getNodeCount() * HASH_SIZE;
         int requiredBytes = (shape.getLeafCount() + 7) / 8;
 
@@ -693,7 +746,7 @@ public class MerkleDataImpl implements MerkleData {
         return BitSet.valueOf(bitsetBuffer.array());
     }
 
-    private static void writeShapeToFooter(FileChannel channel, MerkleShape shape) throws IOException {
+    private static void writeRefStateShapeToFooter(FileChannel channel, MerkleShape shape) throws IOException {
         // Use Merklev2Footer to serialize shape parameters to footer
         long footerPosition = (long) shape.getNodeCount() * HASH_SIZE + ((shape.getLeafCount() + 7) / 8);
 
@@ -701,7 +754,7 @@ public class MerkleDataImpl implements MerkleData {
         footer.writeToChannel(channel, footerPosition);
     }
 
-    private static MerkleShape readShapeFromFooter(FileChannel channel) throws IOException {
+    private static MerkleShape readRefStateShapeFromFooter(FileChannel channel) throws IOException {
         // Read footer from end
         long fileSize = channel.size();
         long footerPosition = fileSize - Merklev2Footer.FIXED_FOOTER_SIZE;
@@ -725,9 +778,9 @@ public class MerkleDataImpl implements MerkleData {
         }
         
         // Create a BitSet with all bits set to true for in-memory trees, or use validChunks for file-based
-        BitSet bitsToSave = isFileChannel ? (BitSet) validChunks.clone() : new BitSet(shape.getNodeCount());
+        BitSet bitsToSave = isFileChannel ? (BitSet) validChunks.clone() : new BitSet(shape.getLeafCount());
         if (!isFileChannel) {
-            bitsToSave.set(0, shape.getNodeCount());
+            bitsToSave.set(0, shape.getLeafCount());
         }
         
         try (FileChannel channel = FileChannel.open(

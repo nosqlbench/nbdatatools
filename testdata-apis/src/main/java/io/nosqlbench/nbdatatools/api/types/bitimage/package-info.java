@@ -134,32 +134,4 @@
 ///       └───────────────────────────▶│ visual    │
 ///                                    │ format    │
 ///                                    └───────────┘
-///
-/// ---
-/// A wrapper type BitSetTracker can be used to do the following:
-/// * It is a direct API wrapper around BitSet, extending BitSet to it can be dropped in to
-/// replace BitSet without other code changes.
-/// * When a BitSetTracker is created, it requires a path to a file with a '.bimg' extension.
-/// * If the file is already present it will be replaced. It will be created otherwise.
-/// * The file is memory mapped to be the right size for a backing store for unicode characters,
-///  with the help of a bytebuffer and charbuffer.
-/// * The initial text image of the charbuffer is set to the braille picture of the bitimage.
-/// * When a bit is set or flipped in the underlying bitimage via the wrapped API, the braille
-/// character is modified in place.
-/// * BitSetTracker info is considered ephemeral and secondary to the contents of a BitSet, i.e,
-///  no BitSet should ever be populated from the contents of a bimg file.
-/// * BitSetTracker should maintain a bytebuffer which holes actual 3-byte unicode character
-/// encodings. This allows for indexed updates to individual characters.
-/// * When the byte buffer for unicode characters is created or resized, it should always have
-/// the "zero dots" unicode character filled in the new 3-byte positions.
-/// * The canonical representation of the character image should be the 3-byte byte buffer version.
-///   * All other views of character data must be derived from this dynamically.
-///   * A method which gets the Java char equivalent of a given position should be provided.
-///   * A method which gets the Java String equivalent of the whole buffer should be provided.
-///   * Otherwise no string form of the character buffer should be maintained apart from the
-/// actual BitSet from which it is derived.
-///
-///
-///
-/// ```
 package io.nosqlbench.nbdatatools.api.types.bitimage;

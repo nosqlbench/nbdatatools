@@ -17,8 +17,9 @@ package io.nosqlbench.vectordata.fvecs;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.merkle.MerkleTreeBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
+import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import io.nosqlbench.vectordata.merklev2.MerkleShape;
 import io.nosqlbench.vectordata.status.EventType;
 import io.nosqlbench.vectordata.status.MemoryEventSink;
@@ -225,7 +226,7 @@ public class MerkleTreePerformanceTest {
         final long[] lastProgressUpdate = {System.currentTimeMillis()};
 
         // Create the MerkleTree from the file
-        MerkleTreeBuildProgress progress = MerkleTree.fromData(
+        MerkleRefBuildProgress progress = MerkleRefFactory.fromData(
             largeFvecsFilePath
         );
 
@@ -233,7 +234,7 @@ public class MerkleTreePerformanceTest {
         progress.getFuture().thenAccept(tree -> {
             logEvent(MerkleCreationStage.TREE_CREATION_COMPLETED, Map.of(
                 "timestamp", Instant.now(),
-                "leafCount", tree.getNumberOfLeaves()
+                "leafCount", tree.getShape().getLeafCount()
             ));
         });
 
@@ -266,10 +267,10 @@ public class MerkleTreePerformanceTest {
         }
 
         // Get the completed MerkleTree
-        MerkleTree merkleTree = progress.getFuture().get();
+        MerkleDataImpl merkleTree = progress.getFuture().get();
 
         // Save the MerkleTree to a file
-        Path merkleFilePath = largeFvecsFilePath.resolveSibling(largeFvecsFilePath.getFileName() + ".mrkl");
+        Path merkleFilePath = largeFvecsFilePath.resolveSibling(largeFvecsFilePath.getFileName() + ".mref");
 
         logEvent(MerkleCreationStage.TREE_SAVE_STARTED, Map.of(
             "timestamp", Instant.now(),
@@ -290,12 +291,12 @@ public class MerkleTreePerformanceTest {
 
         // Load the tree to verify it, but skip post-write verification since we just saved it
         // This avoids the redundant and expensive verification process when we know the file is valid
-        MerkleTree loadedTree = MerkleTree.load(merkleFilePath, false);
+        MerkleDataImpl loadedTree = MerkleRefFactory.load(merkleFilePath);
 
         // Verify the loaded tree has the same number of leaves
-        if (loadedTree.getNumberOfLeaves() != merkleTree.getNumberOfLeaves()) {
+        if (loadedTree.getShape().getLeafCount() != merkleTree.getShape().getLeafCount()) {
             throw new AssertionError("Loaded tree has different number of leaves: " + 
-                loadedTree.getNumberOfLeaves() + " vs " + merkleTree.getNumberOfLeaves());
+                loadedTree.getShape().getLeafCount() + " vs " + merkleTree.getShape().getLeafCount());
         }
 
         logEvent(MerkleCreationStage.TREE_VERIFICATION_COMPLETED, Map.of(

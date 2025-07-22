@@ -27,6 +27,7 @@ import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import io.nosqlbench.vectordata.merklev2.MerkleShape;
+import io.nosqlbench.vectordata.merklev2.BaseMerkleShape;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine.Command;
@@ -66,8 +67,6 @@ public class CMD_merkle_create implements Callable<Integer> {
         // Default constructor  
     }
 
-    /** Merkle tree file extension */
-    public static final String MRKL = MerkleUtils.MRKL;
     /** Merkle reference file extension */
     public static final String MREF = MerkleUtils.MREF;
 
@@ -152,15 +151,15 @@ public class CMD_merkle_create implements Callable<Integer> {
             expandedFiles = expandedFiles.stream()
                 .filter(path -> {
                     String fileName = path.getFileName().toString().toLowerCase();
-                    return !fileName.endsWith(MRKL) && !fileName.endsWith(MREF);
+                    return !fileName.endsWith(MerkleUtils.MRKL) && !fileName.endsWith(MREF);
                 })
                 .collect(Collectors.toList());
 
-            // If update mode is enabled, only process files that already have a .mrkl file
+            // If update mode is enabled, only process files that already have a .mref file
             if (update) {
                 expandedFiles = expandedFiles.stream()
                     .filter(path -> {
-                        Path merklePath = path.resolveSibling(path.getFileName() + MRKL);
+                        Path merklePath = path.resolveSibling(path.getFileName() + MREF);
                         return Files.exists(merklePath);
                     })
                     .collect(Collectors.toList());
@@ -172,7 +171,7 @@ public class CMD_merkle_create implements Callable<Integer> {
             }
 
             // If match-extensions mode is enabled, only process files with matching extensions
-            // that don't already have a .mrkl file
+            // that don't already have a .mref file
             if (matchExtensions && !update) {
                 // Get the set of extensions from the files parameter
                 Set<String> extensions = new HashSet<>();
@@ -189,17 +188,17 @@ public class CMD_merkle_create implements Callable<Integer> {
                     extensions.addAll(VectorFileExtension.getAllExtensions());
                 }
 
-                // Filter files by extension and only include those without existing .mrkl files
+                // Filter files by extension and only include those without existing .mref files
                 expandedFiles = expandedFiles.stream()
                     .filter(path -> {
                         String fileName = path.getFileName().toString().toLowerCase();
-                        Path merklePath = path.resolveSibling(path.getFileName() + MRKL);
+                        Path merklePath = path.resolveSibling(path.getFileName() + MREF);
 
                         // Check if the file has one of the specified extensions
                         boolean hasMatchingExtension = extensions.stream()
                             .anyMatch(fileName::endsWith);
 
-                        // Only include files with matching extensions that don't already have a .mrkl file
+                        // Only include files with matching extensions that don't already have a .mref file
                         return hasMatchingExtension && !Files.exists(merklePath);
                     })
                     .collect(Collectors.toList());
@@ -229,20 +228,30 @@ public class CMD_merkle_create implements Callable<Integer> {
                         continue;
                     }
 
-                    Path merklePath = file.resolveSibling(file.getFileName() + MRKL);
+                    Path merklePath = file.resolveSibling(file.getFileName() + MREF);
                     boolean shouldProcess = true;
 
                     if (Files.exists(merklePath)) {
                         if (!force) {
-                            // First verify the integrity of the existing Merkle file
-                            boolean isValid = MerkleUtils.verifyMerkleFileIntegrity(merklePath);
+                            // Try to verify the existing MerkleRef file using the new API
+                            boolean isValid = false;
+                            try {
+                                MerkleDataImpl existingMerkle = MerkleRefFactory.load(merklePath);
+                                isValid = (existingMerkle != null);
+                                if (existingMerkle != null) {
+                                    existingMerkle.close(); // Clean up resources
+                                }
+                            } catch (Exception e) {
+                                // File exists but can't be loaded, treat as invalid
+                                logger.debug("Existing merkle file could not be loaded: {}", e.getMessage());
+                            }
 
                             if (!isValid) {
-                                // Merkle file is corrupted, we need to recreate it
+                                // Merkle file is invalid or incompatible, we need to recreate it
                                 if (dryrun) {
-                                    logger.info("DRY RUN: Would recreate corrupted Merkle file for: {}", file);
+                                    logger.info("DRY RUN: Would recreate invalid Merkle file for: {}", file);
                                 } else {
-                                    logger.warn("Merkle file is corrupted and will be recreated: {}", file);
+                                    logger.warn("Merkle file is invalid and will be recreated: {}", file);
                                 }
                             } else {
                                 // Merkle file is valid, now check if it's up-to-date
@@ -258,19 +267,11 @@ public class CMD_merkle_create implements Callable<Integer> {
                                     }
                                     shouldProcess = false;
                                 } else {
-                                    // Merkle file exists but is older than the source file
+                                    // Source file is newer than merkle file, recreate it
                                     if (dryrun) {
-                                        if (force) {
-                                            logger.info("DRY RUN: Would recreate outdated Merkle file for: {}", file);
-                                        } else {
-                                            logger.error("DRY RUN: Would skip outdated Merkle file for: {} (use --force to overwrite)", file);
-                                            success = false;
-                                            shouldProcess = false;
-                                        }
+                                        logger.info("DRY RUN: Would recreate outdated Merkle file for: {}", file);
                                     } else {
-                                        logger.error("Merkle file exists but is outdated for: {} (use --force to overwrite)", file);
-                                        success = false;
-                                        shouldProcess = false;
+                                        logger.info("Recreating outdated Merkle file for: {}", file);
                                     }
                                 }
                             }
@@ -291,7 +292,7 @@ public class CMD_merkle_create implements Callable<Integer> {
                         // Calculate the number of blocks for this file
                         long fileSize = Files.size(file);
                         MerkleRange fullRange = new MerkleRange(0, fileSize);
-                        MerkleShape geometry = MerkleShape.fromContentSize(fileSize);
+                        MerkleShape geometry = BaseMerkleShape.fromContentSize(fileSize);
                         // Only count leaf chunks in progress since internal nodes are processed very quickly
                         int leafChunks = geometry.getTotalChunks();
                         int internalNodes = geometry.getInternalNodeCount();
@@ -356,7 +357,7 @@ public class CMD_merkle_create implements Callable<Integer> {
      * 2. Creating a Merkle tree structure based on the file content
      * 3. Computing hashes for each chunk of the file
      * 4. Building the tree by combining hashes in a binary tree structure
-     * 5. Saving the resulting Merkle tree to a file with the same name as the input file plus the .mrkl extension
+     * 5. Saving the resulting Merkle tree to a file with the same name as the input file plus the .mref extension
      *
      * ```
      * File          Merkle Tree Creation
@@ -380,7 +381,7 @@ public class CMD_merkle_create implements Callable<Integer> {
      *                      │
      *                      ▼
      *               ┌─────────────┐
-     *               │Save to .mrkl│
+     *               │Save to .mref│
      *               │file         │
      *               └─────────────┘
      * ```
@@ -432,7 +433,7 @@ public class CMD_merkle_create implements Callable<Integer> {
     public void createMerkleFile(Path file, long chunkSize, AtomicLong totalBlocksProcessed, long totalBlocks, boolean noTui, int progressInterval) throws Exception {
         // Calculate total blocks for this file (only count leaf chunks for progress tracking)
         long fileSize = Files.size(file);
-        MerkleShape geometry = MerkleShape.fromContentSize(fileSize);
+        MerkleShape geometry = BaseMerkleShape.fromContentSize(fileSize);
         int leafChunks = geometry.getTotalChunks();
         int internalNodes = geometry.getInternalNodeCount();
         int totalFileBlocks = leafChunks; // Only count leaf chunks for progress
@@ -492,7 +493,7 @@ public class CMD_merkle_create implements Callable<Integer> {
 
         // Create a Merkle tree directly from the file using the fromData method
         display.setStatus("Building Merkle tree");
-        display.log("Using MerkleTree.fromData for direct file processing");
+        display.log("Using MerkleRefFactory.fromData for direct file processing");
 
         // Create the merkle tree file path
         Path merkleFile = file.resolveSibling(file.getFileName() + MerkleUtils.MREF);
@@ -631,7 +632,7 @@ public class CMD_merkle_create implements Callable<Integer> {
 
         // Create a Merkle tree directly from the file using the fromData method
         reporter.setStatus("Building Merkle tree");
-        reporter.log("Using MerkleTree.fromData for direct file processing");
+        reporter.log("Using MerkleRefFactory.fromData for direct file processing");
 
         // Create the merkle tree file path
         Path merkleFile = file.resolveSibling(file.getFileName() + MerkleUtils.MREF);

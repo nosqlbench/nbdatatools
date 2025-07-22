@@ -19,7 +19,9 @@ package io.nosqlbench.vectordata.merklev2;
 
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 
 /// Provides a read-only view of invariant merkle tree reference data.
 /// 
@@ -85,4 +87,52 @@ public interface MerkleRef {
   /// MerkleRef except the valid bits are cleared. The file is initially persisted into the
   /// specified file before this method returns.
   MerkleState createEmptyState(Path path) throws IOException;
+
+  // Static factory methods for creating MerkleRef instances
+
+  /// Creates a MerkleRef from a data file with progress tracking.
+  /// This is the recommended method for creating merkle trees with progress monitoring.
+  /// 
+  /// @param dataPath The path to the data file
+  /// @return A MerkleRefBuildProgress that tracks the building process
+  /// @throws IOException If an I/O error occurs
+  static MerkleRefBuildProgress fromData(Path dataPath) throws IOException {
+    return MerkleRefFactory.fromData(dataPath);
+  }
+
+  /// Creates a MerkleRef from a data file without progress tracking.
+  /// This method is simpler but doesn't provide progress information.
+  /// 
+  /// @param dataPath The path to the data file
+  /// @return A CompletableFuture that will complete with the MerkleRef
+  /// @throws IOException If an I/O error occurs
+  static CompletableFuture<MerkleRef> fromDataSimple(Path dataPath) throws IOException {
+    return MerkleRefFactory.fromDataSimple(dataPath).thenApply(impl -> (MerkleRef) impl);
+  }
+
+  /// Creates a MerkleRef from a ByteBuffer without progress tracking.
+  /// 
+  /// @param data The data buffer
+  /// @return A CompletableFuture that will complete with the MerkleRef
+  static CompletableFuture<MerkleRef> fromData(ByteBuffer data) {
+    return MerkleRefFactory.fromData(data).thenApply(impl -> (MerkleRef) impl);
+  }
+
+  /// Loads a MerkleRef from an existing .mref file.
+  /// 
+  /// @param path The path to the .mref file
+  /// @return A loaded MerkleRef
+  /// @throws IOException If an I/O error occurs during loading
+  static MerkleRef load(Path path) throws IOException {
+    return MerkleRefFactory.load(path);
+  }
+
+  /// Creates an empty MerkleRef for the given content size.
+  /// All hashes will be null/empty.
+  /// 
+  /// @param contentSize The total size of the content
+  /// @return An empty MerkleRef
+  static MerkleRef createEmpty(long contentSize) {
+    return MerkleRefFactory.createEmpty(contentSize);
+  }
 }
