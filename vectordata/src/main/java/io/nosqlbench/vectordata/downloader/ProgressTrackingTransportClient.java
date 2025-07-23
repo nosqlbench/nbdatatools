@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.downloader;
 
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
 import io.nosqlbench.nbdatatools.api.transport.FetchResult;
-import io.nosqlbench.vectordata.status.EventSink;
+import io.nosqlbench.vectordata.events.EventSink;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

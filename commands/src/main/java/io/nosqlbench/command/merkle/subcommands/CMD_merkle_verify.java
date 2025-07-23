@@ -19,8 +19,8 @@ package io.nosqlbench.command.merkle.subcommands;
 
 import io.nosqlbench.command.merkle.MerkleUtils;
 import io.nosqlbench.command.merkle.console.MerkleConsoleDisplay;
-import io.nosqlbench.vectordata.merkle.MerkleMismatch;
-import io.nosqlbench.vectordata.merkle.MerkleRange;
+import io.nosqlbench.vectordata.merklev2.MerkleMismatch;
+import io.nosqlbench.vectordata.merklev2.MerkleRange;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;

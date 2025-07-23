@@ -19,7 +19,7 @@ package io.nosqlbench.command.merkle.subcommands;
 
 import io.nosqlbench.command.merkle.MerkleUtils;
 import io.nosqlbench.nbdatatools.api.types.bitimage.Glyphs;
-import io.nosqlbench.vectordata.merkle.MerkleFooter;
+import io.nosqlbench.vectordata.merklev2.Merklev2Footer;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import org.apache.logging.log4j.LogManager;
@@ -200,7 +200,7 @@ public class CMD_merkle_summary implements Callable<Integer> {
         long fileSize = Files.size(merklePath);
 
         // Read the footer directly from the file to get all footer data
-        MerkleFooter footer = MerkleUtils.readMerkleFooter(merklePath);
+        Merklev2Footer footer = MerkleUtils.readMerkleFooter(merklePath);
 
         // Determine the file type
         String fileType = merklePath.getFileName().toString().endsWith(".mref") ? "MERKLE REFERENCE FILE" : "MERKLE TREE FILE";
@@ -282,7 +282,7 @@ public class CMD_merkle_summary implements Callable<Integer> {
         // Add footer information
         summary.append("Footer Information:\n");
         summary.append(String.format("Chunk Size: %s\n", MerkleUtils.formatByteSize(footer.chunkSize())));
-        summary.append(String.format("Total Size: %s\n", MerkleUtils.formatByteSize(footer.totalSize())));
+        summary.append(String.format("Total Size: %s\n", MerkleUtils.formatByteSize(footer.totalContentSize())));
         summary.append(String.format("Footer Length: %d bytes\n\n", footer.footerLength()));
 
         // Add braille-formatted image

@@ -898,8 +898,8 @@ public class MerkleDataImpl implements MerkleData {
      * @param other The other MerkleDataImpl to compare with
      * @return A list of mismatched chunk indices
      */
-    public java.util.List<io.nosqlbench.vectordata.merkle.MerkleMismatch> findMismatchedChunks(MerkleDataImpl other) {
-        java.util.List<io.nosqlbench.vectordata.merkle.MerkleMismatch> mismatches = new java.util.ArrayList<>();
+    public java.util.List<MerkleMismatch> findMismatchedChunks(MerkleDataImpl other) {
+        java.util.List<MerkleMismatch> mismatches = new java.util.ArrayList<>();
         
         if (other == null || closed || other.closed) {
             return mismatches;
@@ -912,7 +912,7 @@ public class MerkleDataImpl implements MerkleData {
                 long startOffset = shape.getChunkStartPosition(i);
                 long endOffset = shape.getChunkEndPosition(i);
                 long length = endOffset - startOffset;
-                mismatches.add(new io.nosqlbench.vectordata.merkle.MerkleMismatch(i, startOffset, length));
+                mismatches.add(new MerkleMismatch(i, startOffset, length));
             }
             return mismatches;
         }
@@ -933,7 +933,7 @@ public class MerkleDataImpl implements MerkleData {
                 long startOffset = shape.getChunkStartPosition(leafIndex);
                 long endOffset = shape.getChunkEndPosition(leafIndex);
                 long length = endOffset - startOffset;
-                mismatches.add(new io.nosqlbench.vectordata.merkle.MerkleMismatch(leafIndex, startOffset, length));
+                mismatches.add(new MerkleMismatch(leafIndex, startOffset, length));
             }
         }
         

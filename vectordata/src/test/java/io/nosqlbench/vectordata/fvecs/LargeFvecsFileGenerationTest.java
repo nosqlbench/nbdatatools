@@ -74,7 +74,7 @@ public class LargeFvecsFileGenerationTest {
         System.out.println("[DEBUG_LOG] Minimum required space: " + (MIN_REQUIRED_SPACE / (1024 * 1024 * 1024)) + " GB");
 
         // First check if there's enough space in a local tmp directory of the project
-        Path projectTmpDir = Path.of("temp");
+        Path projectTmpDir = Path.of("src/test/resources/testserver/temp");
         if (!Files.exists(projectTmpDir)) {
             try {
                 Files.createDirectories(projectTmpDir);

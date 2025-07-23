@@ -17,7 +17,7 @@ package io.nosqlbench.vectordata.merklev2;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.merkle.ChunkBoundary;
+// ChunkBoundary is now in the same package
 
 /**
  * Authoritative source for all chunk-related calculations in the merkle system.

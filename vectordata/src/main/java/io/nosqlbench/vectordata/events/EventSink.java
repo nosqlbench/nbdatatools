@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.status;
+package io.nosqlbench.vectordata.events;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,7 +17,7 @@ package io.nosqlbench.vectordata.status;
  * under the License.
  */
 
-// Legacy MerklePainterEvent for backward compatibility only
+
 
 import java.util.Map;
 
@@ -90,17 +90,6 @@ public interface EventSink {
         }
     }
 
-    /// Log a message with a MerklePainterEvent and named parameters.
-    /// The logging level is determined by the event's level.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Map of parameter names to values
-    /// @deprecated Use log(EventType, Map) instead
-    default void log(MerklePainterEvent event, Map<String, Object> params) {
-        // This method is kept for backward compatibility
-        // MerklePainterEvent now implements EventType
-        log((EventType) event, params);
-    }
 
     /// Validate that all required parameters are present and of the correct type
     ///
@@ -188,15 +177,6 @@ public interface EventSink {
         return false;
     }
 
-    /// Validate that all required parameters are present and of the correct type
-    /// (Backward compatibility method)
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Map of parameter names to values
-    /// @deprecated Use validateRequiredParams(EventType, Map) instead
-    default void validateRequiredParams(MerklePainterEvent event, Map<String, Object> params) {
-        validateRequiredParams((EventType) event, params);
-    }
 
     /// Format an event message with named parameters.
     ///
@@ -216,16 +196,6 @@ public interface EventSink {
         return sb.toString();
     }
 
-    /// Format an event message with named parameters.
-    /// (Backward compatibility method)
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Map of parameter names to values
-    /// @return Formatted message string
-    /// @deprecated Use formatEventMessage(EventType, Map) instead
-    default String formatEventMessage(MerklePainterEvent event, Map<String, Object> params) {
-        return formatEventMessage((EventType) event, params);
-    }
 
     /// Convenience method to log a message with an EventType and varargs parameters.
     /// The logging level is determined by the event's level.
@@ -236,15 +206,6 @@ public interface EventSink {
         log(event, paramsToMap(params));
     }
 
-    /// Convenience method to log a message with a MerklePainterEvent and varargs parameters.
-    /// The logging level is determined by the event's level.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Alternating parameter names and values
-    /// @deprecated Use log(EventType, Object...) instead
-    default void log(MerklePainterEvent event, Object... params) {
-        log((EventType) event, params);
-    }
 
     /// Convert varargs parameters to a map.
     ///
@@ -357,95 +318,4 @@ public interface EventSink {
         log(event, params);
     }
 
-    // Backward compatibility methods
-
-    /// Log a debug message with a MerklePainterEvent and named parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Map of parameter names to values
-    /// @deprecated Use log(EventType, Map) instead
-    default void debug(MerklePainterEvent event, Map<String, Object> params) {
-        debug((EventType) event, params);
-    }
-
-    /// Log an info message with a MerklePainterEvent and named parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Map of parameter names to values
-    /// @deprecated Use log(EventType, Map) instead
-    default void info(MerklePainterEvent event, Map<String, Object> params) {
-        info((EventType) event, params);
-    }
-
-    /// Log a warning message with a MerklePainterEvent and named parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Map of parameter names to values
-    /// @deprecated Use log(EventType, Map) instead
-    default void warn(MerklePainterEvent event, Map<String, Object> params) {
-        warn((EventType) event, params);
-    }
-
-    /// Log an error message with a MerklePainterEvent and named parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Map of parameter names to values
-    /// @deprecated Use log(EventType, Map) instead
-    default void error(MerklePainterEvent event, Map<String, Object> params) {
-        error((EventType) event, params);
-    }
-
-    /// Log a trace message with a MerklePainterEvent and named parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Map of parameter names to values
-    /// @deprecated Use log(EventType, Map) instead
-    default void trace(MerklePainterEvent event, Map<String, Object> params) {
-        trace((EventType) event, params);
-    }
-
-    /// Convenience method to log a debug message with a MerklePainterEvent and varargs parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Alternating parameter names and values
-    /// @deprecated Use log(EventType, Object...) instead
-    default void debug(MerklePainterEvent event, Object... params) {
-        debug((EventType) event, params);
-    }
-
-    /// Convenience method to log an info message with a MerklePainterEvent and varargs parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Alternating parameter names and values
-    /// @deprecated Use log(EventType, Object...) instead
-    default void info(MerklePainterEvent event, Object... params) {
-        info((EventType) event, params);
-    }
-
-    /// Convenience method to log a warning message with a MerklePainterEvent and varargs parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Alternating parameter names and values
-    /// @deprecated Use log(EventType, Object...) instead
-    default void warn(MerklePainterEvent event, Object... params) {
-        warn((EventType) event, params);
-    }
-
-    /// Convenience method to log an error message with a MerklePainterEvent and varargs parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Alternating parameter names and values
-    /// @deprecated Use log(EventType, Object...) instead
-    default void error(MerklePainterEvent event, Object... params) {
-        error((EventType) event, params);
-    }
-
-    /// Convenience method to log a trace message with a MerklePainterEvent and varargs parameters.
-    ///
-    /// @param event The MerklePainterEvent enum value
-    /// @param params Alternating parameter names and values
-    /// @deprecated Use log(EventType, Object...) instead
-    default void trace(MerklePainterEvent event, Object... params) {
-        trace((EventType) event, params);
-    }
 }

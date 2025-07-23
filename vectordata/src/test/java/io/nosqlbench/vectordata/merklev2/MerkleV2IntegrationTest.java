@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 import io.nosqlbench.vectordata.merklev2.BaseMerkleShape;
-import io.nosqlbench.vectordata.merkle.ChunkBoundary;
+// ChunkBoundary is now in the same package
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

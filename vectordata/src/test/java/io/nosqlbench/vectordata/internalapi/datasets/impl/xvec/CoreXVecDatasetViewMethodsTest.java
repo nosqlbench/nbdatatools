@@ -85,7 +85,7 @@ public class CoreXVecDatasetViewMethodsTest {
         createEmptyMerkleTreeFile(ivecFile);
         createEmptyMerkleTreeFile(fvecFile);
 
-        // Test with different file extensions using local file URLs and NoOpDownloadEventSink
+        // Test with different file extensions using local file URLs and no-op EventSink
         MAFileChannel bvecChannel = MAFileChannel.create(bvecFile, bvecFile.resolveSibling(bvecFile.getFileName() + ".mref"), bvecFile.toUri().toString());
         CoreXVecDatasetViewMethods<?> bvecView = new CoreXVecDatasetViewMethods<>(
             bvecChannel, Files.size(bvecFile), null, "bvecs");

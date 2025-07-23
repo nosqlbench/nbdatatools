@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.merkle;
+package io.nosqlbench.vectordata.merklev2;
 
 /*
  * Copyright (c) nosqlbench

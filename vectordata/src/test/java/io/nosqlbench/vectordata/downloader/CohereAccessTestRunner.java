@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.downloader.merkle;
+package io.nosqlbench.vectordata.downloader;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,18 +17,18 @@ package io.nosqlbench.vectordata.downloader.merkle;
  * under the License.
  */
 
+
 import org.junit.jupiter.api.Test;
 
 /**
- * This test class has been moved to io.nosqlbench.vectordata.merkle.MerkleTreeTest
- * Please use that class instead.
+ * A test runner to force execution of CohereAccessTest without the @Disabled annotation
  */
-public class MerkleTreeTest {
+public class CohereAccessTestRunner extends CohereAccessTest {
     
     @Test
-    void testRedirect() {
-        // This test is just a placeholder to indicate that the real tests have been moved
-        // to io.nosqlbench.vectordata.merkle.MerkleTreeTest
-        System.out.println("This test class has been moved to io.nosqlbench.vectordata.merkle.MerkleTreeTest");
+    @Override
+    public void testDatasetAccess() {
+        // Force execution by overriding without @Disabled
+        super.testDatasetAccess();
     }
 }

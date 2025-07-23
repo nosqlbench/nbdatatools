@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.status;
+package io.nosqlbench.vectordata.events;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,36 +17,38 @@ package io.nosqlbench.vectordata.status;
  * under the License.
  */
 
-
-/// A no-operation implementation of DownloadEventSink.
+/// A no-operation implementation of EventSink.
 ///
-/// This class implements the DownloadEventSink interface but does nothing with the events.
-/// It's useful when you don't need to log or process download events.
-public class NoOpDownloadEventSink implements EventSink {
-
-    /// Construct a NoOpDownloadEventSink.
-    ///
-    /// Creates a new instance that ignores all events.
-    public NoOpDownloadEventSink() {}
-
+/// This class implements the EventSink interface but does nothing with the events.
+/// It's useful when you don't need to log or process events.
+/// 
+/// This implementation uses the singleton pattern to avoid creating multiple instances.
+public final class NoOpEventSink implements EventSink {
+    
+    /// The singleton instance of NoOpEventSink
+    public static final NoOpEventSink INSTANCE = new NoOpEventSink();
+    
+    /// Private constructor to enforce singleton pattern
+    private NoOpEventSink() {}
+    
     @Override
     public void debug(String format, Object... args) {}
-
+    
     @Override
     public void info(String format, Object... args) {}
-
+    
     @Override
     public void warn(String format, Object... args) {}
-
+    
     @Override
     public void warn(String message, Throwable t) {}
-
+    
     @Override
     public void error(String format, Object... args) {}
-
+    
     @Override
     public void error(String message, Throwable t) {}
-
+    
     @Override
     public void trace(String format, Object... args) {}
 }

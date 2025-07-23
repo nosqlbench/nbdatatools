@@ -18,7 +18,13 @@ package io.nosqlbench.vectordata.datagen;
  */
 
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -115,8 +121,95 @@ public class TestDataFiles {
   ///               bvec: byte vectors, json: JSON array, yaml: YAML sequence)
   /// @return the path to which the data was written
   public static Path saveToFile(float[][] vectors, Path path, Format format) {
-    // stub implementation: writing test vectors is not required in this context
-    return path;
+    try {
+      // Ensure parent directory exists
+      if (path.getParent() != null) {
+        Files.createDirectories(path.getParent());
+      }
+      
+      switch (format) {
+        case fvec -> saveFvecFile(vectors, path);
+        case ivec -> throw new UnsupportedOperationException("ivec format not yet implemented");
+        case bvec -> throw new UnsupportedOperationException("bvec format not yet implemented");
+        case json -> throw new UnsupportedOperationException("json format not yet implemented");
+        case yaml -> throw new UnsupportedOperationException("yaml format not yet implemented");
+        default -> throw new IllegalArgumentException("Unsupported format: " + format);
+      }
+      
+      return path;
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to write vectors to file: " + path, e);
+    }
+  }
+  
+  /// Save vectors in fvec format (binary float vector format).
+  /// Format: 4-byte dimension count (little-endian) + vector data (little-endian floats)
+  /// @param vectors matrix of float vectors to save
+  /// @param path output file path
+  private static void saveFvecFile(float[][] vectors, Path path) throws IOException {
+    if (vectors.length == 0) {
+      throw new IllegalArgumentException("Cannot save empty vector array");
+    }
+    
+    int dimensions = vectors[0].length;
+    int vectorCount = vectors.length;
+    
+    // Validate all vectors have same dimensions
+    for (int i = 0; i < vectorCount; i++) {
+      if (vectors[i].length != dimensions) {
+        throw new IllegalArgumentException("All vectors must have same dimensions. Vector " + i + 
+                                         " has " + vectors[i].length + " dimensions, expected " + dimensions);
+      }
+    }
+    
+    // Calculate total file size: 4 bytes for dimensions + vector data
+    long totalSize = 4L + (long) vectorCount * dimensions * Float.BYTES;
+    
+    try (FileChannel channel = FileChannel.open(path, 
+         StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+      
+      // Write dimensions (4 bytes, little-endian)
+      ByteBuffer dimBuffer = ByteBuffer.allocate(4);
+      dimBuffer.order(ByteOrder.LITTLE_ENDIAN);
+      dimBuffer.putInt(dimensions);
+      dimBuffer.flip();
+      channel.write(dimBuffer);
+      
+      // Write vector data
+      int bufferSize = Math.min(8192, dimensions * Float.BYTES); // Use reasonable buffer size
+      ByteBuffer dataBuffer = ByteBuffer.allocate(bufferSize);
+      dataBuffer.order(ByteOrder.LITTLE_ENDIAN);
+      
+      for (int i = 0; i < vectorCount; i++) {
+        float[] vector = vectors[i];
+        
+        // Write vector components in chunks if needed
+        int componentsWritten = 0;
+        while (componentsWritten < dimensions) {
+          dataBuffer.clear();
+          
+          // Fill buffer with as many components as fit
+          int componentsToWrite = Math.min(
+            (dataBuffer.capacity() / Float.BYTES), 
+            dimensions - componentsWritten
+          );
+          
+          for (int j = 0; j < componentsToWrite; j++) {
+            dataBuffer.putFloat(vector[componentsWritten + j]);
+          }
+          
+          dataBuffer.flip();
+          channel.write(dataBuffer);
+          componentsWritten += componentsToWrite;
+        }
+      }
+      
+      // Verify file size
+      long actualSize = channel.size();
+      if (actualSize != totalSize) {
+        throw new IOException("File size mismatch. Expected " + totalSize + " bytes, wrote " + actualSize + " bytes");
+      }
+    }
   }
 
 }

@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 
-import io.nosqlbench.vectordata.status.EventSink;
+import io.nosqlbench.vectordata.events.EventSink;
 import okhttp3.*;
 import okio.BufferedSource;
 

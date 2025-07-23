@@ -26,7 +26,6 @@ import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportIO;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.utils.SHARED;
 import io.nosqlbench.vectordata.layoutv2.DSProfileGroup;
-import io.nosqlbench.vectordata.status.StdoutDownloadEventSink;
 
 import java.io.IOException;
 import java.net.MalformedURLException;

@@ -18,8 +18,8 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
-import io.nosqlbench.vectordata.merkle.MerkleTree;
-import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
+import io.nosqlbench.vectordata.events.EventSink;
+import io.nosqlbench.vectordata.events.NoOpEventSink;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -117,48 +117,6 @@ public class ResourceTransportServiceTest {
         System.out.println("  Size: " + Files.size(targetFile) + " bytes");
     }
     
-    @Test
-    public void testMerkleTreeSyncUsingResourceTransport(@TempDir Path tempDir) throws Exception {
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        URL dataUrl = new URL(baseUrl, "rawdatasets/testxvec/testxvec_base.fvec");
-        
-        Path localDataPath = tempDir.resolve("synced_base.fvec");
-        
-        // Create a custom transport service for testing
-        ResourceTransportService transportService = new ChunkedResourceTransportService(
-            1024 * 1024, // 1MB chunks
-            2, // 2 parallel downloads
-            new NoOpDownloadEventSink(),
-            java.util.concurrent.ForkJoinPool.commonPool()
-        );
-        
-        System.out.println("Testing MerkleTree.syncFromRemote with ResourceTransportService");
-        System.out.println("Data URL: " + dataUrl);
-        System.out.println("Local path: " + localDataPath);
-        
-        // Sync from remote using the new transport service
-        MerkleTree merkleTree = MerkleTree.syncFromRemote(dataUrl, localDataPath, transportService);
-        
-        // Verify the result
-        assertNotNull(merkleTree, "MerkleTree should be loaded");
-        assertTrue(Files.exists(localDataPath), "Data file should be downloaded");
-        assertEquals(10100000, Files.size(localDataPath), "Data file size should match");
-        
-        // Verify merkle file was also downloaded
-        Path merkleFile = tempDir.resolve("synced_base.fvec.mrkl");
-        assertTrue(Files.exists(merkleFile), "Merkle file should be downloaded");
-        
-        // Verify reference file was created
-        Path refFile = tempDir.resolve("synced_base.fvec.mref");
-        assertTrue(Files.exists(refFile), "Reference file should be created");
-        
-        System.out.println("MerkleTree sync completed successfully:");
-        System.out.println("  Data file: " + Files.size(localDataPath) + " bytes");
-        System.out.println("  Merkle file: " + Files.size(merkleFile) + " bytes");
-        System.out.println("  Reference file: " + Files.size(refFile) + " bytes");
-        System.out.println("  Tree chunks: " + merkleTree.getNumberOfLeaves());
-        System.out.println("  Chunk size: " + merkleTree.getChunkSize() + " bytes");
-    }
     
     @Test
     public void testLocalMatchesRemote(@TempDir Path tempDir) throws Exception {

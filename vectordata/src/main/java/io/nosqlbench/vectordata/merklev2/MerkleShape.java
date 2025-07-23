@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.merklev2;
 
 // BaseMerkleShape is now in the same package
 
-import io.nosqlbench.vectordata.merkle.ChunkBoundary;
+// ChunkBoundary is now in the same package
 
 /**
  * Defines the shape and geometry of a merkle tree structure.

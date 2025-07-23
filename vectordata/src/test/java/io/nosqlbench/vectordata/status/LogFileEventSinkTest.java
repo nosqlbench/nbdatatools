@@ -17,19 +17,18 @@ package io.nosqlbench.vectordata.status;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.events.EventType;
+import io.nosqlbench.vectordata.events.LogFileEventSink;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

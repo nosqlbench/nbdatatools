@@ -17,9 +17,8 @@ package io.nosqlbench.vectordata.downloader;
  * under the License.
  */
 
-import io.nosqlbench.vectordata.status.EventSink;
+import io.nosqlbench.vectordata.events.EventSink;
 
-import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;

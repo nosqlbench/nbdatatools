@@ -22,7 +22,7 @@ import io.nosqlbench.command.merkle.MerkleUtils;
 import io.nosqlbench.command.merkle.console.MerkleConsoleDisplay;
 import io.nosqlbench.command.merkle.console.SimpleProgressReporter;
 import io.nosqlbench.common.types.VectorFileExtension;
-import io.nosqlbench.vectordata.merkle.MerkleRange;
+import io.nosqlbench.vectordata.merklev2.MerkleRange;
 import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;

@@ -17,6 +17,8 @@ package io.nosqlbench.vectordata.status;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.events.EventType;
+import io.nosqlbench.vectordata.events.MemoryEventSink;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

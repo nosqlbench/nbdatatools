@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.status;
+package io.nosqlbench.vectordata.events;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,7 +17,6 @@ package io.nosqlbench.vectordata.status;
  * under the License.
  */
 
-// Legacy MerklePainterEvent for backward compatibility
 
 import java.io.BufferedWriter;
 import java.io.Closeable;
@@ -194,34 +193,26 @@ public class LogFileEventSink implements EventSink, Closeable {
             // Track which parameters are part of tuples
             Set<String> processedTupleParams = new java.util.HashSet<>();
 
-            // First pass: identify tuples based on MerklePainterEvent's tuple information
-            if (event instanceof MerklePainterEvent) {
-                MerklePainterEvent merklePainterEvent = (MerklePainterEvent) event;
+            // First pass: identify common tuple patterns generically
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
 
-                // Get all parameters with their descriptions
-                Map<String, String> paramDescriptions = merklePainterEvent.getParamDescriptions();
-
-                // Iterate through all parameters to find tuple start parameters
-                for (Map.Entry<String, Object> entry : params.entrySet()) {
-                    String key = entry.getKey();
-                    Object value = entry.getValue();
-
-                    // Check if this parameter is a tuple start parameter
-                    if (key.endsWith("Chunk") && key.startsWith("start") && params.containsKey("endChunk")) {
-                        // This is a chunk tuple
-                        String endKey = "endChunk";
-                        Object endValue = params.get(endKey);
-                        processedParams.put("chunk(start,end)", String.format("(%s,%s)", value, endValue));
-                        processedTupleParams.add(key);
-                        processedTupleParams.add(endKey);
-                    } else if (key.equals("start") && params.containsKey("end")) {
-                        // This is a generic start/end tuple
-                        String endKey = "end";
-                        Object endValue = params.get(endKey);
-                        processedParams.put("range(start,end)", String.format("(%s,%s)", value, endValue));
-                        processedTupleParams.add(key);
-                        processedTupleParams.add(endKey);
-                    }
+                // Check if this parameter is a tuple start parameter
+                if (key.endsWith("Chunk") && key.startsWith("start") && params.containsKey("endChunk")) {
+                    // This is a chunk tuple
+                    String endKey = "endChunk";
+                    Object endValue = params.get(endKey);
+                    processedParams.put("chunk(start,end)", String.format("(%s,%s)", value, endValue));
+                    processedTupleParams.add(key);
+                    processedTupleParams.add(endKey);
+                } else if (key.equals("start") && params.containsKey("end")) {
+                    // This is a generic start/end tuple
+                    String endKey = "end";
+                    Object endValue = params.get(endKey);
+                    processedParams.put("range(start,end)", String.format("(%s,%s)", value, endValue));
+                    processedTupleParams.add(key);
+                    processedTupleParams.add(endKey);
                 }
             }
 

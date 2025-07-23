@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -145,6 +146,169 @@ public class JettyFileServerFixtureTest {
             }
         } finally {
             Files.deleteIfExists(testFile);
+            try {
+                Files.deleteIfExists(tempDir);
+            } catch (java.nio.file.DirectoryNotEmptyException e) {
+                // Ignore if directory not empty
+            }
+        }
+    }
+
+    /// Test that verifies the jetty test fixture can download small files from both non-temp and temp directories
+    @Test
+    public void testDownloadFromNonTempAndTempDirectories() throws IOException {
+        // Test downloading from non-temp directory (static resources)
+        testDownloadFromNonTempDirectory();
+        
+        // Test downloading from temp directory (dynamic resources)
+        testDownloadFromTempDirectory();
+    }
+
+    /// Test downloading a small file from the non-temp directory path
+    private void testDownloadFromNonTempDirectory() throws IOException {
+        // Download the existing basic.txt file from the static resources
+        URL staticFileUrl = new URL(baseUrl, "basic.txt");
+        HttpURLConnection connection = (HttpURLConnection) staticFileUrl.openConnection();
+        
+        try {
+            int statusCode = connection.getResponseCode();
+            assertEquals(200, statusCode, "Should successfully download from non-temp directory");
+            
+            try (InputStream in = connection.getInputStream()) {
+                byte[] data = in.readAllBytes();
+                assertTrue(data.length > 0, "Downloaded file should not be empty");
+                
+                String content = new String(data);
+                assertTrue(content.contains("basic test file"), "Content should match expected static file");
+            }
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    /// Test downloading a small file from the temp directory path
+    private void testDownloadFromTempDirectory() throws IOException {
+        // Create a small test file in the temp directory
+        Path tempDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve("downloadtest");
+        Files.createDirectories(tempDir);
+        
+        String uniqueId = String.valueOf(System.currentTimeMillis());
+        Path testFile = tempDir.resolve("temp_download_test_" + uniqueId + ".txt");
+        String testContent = "Small test file for download verification\nCreated at: " + uniqueId + "\nSize: 64 bytes";
+        Files.writeString(testFile, testContent);
+        
+        try {
+            // Download the file via HTTP
+            URL tempFileUrl = new URL(baseUrl, "temp/downloadtest/temp_download_test_" + uniqueId + ".txt");
+            HttpURLConnection connection = (HttpURLConnection) tempFileUrl.openConnection();
+            
+            try {
+                int statusCode = connection.getResponseCode();
+                assertEquals(200, statusCode, "Should successfully download from temp directory");
+                
+                // Verify content length header
+                String contentLengthHeader = connection.getHeaderField("Content-Length");
+                assertNotNull(contentLengthHeader, "Content-Length header should be present");
+                int contentLength = Integer.parseInt(contentLengthHeader);
+                assertEquals(testContent.length(), contentLength, "Content-Length should match file size");
+                
+                try (InputStream in = connection.getInputStream()) {
+                    byte[] data = in.readAllBytes();
+                    assertEquals(testContent.length(), data.length, "Downloaded data should match expected size");
+                    
+                    String downloadedContent = new String(data);
+                    assertEquals(testContent, downloadedContent, "Downloaded content should match original file");
+                }
+            } finally {
+                connection.disconnect();
+            }
+        } finally {
+            // Clean up
+            Files.deleteIfExists(testFile);
+            try {
+                Files.deleteIfExists(tempDir);
+            } catch (java.nio.file.DirectoryNotEmptyException e) {
+                // Ignore if directory not empty
+            }
+        }
+    }
+
+    /// Test that verifies HEAD response for files larger than 2GB in temp directory
+    @Test
+    public void testHeadResponseForLargeFile() throws IOException {
+        // Create a temp directory for the large file test
+        Path tempDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve("largefile");
+        Files.createDirectories(tempDir);
+        
+        String uniqueId = String.valueOf(System.currentTimeMillis());
+        Path largeTestFile = tempDir.resolve("large_test_file_" + uniqueId + ".bin");
+        
+        // Create a sparse file larger than 2GB (2.1GB = 2,252,341,248 bytes)
+        long fileSize = 2L * 1024 * 1024 * 1024 + 100 * 1024 * 1024; // 2.1GB
+        
+        try {
+            // Use RandomAccessFile to create a sparse file
+            try (RandomAccessFile raf = new RandomAccessFile(largeTestFile.toFile(), "rw")) {
+                // Set the file length to create a sparse file
+                raf.setLength(fileSize);
+                // Write a small amount of data at the beginning and end to ensure the file has some content
+                raf.seek(0);
+                raf.write("START_OF_LARGE_FILE".getBytes());
+                raf.seek(fileSize - 20);
+                raf.write("END_OF_LARGE_FILE".getBytes());
+            }
+            
+            // Verify the file was created with the expected size
+            long actualSize = Files.size(largeTestFile);
+            assertEquals(fileSize, actualSize, "Created file should have expected size");
+            
+            // Test HEAD request to the large file
+            URL largeFileUrl = new URL(baseUrl, "temp/largefile/large_test_file_" + uniqueId + ".bin");
+            HttpURLConnection headConnection = (HttpURLConnection) largeFileUrl.openConnection();
+            headConnection.setRequestMethod("HEAD");
+            
+            try {
+                int statusCode = headConnection.getResponseCode();
+                assertEquals(200, statusCode, "HEAD request should return 200 for large file");
+                
+                // Verify Content-Length header for files larger than 2GB
+                String contentLengthHeader = headConnection.getHeaderField("Content-Length");
+                assertNotNull(contentLengthHeader, "Content-Length header should be present for large files");
+                
+                long reportedSize = Long.parseLong(contentLengthHeader);
+                assertEquals(fileSize, reportedSize, "Content-Length should correctly report size for 2GB+ files");
+                
+                // Verify other expected headers
+                String acceptRanges = headConnection.getHeaderField("Accept-Ranges");
+                assertEquals("bytes", acceptRanges, "Accept-Ranges header should indicate byte range support");
+                
+                // Verify that HEAD request doesn't return a body
+                assertEquals(0, headConnection.getContentLength() == -1 ? 0 : headConnection.getContentLength(), 
+                    "HEAD request should not return content length as content length for body (should be 0 or -1)");
+                
+                // Test that we can make a small range request to verify the file is actually accessible
+                HttpURLConnection rangeConnection = (HttpURLConnection) largeFileUrl.openConnection();
+                rangeConnection.setRequestProperty("Range", "bytes=0-18");
+                try {
+                    int rangeStatusCode = rangeConnection.getResponseCode();
+                    assertEquals(206, rangeStatusCode, "Range request should return 206 for partial content");
+                    
+                    try (InputStream in = rangeConnection.getInputStream()) {
+                        byte[] data = in.readAllBytes();
+                        String content = new String(data);
+                        assertEquals("START_OF_LARGE_FILE", content, "Range request should return expected content from start of file");
+                    }
+                } finally {
+                    rangeConnection.disconnect();
+                }
+                
+            } finally {
+                headConnection.disconnect();
+            }
+            
+        } finally {
+            // Clean up the large file
+            Files.deleteIfExists(largeTestFile);
             try {
                 Files.deleteIfExists(tempDir);
             } catch (java.nio.file.DirectoryNotEmptyException e) {

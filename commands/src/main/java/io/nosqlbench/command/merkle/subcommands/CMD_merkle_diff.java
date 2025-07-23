@@ -18,7 +18,7 @@ package io.nosqlbench.command.merkle.subcommands;
  */
 
 import io.nosqlbench.nbdatatools.api.types.bitimage.Glyphs;
-import io.nosqlbench.vectordata.merkle.MerkleMismatch;
+import io.nosqlbench.vectordata.merklev2.MerkleMismatch;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import org.apache.logging.log4j.LogManager;

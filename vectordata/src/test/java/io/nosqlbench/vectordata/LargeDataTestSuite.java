@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata;
  */
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
-import io.nosqlbench.vectordata.downloader.CatalogAccessLargefileTest;
+import io.nosqlbench.vectordata.merklev2.MerkleLargeFileTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.platform.suite.api.IncludeTags;
 import org.junit.platform.suite.api.SelectClasses;
@@ -40,7 +40,7 @@ import org.junit.platform.suite.api.Suite;
 /// 1. mvn test -DskipLargeDataTests=false
 /// 2. mvn test -Dtest=LargeDataTestSuite
 @Suite
-@SelectClasses(CatalogAccessLargefileTest.class)
+@SelectClasses(MerkleLargeFileTest.class)
 @IncludeTags("largedata")
 @ExtendWith(JettyFileServerExtension.class)
 public class LargeDataTestSuite {

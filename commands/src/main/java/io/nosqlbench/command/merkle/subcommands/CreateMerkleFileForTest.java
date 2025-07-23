@@ -18,7 +18,7 @@ package io.nosqlbench.command.merkle.subcommands;
  */
 
 
-import io.nosqlbench.vectordata.merkle.MerkleRange;
+import io.nosqlbench.vectordata.merklev2.MerkleRange;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;

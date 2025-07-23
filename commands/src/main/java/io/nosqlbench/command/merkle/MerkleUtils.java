@@ -19,7 +19,7 @@ package io.nosqlbench.command.merkle;
 
 
 import io.nosqlbench.common.types.VectorFileExtension;
-import io.nosqlbench.vectordata.merkle.MerkleFooter;
+import io.nosqlbench.vectordata.merklev2.Merklev2Footer;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
@@ -189,112 +189,30 @@ public class MerkleUtils {
     /// @return true if the file is valid, false if it's corrupted or invalid
     public static boolean verifyMerkleFileIntegrity(Path merklePath) {
         try {
-            // Get file size
-            long fileSize = Files.size(merklePath);
-            logger.info("[DEBUG_LOG] Verifying Merkle file: {} (size: {})", merklePath, fileSize);
-
-            // File too small to be valid
-            if (fileSize < MerkleFooter.FIXED_FOOTER_SIZE) {
-                logger.info("[DEBUG_LOG] Merkle file too small to be valid: {}", merklePath);
+            // For .mref files, use MerkleRefFactory to validate
+            if (merklePath.toString().endsWith(MREF)) {
+                try (MerkleDataImpl merkleData = MerkleRefFactory.load(merklePath)) {
+                    // If we can load it successfully, it's valid
+                    logger.info("[DEBUG_LOG] Merkle file integrity verification passed: {}", merklePath);
+                    return true;
+                }
+            } else {
+                // For old .mrkl files, they are no longer supported in merklev2
+                logger.info("[DEBUG_LOG] Unsupported file format (not .mref): {}", merklePath);
                 return false;
             }
-
-            try (FileChannel channel = FileChannel.open(merklePath, StandardOpenOption.READ)) {
-                // Read the footer length (last byte)
-                ByteBuffer footerLengthBuffer = ByteBuffer.allocate(1);
-                channel.position(fileSize - 1);
-                int bytesRead = channel.read(footerLengthBuffer);
-                if (bytesRead != 1) {
-                    logger.info("[DEBUG_LOG] Failed to read footer length from Merkle file: {}", merklePath);
-                    return false;
-                }
-                footerLengthBuffer.flip();
-                byte footerLength = footerLengthBuffer.get();
-                logger.info("[DEBUG_LOG] Footer length: {}", footerLength);
-
-                // Validate footer length
-                if (footerLength <= 0 || footerLength > fileSize) {
-                    logger.info("[DEBUG_LOG] Invalid footer length in Merkle file: {}", merklePath);
-                    return false;
-                }
-
-                // Read the entire footer
-                ByteBuffer footerBuffer = ByteBuffer.allocate(footerLength);
-                channel.position(fileSize - footerLength);
-                bytesRead = channel.read(footerBuffer);
-                if (bytesRead != footerLength) {
-                    logger.info("[DEBUG_LOG] Failed to read footer from Merkle file: {}", merklePath);
-                    return false;
-                }
-                footerBuffer.flip();
-
-                // Parse the footer
-                MerkleFooter footer;
-                try {
-                    footer = MerkleFooter.fromByteBuffer(footerBuffer);
-                    logger.info("[DEBUG_LOG] Footer parsed successfully: chunkSize={}, totalSize={}", 
-                        footer.chunkSize(), footer.totalSize());
-                } catch (IllegalArgumentException e) {
-                    logger.info("[DEBUG_LOG] Invalid footer in Merkle file: {}", merklePath);
-                    return false;
-                }
-
-                // Get the bitSetSize from the footer
-                int bitSetSize = footer.bitSetSize();
-                logger.info("[DEBUG_LOG] BitSet size: {}", bitSetSize);
-
-                // Calculate the tree data size (hash data only, excluding bitset and footer)
-                long treeDataSize = fileSize - footerLength - bitSetSize;
-                if (treeDataSize <= 0) {
-                    logger.info("[DEBUG_LOG] Invalid tree data size in Merkle file: {}", merklePath);
-                    return false;
-                }
-                logger.info("[DEBUG_LOG] Tree data size: {}", treeDataSize);
-
-                // Check if data size is a multiple of hash size (32 bytes for SHA-256)
-                final int HASH_SIZE = 32; // SHA-256 hash size
-                if (treeDataSize % HASH_SIZE != 0) {
-                    logger.info("[DEBUG_LOG] Tree data size is not a multiple of hash size: {}", merklePath);
-                    return false;
-                }
-
-                // Calculate the number of hashes in the file
-                int hashCount = (int) (treeDataSize / HASH_SIZE);
-                int leafCount = (int) Math.ceil((double) footer.totalSize() / footer.chunkSize());
-                logger.info("[DEBUG_LOG] Hash count: {}, Leaf count: {}", hashCount, leafCount);
-
-                // Calculate the expected number of nodes in a complete binary tree
-                int paddedCap = 1;
-                while (paddedCap < leafCount)
-                    paddedCap <<= 1;
-                int defaultNodeCount = 2 * paddedCap - 1;
-                logger.info("[DEBUG_LOG] Padded capacity: {}, Default node count: {}", paddedCap, defaultNodeCount);
-
-                // Check if the number of hashes makes sense for a merkle tree
-                // It should be either the full tree (defaultNodeCount), just the leaves (leafCount),
-                // or a complete tree (2 * leafCount - 1)
-                if (hashCount != defaultNodeCount && hashCount != leafCount && hashCount != (2 * leafCount - 1)) {
-                    logger.info("[DEBUG_LOG] Unexpected number of hashes in Merkle file: {}. Expected one of: {}, {}, {}", 
-                        hashCount, defaultNodeCount, leafCount, (2 * leafCount - 1));
-                    return false;
-                }
-
-                // All checks passed
-                logger.info("[DEBUG_LOG] Merkle file verification passed: {}", merklePath);
-                return true;
-            }
         } catch (Exception e) {
-            logger.info("[DEBUG_LOG] Error verifying Merkle file integrity: {}", merklePath, e);
+            logger.info("[DEBUG_LOG] Failed to load Merkle file: {} - {}", merklePath, e.getMessage());
             return false;
         }
     }
 
-    /// Reads the MerkleFooter from a Merkle tree file.
+    /// Reads the Merklev2Footer from a Merkle tree file.
     ///
     /// @param path The path to the Merkle tree file
-    /// @return The MerkleFooter object
+    /// @return The Merklev2Footer object
     /// @throws IOException If there's an error reading the file
-    public static MerkleFooter readMerkleFooter(Path path) throws IOException {
+    public static Merklev2Footer readMerkleFooter(Path path) throws IOException {
         try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
             // Get file size
             long fileSize = channel.size();
@@ -302,7 +220,7 @@ public class MerkleUtils {
             // Handle empty or very small files
             if (fileSize == 0) {
                 // Return a default footer
-                return MerkleFooter.create(4096, 0);
+                return Merklev2Footer.create(4096, 0, 0, 0, 0, 0, 0, 0, 0);
             }
 
             // Try to read the footer length byte (last byte of the file)
@@ -311,7 +229,7 @@ public class MerkleUtils {
             int bytesRead = channel.read(footerLengthBuffer);
             if (bytesRead != 1) {
                 // Couldn't read footer length, create a default footer
-                return MerkleFooter.create(4096, fileSize);
+                return Merklev2Footer.create(4096, fileSize, 1, 1, 1, 1, 0, 0, 0);
             }
             footerLengthBuffer.flip();
             byte footerLength = footerLengthBuffer.get();
@@ -319,7 +237,7 @@ public class MerkleUtils {
             // Validate footer length
             if (footerLength <= 0 || footerLength > fileSize) {
                 // Invalid footer length, create a default footer
-                return MerkleFooter.create(4096, fileSize);
+                return Merklev2Footer.create(4096, fileSize, 1, 1, 1, 1, 0, 0, 0);
             }
 
             // Read the entire footer
@@ -328,12 +246,12 @@ public class MerkleUtils {
             bytesRead = channel.read(footerBuffer);
             if (bytesRead != footerLength) {
                 // Couldn't read full footer, create a default footer
-                return MerkleFooter.create(4096, fileSize);
+                return Merklev2Footer.create(4096, fileSize, 1, 1, 1, 1, 0, 0, 0);
             }
             footerBuffer.flip();
 
             // Parse and return the footer
-            return MerkleFooter.fromByteBuffer(footerBuffer);
+            return Merklev2Footer.fromByteBuffer(footerBuffer);
         }
     }
 

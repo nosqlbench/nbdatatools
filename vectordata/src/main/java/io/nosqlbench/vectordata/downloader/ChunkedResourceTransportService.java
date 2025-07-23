@@ -20,8 +20,8 @@ package io.nosqlbench.vectordata.downloader;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportIO;
 import io.nosqlbench.nbdatatools.api.transport.FetchResult;
-import io.nosqlbench.vectordata.status.EventSink;
-import io.nosqlbench.vectordata.status.NoOpDownloadEventSink;
+import io.nosqlbench.vectordata.events.EventSink;
+import io.nosqlbench.vectordata.events.NoOpEventSink;
 
 import java.io.IOException;
 import java.net.URL;
@@ -53,7 +53,7 @@ public class ChunkedResourceTransportService implements ResourceTransportService
      * Uses 1MB chunk size, 4-way parallelism, no-op event sink, and common fork-join pool.
      */
     public ChunkedResourceTransportService() {
-        this(1024 * 1024, 4, new NoOpDownloadEventSink(), ForkJoinPool.commonPool());
+        this(1024 * 1024, 4, NoOpEventSink.INSTANCE, ForkJoinPool.commonPool());
     }
     
     /**
@@ -147,7 +147,7 @@ public class ChunkedResourceTransportService implements ResourceTransportService
                         int totalChunks = (int) ((totalSize + chunkSize - 1) / chunkSize);
                         
                         // Wrap the client with progress tracking if event sink is provided
-                        ChunkedTransportClient trackingClient = (eventSink != null && !(eventSink instanceof NoOpDownloadEventSink)) 
+                        ChunkedTransportClient trackingClient = (eventSink != null && !(eventSink instanceof NoOpEventSink)) 
                             ? new ProgressTrackingTransportClient(client, totalSize, totalChunks, eventSink)
                             : client;
                         

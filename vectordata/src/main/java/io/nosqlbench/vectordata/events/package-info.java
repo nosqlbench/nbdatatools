@@ -59,7 +59,7 @@
 ///
 ///
 ///
-package io.nosqlbench.vectordata.status;
+package io.nosqlbench.vectordata.events;
 
 /*
  * Copyright (c) nosqlbench
