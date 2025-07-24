@@ -44,14 +44,14 @@ public class FetchResult<T extends FetchResult<T>> {
     
     private final ByteBuffer data;
     private final long offset;
-    private final int requestedLength;
+    private final long requestedLength;
     
     /// Creates a new FetchResult with the specified data and request parameters.
     /// 
     /// @param data The fetched data as a ByteBuffer
     /// @param offset The offset from which the data was fetched
     /// @param requestedLength The number of bytes that were requested
-    public FetchResult(ByteBuffer data, long offset, int requestedLength) {
+    public FetchResult(ByteBuffer data, long offset, long requestedLength) {
         this.data = data;
         this.offset = offset;
         this.requestedLength = requestedLength;
@@ -74,7 +74,7 @@ public class FetchResult<T extends FetchResult<T>> {
     /// Gets the number of bytes that were requested.
     /// 
     /// @return The requested length in bytes
-    public int getRequestedLength() {
+    public long getRequestedLength() {
         return requestedLength;
     }
     

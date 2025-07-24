@@ -19,14 +19,24 @@ package io.nosqlbench.vectordata.transport;
 
 import io.nosqlbench.nbdatatools.api.services.TransportScheme;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
+import io.nosqlbench.nbdatatools.api.transport.FetchResult;
+import io.nosqlbench.nbdatatools.api.transport.StreamingFetchResult;
+import okhttp3.ConnectionPool;
+import okhttp3.Dispatcher;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -84,21 +94,50 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
         this.httpClient = createOptimizedHttpClient();
     }
 
-    /// Creates an optimized OkHttp client configured for range requests.
+
+    /// Creates an optimized OkHttp client configured for aggressive bandwidth usage and range requests.
     /// 
-    /// @return A configured OkHttpClient instance
+    /// This configuration includes:
+    /// - Large connection pool for aggressive connection reuse
+    /// - Increased dispatcher limits for parallel requests
+    /// - Socket-level performance tuning
+    /// - HTTP/2 support for multiplexing
+    /// 
+    /// @return A configured OkHttpClient instance optimized for high bandwidth
     private OkHttpClient createOptimizedHttpClient() {
-        return new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+        // Create dispatcher with aggressive limits
+        Dispatcher dispatcher = new Dispatcher();
+        dispatcher.setMaxRequests(200);  // Increase from default 64
+        dispatcher.setMaxRequestsPerHost(50);  // Increase from default 5
+        
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
+            // Aggressive connection pooling
+            .connectionPool(new ConnectionPool(
+                100,  // maxIdleConnections - keep many connections alive
+                5,    // keepAliveDuration
+                TimeUnit.MINUTES
+            ))
+            
+            // Use custom dispatcher
+            .dispatcher(dispatcher);
+        
+        return builder
+            // Timeouts optimized for high bandwidth
+            .connectTimeout(10, TimeUnit.SECONDS)  // Shorter connect timeout
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            
+            // Enable HTTP/2 for multiplexing
+            .protocols(Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1))
+            
+            // Retry on connection failure
             .retryOnConnectionFailure(true)
+            
             .build();
     }
 
     @Override
-    @Deprecated
-    public CompletableFuture<ByteBuffer> fetchRangeRaw(long offset, int length) throws IOException {
+    public CompletableFuture<? extends FetchResult<?>> fetchRange(long offset, long length) throws IOException {
         validateNotClosed();
         
         if (offset < 0) {
@@ -132,14 +171,60 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
                         throw new IOException("Expected " + length + " bytes but received " + data.length);
                     }
 
-                    return ByteBuffer.wrap(data);
+                    return new FetchResult<>(ByteBuffer.wrap(data), offset, length);
                 }
             } catch (IOException e) {
-                throw new RuntimeException("Failed to fetch range [" + offset + "-" + (offset + length - 1) + "]", e);
+                throw new RuntimeException("Failed to fetch range (HttpByteRangeFetcher1) [" + offset + "-" + (offset + length - 1) + "]", e);
             }
         });
     }
 
+    @Override
+    public CompletableFuture<StreamingFetchResult> fetchRangeStreaming(long offset, long length) throws IOException {
+        validateNotClosed();
+        
+        if (offset < 0) {
+            throw new IllegalArgumentException("Offset cannot be negative: " + offset);
+        }
+        if (length <= 0) {
+            throw new IllegalArgumentException("Length must be positive: " + length);
+        }
+
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // Build range request
+                long endOffset = offset + length - 1;
+                Request request = new Request.Builder()
+                    .url(sourceUrl)
+                    .addHeader("Range", "bytes=" + offset + "-" + endOffset)
+                    .build();
+
+                // Execute request asynchronously and return streaming result
+                Response response = httpClient.newCall(request).execute();
+                
+                try {
+                    validateResponse(response, offset, length);
+                    
+                    ResponseBody body = response.body();
+                    if (body == null) {
+                        response.close();
+                        throw new IOException("Response body is null");
+                    }
+
+                    // Create streaming result that wraps the response
+                    return new HttpStreamingFetchResult(response, body, offset, length, sourceUrl);
+                    
+                } catch (Exception e) {
+                    // Clean up response on error
+                    response.close();
+                    throw e;
+                }
+            } catch (IOException e) {
+                throw new CompletionException("Failed to fetch range (HttpByteRangeFetcher2) [" + offset + "-" + (offset + length - 1) + "]", e);
+            }
+        });
+    }
+    
     @Override
     public CompletableFuture<Long> getSize() throws IOException {
         validateNotClosed();
@@ -231,7 +316,7 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
     /// @param requestedOffset The offset that was requested
     /// @param requestedLength The length that was requested
     /// @throws IOException if the response is invalid
-    private void validateResponse(Response response, long requestedOffset, int requestedLength) throws IOException {
+    private void validateResponse(Response response, long requestedOffset, long requestedLength) throws IOException {
         if (response.code() == 206) {
             // Partial Content - this is what we expect for range requests
             validateContentRange(response, requestedOffset, requestedLength);
@@ -252,7 +337,8 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
     /// @param requestedOffset The offset that was requested
     /// @param requestedLength The length that was requested
     /// @throws IOException if the content range is invalid
-    private void validateContentRange(Response response, long requestedOffset, int requestedLength) throws IOException {
+    private void validateContentRange(Response response, long requestedOffset,
+        long requestedLength) throws IOException {
         String contentRange = response.header("Content-Range");
         if (contentRange == null) {
             throw new IOException("Server returned 206 but no Content-Range header");
@@ -293,7 +379,7 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
     /// @param requestedOffset The offset that was requested
     /// @param requestedLength The length that was requested
     /// @throws IOException if the response cannot satisfy the range request
-    private void validateFullContentResponse(Response response, long requestedOffset, int requestedLength) throws IOException {
+    private void validateFullContentResponse(Response response, long requestedOffset, long requestedLength) throws IOException {
         String contentLength = response.header("Content-Length");
         if (contentLength != null) {
             long totalSize = Long.parseLong(contentLength);
@@ -313,4 +399,6 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
             throw new IOException("HttpByteRangeFetcher has been closed");
         }
     }
+
+
 }

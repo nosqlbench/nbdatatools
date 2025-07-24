@@ -19,12 +19,15 @@ package io.nosqlbench.vectordata.transport;
 
 import io.nosqlbench.nbdatatools.api.services.TransportScheme;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
+import io.nosqlbench.nbdatatools.api.transport.FetchResult;
+import io.nosqlbench.nbdatatools.api.transport.StreamingFetchResult;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -101,8 +104,7 @@ public class FileByteRangeFetcher implements ChunkedTransportClient {
     }
 
     @Override
-    @Deprecated
-    public CompletableFuture<ByteBuffer> fetchRangeRaw(long offset, int length) throws IOException {
+    public CompletableFuture<? extends FetchResult<?>> fetchRange(long offset, long length) throws IOException {
         validateNotClosed();
         
         if (offset < 0) {
@@ -122,21 +124,71 @@ public class FileByteRangeFetcher implements ChunkedTransportClient {
                 
                 // Adjust length if it would exceed file size
                 long availableBytes = fileSize - offset;
-                int actualLength = (int) Math.min(length, availableBytes);
+                long actualLength = Math.min(length, availableBytes);
+                
+                // Validate chunk size doesn't exceed ByteBuffer limitations
+                if (actualLength > Integer.MAX_VALUE) {
+                    throw new RuntimeException("Chunk size exceeds 2GB limit for ByteBuffer: " + actualLength + 
+                        " bytes. Use streaming methods (fetchRangeStreaming) for chunks larger than 2GB.");
+                }
                 
                 // For small reads, use direct ByteBuffer allocation and async read
+                ByteBuffer data;
                 if (actualLength <= 8192) { // 8KB threshold
-                    return readWithAsyncChannel(offset, actualLength);
+                    data = readWithAsyncChannel(offset, actualLength);
                 } else {
                     // For larger reads, use memory mapping for efficiency
-                    return readWithMemoryMapping(offset, actualLength);
+                    data = readWithMemoryMapping(offset, actualLength);
                 }
+                
+                return new FetchResult<>(data, offset, length);
             } catch (Exception e) {
-                throw new RuntimeException("Failed to fetch range [" + offset + "-" + (offset + length - 1) + "]", e);
+                throw new RuntimeException("Failed to fetch range (FileByteRangeFetcher) [" + offset + "-" + (offset + length - 1) + "]", e);
             }
         });
     }
 
+    @Override
+    public CompletableFuture<StreamingFetchResult> fetchRangeStreaming(long offset, long length) throws IOException {
+        validateNotClosed();
+        
+        if (offset < 0) {
+            throw new IllegalArgumentException("Offset cannot be negative: " + offset);
+        }
+        if (length <= 0) {
+            throw new IllegalArgumentException("Length must be positive: " + length);
+        }
+        
+        long fileSize = cachedSize.get();
+        if (offset >= fileSize) {
+            throw new IllegalArgumentException("Offset " + offset + " exceeds file size " + fileSize);
+        }
+        
+        // Adjust length if it would exceed file size
+        long actualLength = Math.min(length, fileSize - offset);
+        
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // Open a new FileChannel for this streaming operation
+                // Each streaming result gets its own channel to avoid interference
+                FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ);
+                
+                // Position the channel at the requested offset
+                channel.position(offset);
+                
+                // Create a limited channel that only reads up to actualLength
+                ReadableByteChannel limitedChannel = new LimitedReadableByteChannel(channel, actualLength);
+                
+                return new FileStreamingFetchResult(channel, limitedChannel, offset, length, 
+                                                  actualLength, getSource());
+                
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to create streaming channel for range [" + 
+                                         offset + "-" + (offset + length - 1) + "]", e);
+            }
+        });
+    }
+    
     @Override
     public CompletableFuture<Long> getSize() throws IOException {
         validateNotClosed();
@@ -171,17 +223,18 @@ public class FileByteRangeFetcher implements ChunkedTransportClient {
     /// Reads data using AsynchronousFileChannel for small ranges.
     /// 
     /// @param offset The starting byte offset
-    /// @param length The number of bytes to read
+    /// @param length The number of bytes to read (must be <= Integer.MAX_VALUE due to ByteBuffer limits)
     /// @return ByteBuffer containing the requested data
     /// @throws IOException if the read operation fails
-    private ByteBuffer readWithAsyncChannel(long offset, int length) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(length);
+    private ByteBuffer readWithAsyncChannel(long offset, long length) throws IOException {
+        // ByteBuffer.allocate requires int, so length should already be validated to be <= Integer.MAX_VALUE
+        ByteBuffer buffer = ByteBuffer.allocate((int) length);
         
         try {
             // Use the synchronous read method with absolute positioning
             int bytesRead = asyncChannel.read(buffer, offset).get();
             
-            if (bytesRead != length) {
+            if (bytesRead != (int) length) {
                 throw new IOException("Expected to read " + length + " bytes but read " + bytesRead);
             }
             
@@ -195,12 +248,12 @@ public class FileByteRangeFetcher implements ChunkedTransportClient {
     /// Reads data using memory mapping for larger ranges.
     /// 
     /// @param offset The starting byte offset
-    /// @param length The number of bytes to read
+    /// @param length The number of bytes to read (must be <= Integer.MAX_VALUE due to ByteBuffer limits)
     /// @return ByteBuffer containing the requested data
     /// @throws IOException if the mapping operation fails
-    private ByteBuffer readWithMemoryMapping(long offset, int length) throws IOException {
+    private ByteBuffer readWithMemoryMapping(long offset, long length) throws IOException {
         try (FileChannel fileChannel = FileChannel.open(filePath, StandardOpenOption.READ)) {
-            // Map the requested region
+            // Map the requested region (length already validated to be <= Integer.MAX_VALUE)
             MappedByteBuffer mappedBuffer = fileChannel.map(
                 FileChannel.MapMode.READ_ONLY, 
                 offset, 
@@ -208,7 +261,7 @@ public class FileByteRangeFetcher implements ChunkedTransportClient {
             );
             
             // Create a new ByteBuffer with the data to avoid keeping the mapping alive
-            ByteBuffer result = ByteBuffer.allocate(length);
+            ByteBuffer result = ByteBuffer.allocate((int) length);
             result.put(mappedBuffer);
             result.flip();
             

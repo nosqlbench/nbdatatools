@@ -61,11 +61,33 @@ public record Catalog(List<DatasetEntry> datasets) {
   ///     The configuration containing catalog source locations
   /// @return A new catalog containing all dataset entries from the sources
   /// @throws RuntimeException
-  ///     If any catalog file cannot be loaded or parsed
+  ///     If any required catalog file cannot be loaded or parsed
   public static Catalog of(TestDataSources config) {
     List<DatasetEntry> entries = new ArrayList<>();
 
+    // Process required catalogs first - errors will cause failure
     for (URL location : config.locations()) {
+      loadCatalogEntries(location, entries, true);
+    }
+
+    // Process optional catalogs - errors will be logged but won't cause failure
+    for (URL location : config.optionalLocations()) {
+      loadCatalogEntries(location, entries, false);
+    }
+
+    return new Catalog(entries);
+  }
+
+  /// Loads catalog entries from a single location
+  /// @param location
+  ///     The catalog location URL
+  /// @param entries
+  ///     The list to add entries to
+  /// @param required
+  ///     Whether this catalog is required (throws on error) or optional (logs on error)
+  /// @throws RuntimeException
+  ///     If required is true and the catalog cannot be loaded
+  private static void loadCatalogEntries(URL location, List<DatasetEntry> entries, boolean required) {
       location = sanitizeUrlPath(location);
       if (location.getPath().endsWith("/")) {
 
@@ -161,14 +183,16 @@ public record Catalog(List<DatasetEntry> datasets) {
 //        }
 //        entries.addAll(catalogEntries);
       } catch (IOException e) {
-        throw new RuntimeException(
-            "Failed to load catalog from " + fileUrl + ": " + e.getMessage(),
-            e
-        );
+        if (required) {
+          throw new RuntimeException(
+              "Failed to load catalog from " + fileUrl + ": " + e.getMessage(),
+              e
+          );
+        } else {
+          // Log warning for optional catalogs but continue processing
+          System.err.println("Warning: Could not load optional catalog from " + fileUrl + ": " + e.getMessage());
+        }
       }
-    }
-
-    return new Catalog(entries);
   }
 
   private static String dirNameOfPath(URL path) {
@@ -204,8 +228,60 @@ public record Catalog(List<DatasetEntry> datasets) {
     } else if (found.size() > 1) {
       throw new RuntimeException("Found multiple datasets matching " + name + ": " + found);
     } else {
+      // No exact match found - provide helpful suggestions
+      printDatasetSuggestions(name);
       return Optional.empty();
     }
+  }
+
+  /// Prints helpful suggestions to stderr when a dataset is not found.
+  /// Lists all available datasets with their profiles and highlights any that contain the search term as a substring.
+  /// @param searchName
+  ///     The name that was searched for
+  private void printDatasetSuggestions(String searchName) {
+    System.err.println("Dataset '" + searchName + "' not found.");
+    
+    if (datasets.isEmpty()) {
+      System.err.println("No datasets are available in the catalog.");
+      return;
+    }
+    
+    // Find datasets that contain the search term as a substring (case insensitive)
+    List<DatasetEntry> substringMatches = datasets.stream()
+        .filter(e -> e.name().toLowerCase().contains(searchName.toLowerCase()))
+        .toList();
+    
+    if (!substringMatches.isEmpty()) {
+      System.err.println("Did you mean one of these datasets?");
+      for (DatasetEntry entry : substringMatches) {
+        printDatasetWithProfiles(entry);
+      }
+      System.err.println();
+    }
+    
+    // Always show all available datasets
+    System.err.println("Available datasets (" + datasets.size() + " total):");
+    for (DatasetEntry entry : datasets) {
+      printDatasetWithProfiles(entry);
+    }
+  }
+
+  /// Prints a dataset name along with its available profiles
+  /// @param entry
+  ///     The dataset entry to print
+  private void printDatasetWithProfiles(DatasetEntry entry) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("  - ").append(entry.name());
+    
+    if (entry.profiles() != null && !entry.profiles().isEmpty()) {
+      sb.append(" (profiles: ");
+      sb.append(String.join(", ", entry.profiles().keySet()));
+      sb.append(")");
+    } else {
+      sb.append(" (no profiles)");
+    }
+    
+    System.err.println(sb.toString());
   }
 
   //  /// Find a dataset by a partial name, case insensitive

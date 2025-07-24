@@ -22,13 +22,14 @@ import io.nosqlbench.vectordata.discovery.TestDataGroup;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 
 /// Each dataset which is accessible through the {@link TestDataGroup}
 /// API **must** implement this interface.
 /// @see TestDataGroup
 /// @param <T> the type of the vector elements
-public interface DatasetView<T> extends Iterable<T>{
+public interface DatasetView<T> extends Iterable<T> {
 
   /// Asynchronously buffer an interval of bytes from the remote file to the local cache file and
   ///  return a future which can be used to block synchronously until it is avaialble.
@@ -37,42 +38,76 @@ public interface DatasetView<T> extends Iterable<T>{
   /// @return A future which can be used to block synchronously until it is available
   public CompletableFuture<Void> prebuffer(long startIncl, long endExcl);
 
+  /// Asynchronously buffer the full range of the dataset view and
+  /// return a future which can be used to block synchronously until it is available.
+  /// This method prebuffers from 0 to getCount().
+  /// @return A future which can be used to block synchronously until it is available
+  public CompletableFuture<Void> prebuffer();
+
   /// get the number of vectors in the dataset
   /// @return the number of vectors in the dataset
   public int getCount();
+
   /// get the number of dimensions in each vector
   /// @return the number of dimensions in each vector
   public int getVectorDimensions();
+
   /// get the base type of the vector elements
   /// @return the base type of the vector elements
   public Class<?> getDataType();
+
   /// get a vector by its ordinal
   /// @param index the ordinal of the vector to get
   /// @return the vector
   public T get(long index);
+
+  /// get a vector asynchronously
+  /// @param index the ordinal of the vector to get
+  /// @return a future for the vector
+  public Future<T> getAsync(long index);
+
   /// get a range of vectors by their ordinals
   /// @param startInclusive the first ordinal to get
   /// @param endExclusive the last ordinal to get
   /// @return the vectors
   public T[] getRange(long startInclusive, long endExclusive);
+
+  /// get a range of vectors asynchronously
+  /// @param startInclusive the first ordinal to get
+  /// @param endExclusive the last ordinal to get
+  /// @return a future for the vectors
+  public Future<T[]> getRangeAsync(long startInclusive, long endExclusive);
+
   /// get a vector by its ordinal
   /// @param index the ordinal of the vector to get
   /// @return the vector
   public Indexed<T> getIndexed(long index);
+
+  /// get an indexed vector asynchronously
+  /// @param index the ordinal of the vector to get
+  /// @return a future for the vector
+  public Future<Indexed<T>> getIndexedAsync(long index);
+
   /// get a range of vectors by their ordinals
   /// @param startInclusive the first ordinal to get
   /// @param endExclusive the last ordinal to get
   /// @return the vectors
-  Indexed<T>[] getIndexedRange(long startInclusive, long endExclusive);
+  public Indexed<T>[] getIndexedRange(long startInclusive, long endExclusive);
+
+  /// Get a range of indexed vectors asynchronously.
+  /// @param startInclusive the first ordinal to get
+  /// @param endExclusive the last ordinal to get
+  /// @return a future for the vectors
+  public Future<Indexed<T>[]> getIndexedRangeAsync(long startInclusive, long endExclusive);
 
   /// get a list of all vectors
   /// @return the list of all vectors
-  List<T> toList();
+  public List<T> toList();
 
   /// get a list of all vectors, transformed by the given function
   /// @param f the function to transform the vectors
   /// @param <U> the type of the transformed vectors
   /// @return the list of all vectors, transformed
-  <U> List<U> toList(Function<T, U> f);
+  public <U> List<U> toList(Function<T, U> f);
 
 }

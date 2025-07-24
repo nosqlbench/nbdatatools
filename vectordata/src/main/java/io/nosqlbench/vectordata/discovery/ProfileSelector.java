@@ -23,7 +23,12 @@ package io.nosqlbench.vectordata.discovery;
 /// This interface provides methods for selecting specific profiles from a dataset
 /// and configuring how they are accessed.
 public interface ProfileSelector {
-  /// Selects a specific profile by name.
+  /// Selects a specific profile by name. If a string is provided that has colons in it, then
+  /// implementors should take only the last word after the last colon as the effective profile
+  /// name. Otherwise if a single word is provided, and it matches the name of the current
+  /// dataset entry, then the value "default" should be taken as the effective profile name. If
+  /// the word is not recognized as the name of the current dataset entry, then the value is the
+  /// effective profile name.
   ///
   /// @param profileName The name of the profile to select
   /// @return A TestDataView for the selected profile

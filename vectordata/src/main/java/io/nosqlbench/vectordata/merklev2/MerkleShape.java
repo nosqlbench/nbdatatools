@@ -222,4 +222,121 @@ public interface MerkleShape {
   }
 
   ChunkBoundary getChunkBoundary(int chunkIndex);
+  
+  /// Gets the range of leaf nodes covered by the specified merkle tree node.
+  /// 
+  /// For leaf nodes, this returns a range containing only that leaf.
+  /// For internal nodes, this returns the range of all leaf nodes that
+  /// this internal node covers in the tree structure.
+  /// 
+  /// @param nodeIndex The index of the merkle tree node
+  /// @return A range [startLeaf, endLeaf) of leaf node indices covered by this node
+  /// @throws IllegalArgumentException if nodeIndex is out of bounds [0, getNodeCount())
+  MerkleNodeRange getLeafRangeForNode(int nodeIndex);
+  
+  /// Gets the byte range covered by the specified merkle tree node.
+  /// 
+  /// For leaf nodes, this returns the byte range of the corresponding chunk.
+  /// For internal nodes, this returns the combined byte range of all chunks
+  /// covered by the leaf nodes under this internal node.
+  /// 
+  /// @param nodeIndex The index of the merkle tree node
+  /// @return A byte range [startByte, endByte) covered by this node
+  /// @throws IllegalArgumentException if nodeIndex is out of bounds [0, getNodeCount())
+  MerkleNodeRange getByteRangeForNode(int nodeIndex);
+  
+  /// Gets the merkle tree nodes that overlap with the specified byte range.
+  /// 
+  /// This method identifies which nodes in the merkle tree need to be considered
+  /// for a given byte range. It returns the minimal set of nodes that cover
+  /// the requested range, preferring larger internal nodes when possible to
+  /// minimize the number of download operations.
+  /// 
+  /// @param startByte The starting byte position (inclusive)
+  /// @param length The number of bytes in the range
+  /// @return List of node indices that overlap with the byte range
+  /// @throws IllegalArgumentException if startByte or length are invalid
+  java.util.List<Integer> getNodesForByteRange(long startByte, long length);
+  
+  /// Checks if the specified node index represents a leaf node.
+  /// 
+  /// @param nodeIndex The index of the merkle tree node
+  /// @return true if the node is a leaf node, false if it's an internal node
+  /// @throws IllegalArgumentException if nodeIndex is out of bounds [0, getNodeCount())
+  boolean isLeafNode(int nodeIndex);
+  
+  /// Converts a chunk index to the corresponding leaf node index.
+  /// 
+  /// @param chunkIndex The chunk index (0-based)
+  /// @return The corresponding leaf node index in the merkle tree
+  /// @throws IllegalArgumentException if chunkIndex is out of bounds [0, getTotalChunks())
+  int chunkIndexToLeafNode(int chunkIndex);
+  
+  /// Converts a leaf node index to the corresponding chunk index.
+  /// 
+  /// @param leafNodeIndex The leaf node index in the merkle tree
+  /// @return The corresponding chunk index (0-based)
+  /// @throws IllegalArgumentException if leafNodeIndex is not a valid leaf node
+  int leafNodeToChunkIndex(int leafNodeIndex);
+  
+  /// Gets all the chunk indices covered by the specified merkle tree node.
+  /// 
+  /// For leaf nodes, returns a list containing only the corresponding chunk index.
+  /// For internal nodes, returns all chunk indices covered by the leaf nodes
+  /// under this internal node.
+  /// 
+  /// @param nodeIndex The index of the merkle tree node
+  /// @return List of chunk indices covered by this node
+  /// @throws IllegalArgumentException if nodeIndex is out of bounds [0, getNodeCount())
+  java.util.List<Integer> getChunksForNode(int nodeIndex);
+  
+  /// Gets all internal nodes at a specific tree level.
+  /// 
+  /// Level 0 is the root node, level 1 contains the root's children, etc.
+  /// This method is useful for traversing the tree level by level when
+  /// searching for optimal node coverage.
+  /// 
+  /// @param level The tree level (0 = root)
+  /// @return List of node indices at the specified level
+  java.util.List<Integer> getInternalNodesAtLevel(int level);
+  
+  /// Checks if any chunk covered by the specified node requires validation.
+  /// 
+  /// This method determines if a node covers any chunks that are not yet valid
+  /// according to the provided merkle state. It's useful for filtering out nodes
+  /// that don't need to be downloaded.
+  /// 
+  /// @param nodeIndex The index of the merkle tree node
+  /// @param state The merkle state to check against
+  /// @return true if at least one covered chunk is invalid, false if all are valid
+  /// @throws IllegalArgumentException if nodeIndex is out of bounds [0, getNodeCount())
+  boolean nodeHasInvalidChunks(int nodeIndex, MerkleState state);
+  
+  /// Represents a range in the merkle tree structure.
+  /// 
+  /// This can represent either a range of leaf nodes or a range of bytes,
+  /// depending on the context in which it's used.
+  interface MerkleNodeRange {
+    /// Gets the start of the range (inclusive).
+    /// @return The start position
+    long getStart();
+    
+    /// Gets the end of the range (exclusive).
+    /// @return The end position  
+    long getEnd();
+    
+    /// Gets the length of the range.
+    /// @return The length (end - start)
+    long getLength();
+    
+    /// Checks if this range contains the specified position.
+    /// @param position The position to check
+    /// @return true if the position is within this range
+    boolean contains(long position);
+    
+    /// Checks if this range overlaps with another range.
+    /// @param other The other range to check
+    /// @return true if the ranges overlap
+    boolean overlaps(MerkleNodeRange other);
+  }
 }

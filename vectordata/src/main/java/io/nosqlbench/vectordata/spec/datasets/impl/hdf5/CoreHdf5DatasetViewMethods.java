@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.PrimitiveIterator;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -91,11 +92,6 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
   public CoreHdf5DatasetViewMethods(Dataset dataset, FWindow window) {
     this.dataset = dataset;
     this.window = validateWindow(window);
-  }
-
-  @Override
-  public CompletableFuture<Void> prebuffer(long startIncl, long endExcl) {
-    return CompletableFuture.completedFuture(null);
   }
 
 
@@ -271,6 +267,20 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
     return slice;
   }
 
+  /// Retrieves an object at the specified ordinal asynchronously.
+  ///
+  /// This method provides an asynchronous version of get(long ordinal).
+  /// Since the underlying synchronous get method is already implemented,
+  /// this returns a completed future with the result.
+  ///
+  /// @param index 
+  ///     The ordinal of the object to retrieve
+  /// @return A Future containing the object at the specified ordinal
+  @Override
+  public Future<T> getAsync(long index) {
+    return CompletableFuture.completedFuture(get(index));
+  }
+
   /// get a range of objects by their ordinals
   /// @param startInclusive
   ///     the ordinal of the first object to get
@@ -282,6 +292,22 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
     return ts;
   }
 
+  /// Retrieves a range of objects by their ordinals asynchronously.
+  ///
+  /// This method provides an asynchronous version of getRange(long, long).
+  /// Since the underlying synchronous getRange method is already implemented,
+  /// this returns a completed future with the result.
+  ///
+  /// @param startInclusive 
+  ///     The ordinal of the first object to get
+  /// @param endExclusive 
+  ///     The ordinal of the last object to get
+  /// @return A Future containing an array of objects in the specified range
+  @Override
+  public Future<T[]> getRangeAsync(long startInclusive, long endExclusive) {
+    return CompletableFuture.completedFuture(getRange(startInclusive, endExclusive));
+  }
+
   /// get an object by its ordinal
   /// @param index
   ///     the ordinal of the object to get
@@ -291,6 +317,20 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
     T t = get(index);
     Indexed<T> tIndexed = new Indexed<>(index, t);
     return tIndexed;
+  }
+
+  /// Retrieves an object at the specified ordinal, wrapped in an Indexed container, asynchronously.
+  ///
+  /// This method provides an asynchronous version of getIndexed(long index).
+  /// Since the underlying synchronous getIndexed method is already implemented,
+  /// this returns a completed future with the result.
+  ///
+  /// @param index 
+  ///     The ordinal of the object to retrieve
+  /// @return A Future containing an Indexed object with the ordinal and data
+  @Override
+  public Future<Indexed<T>> getIndexedAsync(long index) {
+    return CompletableFuture.completedFuture(getIndexed(index));
   }
 
   /// get a range of objects by their ordinals
@@ -313,6 +353,22 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
       result = new Indexed[0];
     }
     return result;
+  }
+
+  /// Retrieves a range of objects, each wrapped in an Indexed container, asynchronously.
+  ///
+  /// This method provides an asynchronous version of getIndexedRange(long, long).
+  /// Since the underlying synchronous getIndexedRange method is already implemented,
+  /// this returns a completed future with the result.
+  ///
+  /// @param startInclusive 
+  ///     The ordinal of the first object to get
+  /// @param endExclusive 
+  ///     The ordinal of the last object to get
+  /// @return A Future containing an array of Indexed objects for the specified range
+  @Override
+  public Future<Indexed<T>[]> getIndexedRangeAsync(long startInclusive, long endExclusive) {
+    return CompletableFuture.completedFuture(getIndexedRange(startInclusive, endExclusive));
   }
 
   @Override
@@ -353,4 +409,16 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
       return dataset.get(nextidx);
     }
   }
+
+  @Override
+  public CompletableFuture<Void> prebuffer() {
+    return CompletableFuture.completedFuture(null);
+  }
+
+  @Override
+  public CompletableFuture<Void> prebuffer(long startIncl, long endExcl) {
+    return CompletableFuture.completedFuture(null);
+  }
+
+
 }

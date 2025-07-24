@@ -18,7 +18,9 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
+import io.nosqlbench.vectordata.util.TestFixturePaths;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -40,16 +42,15 @@ import static org.junit.jupiter.api.Assertions.*;
 class MAFileChannelSimpleTest {
 
     @Test
-    void testSingleChunkValidation(@TempDir Path tempDir) throws Exception {
+    void testSingleChunkValidation(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Create small test file with just 1 chunk
         int fileSize = 512 * 1024; // 512KB file (should be 1 chunk)
-        Path sourceFile = createTestFile(tempDir, "simple_test.bin", fileSize);
+        String testFileName = TestFixturePaths.createTestSpecificFilename(testInfo, "simple_test.bin");
+        Path sourceFile = createTestFile(tempDir, testFileName, fileSize);
         
-        // Serve the file via HTTP
-        String uniqueId = String.valueOf(System.currentTimeMillis());
-        Path serverDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve("simple_test_" + uniqueId);
-        Files.createDirectories(serverDir);
-        Path serverFile = serverDir.resolve("simple_test.bin");
+        // Serve the file via HTTP using test-specific directory
+        Path testSpecificTempDir = TestFixturePaths.createTestSpecificTempDir(testInfo);
+        Path serverFile = testSpecificTempDir.resolve(testFileName);
         Files.copy(sourceFile, serverFile);
         
         // Create merkle reference file
@@ -57,11 +58,14 @@ class MAFileChannelSimpleTest {
         Path mrefPath = serverFile.resolveSibling(serverFile.getFileName() + ".mref");
         merkleRef.save(mrefPath);
         
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        String remoteUrl = baseUrl + "temp/simple_test_" + uniqueId + "/simple_test.bin";
+        // Create test-specific server URL
+        URL testSpecificUrl = TestFixturePaths.createTestSpecificServerUrl(testInfo, testFileName);
         
-        Path localCache = tempDir.resolve("cache.dat");
-        Path merkleStatePath = tempDir.resolve("state.mrkl");
+        // Use test-specific filenames for cache and state
+        String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "cache.dat");
+        String stateFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "state.mrkl");
+        Path localCache = tempDir.resolve(cacheFilename);
+        Path merkleStatePath = tempDir.resolve(stateFilename);
         
         System.out.println("=== Testing single chunk download and validation ===");
         MerkleShape shape = merkleRef.getShape();
@@ -69,7 +73,7 @@ class MAFileChannelSimpleTest {
         System.out.println("Chunk size: " + shape.getChunkSize() + " bytes");
         System.out.println("Total chunks: " + shape.getLeafCount());
         
-        try (MAFileChannel channel = new MAFileChannel(localCache, merkleStatePath, remoteUrl)) {
+        try (MAFileChannel channel = new MAFileChannel(localCache, merkleStatePath, testSpecificUrl.toString())) {
             
             // Check initial state
             MerkleState initialState = MerkleState.load(merkleStatePath);

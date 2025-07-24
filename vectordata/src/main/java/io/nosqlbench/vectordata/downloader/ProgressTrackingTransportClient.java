@@ -19,6 +19,7 @@ package io.nosqlbench.vectordata.downloader;
 
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
 import io.nosqlbench.nbdatatools.api.transport.FetchResult;
+import io.nosqlbench.nbdatatools.api.transport.StreamingFetchResult;
 import io.nosqlbench.vectordata.events.EventSink;
 
 import java.io.IOException;
@@ -70,7 +71,7 @@ public class ProgressTrackingTransportClient implements ChunkedTransportClient {
     }
     
     @Override
-    public CompletableFuture<ProgressTrackingFetchResult> fetchRange(long offset, int length) throws IOException {
+    public CompletableFuture<ProgressTrackingFetchResult> fetchRange(long offset, long length) throws IOException {
         Instant startTime = Instant.now();
         int chunkIndex = (int) chunkCounter.getAndIncrement();
         
@@ -105,11 +106,25 @@ public class ProgressTrackingTransportClient implements ChunkedTransportClient {
             });
     }
     
+    
     @Override
-    @Deprecated
-    public CompletableFuture<ByteBuffer> fetchRangeRaw(long offset, int length) throws IOException {
-        // This shouldn't be called directly when using progress tracking
-        return fetchRange(offset, length).thenApply(FetchResult::getData);
+    public CompletableFuture<StreamingFetchResult> fetchRangeStreaming(long offset, long length) throws IOException {
+        Instant startTime = Instant.now();
+        int chunkIndex = (int) chunkCounter.getAndIncrement();
+        
+        return delegate.fetchRangeStreaming(offset, length)
+            .thenApply(result -> {
+                // For streaming results, we can't immediately know the bytes transferred
+                // We wrap the result to track progress as data is read
+                return new ProgressTrackingStreamingResult(
+                    result, 
+                    startTime, 
+                    chunkIndex, 
+                    totalChunks,
+                    cumulativeBytesTransferred,
+                    eventSink
+                );
+            });
     }
     
     @Override

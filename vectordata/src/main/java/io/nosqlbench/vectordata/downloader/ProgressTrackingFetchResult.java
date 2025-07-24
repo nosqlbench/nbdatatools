@@ -59,7 +59,7 @@ public class ProgressTrackingFetchResult extends FetchResult<ProgressTrackingFet
     /// @param source The source URL or path
     /// @param chunkIndex The index of this chunk (0-based)
     /// @param totalChunks Total number of chunks in the download
-    public ProgressTrackingFetchResult(ByteBuffer data, long offset, int requestedLength,
+    public ProgressTrackingFetchResult(ByteBuffer data, long offset, long requestedLength,
                                      Instant startTime, Instant endTime,
                                      long totalResourceSize, long cumulativeBytesTransferred,
                                      String source, int chunkIndex, int totalChunks) {
@@ -171,7 +171,7 @@ public class ProgressTrackingFetchResult extends FetchResult<ProgressTrackingFet
     public static class Builder {
         private ByteBuffer data;
         private long offset;
-        private int requestedLength;
+        private long requestedLength;
         private Instant startTime;
         private Instant endTime;
         private long totalResourceSize;
@@ -190,7 +190,7 @@ public class ProgressTrackingFetchResult extends FetchResult<ProgressTrackingFet
             return this;
         }
         
-        public Builder requestedLength(int requestedLength) {
+        public Builder requestedLength(long requestedLength) {
             this.requestedLength = requestedLength;
             return this;
         }

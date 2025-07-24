@@ -242,7 +242,6 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
   /// Gets the first dataset found from a list of possible paths.
   ///
   /// @param names The paths to search for datasets
-  /// @param <Dataset> the type of dataset to return
   /// @return An Optional containing the first dataset found, or empty if none found
   Optional<Dataset> getFirstDataset(String... names) {
     Dataset dataset = null;
@@ -317,7 +316,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
       return Optional.empty();
     }
     TestDataView profile =
-        profileCache.computeIfAbsent(profileName, p -> new ProfileDataView(this, fprofile));
+        profileCache.computeIfAbsent(profileName, p -> new HDF5ProfileDataView(this, fprofile));
     return Optional.of(profile);
   }
 
@@ -334,8 +333,23 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
   /// @throws IllegalArgumentException If the profile is not found
   @Override
   public TestDataView profile(String profileName) {
-    return getProfileOptionally(profileName).orElseThrow(() -> new IllegalArgumentException(
-        "profile '" + profileName + "' not found in " + this));
+    // Extract effective profile name based on the documented rules
+    String effectiveProfileName;
+    
+    if (profileName.contains(":")) {
+      // If it has colons, take the last word after the last colon
+      int lastColonIndex = profileName.lastIndexOf(':');
+      effectiveProfileName = profileName.substring(lastColonIndex + 1);
+    } else if (profileName.equals(getName())) {
+      // If it's a single word matching the dataset name, use "default"
+      effectiveProfileName = DEFAULT_PROFILE;
+    } else {
+      effectiveProfileName = profileName;
+    }
+    // Otherwise, use the profileName as-is (already set above)
+    
+    return getProfileOptionally(effectiveProfileName).orElseThrow(() -> new IllegalArgumentException(
+        "profile '" + effectiveProfileName + "' not found in " + this));
   }
 
   @Override

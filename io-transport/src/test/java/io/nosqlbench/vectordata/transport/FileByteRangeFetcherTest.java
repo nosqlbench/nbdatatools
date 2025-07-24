@@ -17,6 +17,7 @@ package io.nosqlbench.vectordata.transport;
  * under the License.
  */
 
+import io.nosqlbench.nbdatatools.api.transport.FetchResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -46,8 +47,8 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             // Test reading from the beginning
-            CompletableFuture<ByteBuffer> future = fetcher.fetchRangeRaw(0, 10);
-            ByteBuffer result = future.get();
+            CompletableFuture<? extends FetchResult<?>> future = fetcher.fetchRange(0, 10);
+            ByteBuffer result = future.get().getData();
             
             assertNotNull(result);
             assertEquals(10, result.remaining());
@@ -73,8 +74,8 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             // Test reading from offset 100
-            CompletableFuture<ByteBuffer> future = fetcher.fetchRangeRaw(100, 50);
-            ByteBuffer result = future.get();
+            CompletableFuture<? extends FetchResult<?>> future = fetcher.fetchRange(100, 50);
+            ByteBuffer result = future.get().getData();
             
             assertNotNull(result);
             assertEquals(50, result.remaining());
@@ -100,8 +101,8 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             // Test reading a large range (should use memory mapping)
-            CompletableFuture<ByteBuffer> future = fetcher.fetchRangeRaw(1000, 10000);
-            ByteBuffer result = future.get();
+            CompletableFuture<? extends FetchResult<?>> future = fetcher.fetchRange(1000, 10000);
+            ByteBuffer result = future.get().getData();
             
             assertNotNull(result);
             assertEquals(10000, result.remaining());
@@ -159,7 +160,7 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             // Try to read beyond file size
-            CompletableFuture<ByteBuffer> future = fetcher.fetchRangeRaw(150, 50);
+            CompletableFuture<? extends FetchResult<?>> future = fetcher.fetchRange(150, 50);
             
             assertThrows(Exception.class, () -> future.get());
         }
@@ -176,8 +177,8 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             // Try to read more than available, should return only available bytes
-            CompletableFuture<ByteBuffer> future = fetcher.fetchRangeRaw(90, 50);
-            ByteBuffer result = future.get();
+            CompletableFuture<? extends FetchResult<?>> future = fetcher.fetchRange(90, 50);
+            ByteBuffer result = future.get().getData();
             
             assertNotNull(result);
             assertEquals(10, result.remaining()); // Only 10 bytes available from offset 90
@@ -199,7 +200,7 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             assertThrows(IllegalArgumentException.class, () -> {
-                fetcher.fetchRangeRaw(-1, 10);
+                fetcher.fetchRange(-1, 10);
             });
         }
     }
@@ -212,7 +213,7 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             assertThrows(IllegalArgumentException.class, () -> {
-                fetcher.fetchRangeRaw(0, 0);
+                fetcher.fetchRange(0, 0);
             });
         }
     }
@@ -225,7 +226,7 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             assertThrows(IllegalArgumentException.class, () -> {
-                fetcher.fetchRangeRaw(0, -10);
+                fetcher.fetchRange(0, -10);
             });
         }
     }
@@ -267,7 +268,7 @@ public class FileByteRangeFetcherTest {
         
         // Operations after close should throw IOException
         assertThrows(IOException.class, () -> {
-            fetcher.fetchRangeRaw(0, 10);
+            fetcher.fetchRange(0, 10);
         });
         
         assertThrows(IOException.class, () -> {
@@ -287,14 +288,14 @@ public class FileByteRangeFetcherTest {
         
         try (FileByteRangeFetcher fetcher = new FileByteRangeFetcher(testFile)) {
             // Start multiple concurrent reads
-            CompletableFuture<ByteBuffer> future1 = fetcher.fetchRangeRaw(0, 100);
-            CompletableFuture<ByteBuffer> future2 = fetcher.fetchRangeRaw(1000, 100);
-            CompletableFuture<ByteBuffer> future3 = fetcher.fetchRangeRaw(5000, 100);
+            CompletableFuture<? extends FetchResult<?>> future1 = fetcher.fetchRange(0, 100);
+            CompletableFuture<? extends FetchResult<?>> future2 = fetcher.fetchRange(1000, 100);
+            CompletableFuture<? extends FetchResult<?>> future3 = fetcher.fetchRange(5000, 100);
             
             // Wait for all to complete
-            ByteBuffer result1 = future1.get();
-            ByteBuffer result2 = future2.get();
-            ByteBuffer result3 = future3.get();
+            ByteBuffer result1 = future1.get().getData();
+            ByteBuffer result2 = future2.get().getData();
+            ByteBuffer result3 = future3.get().getData();
             
             // Verify all results are correct
             assertNotNull(result1);

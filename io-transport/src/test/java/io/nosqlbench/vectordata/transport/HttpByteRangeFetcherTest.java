@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import io.nosqlbench.nbdatatools.api.transport.FetchResult;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -71,8 +72,9 @@ public class HttpByteRangeFetcherTest {
     void testBasicRangeRead() throws Exception {
         try (HttpByteRangeFetcher fetcher = new HttpByteRangeFetcher(testFileUrl)) {
             // Test reading the first 16 bytes (4 dimensions as float)
-            CompletableFuture<ByteBuffer> future = fetcher.fetchRangeRaw(0, 16);
-            ByteBuffer result = future.get();
+            CompletableFuture<? extends FetchResult<?>> future = fetcher.fetchRange(0, 16);
+            FetchResult<?> fetchResult = future.get();
+            ByteBuffer result = fetchResult.getData();
             
             assertNotNull(result);
             assertEquals(16, result.remaining());
@@ -89,8 +91,9 @@ public class HttpByteRangeFetcherTest {
     void testRangeReadFromOffset() throws Exception {
         try (HttpByteRangeFetcher fetcher = new HttpByteRangeFetcher(testFileUrl)) {
             // Test reading from a specific offset
-            CompletableFuture<ByteBuffer> future = fetcher.fetchRangeRaw(1000, 100);
-            ByteBuffer result = future.get();
+            CompletableFuture<? extends FetchResult<?>> future = fetcher.fetchRange(1000, 100);
+            FetchResult<?> fetchResult = future.get();
+            ByteBuffer result = fetchResult.getData();
             
             assertNotNull(result);
             assertEquals(100, result.remaining());
@@ -129,14 +132,14 @@ public class HttpByteRangeFetcherTest {
     void testConcurrentAccess() throws Exception {
         try (HttpByteRangeFetcher fetcher = new HttpByteRangeFetcher(testFileUrl)) {
             // Start multiple concurrent reads
-            CompletableFuture<ByteBuffer> future1 = fetcher.fetchRangeRaw(0, 100);
-            CompletableFuture<ByteBuffer> future2 = fetcher.fetchRangeRaw(1000, 100);
-            CompletableFuture<ByteBuffer> future3 = fetcher.fetchRangeRaw(5000, 100);
+            CompletableFuture<? extends FetchResult<?>> future1 = fetcher.fetchRange(0, 100);
+            CompletableFuture<? extends FetchResult<?>> future2 = fetcher.fetchRange(1000, 100);
+            CompletableFuture<? extends FetchResult<?>> future3 = fetcher.fetchRange(5000, 100);
             
             // Wait for all to complete
-            ByteBuffer result1 = future1.get();
-            ByteBuffer result2 = future2.get();
-            ByteBuffer result3 = future3.get();
+            ByteBuffer result1 = future1.get().getData();
+            ByteBuffer result2 = future2.get().getData();
+            ByteBuffer result3 = future3.get().getData();
             
             // Verify all results are correct
             assertNotNull(result1);
@@ -153,7 +156,7 @@ public class HttpByteRangeFetcherTest {
     void testNegativeOffset() throws Exception {
         try (HttpByteRangeFetcher fetcher = new HttpByteRangeFetcher(testFileUrl)) {
             assertThrows(IllegalArgumentException.class, () -> {
-                fetcher.fetchRangeRaw(-1, 10);
+                fetcher.fetchRange(-1, 10);
             });
         }
     }
@@ -162,7 +165,7 @@ public class HttpByteRangeFetcherTest {
     void testZeroLength() throws Exception {
         try (HttpByteRangeFetcher fetcher = new HttpByteRangeFetcher(testFileUrl)) {
             assertThrows(IllegalArgumentException.class, () -> {
-                fetcher.fetchRangeRaw(0, 0);
+                fetcher.fetchRange(0, 0);
             });
         }
     }
@@ -171,7 +174,7 @@ public class HttpByteRangeFetcherTest {
     void testNegativeLength() throws Exception {
         try (HttpByteRangeFetcher fetcher = new HttpByteRangeFetcher(testFileUrl)) {
             assertThrows(IllegalArgumentException.class, () -> {
-                fetcher.fetchRangeRaw(0, -10);
+                fetcher.fetchRange(0, -10);
             });
         }
     }
@@ -204,7 +207,7 @@ public class HttpByteRangeFetcherTest {
         
         // Operations after close should throw IOException
         assertThrows(IOException.class, () -> {
-            fetcher.fetchRangeRaw(0, 10);
+            fetcher.fetchRange(0, 10);
         });
         
         assertThrows(IOException.class, () -> {
@@ -217,7 +220,7 @@ public class HttpByteRangeFetcherTest {
         try (HttpByteRangeFetcher fetcher = new HttpByteRangeFetcher(testFileUrl)) {
             // Try to read beyond file size
             long fileSize = fetcher.getSize().get();
-            CompletableFuture<ByteBuffer> future = fetcher.fetchRangeRaw(fileSize + 1000, 100);
+            CompletableFuture<? extends FetchResult<?>> future = fetcher.fetchRange(fileSize + 1000, 100);
             
             assertThrows(Exception.class, () -> future.get());
         }
@@ -227,14 +230,14 @@ public class HttpByteRangeFetcherTest {
     void testSmallAndLargeRanges() throws Exception {
         try (HttpByteRangeFetcher fetcher = new HttpByteRangeFetcher(testFileUrl)) {
             // Test small range
-            CompletableFuture<ByteBuffer> smallFuture = fetcher.fetchRangeRaw(0, 16);
-            ByteBuffer smallResult = smallFuture.get();
+            CompletableFuture<? extends FetchResult<?>> smallFuture = fetcher.fetchRange(0, 16);
+            ByteBuffer smallResult = smallFuture.get().getData();
             assertNotNull(smallResult);
             assertEquals(16, smallResult.remaining());
             
             // Test larger range
-            CompletableFuture<ByteBuffer> largeFuture = fetcher.fetchRangeRaw(1000, 8192);
-            ByteBuffer largeResult = largeFuture.get();
+            CompletableFuture<? extends FetchResult<?>> largeFuture = fetcher.fetchRange(1000, 8192);
+            ByteBuffer largeResult = largeFuture.get().getData();
             assertNotNull(largeResult);
             assertEquals(8192, largeResult.remaining());
         }

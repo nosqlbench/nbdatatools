@@ -17,6 +17,9 @@ package io.nosqlbench.vectordata.merklev2;
  * under the License.
  */
 
+import java.util.ArrayList;
+import java.util.List;
+
 // ChunkBoundary is now in the same package
 
 /**
@@ -428,6 +431,157 @@ public final class BaseMerkleShape implements MerkleShape {
     }
 
     @Override
+    public MerkleNodeRange getLeafRangeForNode(int nodeIndex) {
+        if (nodeIndex < 0 || nodeIndex >= nodeCount) {
+            throw new IllegalArgumentException("Node index " + nodeIndex + " out of bounds [0, " + nodeCount + ")");
+        }
+        
+        if (nodeIndex >= offset) {
+            // This is a leaf node
+            int leafIndex = nodeIndex - offset;
+            return new SimpleMerkleNodeRange(leafIndex, leafIndex + 1);
+        } else {
+            // This is an internal node - calculate range of leaves it covers
+            int level = getNodeLevel(nodeIndex);
+            int nodesPerLevel = 1 << level;
+            int nodePositionInLevel = nodeIndex - ((1 << level) - 1);
+            int leavesPerNode = capLeaf / nodesPerLevel;
+            
+            long startLeaf = (long) nodePositionInLevel * leavesPerNode;
+            long endLeaf = Math.min(startLeaf + leavesPerNode, leafCount);
+            
+            return new SimpleMerkleNodeRange(startLeaf, endLeaf);
+        }
+    }
+    
+    @Override
+    public MerkleNodeRange getByteRangeForNode(int nodeIndex) {
+        MerkleNodeRange leafRange = getLeafRangeForNode(nodeIndex);
+        
+        // Convert leaf range to chunk indices, ensuring bounds
+        int startChunk = (int) leafRange.getStart();
+        int endChunk = (int) Math.min(leafRange.getEnd(), totalChunks);
+        
+        // Handle case where start chunk is beyond bounds
+        if (startChunk >= totalChunks) {
+            return new SimpleMerkleNodeRange(totalContentSize, totalContentSize);
+        }
+        
+        // Convert chunk indices to byte range
+        long startByte = getChunkStartPosition(startChunk);
+        long endByte = (endChunk >= totalChunks) ? totalContentSize : getChunkStartPosition(endChunk);
+        
+        return new SimpleMerkleNodeRange(startByte, endByte);
+    }
+    
+    @Override
+    public java.util.List<Integer> getNodesForByteRange(long startByte, long length) {
+        validateContentPosition(startByte);
+        if (length <= 0) {
+            throw new IllegalArgumentException("Length must be positive: " + length);
+        }
+        
+        java.util.List<Integer> nodes = new java.util.ArrayList<>();
+        long endByte = Math.min(startByte + length, totalContentSize);
+        
+        // Find the range of chunks
+        int startChunk = getChunkIndexForPosition(startByte);
+        int endChunk = getChunkIndexForPosition(endByte - 1);
+        
+        // Try to find larger internal nodes that cover multiple chunks
+        findOptimalNodes(startChunk, endChunk, nodes);
+        
+        return nodes;
+    }
+    
+    @Override
+    public boolean isLeafNode(int nodeIndex) {
+        if (nodeIndex < 0 || nodeIndex >= nodeCount) {
+            throw new IllegalArgumentException("Node index " + nodeIndex + " out of bounds [0, " + nodeCount + ")");
+        }
+        return nodeIndex >= offset;
+    }
+    
+    @Override
+    public int chunkIndexToLeafNode(int chunkIndex) {
+        validateChunkIndex(chunkIndex);
+        return offset + chunkIndex;
+    }
+    
+    @Override
+    public int leafNodeToChunkIndex(int leafNodeIndex) {
+        if (leafNodeIndex < offset || leafNodeIndex >= nodeCount) {
+            throw new IllegalArgumentException("Not a valid leaf node index: " + leafNodeIndex);
+        }
+        return leafNodeIndex - offset;
+    }
+    
+    private int getNodeLevel(int nodeIndex) {
+        // Calculate the level of a node in the tree (0 = root)
+        if (nodeIndex >= offset) {
+            // Leaf nodes are at the deepest level
+            return Integer.numberOfTrailingZeros(capLeaf);
+        }
+        
+        // For internal nodes, calculate based on position
+        int level = 0;
+        int levelStart = 0;
+        int levelSize = 1;
+        
+        while (levelStart + levelSize <= nodeIndex) {
+            levelStart += levelSize;
+            levelSize *= 2;
+            level++;
+        }
+        
+        return level;
+    }
+    
+    private void findOptimalNodes(int startChunk, int endChunk, java.util.List<Integer> nodes) {
+        // Simple implementation: just use leaf nodes for now
+        // TODO: Optimize to use internal nodes when they cover complete ranges
+        for (int chunk = startChunk; chunk <= endChunk; chunk++) {
+            nodes.add(chunkIndexToLeafNode(chunk));
+        }
+    }
+    
+    /// Simple implementation of MerkleNodeRange
+    private static class SimpleMerkleNodeRange implements MerkleNodeRange {
+        private final long start;
+        private final long end;
+        
+        public SimpleMerkleNodeRange(long start, long end) {
+            this.start = start;
+            this.end = end;
+        }
+        
+        @Override
+        public long getStart() {
+            return start;
+        }
+        
+        @Override
+        public long getEnd() {
+            return end;
+        }
+        
+        @Override
+        public long getLength() {
+            return end - start;
+        }
+        
+        @Override
+        public boolean contains(long position) {
+            return position >= start && position < end;
+        }
+        
+        @Override
+        public boolean overlaps(MerkleNodeRange other) {
+            return start < other.getEnd() && end > other.getStart();
+        }
+    }
+    
+    @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
@@ -443,6 +597,82 @@ public final class BaseMerkleShape implements MerkleShape {
                internalNodeCount == that.internalNodeCount;
     }
 
+    private void validateNodeIndex(int nodeIndex) {
+        if (nodeIndex < 0 || nodeIndex >= nodeCount) {
+            throw new IllegalArgumentException(
+                "Node index out of bounds: " + nodeIndex + " (valid range: 0 to " + (nodeCount - 1) + ")");
+        }
+    }
+    
+    @Override
+    public List<Integer> getChunksForNode(int nodeIndex) {
+        validateNodeIndex(nodeIndex);
+        List<Integer> chunks = new ArrayList<>();
+        
+        if (isLeafNode(nodeIndex)) {
+            // For leaf nodes, return only the corresponding chunk
+            int chunkIndex = leafNodeToChunkIndex(nodeIndex);
+            if (chunkIndex < totalChunks) {
+                chunks.add(chunkIndex);
+            }
+        } else {
+            // For internal nodes, get all chunks covered by leaf range
+            MerkleNodeRange leafRange = getLeafRangeForNode(nodeIndex);
+            for (long leafIdx = leafRange.getStart(); leafIdx < leafRange.getEnd() && leafIdx < totalChunks; leafIdx++) {
+                chunks.add((int) leafIdx);
+            }
+        }
+        
+        return chunks;
+    }
+    
+    @Override
+    public List<Integer> getInternalNodesAtLevel(int level) {
+        List<Integer> nodes = new ArrayList<>();
+        
+        if (level < 0) {
+            throw new IllegalArgumentException("Level must be non-negative, got: " + level);
+        }
+        
+        if (level == 0) {
+            // Root node
+            if (internalNodeCount > 0) {
+                nodes.add(0);
+            }
+            return nodes;
+        }
+        
+        // Calculate node range for this level
+        // In a binary tree, level L has nodes from 2^L - 1 to 2^(L+1) - 2
+        int levelStart = (1 << level) - 1; // 2^level - 1
+        int levelSize = 1 << level; // 2^level
+        int levelEnd = levelStart + levelSize;
+        
+        // Only add nodes that exist in our tree
+        for (int i = levelStart; i < Math.min(levelEnd, internalNodeCount); i++) {
+            nodes.add(i);
+        }
+        
+        return nodes;
+    }
+    
+    @Override
+    public boolean nodeHasInvalidChunks(int nodeIndex, MerkleState state) {
+        validateNodeIndex(nodeIndex);
+        
+        // Get all chunks covered by this node
+        List<Integer> chunks = getChunksForNode(nodeIndex);
+        
+        // Check if any chunk is invalid
+        for (Integer chunkIndex : chunks) {
+            if (!state.isValid(chunkIndex)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     @Override
     public int hashCode() {
         int result = Long.hashCode(chunkSize);

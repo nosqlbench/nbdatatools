@@ -10,6 +10,7 @@
   <packaging>pom</packaging>
   <description>Default module settings for mvn modules in nbdatatools</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
+  <name>${project.artifactId}</name>
 
   <properties>
     <revision>0.1.5-SNAPSHOT</revision>

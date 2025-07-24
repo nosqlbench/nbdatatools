@@ -18,7 +18,9 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
+import io.nosqlbench.vectordata.util.TestFixturePaths;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -40,22 +42,26 @@ import static org.junit.jupiter.api.Assertions.*;
 class MAFileChannelCreateTest {
 
     @Test
-    void testCase1_NoFilesExist_DownloadsAndCreates(@TempDir Path tempDir) throws Exception {
+    void testCase1_NoFilesExist_DownloadsAndCreates(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Case 1: No cache file and no mrkl state file exist
         // Should download remote mref file, create mrkl state file from it, discard mref
         
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        String remoteUrl = baseUrl + "rawdatasets/testxvec/testxvec_base.fvec";
+        // Use test-specific resource URL to avoid conflicts
+        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_base.fvec");
         
-        Path localCache = tempDir.resolve("cache.dat");
-        Path stateFile = tempDir.resolve("state_file.mrkl");
+        // Use test-specific filenames to avoid conflicts
+        String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "cache.dat");
+        String stateFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "state_file.mrkl");
+        
+        Path localCache = tempDir.resolve(cacheFilename);
+        Path stateFile = tempDir.resolve(stateFilename);
         
         // Verify preconditions - neither file exists
         assertFalse(Files.exists(localCache), "Cache file should not exist initially");
         assertFalse(Files.exists(stateFile), "State file should not exist initially");
         
         // Create MAFileChannel - should trigger Case 1 logic
-        try (MAFileChannel channel = new MAFileChannel(localCache, stateFile, remoteUrl)) {
+        try (MAFileChannel channel = new MAFileChannel(localCache, stateFile, remoteUrl.toString())) {
             assertNotNull(channel);
             
             // Verify both files were created
@@ -68,18 +74,22 @@ class MAFileChannelCreateTest {
     }
     
     @Test  
-    void testCase2_BothFilesExist_LoadsAsIs(@TempDir Path tempDir) throws Exception {
+    void testCase2_BothFilesExist_LoadsAsIs(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Case 2: Both cache file and mrkl state file exist
         // Should load both as-is with no modification
         
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        String remoteUrl = baseUrl + "rawdatasets/testxvec/testxvec_query.fvec";
+        // Use test-specific resource URL to avoid conflicts
+        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_query.fvec");
         
-        Path localCache = tempDir.resolve("existing_cache.dat");
-        Path mrklFile = tempDir.resolve("existing_state.mrkl");
+        // Use test-specific filenames to avoid conflicts
+        String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "existing_cache.dat");
+        String stateFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "existing_state.mrkl");
+        
+        Path localCache = tempDir.resolve(cacheFilename);
+        Path mrklFile = tempDir.resolve(stateFilename);
         
         // First, create both files using Case 1 logic (fresh initialization)
-        try (MAFileChannel setupChannel = new MAFileChannel(localCache, mrklFile, remoteUrl)) {
+        try (MAFileChannel setupChannel = new MAFileChannel(localCache, mrklFile, remoteUrl.toString())) {
             // Just create the files, then close
         }
         
@@ -97,7 +107,7 @@ class MAFileChannelCreateTest {
         Thread.sleep(10);
         
         // Create MAFileChannel with existing files - should trigger Case 2 logic
-        try (MAFileChannel channel = new MAFileChannel(localCache, mrklFile, remoteUrl)) {
+        try (MAFileChannel channel = new MAFileChannel(localCache, mrklFile, remoteUrl.toString())) {
             assertNotNull(channel);
             
             // Verify files were loaded as-is (no modification to size or timestamp)
@@ -112,15 +122,19 @@ class MAFileChannelCreateTest {
     }
     
     @Test
-    void testCase3_OnlyCacheExists_ThrowsError(@TempDir Path tempDir) throws Exception {
+    void testCase3_OnlyCacheExists_ThrowsError(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Case 3a: Cache file exists but mrkl state file does not
         // Should throw an error
         
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        String remoteUrl = baseUrl + "rawdatasets/testxvec/testxvec_base.fvec";
+        // Use test-specific resource URL to avoid conflicts
+        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_base.fvec");
         
-        Path localCache = tempDir.resolve("only_cache.dat");
-        Path mrklFile = tempDir.resolve("missing_state.mrkl");
+        // Use test-specific filenames to avoid conflicts
+        String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "only_cache.dat");
+        String stateFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "missing_state.mrkl");
+        
+        Path localCache = tempDir.resolve(cacheFilename);
+        Path mrklFile = tempDir.resolve(stateFilename);
         
         // Create only the cache file
         Files.write(localCache, "dummy cache content".getBytes());
@@ -131,7 +145,7 @@ class MAFileChannelCreateTest {
         
         // Attempt to create MAFileChannel should throw IOException
         IOException exception = assertThrows(IOException.class, () -> {
-            new MAFileChannel(localCache, mrklFile, remoteUrl);
+            new MAFileChannel(localCache, mrklFile, remoteUrl.toString());
         });
         
         assertTrue(exception.getMessage().contains("Invalid initialization state"),
@@ -143,18 +157,22 @@ class MAFileChannelCreateTest {
     }
     
     @Test
-    void testCase3_OnlyStateExists_ThrowsError(@TempDir Path tempDir) throws Exception {
+    void testCase3_OnlyStateExists_ThrowsError(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Case 3b: Mrkl state file exists but cache file does not
         // Should throw an error
         
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        String remoteUrl = baseUrl + "rawdatasets/testxvec/testxvec_query.fvec";
+        // Use test-specific resource URL to avoid conflicts
+        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_query.fvec");
         
-        Path localCache = tempDir.resolve("missing_cache.dat");
-        Path mrklFile = tempDir.resolve("only_state.mrkl");
+        // Use test-specific filenames to avoid conflicts
+        String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "missing_cache.dat");
+        String stateFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "only_state.mrkl");
+        
+        Path localCache = tempDir.resolve(cacheFilename);
+        Path mrklFile = tempDir.resolve(stateFilename);
         
         // Create a valid mrkl file first (using Case 1), then delete the cache
-        try (MAFileChannel setupChannel = new MAFileChannel(localCache, mrklFile, remoteUrl)) {
+        try (MAFileChannel setupChannel = new MAFileChannel(localCache, mrklFile, remoteUrl.toString())) {
             // Create both files
         }
         
@@ -167,7 +185,7 @@ class MAFileChannelCreateTest {
         
         // Attempt to create MAFileChannel should throw IOException
         IOException exception = assertThrows(IOException.class, () -> {
-            new MAFileChannel(localCache, mrklFile, remoteUrl);
+            new MAFileChannel(localCache, mrklFile, remoteUrl.toString());
         });
         
         assertTrue(exception.getMessage().contains("Invalid initialization state"),
@@ -177,17 +195,21 @@ class MAFileChannelCreateTest {
     }
     
     @Test
-    void testMrklExtensionEnforcement(@TempDir Path tempDir) throws Exception {
+    void testMrklExtensionEnforcement(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Test that .mrkl extension is automatically added when missing
         
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        String remoteUrl = baseUrl + "rawdatasets/testxvec/testxvec_base.fvec";
+        // Use test-specific resource URL to avoid conflicts
+        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_base.fvec");
         
-        Path localCache = tempDir.resolve("cache.dat");
-        Path statePathWithoutExtension = tempDir.resolve("state_file");  // No .mrkl extension
+        // Use test-specific filenames to avoid conflicts
+        String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "cache.dat");
+        String stateFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "state_file");
+        
+        Path localCache = tempDir.resolve(cacheFilename);
+        Path statePathWithoutExtension = tempDir.resolve(stateFilename);  // No .mrkl extension
         
         // Create MAFileChannel
-        try (MAFileChannel channel = new MAFileChannel(localCache, statePathWithoutExtension, remoteUrl)) {
+        try (MAFileChannel channel = new MAFileChannel(localCache, statePathWithoutExtension, remoteUrl.toString())) {
             assertNotNull(channel);
             
             // Verify that a .mrkl file was created, not the original path

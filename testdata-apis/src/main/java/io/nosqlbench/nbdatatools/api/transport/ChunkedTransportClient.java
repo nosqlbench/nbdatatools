@@ -18,7 +18,6 @@ package io.nosqlbench.nbdatatools.api.transport;
  */
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 
 /// Contract for fetching byte ranges from various sources (URLs, files, etc.).
@@ -45,33 +44,46 @@ public interface ChunkedTransportClient extends AutoCloseable {
 
     /// Fetches a range of bytes from the data source asynchronously.
     /// 
+    /// Note: For requests larger than 2GB or when memory efficiency is important,
+    /// consider using fetchRangeStreaming() instead.
+    /// 
     /// @param offset The starting byte offset (0-based)
     /// @param length The number of bytes to fetch
     /// @return A CompletableFuture containing the requested byte range wrapped in a FetchResult
     /// @throws IllegalArgumentException if offset is negative or length is non-positive
     /// @throws IOException if the source cannot be accessed or the range is invalid
-    default CompletableFuture<? extends FetchResult<?>> fetchRange(long offset, int length) throws IOException {
-        // Default implementation for backward compatibility
-        return fetchRangeRaw(offset, length)
-            .thenApply(buffer -> new FetchResult<>(buffer, offset, length));
-    }
+    CompletableFuture<? extends FetchResult<?>> fetchRange(long offset, long length) throws IOException;
     
-    /// Fetches a range of bytes from the data source asynchronously (raw ByteBuffer).
+    /// Fetches a range of bytes from the data source as a streaming result.
     /// 
-    /// This method provides backward compatibility for existing implementations.
-    /// New implementations should override fetchRange() instead.
+    /// This method is preferred for large data transfers (especially those exceeding 2GB)
+    /// or when memory efficiency is important. The returned StreamingFetchResult provides
+    /// a ReadableByteChannel for incremental data consumption.
     /// 
     /// @param offset The starting byte offset (0-based)
-    /// @param length The number of bytes to fetch
-    /// @return A CompletableFuture containing the requested byte range as a ByteBuffer
+    /// @param length The number of bytes to fetch (supports values larger than 2GB)
+    /// @return A CompletableFuture containing a StreamingFetchResult with a ReadableByteChannel
     /// @throws IllegalArgumentException if offset is negative or length is non-positive
     /// @throws IOException if the source cannot be accessed or the range is invalid
-    /// @deprecated Use fetchRange() which returns FetchResult
-    @Deprecated
-    default CompletableFuture<ByteBuffer> fetchRangeRaw(long offset, int length) throws IOException {
-        // This will be overridden by existing implementations
-        throw new UnsupportedOperationException("Implementation must override either fetchRange or fetchRangeRaw");
+    default CompletableFuture<StreamingFetchResult> fetchRangeStreaming(long offset, long length) throws IOException {
+        // Default implementation delegates to fetchRange with size validation
+        // ByteBuffer-based implementations are limited to 2GB individual chunks
+        if (length > Integer.MAX_VALUE) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException(
+                "Default ByteBuffer-based implementation cannot handle individual chunks larger than 2GB (" + 
+                length + " bytes requested). Use a streaming-optimized transport implementation or " +
+                "split the request into smaller chunks."));
+        }
+        
+        return fetchRange(offset, length)
+            .thenApply(result -> new ByteBufferStreamingResult(
+                result.getData(), 
+                offset, 
+                length,
+                getSource()
+            ));
     }
+    
 
     /// Gets the total size of the data source in bytes.
     /// 

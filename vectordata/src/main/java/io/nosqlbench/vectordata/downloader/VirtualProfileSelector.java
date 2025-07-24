@@ -54,15 +54,28 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
   /// @return A TestDataView for the selected profile
   @Override
   public TestDataView profile(String profileName) {
-    DSProfile profile = datasetEntry.profiles().get(profileName);
+    // Extract effective profile name based on the documented rules
+    String effectiveProfileName = profileName;
+    
+    if (profileName.contains(":")) {
+      // If it has colons, take the last word after the last colon
+      int lastColonIndex = profileName.lastIndexOf(':');
+      effectiveProfileName = profileName.substring(lastColonIndex + 1);
+    } else if (profileName.equals(datasetEntry.name())) {
+      // If it's a single word matching the dataset name, use "default"
+      effectiveProfileName = "default";
+    }
+    // Otherwise, use the profileName as-is (already set above)
+    
+    DSProfile profile = datasetEntry.profiles().get(effectiveProfileName);
     if (profile==null) {
-      profile = datasetEntry.profiles().get(profileName.toLowerCase());
+      profile = datasetEntry.profiles().get(effectiveProfileName.toLowerCase());
     }
     if (profile==null) {
-      profile = datasetEntry.profiles().get(profileName.toUpperCase());
+      profile = datasetEntry.profiles().get(effectiveProfileName.toUpperCase());
     }
     if (profile==null) {
-      throw new RuntimeException("profile " + profileName + "' not found. Available profiles: " + profiles() + ", but not " + profileName);
+      throw new RuntimeException("profile " + effectiveProfileName + "' not found. Available profiles: " + profiles() + ", but not " + effectiveProfileName);
     }
     VirtualTestDataView view = new VirtualTestDataView( cacheDir,datasetEntry, profile);
     return view;

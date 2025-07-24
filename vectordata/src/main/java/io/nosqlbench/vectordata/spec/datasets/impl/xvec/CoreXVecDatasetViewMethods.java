@@ -18,6 +18,7 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 
+import io.nosqlbench.vectordata.layoutv2.DSInterval;
 import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
@@ -33,6 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 
 /// Core implementation of DatasetView for xvec file formats.
@@ -68,11 +70,16 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   {
     this.channel = channel;
     this.sourceSize = sourceSize;
-    this.window = window;
     this.type = deriveTypeFromExtension(extension);
     this.aryType = type.getComponentType();
     this.componentBytes = componentBytesFromType(this.aryType);
     this.dimensions = readDimensions();
+    if (window == null || window.isEmpty()) {
+      this.window = new DSWindow(List.of(new DSInterval(0, getCount()),
+          new DSInterval(0, getVectorDimensions())));
+    } else {
+      this.window = window;
+    }
   }
 
   private Class<?> deriveTypeFromExtension(String extension) {
@@ -87,6 +94,15 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   @Override
   public CompletableFuture<Void> prebuffer(long startIncl, long endExcl) {
     return channel.prebuffer(startIncl, endExcl);
+  }
+
+  @Override
+  public CompletableFuture<Void> prebuffer() {
+    DSInterval w0 = this.window.getFirst(); // cardinal 0 is the vector index, cardinal 1 is the component index
+    long recordSize = 4 + (dimensions * componentBytes);
+    long start=w0.getMinIncl()*recordSize;
+    long end=w0.getMaxExcl()*recordSize;
+    return channel.prebuffer(start,end);
   }
 
   /// Returns the number of bytes per component based on the data type.
@@ -292,6 +308,20 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
     }
   }
 
+  /// Retrieves a vector at the specified index asynchronously.
+  ///
+  /// This method provides an asynchronous version of get(long index).
+  /// Since the underlying synchronous get method is already implemented,
+  /// this returns a completed future with the result.
+  ///
+  /// @param index 
+  ///     The index of the vector to retrieve (0-based)
+  /// @return A Future containing the vector at the specified index
+  @Override
+  public Future<T> getAsync(long index) {
+    return CompletableFuture.completedFuture(get(index));
+  }
+
 //  /// Creates a default vector for testing purposes.
 //  /// The default vector contains non-zero values to ensure it passes validation checks.
 //  ///
@@ -397,6 +427,22 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
     return results.toArray(array);
   }
 
+  /// Retrieves a range of vectors from the dataset asynchronously.
+  ///
+  /// This method provides an asynchronous version of getRange(long, long).
+  /// Since the underlying synchronous getRange method is already implemented,
+  /// this returns a completed future with the result.
+  ///
+  /// @param startInclusive 
+  ///     The starting index (inclusive)
+  /// @param endExclusive 
+  ///     The ending index (exclusive)
+  /// @return A Future containing an array of vectors in the specified range
+  @Override
+  public Future<T[]> getRangeAsync(long startInclusive, long endExclusive) {
+    return CompletableFuture.completedFuture(getRange(startInclusive, endExclusive));
+  }
+
   /// Retrieves a vector at the specified index, wrapped in an Indexed container.
   ///
   /// This method is similar to get(long index) but returns the vector wrapped in an Indexed object
@@ -409,6 +455,20 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   public Indexed<T> getIndexed(long index) {
     T value = get(index);
     return new Indexed<>(index, value);
+  }
+
+  /// Retrieves a vector at the specified index, wrapped in an Indexed container, asynchronously.
+  ///
+  /// This method provides an asynchronous version of getIndexed(long index).
+  /// Since the underlying synchronous getIndexed method is already implemented,
+  /// this returns a completed future with the result.
+  ///
+  /// @param index 
+  ///     The index of the vector to retrieve
+  /// @return A Future containing an Indexed object with the index and vector
+  @Override
+  public Future<Indexed<T>> getIndexedAsync(long index) {
+    return CompletableFuture.completedFuture(getIndexed(index));
   }
 
   /// Retrieves a range of vectors, each wrapped in an Indexed container.
@@ -432,6 +492,22 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
     }
 
     return result;
+  }
+
+  /// Retrieves a range of vectors, each wrapped in an Indexed container, asynchronously.
+  ///
+  /// This method provides an asynchronous version of getIndexedRange(long, long).
+  /// Since the underlying synchronous getIndexedRange method is already implemented,
+  /// this returns a completed future with the result.
+  ///
+  /// @param startInclusive 
+  ///     The starting index (inclusive)
+  /// @param endExclusive 
+  ///     The ending index (exclusive)
+  /// @return A Future containing an array of Indexed objects for the specified range
+  @Override
+  public Future<Indexed<T>[]> getIndexedRangeAsync(long startInclusive, long endExclusive) {
+    return CompletableFuture.completedFuture(getIndexedRange(startInclusive, endExclusive));
   }
 
   /// Converts the entire dataset to a List of vectors.

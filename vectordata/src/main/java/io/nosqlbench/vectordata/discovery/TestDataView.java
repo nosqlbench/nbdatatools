@@ -28,6 +28,7 @@ import io.nosqlbench.vectordata.spec.tokens.SpecToken;
 import java.net.URL;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /// This is the entry to consuming Vector Test Data from a profile according to the documented spec.
 ///
@@ -90,4 +91,8 @@ public interface TestDataView {
   /// Get all available tokens for this test data view
   /// @return a map of token names to token values
   public Map<String, String> getTokens();
+
+  /// Prebuffer all datasets in this test data view
+  /// @return a future that completes when all prebuffering is done
+  CompletableFuture<Void> prebuffer();
 }

@@ -92,7 +92,7 @@ public class DSInterval {
   public static DSInterval parse(String interval) {
     Matcher matcher = PATTERN.matcher(interval);
     if (matcher.matches()) {
-      String u1 = matcher.group("startInclusive").replaceAll("_", "");
+      String u1 = matcher.group("start").replaceAll("_", "");
       long start = UnitConversions.longCountFor(u1)
           .orElseThrow(() -> new RuntimeException("invalid intervals format:" + interval));
       if (matcher.group("end") == null) {

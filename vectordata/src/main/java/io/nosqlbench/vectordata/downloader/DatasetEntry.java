@@ -17,10 +17,6 @@ package io.nosqlbench.vectordata.downloader;
  * under the License.
  */
 
-// TODO: default download location should use one of the established from nb, jvector, hugging
-//  face, but should warn if there are multiple
-
-
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportIO;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;

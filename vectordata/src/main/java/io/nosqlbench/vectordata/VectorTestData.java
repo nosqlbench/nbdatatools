@@ -34,11 +34,6 @@ public class VectorTestData {
   /// Private constructor to prevent instantiation of this utility class.
   private VectorTestData() {}
 
-//  public static TestDataProfile lookup(String path, String profile) {
-//    return lookup().find().lookup(name);
-//  }
-//
-
   /// Loads test data from a file path specified as a string.
   ///
   /// @param path The path to the test data file
@@ -70,10 +65,4 @@ public class VectorTestData {
     return TestDataSources.ofUrl(url);
   }
 
-  /// Looks up available test data sources.
-  ///
-  /// @return A TestDataSources object containing available data sources
-  public static TestDataSources lookup() {
-    return TestDataSources.DEFAULT;
-  }
 }

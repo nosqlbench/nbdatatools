@@ -42,6 +42,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.List;
+import java.util.ArrayList;
 
 /// Implementation of TestDataView that provides access to vector datasets and their metadata.
 ///
@@ -419,5 +422,73 @@ public class VirtualTestDataView implements TestDataView {
     }
 
     return tokens;
+  }
+
+  /// Prebuffers all datasets in this test data view.
+  /// For Virtual datasets using DSWindow, this determines the prebuffer range from the DSWindow intervals.
+  ///
+  /// @return A future that completes when all prebuffering is done
+  @Override
+  public CompletableFuture<Void> prebuffer() {
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+    // Prebuffer base vectors if available
+    getBaseVectors().ifPresent(baseVectors -> {
+      CompletableFuture<Void> future = prebufferWithDSWindow("base_vectors", baseVectors);
+      futures.add(future);
+    });
+
+    // Prebuffer query vectors if available
+    getQueryVectors().ifPresent(queryVectors -> {
+      CompletableFuture<Void> future = prebufferWithDSWindow("query_vectors", queryVectors);
+      futures.add(future);
+    });
+
+    // Prebuffer neighbor indices if available
+    getNeighborIndices().ifPresent(neighborIndices -> {
+      CompletableFuture<Void> future = prebufferWithDSWindow("neighbor_indices", neighborIndices);
+      futures.add(future);
+    });
+
+    // Prebuffer neighbor distances if available
+    getNeighborDistances().ifPresent(neighborDistances -> {
+      CompletableFuture<Void> future = prebufferWithDSWindow("neighbor_distances", neighborDistances);
+      futures.add(future);
+    });
+
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+  }
+
+  /// Helper method to prebuffer a dataset using its DSWindow configuration
+  private CompletableFuture<Void> prebufferWithDSWindow(String viewKind, io.nosqlbench.vectordata.spec.datasets.types.DatasetView<?> dataset) {
+    Optional<DSView> oView = getMatchingView(viewKind);
+    if (!oView.isPresent()) {
+      // If no DSWindow is configured, prebuffer the whole dataset
+      return dataset.prebuffer();
+    }
+
+    DSView dsView = oView.get();
+    io.nosqlbench.vectordata.layoutv2.DSWindow window = dsView.getWindow();
+    
+    if (window == null || window.isEmpty()) {
+      // If window is null or empty, prebuffer the whole dataset
+      return dataset.prebuffer();
+    }
+
+    // Calculate the range from DSWindow intervals
+    long minStart = Long.MAX_VALUE;
+    long maxEnd = Long.MIN_VALUE;
+    
+    for (io.nosqlbench.vectordata.layoutv2.DSInterval interval : window) {
+      minStart = Math.min(minStart, interval.getMinIncl());
+      maxEnd = Math.max(maxEnd, interval.getMaxExcl());
+    }
+
+    // Use the calculated range if valid, otherwise prebuffer whole dataset
+    if (minStart != Long.MAX_VALUE && maxEnd != Long.MIN_VALUE && minStart < maxEnd) {
+      return dataset.prebuffer(minStart, maxEnd);
+    } else {
+      return dataset.prebuffer();
+    }
   }
 }

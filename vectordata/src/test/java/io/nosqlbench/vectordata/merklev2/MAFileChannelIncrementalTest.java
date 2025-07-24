@@ -18,7 +18,9 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
+import io.nosqlbench.vectordata.util.TestFixturePaths;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -47,17 +49,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class MAFileChannelIncrementalTest {
 
     @Test
-    void testIncrementalDownloadWithStatePersistence(@TempDir Path tempDir) throws Exception {
+    void testIncrementalDownloadWithStatePersistence(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Step 1: Create test data file with predictable content
         int fileSize = 5 * 1024 * 1024; // 5MB file
         int chunkSize = 1024 * 1024; // 1MB chunks (5 chunks total)
         Path sourceFile = createTestFile(tempDir, "test_data.bin", fileSize);
         
-        // Serve the file via HTTP
-        String uniqueId = String.valueOf(System.currentTimeMillis());
-        Path serverDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve("incremental_test_" + uniqueId);
-        Files.createDirectories(serverDir);
-        Path serverFile = serverDir.resolve("test_data.bin");
+        // Serve the file via HTTP using TestFixturePaths for isolation
+        Path testSpecificTempDir = TestFixturePaths.createTestSpecificTempDir(testInfo);
+        String testFileName = TestFixturePaths.createTestSpecificFilename(testInfo, "test_data.bin");
+        Path serverFile = testSpecificTempDir.resolve(testFileName);
         Files.copy(sourceFile, serverFile);
         
         // Create merkle reference file
@@ -65,8 +66,9 @@ class MAFileChannelIncrementalTest {
         Path mrefPath = serverFile.resolveSibling(serverFile.getFileName() + ".mref");
         merkleRef.save(mrefPath);
         
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        String remoteUrl = baseUrl + "temp/incremental_test_" + uniqueId + "/test_data.bin";
+        // Create test-specific server URL
+        URL testSpecificUrl = TestFixturePaths.createTestSpecificServerUrl(testInfo, testFileName);
+        String remoteUrl = testSpecificUrl.toString();
         
         Path localCache = tempDir.resolve("cache.dat");
         Path merkleStatePath = tempDir.resolve("state.mrkl");
@@ -230,16 +232,16 @@ class MAFileChannelIncrementalTest {
     }
     
     @Test
-    void testCompleteDownloadAndReopenVerification(@TempDir Path tempDir) throws Exception {
+    void testCompleteDownloadAndReopenVerification(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Create smaller test file for complete download test
         int fileSize = 256 * 1024; // 256KB file  
         int expectedChunks = 1; // Should result in 1 chunk with default chunk size
         Path sourceFile = createTestFile(tempDir, "small_test.bin", fileSize);
         
-        // Serve the file
-        Path serverDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve("complete_test");
-        Files.createDirectories(serverDir);
-        Path serverFile = serverDir.resolve("small_test.bin");
+        // Serve the file using TestFixturePaths for isolation
+        Path testSpecificTempDir = TestFixturePaths.createTestSpecificTempDir(testInfo);
+        String testFileName = TestFixturePaths.createTestSpecificFilename(testInfo, "small_test.bin");
+        Path serverFile = testSpecificTempDir.resolve(testFileName);
         Files.copy(sourceFile, serverFile);
         
         // Create merkle reference
@@ -247,11 +249,15 @@ class MAFileChannelIncrementalTest {
         Path mrefPath = serverFile.resolveSibling(serverFile.getFileName() + ".mref");
         merkleRef.save(mrefPath);
         
-        URL baseUrl = JettyFileServerExtension.getBaseUrl();
-        String remoteUrl = baseUrl + "temp/complete_test/small_test.bin";
+        // Create test-specific server URL
+        URL testSpecificUrl = TestFixturePaths.createTestSpecificServerUrl(testInfo, testFileName);
+        String remoteUrl = testSpecificUrl.toString();
         
-        Path localCache = tempDir.resolve("cache_complete.dat");
-        Path merkleStatePath = tempDir.resolve("state_complete.mrkl");
+        // Use test-specific filenames for cache and state
+        String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "cache.dat");
+        String stateFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "state.mrkl");
+        Path localCache = tempDir.resolve(cacheFilename);
+        Path merkleStatePath = tempDir.resolve(stateFilename);
         
         // Step 1: Download entire file
         System.out.println("=== Phase 1: Complete download ===");
@@ -308,7 +314,7 @@ class MAFileChannelIncrementalTest {
     }
     
     @Test
-    void testMerkleStateValidationPersistence(@TempDir Path tempDir) throws Exception {
+    void testMerkleStateValidationPersistence(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // This test specifically verifies that valid bits are persisted correctly
         // and that the merkle state file format is correct
         
@@ -319,7 +325,8 @@ class MAFileChannelIncrementalTest {
         Path mrefPath = sourceFile.resolveSibling(sourceFile.getFileName() + ".mref");
         merkleRef.save(mrefPath);
         
-        Path merkleStatePath = tempDir.resolve("validation_state.mrkl");
+        String stateFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "validation_state.mrkl");
+        Path merkleStatePath = tempDir.resolve(stateFilename);
         
         // Create initial state from reference
         MerkleState initialState = MerkleState.fromRef(merkleRef, merkleStatePath);
