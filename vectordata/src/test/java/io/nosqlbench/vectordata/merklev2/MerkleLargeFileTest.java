@@ -41,14 +41,8 @@ public class MerkleLargeFileTest {
 
     @Test
     public void testLargeFileWithMerkleRef(@TempDir Path tempDir) throws Exception {
-        // Test with a 100MB file
-        int vectorCount = 100_000;
-        int dimensions = 128;
-        long seed = 42L;
-
         // Create test data
-        Path dataFile = tempDir.resolve("large_test.fvec");
-        createLargeVectorFile(dataFile, vectorCount, dimensions, seed);
+        Path dataFile = getOrCreateLargeTestFile(tempDir);
 
         long fileSize = Files.size(dataFile);
         System.out.println("Created test file: " + dataFile + " (" + fileSize + " bytes)");
@@ -171,6 +165,58 @@ public class MerkleLargeFileTest {
     }
 
     private void createLargeVectorFile(Path file, int vectorCount, int dimensions, long seed) throws IOException {
+        createLargeVectorFileInternal(file, vectorCount, dimensions, seed);
+    }
+
+    /// Gets or creates a large test file for use in tests.
+    /// This creates a 100MB file with 100,000 vectors of 128 dimensions using a fixed seed.
+    /// The file is cached and reused if it already exists in the temp directory.
+    ///
+    /// @param tempDir The temporary directory to store the file
+    /// @return Path to the large test file
+    /// @throws IOException If file creation fails
+    public static Path getOrCreateLargeTestFile(Path tempDir) throws IOException {
+        Path dataFile = tempDir.resolve("large_test.fvec");
+        
+        // Check if file already exists and is the expected size
+        if (Files.exists(dataFile)) {
+            long expectedSize = calculateExpectedFileSize(100_000, 128);
+            long actualSize = Files.size(dataFile);
+            if (actualSize == expectedSize) {
+                System.out.println("Reusing existing large test file: " + dataFile + " (" + actualSize + " bytes)");
+                return dataFile;
+            } else {
+                System.out.println("Existing file size mismatch, recreating: expected=" + expectedSize + ", actual=" + actualSize);
+                Files.deleteIfExists(dataFile);
+            }
+        }
+        
+        // Create new file with standard parameters
+        int vectorCount = 100_000;
+        int dimensions = 128;
+        long seed = 42L;
+        
+        System.out.println("Creating large test file: " + dataFile);
+        createLargeVectorFileInternal(dataFile, vectorCount, dimensions, seed);
+        return dataFile;
+    }
+
+    /// Calculate the expected file size for an fvec file
+    /// @param vectorCount Number of vectors
+    /// @param dimensions Number of dimensions per vector
+    /// @return Expected file size in bytes
+    private static long calculateExpectedFileSize(int vectorCount, int dimensions) {
+        // fvec format: 4 bytes for dimension count + (dimensions * 4 bytes per float)
+        return vectorCount * (4 + dimensions * 4L);
+    }
+
+    /// Internal method for creating vector files (renamed to avoid confusion)
+    /// @param file Output file path
+    /// @param vectorCount Number of vectors to generate
+    /// @param dimensions Number of dimensions per vector
+    /// @param seed Random seed for reproducible data
+    /// @throws IOException If file creation fails
+    private static void createLargeVectorFileInternal(Path file, int vectorCount, int dimensions, long seed) throws IOException {
         System.out.println("Creating vector file with " + vectorCount + " vectors of " + dimensions + " dimensions");
         
         Random random = new Random(seed);

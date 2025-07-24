@@ -31,7 +31,7 @@ import java.util.Set;
 /// It handles downloading and caching of datasets as needed.
 public class VirtualProfileSelector implements ProfileSelector {
   private final DatasetEntry datasetEntry;
-private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "jvector");
+private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vectordata");
 
 
   /// Creates a new VirtualProfileSelector for the given dataset entry.

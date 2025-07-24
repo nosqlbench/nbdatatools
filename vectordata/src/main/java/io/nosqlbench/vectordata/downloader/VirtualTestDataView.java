@@ -76,7 +76,7 @@ public class VirtualTestDataView implements TestDataView {
   private final DSProfile profile;
 
   /// The directory where downloaded data is cached
-  private Path cachedir = Path.of(System.getProperty("user.home"), ".cache", "jvector");
+  private Path cachedir = Path.of(System.getProperty("user.home"), ".cache", "vectordata");
 
   /// Creates a new VirtualTestDataView with the specified cache directory, dataset entry, and profile.
   ///
