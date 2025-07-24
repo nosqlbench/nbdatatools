@@ -178,7 +178,7 @@ public class MerkleDataImpl implements MerkleData {
      * @return A CompletableFuture that will complete with the MerkleDataImpl
      * @throws IOException If an I/O error occurs
      */
-    public static CompletableFuture<MerkleDataImpl> fromData(Path dataPath) throws IOException {
+    static CompletableFuture<MerkleDataImpl> fromData(Path dataPath) throws IOException {
         FileChannel channel = FileChannel.open(dataPath, StandardOpenOption.READ);
         long fileSize = channel.size();
         
@@ -254,7 +254,7 @@ public class MerkleDataImpl implements MerkleData {
      * @param data The data buffer
      * @return A CompletableFuture that will complete with the MerkleDataImpl
      */
-    public static CompletableFuture<MerkleDataImpl> fromData(ByteBuffer data) {
+    static CompletableFuture<MerkleDataImpl> fromData(ByteBuffer data) {
         // Create shape based on buffer size
         MerkleShape shape = new BaseMerkleShape(data.remaining());
         
@@ -323,7 +323,7 @@ public class MerkleDataImpl implements MerkleData {
      * @param contentSize The total size of the content
      * @return An empty MerkleDataImpl
      */
-    public static MerkleDataImpl createEmpty(long contentSize) {
+    static MerkleDataImpl createEmpty(long contentSize) {
         MerkleShape shape = new BaseMerkleShape(contentSize);
         byte[][] emptyHashes = new byte[shape.getNodeCount()][];
         return new MerkleDataImpl(shape, emptyHashes);
@@ -336,7 +336,7 @@ public class MerkleDataImpl implements MerkleData {
      * @param hashes The pre-computed hashes
      * @return A MerkleDataImpl with the given hashes
      */
-    public static MerkleDataImpl createFromHashes(MerkleShape shape, byte[][] hashes) {
+    static MerkleDataImpl createFromHashes(MerkleShape shape, byte[][] hashes) {
         return new MerkleDataImpl(shape, hashes);
     }
     
@@ -348,8 +348,42 @@ public class MerkleDataImpl implements MerkleData {
      * @param validChunks The BitSet indicating which chunks are valid
      * @return A MerkleDataImpl with the given hashes and BitSet
      */
-    public static MerkleDataImpl createFromHashesAndBitSet(MerkleShape shape, byte[][] hashes, BitSet validChunks) {
+    static MerkleDataImpl createFromHashesAndBitSet(MerkleShape shape, byte[][] hashes, BitSet validChunks) {
         return new MerkleDataImpl(shape, hashes, validChunks);
+    }
+    
+    static MerkleDataImpl createFromFileChannelAndBitSet(MerkleShape shape, FileChannel channel, BitSet validChunks) {
+        return new MerkleDataImpl(shape, channel, validChunks);
+    }
+    
+    /**
+     * Creates a new MerkleState from a MerkleRef with all valid bits cleared.
+     * This is the proper way to create a MerkleState from a MerkleRef for tracking
+     * download and validation progress. All valid bits start as false (unverified).
+     * 
+     * @param merkleRef The MerkleRef containing the reference hashes
+     * @param statePath The path where the MerkleState file should be created
+     * @return A new MerkleState with the reference hashes and cleared valid bits
+     * @throws IOException If an I/O error occurs during state file creation
+     */
+    public static MerkleState createStateFromRef(MerkleRef merkleRef, Path statePath) throws IOException {
+        FileChannel channel = FileChannel.open(statePath, 
+            StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+
+        MerkleShape shape = merkleRef.getShape();
+
+        // Copy all hashes from reference
+        copyHashesFromRefToState(channel, merkleRef, shape);
+
+        // Initialize bitset with all bits cleared (no chunks validated yet)
+        BitSet validChunks = new BitSet(shape.getLeafCount());
+        // Explicitly do NOT set any bits - all chunks start as unverified
+        writeStateValidChunksToFile(channel, validChunks, shape);
+
+        // Write footer
+        writeRefStateShapeToFooter(channel, shape);
+
+        return new MerkleDataImpl(shape, channel, validChunks);
     }
     
     /**
@@ -393,7 +427,7 @@ public class MerkleDataImpl implements MerkleData {
     /**
      * Creates a new MerkleDataImpl from an existing file.
      */
-    public static MerkleDataImpl load(Path path) throws IOException {
+    static MerkleDataImpl load(Path path) throws IOException {
         FileChannel channel = FileChannel.open(path, StandardOpenOption.READ, StandardOpenOption.WRITE);
 
         // Read footer to get shape information
@@ -408,7 +442,7 @@ public class MerkleDataImpl implements MerkleData {
     /**
      * Creates a new MerkleDataImpl file from a reference tree.
      */
-    public static MerkleDataImpl createFromRef(MerkleRef ref, Path path) throws IOException {
+    static MerkleDataImpl createFromRef(MerkleRef ref, Path path) throws IOException {
         FileChannel channel = FileChannel.open(path, 
             StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
 
@@ -748,9 +782,20 @@ public class MerkleDataImpl implements MerkleData {
 
     private static void writeRefStateShapeToFooter(FileChannel channel, MerkleShape shape) throws IOException {
         // Use Merklev2Footer to serialize shape parameters to footer
-        long footerPosition = (long) shape.getNodeCount() * HASH_SIZE + ((shape.getLeafCount() + 7) / 8);
+        int bitSetSize = (shape.getLeafCount() + 7) / 8; // Calculate actual BitSet size
+        long footerPosition = (long) shape.getNodeCount() * HASH_SIZE + bitSetSize;
 
-        Merklev2Footer footer = Merklev2Footer.create(shape);
+        Merklev2Footer footer = Merklev2Footer.create(
+            shape.getChunkSize(),
+            shape.getTotalContentSize(),
+            shape.getTotalChunks(),
+            shape.getLeafCount(),
+            shape.getCapLeaf(),
+            shape.getNodeCount(),
+            shape.getOffset(),
+            shape.getInternalNodeCount(),
+            bitSetSize  // Use the calculated BitSet size instead of default 1
+        );
         footer.writeToChannel(channel, footerPosition);
     }
 

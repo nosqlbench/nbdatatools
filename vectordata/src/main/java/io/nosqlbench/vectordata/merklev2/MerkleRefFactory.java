@@ -92,7 +92,7 @@ public class MerkleRefFactory {
             throw new IOException("File is empty: " + path);
         }
         
-        try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
+        FileChannel channel = FileChannel.open(path, StandardOpenOption.READ, StandardOpenOption.WRITE);
             // Read footer from the end of the file
             Merklev2Footer footer = Merklev2Footer.readFromChannel(channel, 
                 fileSize - Merklev2Footer.FIXED_FOOTER_SIZE);
@@ -148,10 +148,8 @@ public class MerkleRefFactory {
             // For reference trees, we expect all bits to be set, but we don't enforce this
             // as the file might have been created with partial data
             
-            // Create a new MerkleDataImpl from the loaded hashes using the static factory method
-            // We need to use the in-memory constructor since we have the hashes loaded
-            return MerkleDataImpl.createFromHashesAndBitSet(shape, hashes, validBits);
-        }
+            // Create a file-backed MerkleDataImpl that can persist changes
+            return MerkleDataImpl.createFromFileChannelAndBitSet(shape, channel, validBits);
     }
 
     /**

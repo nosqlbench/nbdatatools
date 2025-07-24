@@ -90,7 +90,7 @@ public class MerkleLargeFileTest {
         
         // Create merkle state for tracking downloads
         Path statePath = tempDir.resolve("state_test.fvec.mrkl");
-        MerkleDataImpl merkleState = MerkleDataImpl.createFromRef(merkleRef, statePath);
+        MerkleState merkleState = MerkleState.fromRef(merkleRef, statePath);
 
         // Simulate downloading chunks
         int totalChunks = merkleRef.getShape().getLeafCount();
@@ -126,7 +126,7 @@ public class MerkleLargeFileTest {
         merkleState.close();
         merkleRef.close();
         
-        MerkleDataImpl reloadedState = MerkleDataImpl.load(statePath);
+        MerkleState reloadedState = MerkleState.load(statePath);
         for (int i = 0; i < Math.min(10, totalChunks); i++) {
             assertTrue(reloadedState.isValid(i), "Chunk " + i + " should still be valid after reload");
         }

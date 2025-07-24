@@ -139,7 +139,7 @@ public class VirtualTestDataView implements TestDataView {
       throws IOException
   {
     // Use MAFileChannel for both local and remote resources
-    return MAFileChannel.create(contentPath, contentPath.resolveSibling(contentPath.getFileName() + ".mref"), sourceContentURL.toString());
+    return new MAFileChannel(contentPath, contentPath.resolveSibling(contentPath.getFileName() + ".mrkl"), sourceContentURL.toString());
   }
 
   /// Finds a view in the profile that matches the given view kind or its synonyms.

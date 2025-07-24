@@ -33,16 +33,44 @@ import java.util.concurrent.Future;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-/**
- * A virtualized AsynchronousFileChannel that provides transparent access to remote content
- * with local caching and Merkle tree integrity verification.
- * 
- * This implementation:
- * 1. Virtualizes file size to match the remote content size
- * 2. Downloads and caches content chunks on demand
- * 3. Uses MerkleState to track verified chunks
- * 4. Provides transparent read access to verified content
- */
+///
+/// A virtualized AsynchronousFileChannel that provides transparent access to remote content
+/// with local caching and Merkle tree integrity verification.
+///
+/// This implementation:
+/// 1. Virtualizes file size to match the remote content size
+/// 2. Downloads and caches content chunks on demand
+/// 3. Uses MerkleState to track verified chunks
+/// 4. Provides transparent read access to verified content
+///
+/// ## Initialization Logic
+/// When a MAFileChannel is created, the following preconditions and actions are performed:
+/// 1. If there is no cache file and no mrkl state file and no mref reference file, then the
+/// remote mref file is downloaded and then a mrkl state file is created from it, then the mref
+/// reference file is discarded. Then the MAFileChannel is created with this state file and a new
+///  cache content file channel.
+/// 2. If there is a cache file and a mrkl state file, then they are both loaded as-is with no
+/// modification into a new MAFileChannel.
+/// 3. Any other initial state is considered invalid and an error should be thrown from the
+/// constructor.
+///
+/// ## During Reads
+/// When an MAFileChannel is read, each read operation has an initial precondition that the
+/// matching mrkl state nodes must be valid. When there are matching leaf nodes which are not
+/// valid, the content is downloaded and verified, and then the matching leaf node is marked valid.
+/// This must all occur before the read to the underlying cache file is performed.
+/// When the nodes are already marked as valid, this signals that the underlying cache file is
+/// already valid to be read directly with no change to the affected chunks.
+///
+/// ## Merkle State Semantics
+/// When a MerkleState is used with an MAFileChannel, the following semantics are enforced:
+/// * The hash values for the merkle tree are never changed. Only the valid bits are changed.
+/// * Bits can only be set to true. They cannot be set to false except during initialization.
+/// * When a bit is set to true which is not already true, if it has a sibling and that sibling
+/// is also set to true, then the parent bit is set to true before the call to change the bit
+/// state returns. This should be non-blocking, as it should be an idempotent operation with
+/// other overlapping bit changes.
+///
 public class MAFileChannel extends AsynchronousFileChannel {
     private final MerkleState merkleState;
     private final AsynchronousFileChannel localCache;
@@ -52,46 +80,77 @@ public class MAFileChannel extends AsynchronousFileChannel {
     private volatile boolean open = true;
 
     /**
-     * Creates a new MAFileChannel.
+     * Creates a new MAFileChannel according to the initialization logic specified in the class documentation.
      * 
      * @param localCachePath Path to local cache file
      * @param merkleStatePath Path to merkle state file  
      * @param remoteSource Remote source URL
-     * @throws IOException If initialization fails
+     * @throws IOException If initialization fails or invalid state combination is encountered
      */
-    public static MAFileChannel create(Path localCachePath, Path merkleStatePath, String remoteSource) throws IOException {
-        // Download reference merkle tree if needed
-        String refUrl = remoteSource + ".mref";
-        Path tempRefPath = merkleStatePath.resolveSibling(merkleStatePath.getFileName() + ".tmp.mref");
+    public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource) throws IOException {
+        // Ensure merkleStatePath ends with .mrkl (state file, not reference file)
+        String statePathStr = merkleStatePath.toString();
+        Path mrklStatePath;
         
-        MerkleRef ref = downloadRef(refUrl, tempRefPath);
-        
-        // Create or load merkle state
-        MerkleState state;
-        if (java.nio.file.Files.exists(merkleStatePath)) {
-            state = MerkleDataImpl.load(merkleStatePath);
+        if (statePathStr.endsWith(".mrkl")) {
+            mrklStatePath = merkleStatePath;
+        } else if (statePathStr.endsWith(".mref")) {
+            // If someone incorrectly passed a .mref path, convert it to .mrkl
+            String baseName = statePathStr.substring(0, statePathStr.length() - 5); // Remove .mref
+            mrklStatePath = merkleStatePath.resolveSibling(merkleStatePath.getFileName().toString().replace(".mref", ".mrkl"));
         } else {
-            state = MerkleDataImpl.createFromRef(ref, merkleStatePath);
+            // For any other extension, append .mrkl
+            mrklStatePath = merkleStatePath.resolveSibling(merkleStatePath.getFileName() + ".mrkl");
+        }
+            
+        // Check current state to determine initialization path
+        boolean cacheExists = java.nio.file.Files.exists(localCachePath);
+        boolean mrklExists = java.nio.file.Files.exists(mrklStatePath);
+        
+        // Determine initialization path based on existing files
+        MerkleState state;
+        AsynchronousFileChannel cache;
+        
+        if (!cacheExists && !mrklExists) {
+            // Case 1: No cache file and no mrkl state file
+            // Download remote mref file, create mrkl state file from it, discard mref
+            String refUrl = remoteSource + ".mref";
+            Path tempRefPath = mrklStatePath.resolveSibling(mrklStatePath.getFileName() + ".tmp.mref");
+            
+            MerkleRef ref = downloadRef(refUrl, tempRefPath);
+            state = MerkleState.fromRef(ref, mrklStatePath);
+            
+            // Clean up temp ref file
+            java.nio.file.Files.deleteIfExists(tempRefPath);
+            
+            // Create new cache file
+            cache = AsynchronousFileChannel.open(localCachePath,
+                StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+                
+        } else if (cacheExists && mrklExists) {
+            // Case 2: Both cache file and mrkl state file exist
+            // Load both as-is with no modification
+            state = MerkleState.load(mrklStatePath);
+            cache = AsynchronousFileChannel.open(localCachePath,
+                StandardOpenOption.READ, StandardOpenOption.WRITE);
+                
+        } else {
+            // Case 3: Any other initial state is invalid
+            String errorMsg = String.format(
+                "Invalid initialization state: cache file %s (exists=%b), mrkl state file %s (exists=%b). " +
+                "Either both files must exist or neither must exist.",
+                localCachePath, cacheExists, mrklStatePath, mrklExists);
+            throw new IOException(errorMsg);
         }
         
-        // Clean up temp ref file
-        java.nio.file.Files.deleteIfExists(tempRefPath);
-        
-        // Open local cache
-        AsynchronousFileChannel cache = AsynchronousFileChannel.open(localCachePath,
-            StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
-            
         // Create transport client
         ChunkedTransportClient transport = ChunkedTransportIO.create(remoteSource);
         
-        return new MAFileChannel(state, cache, transport);
-    }
-
-    private MAFileChannel(MerkleState merkleState, AsynchronousFileChannel localCache, ChunkedTransportClient transport) {
-        this.merkleState = merkleState;
-        this.localCache = localCache;
+        // Initialize fields
+        this.merkleState = state;
+        this.localCache = cache;
         this.transport = transport;
-        this.shape = merkleState.getMerkleShape();
+        this.shape = state.getMerkleShape();
     }
 
     @Override
@@ -307,7 +366,7 @@ public class MAFileChannel extends AsynchronousFileChannel {
         }
     }
 
-    private static MerkleRef downloadRef(String refUrl, Path tempPath) throws IOException {
+    public static MerkleRef downloadRef(String refUrl, Path tempPath) throws IOException {
         // Download reference merkle tree
         ChunkedTransportClient client = ChunkedTransportIO.create(refUrl);
         try {
@@ -320,7 +379,7 @@ public class MAFileChannel extends AsynchronousFileChannel {
             refData.get(data);
             java.nio.file.Files.createDirectories(tempPath.getParent());
             java.nio.file.Files.write(tempPath, data);
-            return MerkleDataImpl.load(tempPath);
+            return MerkleRef.load(tempPath);
         } finally {
             client.close();
         }

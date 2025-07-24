@@ -89,12 +89,15 @@ public interface MerkleState extends AutoCloseable {
   /// This initializes a new state file with all chunks marked as invalid (not yet verified).
   /// The state file is created and persisted before this method returns.
   /// 
+  /// This method delegates to MerkleDataImpl.createStateFromRef() for the actual implementation.
+  /// For direct access to the factory method, use MerkleDataImpl.createStateFromRef() instead.
+  /// 
   /// @param merkleRef The reference merkle tree to base the state on
   /// @param statePath The path where the .mrkl state file will be created
   /// @return A new MerkleState based on the reference tree
   /// @throws IOException If an I/O error occurs during creation
   static MerkleState fromRef(MerkleRef merkleRef, Path statePath) throws IOException {
-    return merkleRef.createEmptyState(statePath);
+    return MerkleDataImpl.createStateFromRef(merkleRef, statePath);
   }
 
   /// Loads an existing MerkleState from a .mrkl file.

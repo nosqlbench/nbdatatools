@@ -86,17 +86,22 @@ public class CoreXVecDatasetViewMethodsTest {
         createEmptyMerkleTreeFile(fvecFile);
 
         // Test with different file extensions using local file URLs and no-op EventSink
-        MAFileChannel bvecChannel = MAFileChannel.create(bvecFile, bvecFile.resolveSibling(bvecFile.getFileName() + ".mref"), bvecFile.toUri().toString());
+        // Use different cache file names to avoid invalid state (cache exists, state doesn't)
+        Path bvecCache = tempDir.resolve("bvec_cache.dat");
+        Path ivecCache = tempDir.resolve("ivec_cache.dat"); 
+        Path fvecCache = tempDir.resolve("fvec_cache.dat");
+        
+        MAFileChannel bvecChannel = new MAFileChannel(bvecCache, bvecFile.resolveSibling(bvecFile.getFileName() + ".mrkl"), bvecFile.toUri().toString());
         CoreXVecDatasetViewMethods<?> bvecView = new CoreXVecDatasetViewMethods<>(
             bvecChannel, Files.size(bvecFile), null, "bvecs");
         assertEquals(Byte.BYTES, bvecView.componentBytes());
 
-        MAFileChannel ivecChannel = MAFileChannel.create(ivecFile, ivecFile.resolveSibling(ivecFile.getFileName() + ".mref"), ivecFile.toUri().toString());
+        MAFileChannel ivecChannel = new MAFileChannel(ivecCache, ivecFile.resolveSibling(ivecFile.getFileName() + ".mrkl"), ivecFile.toUri().toString());
         CoreXVecDatasetViewMethods<?> ivecView = new CoreXVecDatasetViewMethods<>(
             ivecChannel, Files.size(ivecFile), null, "ivecs");
         assertEquals(Integer.BYTES, ivecView.componentBytes());
 
-        MAFileChannel fvecChannel = MAFileChannel.create(fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
+        MAFileChannel fvecChannel = new MAFileChannel(fvecCache, fvecFile.resolveSibling(fvecFile.getFileName() + ".mrkl"), fvecFile.toUri().toString());
         CoreXVecDatasetViewMethods<?> fvecView = new CoreXVecDatasetViewMethods<>(
             fvecChannel, Files.size(fvecFile), null, "fvecs");
         assertEquals(Float.BYTES, fvecView.componentBytes());
@@ -168,12 +173,16 @@ public class CoreXVecDatasetViewMethodsTest {
         
         // Test MerkleAsyncFileChannel with HTTP URLs
         // This tests that MerkleAsyncFileChannel can handle HTTP URLs properly
-        MAFileChannel httpBvecChannel = MAFileChannel.create(localBvecFile, localBvecFile.resolveSibling(localBvecFile.getFileName() + ".mref"), bvecHttpUrl);
+        // Use separate cache file names to trigger Case 1 initialization (no cache, no .mrkl state)
+        Path httpBvecCache = tempDir.resolve("http_bvec_cache.dat");
+        Path httpFvecCache = tempDir.resolve("http_fvec_cache.dat");
+        
+        MAFileChannel httpBvecChannel = new MAFileChannel(httpBvecCache, localBvecFile.resolveSibling(localBvecFile.getFileName() + ".mrkl"), bvecHttpUrl);
         CoreXVecDatasetViewMethods<?> httpBvecView = new CoreXVecDatasetViewMethods<>(
             httpBvecChannel, Files.size(bvecServerFile), null, "bvecs");
         assertEquals(Byte.BYTES, httpBvecView.componentBytes());
 
-        MAFileChannel httpFvecChannel = MAFileChannel.create(localFvecFile, localFvecFile.resolveSibling(localFvecFile.getFileName() + ".mref"), fvecHttpUrl);
+        MAFileChannel httpFvecChannel = new MAFileChannel(httpFvecCache, localFvecFile.resolveSibling(localFvecFile.getFileName() + ".mrkl"), fvecHttpUrl);
         CoreXVecDatasetViewMethods<?> httpFvecView = new CoreXVecDatasetViewMethods<>(
             httpFvecChannel, Files.size(fvecServerFile), null, "fvecs");
         assertEquals(Float.BYTES, httpFvecView.componentBytes());
@@ -231,10 +240,11 @@ public class CoreXVecDatasetViewMethodsTest {
         }
         System.out.println();
 
-        // Use a file:// URL for local file access
+        // Use a file:// URL for local file access and separate cache file to trigger Case 1
         String fileUrl = bvecFile.toUri().toString();
         System.out.println("[DEBUG_LOG] File URL: " + fileUrl);
-        MAFileChannel channel = MAFileChannel.create(bvecFile, bvecFile.resolveSibling(bvecFile.getFileName() + ".mref"), fileUrl);
+        Path cacheFile = tempDir.resolve("real_file_cache.dat");
+        MAFileChannel channel = new MAFileChannel(cacheFile, bvecFile.resolveSibling(bvecFile.getFileName() + ".mrkl"), fileUrl);
 
         // Create the view
         CoreXVecDatasetViewMethods<byte[]> view = new CoreXVecDatasetViewMethods<>(

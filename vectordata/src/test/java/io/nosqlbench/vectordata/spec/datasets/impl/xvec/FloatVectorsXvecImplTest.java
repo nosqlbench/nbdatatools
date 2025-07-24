@@ -122,9 +122,10 @@ public class FloatVectorsXvecImplTest {
         createTestFvecFile(fvecFile, testVectors);
         createMerkleTreeFile(fvecFile);
         
-        // Test with local file URL
-        MAFileChannel channel = MAFileChannel.create(
-            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
+        // Test with local file URL - use separate cache file to trigger Case 1 initialization
+        Path cacheFile = tempDir.resolve("simple_cache.dat");
+        MAFileChannel channel = new MAFileChannel(
+            cacheFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mrkl"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");
@@ -180,9 +181,10 @@ public class FloatVectorsXvecImplTest {
         createTestFvecFile(fvecFile, testVectors);
         createMerkleTreeFile(fvecFile);
         
-        // Test with local file URL
-        MAFileChannel channel = MAFileChannel.create(
-            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
+        // Test with local file URL - use separate cache file to trigger Case 1 initialization
+        Path cacheFile = tempDir.resolve("high_dim_cache.dat");
+        MAFileChannel channel = new MAFileChannel(
+            cacheFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mrkl"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");
@@ -226,9 +228,10 @@ public class FloatVectorsXvecImplTest {
         createTestFvecFile(fvecFile, testVectors);
         createMerkleTreeFile(fvecFile);
         
-        // Test with local file URL
-        MAFileChannel channel = MAFileChannel.create(
-            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
+        // Test with local file URL - use separate cache file to trigger Case 1 initialization
+        Path cacheFile = tempDir.resolve("special_cache.dat");
+        MAFileChannel channel = new MAFileChannel(
+            cacheFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mrkl"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");
@@ -287,8 +290,10 @@ public class FloatVectorsXvecImplTest {
         
         System.out.println("[DEBUG_LOG] Testing FloatVectorsXvecImpl with HTTP URL: " + httpUrl);
         
-        MAFileChannel channel = MAFileChannel.create(
-            localFile, localFile.resolveSibling(localFile.getFileName() + ".mref"), httpUrl);
+        // Use separate cache file to trigger Case 1 initialization
+        Path cacheFile = tempDir.resolve("http_cache.dat");
+        MAFileChannel channel = new MAFileChannel(
+            cacheFile, localFile.resolveSibling(localFile.getFileName() + ".mrkl"), httpUrl);
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(serverFile), null, "fvecs");
@@ -329,9 +334,10 @@ public class FloatVectorsXvecImplTest {
         createTestFvecFile(fvecFile, testVectors);
         createMerkleTreeFile(fvecFile);
         
-        // Test with local file URL
-        MAFileChannel channel = MAFileChannel.create(
-            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
+        // Test with local file URL - use separate cache file to trigger Case 1 initialization
+        Path cacheFile = tempDir.resolve("single_cache.dat");
+        MAFileChannel channel = new MAFileChannel(
+            cacheFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mrkl"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");
@@ -378,9 +384,10 @@ public class FloatVectorsXvecImplTest {
         createTestFvecFile(fvecFile, testVectors);
         createMerkleTreeFile(fvecFile);
         
-        // Test with local file URL
-        MAFileChannel channel = MAFileChannel.create(
-            fvecFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mref"), fvecFile.toUri().toString());
+        // Test with local file URL - use separate cache file to trigger Case 1 initialization
+        Path cacheFile = tempDir.resolve("large_cache.dat");
+        MAFileChannel channel = new MAFileChannel(
+            cacheFile, fvecFile.resolveSibling(fvecFile.getFileName() + ".mrkl"), fvecFile.toUri().toString());
         
         FloatVectorsXvecImpl vectors = new FloatVectorsXvecImpl(
             channel, Files.size(fvecFile), null, "fvecs");

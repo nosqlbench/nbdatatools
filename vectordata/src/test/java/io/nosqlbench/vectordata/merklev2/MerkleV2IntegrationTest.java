@@ -54,12 +54,12 @@ class MerkleV2IntegrationTest {
         
         // Step 2: Create merkle state from reference (simulating .mrkl file creation)
         Path statePath = tempDir.resolve("test.mrkl");
-        MerkleDataImpl merkleState = MerkleDataImpl.createFromRef(reference, statePath);
+        MerkleState merkleState = MerkleState.fromRef(reference, statePath);
         
         try {
             // Step 3: Verify initial state
-            assertEquals(shape.getTotalContentSize(), merkleState.getShape().getTotalContentSize());
-            assertEquals(shape.getLeafCount(), merkleState.getShape().getLeafCount());
+            assertEquals(shape.getTotalContentSize(), merkleState.getMerkleShape().getTotalContentSize());
+            assertEquals(shape.getLeafCount(), merkleState.getMerkleShape().getLeafCount());
             
             // Initially, no chunks should be verified
             BitSet validChunks = merkleState.getValidChunks();
@@ -100,7 +100,7 @@ class MerkleV2IntegrationTest {
             // Step 6: Test persistence by closing and reloading
             merkleState.close();
             
-            MerkleDataImpl reloadedState = MerkleDataImpl.load(statePath);
+            MerkleState reloadedState = MerkleState.load(statePath);
             try {
                 // Verify state persisted correctly
                 BitSet reloadedValidChunks = reloadedState.getValidChunks();
@@ -119,17 +119,20 @@ class MerkleV2IntegrationTest {
                                Math.min(firstChunkLength, contentBytes.length));
                 
                 ByteBuffer firstChunkBuffer = ByteBuffer.wrap(firstChunkData);
-                // Verify hash is available after reload instead of validation
-                assertNotNull(reloadedState.getHashForLeaf(0),
-                          "First chunk hash should still be available after reload");
+                // Verify state is still functional after reload
+                assertTrue(reloadedState.isValid(0),
+                          "First chunk should still be valid after reload");
                 
             } finally {
                 reloadedState.close();
             }
             
         } finally {
-            if (!merkleState.closed) {
+            // Close merkleState - AutoCloseable interface doesn't expose a closed() method
+            try {
                 merkleState.close();
+            } catch (Exception e) {
+                // Already closed or error closing
             }
         }
     }
@@ -144,7 +147,7 @@ class MerkleV2IntegrationTest {
         MockMerkleRef reference = new MockMerkleRef(shape, contentBytes);
         
         Path statePath = tempDir.resolve("rejection_test.mrkl");
-        MerkleDataImpl merkleState = MerkleDataImpl.createFromRef(reference, statePath);
+        MerkleState merkleState = MerkleState.fromRef(reference, statePath);
         
         try {
             // Try to save invalid data

@@ -22,6 +22,7 @@ import io.nosqlbench.nbdatatools.api.types.bitimage.Glyphs;
 import io.nosqlbench.vectordata.merklev2.Merklev2Footer;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
+import io.nosqlbench.vectordata.merklev2.MerkleState;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -226,26 +227,40 @@ public class CMD_merkle_summary implements Callable<Integer> {
         totalParentNodes = merkleRef.getShape().getInternalNodeCount();
         int totalAllNodes = totalLeafNodes + totalParentNodes;
 
-        // For reference trees, all leaves are considered valid
-        int validLeafNodes = totalLeafNodes;
+        // Get actual valid leaf nodes from the loaded merkle data
+        // MerkleRefFactory.load() returns MerkleDataImpl which implements both MerkleRef and MerkleState
+        BitSet actualValidChunks;
+        int validLeafNodes;
+        
+        if (merkleRef instanceof MerkleState) {
+            // This is a merkle state file - get actual valid chunks
+            MerkleState merkleState = (MerkleState) merkleRef;
+            actualValidChunks = merkleState.getValidChunks();
+            validLeafNodes = actualValidChunks.cardinality();
+        } else {
+            // This should not happen with current implementation, but handle it
+            // For pure reference trees, assume all leaves are valid
+            actualValidChunks = new BitSet(totalLeafNodes);
+            actualValidChunks.set(0, totalLeafNodes);
+            validLeafNodes = totalLeafNodes;
+        }
 
-        // For parent nodes, we can't directly check if they're valid
-        // We'll estimate based on the tree structure
+        // For parent nodes, estimate based on leaf node validity
+        // If a leaf is valid, its ancestors in the tree path are likely valid
         int validParentNodes = 0;
-        // If all leaf nodes are valid, all parent nodes are valid
         if (validLeafNodes == totalLeafNodes) {
+            // All leaves valid means all parents are valid
             validParentNodes = totalParentNodes;
         } else {
-            // Estimate: If a leaf node is valid, its parent is likely valid
-            // This is a rough estimate and may not be accurate
-            validParentNodes = Math.min(totalParentNodes, validLeafNodes / 2);
+            // Estimate: roughly half the parents are valid if some leaves are valid
+            // This is an approximation since tree structure varies
+            validParentNodes = Math.min(totalParentNodes, (validLeafNodes + 1) / 2);
         }
 
         int validAllNodes = validLeafNodes + validParentNodes;
 
-        // For reference trees, all leaf nodes are valid
-        BitSet leafStatus = new BitSet(totalLeafNodes);
-        leafStatus.set(0, totalLeafNodes);
+        // Use actual valid chunks for the braille display
+        BitSet leafStatus = (BitSet) actualValidChunks.clone();
 
         // Generate the braille-formatted image
         String brailleImage = Glyphs.braille(leafStatus);
@@ -269,15 +284,11 @@ public class CMD_merkle_summary implements Callable<Integer> {
         // Append the Merkle shape information
         summary.append(String.format("Shape: %s\n", merkleRef.getShape().toString()));
 
-        // Add node count information
+        // Add node count information with fractional values
         summary.append("Node Counts:\n");
-        summary.append(String.format("Valid Leaf Nodes: %d\n", validLeafNodes));
-        summary.append(String.format("Valid Parent Nodes: %d\n", validParentNodes));
-        summary.append(String.format("Valid Total Nodes: %d\n\n", validAllNodes));
-
-        summary.append(String.format("Total Leaf Nodes: %d\n", totalLeafNodes));
-        summary.append(String.format("Total Parent Nodes: %d\n", totalParentNodes));
-        summary.append(String.format("Total All Nodes: %d\n\n", totalAllNodes));
+        summary.append(String.format("Leaf Nodes: (valid/total)=(%d/%d)\n", validLeafNodes, totalLeafNodes));
+        summary.append(String.format("Parent Nodes: (valid/total)=(%d/%d)\n", validParentNodes, totalParentNodes));
+        summary.append(String.format("All Nodes: (valid/total)=(%d/%d)\n\n", validAllNodes, totalAllNodes));
 
         // Add footer information
         summary.append("Footer Information:\n");
