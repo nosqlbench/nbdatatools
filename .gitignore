@@ -38,3 +38,4 @@ bin/**
 !.brokk/review.md
 !.brokk/project.properties
 /.junie/
+/.claude/
