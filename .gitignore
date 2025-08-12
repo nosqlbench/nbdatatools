@@ -39,3 +39,4 @@ bin/**
 !.brokk/project.properties
 /.junie/
 /.claude/
+/.brokk/
