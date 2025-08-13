@@ -23,6 +23,7 @@ import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
+import io.nosqlbench.vectordata.util.TempTestServerSetup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -39,6 +40,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,20 +56,33 @@ public class CatalogAccessTest {
 
   @BeforeEach
   public void setUp(TestInfo testInfo) throws IOException {
-    // Use the shared Jetty server instance from JettyFileServerExtension
-    URL baseUrl = JettyFileServerExtension.getBaseUrl();
-
-    // Create a test-specific cache directory to avoid conflicts between tests
+    // Check that master .mref files exist before proceeding
+    assumeTrue(TempTestServerSetup.masterMrefFilesExist(), 
+        "Requires master .mref files - run MasterMrefFileGenerator first");
+    
+    // Create test-specific directory in temp testserver area
     String testName = "CAT_" + testInfo.getTestMethod().get().getName() + "_" + System.currentTimeMillis();
+    Path tempTestServerDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve(testName);
+    
+    // Set up complete temp testserver structure with .mref files
+    TempTestServerSetup.setupTempTestServerFiles(tempTestServerDir);
+    
+    // Use the shared Jetty server instance - it will serve from TEMP_RESOURCES_ROOT
+    URL baseUrl = JettyFileServerExtension.getBaseUrl();
+    String testServerUrl = baseUrl.toString() + "temp/" + testName + "/";
+    
+    // Create a test-specific cache directory to avoid conflicts between tests
     Path testCacheDir = tempDir.resolve("cache_" + testName);
     
-    // Create a TestDataSources instance with the server URL
-    sources = TestDataSources.ofUrl(baseUrl.toString());
+    // Create a TestDataSources instance with the test-specific server URL
+    sources = TestDataSources.ofUrl(testServerUrl);
     
     // Configure test-specific cache directory for all ProfileSelectors
     sources.catalog().datasets().forEach(dataset -> {
       dataset.select().setCacheDir(testCacheDir.toString());
     });
+    
+    System.out.println("Test setup complete - serving from: " + testServerUrl);
   }
 
   @Test
@@ -101,7 +117,7 @@ public class CatalogAccessTest {
   }
 
   @Test
-  @org.junit.jupiter.api.Disabled("Download functionality not fully implemented - ChunkedTransportClient integration needs full implementation")
+//  @org.junit.jupiter.api.Disabled("Download functionality not fully implemented - ChunkedTransportClient integration needs full implementation")
   public void testDatasetDownload() {
     Catalog catalog = sources.catalog();
     List<DatasetEntry> datasets = catalog.datasets();

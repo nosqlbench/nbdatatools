@@ -21,36 +21,45 @@ package io.nosqlbench.vectordata.util;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleData;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 /**
- * Test to regenerate .mref files for test data with correct merklev2 format
+ * Test to regenerate .mref files for test data with correct merklev2 format.
+ * This test uses isolated temp directories to avoid conflicts with other tests.
  */
 public class RegenerateMerkleFilesTest {
     
+    private static final Path SOURCE_DATA_DIR = 
+        Paths.get("src/test/resources/testserver/rawdatasets/testxvec");
+    
     @Test
-    public void regenerateMerkleFiles() throws Exception {
+    public void testRegenerationInIsolation(@TempDir Path tempDir) throws Exception {
+        System.out.println("Testing .mref regeneration in isolated temp directory: " + tempDir);
+        
         String[] testFiles = {
-            "src/test/resources/testserver/rawdatasets/testxvec/testxvec_base.fvec",
-            "src/test/resources/testserver/rawdatasets/testxvec/testxvec_distances.fvec", 
-            "src/test/resources/testserver/rawdatasets/testxvec/testxvec_indices.ivec",
-            "src/test/resources/testserver/rawdatasets/testxvec/testxvec_query.fvec"
+            "testxvec_base.fvec",
+            "testxvec_distances.fvec", 
+            "testxvec_indices.ivec",
+            "testxvec_query.fvec"
         };
         
-        for (String testFile : testFiles) {
-            Path dataPath = Path.of(testFile);
-            if (!Files.exists(dataPath)) {
-                System.out.println("File not found: " + testFile);
-                continue;
-            }
+        // Copy source files to temp directory for isolated testing
+        copySourceFilesToTempDir(tempDir, testFiles);
+        
+        // Test regeneration in isolation
+        for (String filename : testFiles) {
+            Path dataPath = tempDir.resolve(filename);
+            Path mrefPath = tempDir.resolve(filename + ".mref");
             
-            Path mrefPath = Path.of(testFile + ".mref");
+            System.out.println("Regenerating: " + filename);
             
-            System.out.println("Regenerating: " + mrefPath);
-            
-            // Remove existing merkle file
+            // Ensure no existing .mref file
             Files.deleteIfExists(mrefPath);
             
             // Create new merkle data from source file using merklev2
@@ -60,12 +69,33 @@ public class RegenerateMerkleFilesTest {
             // Save the merkle data
             merkleData.save(mrefPath);
             
-            System.out.println("Generated: " + mrefPath + " (size: " + Files.size(mrefPath) + " bytes)");
+            System.out.println("Generated: " + mrefPath.getFileName() + " (size: " + Files.size(mrefPath) + " bytes)");
             
-            // Close the merkle data
+            // Verify the regenerated file can be loaded
+            var loaded = MerkleRefFactory.load(mrefPath);
+            System.out.println("  Verified loadable - content size: " + loaded.getShape().getTotalContentSize());
+            loaded.close();
+            
+            // Close the original merkle data
             merkleData.close();
         }
         
-        System.out.println("Done regenerating .mref files with merklev2 format!");
+        System.out.println("Successfully tested .mref regeneration in isolation!");
+    }
+    
+    private void copySourceFilesToTempDir(Path tempDir, String[] filenames) throws IOException {
+        System.out.println("Copying source files to temp directory for isolated testing...");
+        
+        for (String filename : filenames) {
+            Path sourceFile = SOURCE_DATA_DIR.resolve(filename);
+            Path targetFile = tempDir.resolve(filename);
+            
+            if (!Files.exists(sourceFile)) {
+                throw new RuntimeException("Source file not found: " + sourceFile.toAbsolutePath());
+            }
+            
+            Files.copy(sourceFile, targetFile, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("  Copied: " + filename + " (" + Files.size(targetFile) + " bytes)");
+        }
     }
 }

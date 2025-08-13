@@ -42,7 +42,6 @@ public class TempTestHarness {
     //0100.parquet
 
     System.out.println("done");
-//    "-i", "/home/jshook/dswork/s3/huggingface/cache/datasets--Cohere--wikipedia-2023-11-embed-multilingual-v3/snapshots/37feace541fadccf70579e9f289c3cf8e8b186d7/es/",
   }
 
 }

@@ -19,16 +19,23 @@ package io.nosqlbench.vectordata.downloader.testserver;
 
 
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * @deprecated This test has been replaced by MasterMrefFileGenerator.
+ * Use MasterMrefFileGenerator for canonical .mref file generation.
+ */
+@Deprecated
 public class GenerateMrefFiles {
     
     @Test
+    @Disabled("Replaced by MasterMrefFileGenerator to avoid file conflicts")
     public void generateMrefFilesForTestData() throws Exception {
-        String testDataDir = "/home/jshook/IdeaProjects/nbdatatools/vectordata/src/test/resources/testserver/rawdatasets/testxvec/";
+        String testDataDir = "src/test/resources/testserver/rawdatasets/testxvec/";
         
         String[] files = {
             "testxvec_base.fvec",

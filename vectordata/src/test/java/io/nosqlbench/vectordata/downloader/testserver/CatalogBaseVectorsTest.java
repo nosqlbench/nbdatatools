@@ -24,6 +24,7 @@ import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
+import io.nosqlbench.vectordata.util.TempTestServerSetup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -35,6 +36,8 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -61,20 +64,33 @@ public class CatalogBaseVectorsTest {
 
     @BeforeEach
     public void setUp(TestInfo testInfo) throws IOException {
-        // Use the test web server URL
+        // Check that master .mref files exist before proceeding
+        assumeTrue(TempTestServerSetup.masterMrefFilesExist(), 
+            "Requires master .mref files - run MasterMrefFileGenerator first");
+        
+        // Create test-specific directory in temp testserver area
+        String testName = "CBVT_" + testInfo.getTestMethod().get().getName() + "_" + System.currentTimeMillis();
+        Path tempTestServerDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve(testName);
+        
+        // Set up complete temp testserver structure with .mref files
+        TempTestServerSetup.setupTempTestServerFiles(tempTestServerDir);
+        
+        // Use the shared Jetty server instance - it will serve from TEMP_RESOURCES_ROOT
         URL baseUrl = JettyFileServerExtension.getBaseUrl();
+        String testServerUrl = baseUrl.toString() + "temp/" + testName + "/";
 
         // Create a test-specific cache directory to avoid conflicts between tests
-        String testName = "CBVT_" + testInfo.getTestMethod().get().getName() + "_" + System.currentTimeMillis();
         Path testCacheDir = tempDir.resolve("cache_" + testName);
 
-        // Create a TestDataSources instance with the web server URL
-        sources = TestDataSources.ofUrl(baseUrl.toString());
+        // Create a TestDataSources instance with the test-specific server URL
+        sources = TestDataSources.ofUrl(testServerUrl);
         
         // Configure test-specific cache directory for all ProfileSelectors
         sources.catalog().datasets().forEach(dataset -> {
             dataset.select().setCacheDir(testCacheDir.toString());
         });
+        
+        System.out.println("Test setup complete - serving from: " + testServerUrl);
     }
 
     @Test

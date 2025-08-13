@@ -19,6 +19,8 @@ package io.nosqlbench.vectordata.merklev2;
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.util.TestFixturePaths;
+import io.nosqlbench.vectordata.util.TempTestServerSetup;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +31,8 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -37,17 +41,41 @@ import static org.junit.jupiter.api.Assertions.*;
  * 1. No cache file and no mrkl state file - downloads mref and creates both
  * 2. Both cache file and mrkl state file exist - loads both as-is
  * 3. Any other state combination - throws error
+ * 
+ * Now uses isolated temp testserver structures to avoid conflicts with other tests.
  */
 @ExtendWith(JettyFileServerExtension.class)  
 class MAFileChannelCreateTest {
+
+    private String testServerUrl;
+    
+    @BeforeEach
+    void setUp(TestInfo testInfo) throws IOException {
+        // Check that master .mref files exist before proceeding
+        assumeTrue(TempTestServerSetup.masterMrefFilesExist(), 
+            "Requires master .mref files - run MasterMrefFileGenerator first");
+        
+        // Create test-specific directory in temp testserver area
+        String testName = "MAFC_" + testInfo.getTestMethod().get().getName() + "_" + System.currentTimeMillis();
+        Path tempTestServerDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve(testName);
+        
+        // Set up complete temp testserver structure with .mref files
+        TempTestServerSetup.setupTempTestServerFiles(tempTestServerDir);
+        
+        // Create base URL for this test's temp server directory
+        URL baseUrl = JettyFileServerExtension.getBaseUrl();
+        testServerUrl = baseUrl.toString() + "temp/" + testName + "/";
+        
+        System.out.println("MAFileChannelCreateTest setup - serving from: " + testServerUrl);
+    }
 
     @Test
     void testCase1_NoFilesExist_DownloadsAndCreates(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Case 1: No cache file and no mrkl state file exist
         // Should download remote mref file, create mrkl state file from it, discard mref
         
-        // Use test-specific resource URL to avoid conflicts
-        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_base.fvec");
+        // Use isolated temp testserver URL
+        URL remoteUrl = new URL(testServerUrl + "rawdatasets/testxvec/testxvec_base.fvec");
         
         // Use test-specific filenames to avoid conflicts
         String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "cache.dat");
@@ -78,8 +106,8 @@ class MAFileChannelCreateTest {
         // Case 2: Both cache file and mrkl state file exist
         // Should load both as-is with no modification
         
-        // Use test-specific resource URL to avoid conflicts
-        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_query.fvec");
+        // Use isolated temp testserver URL
+        URL remoteUrl = new URL(testServerUrl + "rawdatasets/testxvec/testxvec_query.fvec");
         
         // Use test-specific filenames to avoid conflicts
         String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "existing_cache.dat");
@@ -126,8 +154,8 @@ class MAFileChannelCreateTest {
         // Case 3a: Cache file exists but mrkl state file does not
         // Should throw an error
         
-        // Use test-specific resource URL to avoid conflicts
-        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_base.fvec");
+        // Use isolated temp testserver URL
+        URL remoteUrl = new URL(testServerUrl + "rawdatasets/testxvec/testxvec_base.fvec");
         
         // Use test-specific filenames to avoid conflicts
         String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "only_cache.dat");
@@ -161,8 +189,8 @@ class MAFileChannelCreateTest {
         // Case 3b: Mrkl state file exists but cache file does not
         // Should throw an error
         
-        // Use test-specific resource URL to avoid conflicts
-        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_query.fvec");
+        // Use isolated temp testserver URL
+        URL remoteUrl = new URL(testServerUrl + "rawdatasets/testxvec/testxvec_query.fvec");
         
         // Use test-specific filenames to avoid conflicts
         String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "missing_cache.dat");
@@ -198,8 +226,8 @@ class MAFileChannelCreateTest {
     void testMrklExtensionEnforcement(@TempDir Path tempDir, TestInfo testInfo) throws Exception {
         // Test that .mrkl extension is automatically added when missing
         
-        // Use test-specific resource URL to avoid conflicts
-        URL remoteUrl = TestFixturePaths.createResourceUrl("testxvec/testxvec_base.fvec");
+        // Use isolated temp testserver URL
+        URL remoteUrl = new URL(testServerUrl + "rawdatasets/testxvec/testxvec_base.fvec");
         
         // Use test-specific filenames to avoid conflicts
         String cacheFilename = TestFixturePaths.createTestSpecificFilename(testInfo, "cache.dat");

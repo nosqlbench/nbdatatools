@@ -20,22 +20,35 @@ package io.nosqlbench.vectordata.downloader.testserver;
 
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.Merklev2Footer;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 public class TestMrefFileReading {
+    
+    private static final Path TEMP_MREF_DIR = 
+        Paths.get("src/test/resources/testserver/temp/generated_mref_files");
+    
+    @BeforeEach
+    void checkPrerequisites() {
+        Path mrefFile = TEMP_MREF_DIR.resolve("testxvec_base.fvec.mref");
+        assumeTrue(Files.exists(mrefFile), 
+            "Requires master .mref files - run MasterMrefFileGenerator first");
+    }
     
     @Test
     public void testReadMrefFile() throws Exception {
-        String testDataDir = "/home/jshook/IdeaProjects/nbdatatools/vectordata/src/test/resources/testserver/rawdatasets/testxvec/";
-        Path mrefFile = Paths.get(testDataDir + "testxvec_base.fvec.mref");
+        Path mrefFile = TEMP_MREF_DIR.resolve("testxvec_base.fvec.mref");
         
-        System.out.println("Testing reading of: " + mrefFile);
-        System.out.println("File size: " + java.nio.file.Files.size(mrefFile));
+        System.out.println("Testing reading of master-generated .mref file: " + mrefFile);
+        System.out.println("File size: " + Files.size(mrefFile));
         
         // Try to read footer directly
         try (FileChannel channel = FileChannel.open(mrefFile, StandardOpenOption.READ)) {

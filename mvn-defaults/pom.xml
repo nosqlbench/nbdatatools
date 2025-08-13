@@ -21,6 +21,13 @@
   </properties>
 
   <dependencies>
+
+    <dependency>
+      <!-- temp for debugging -->
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-gpg-plugin</artifactId>
+      <version>3.0.1</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
