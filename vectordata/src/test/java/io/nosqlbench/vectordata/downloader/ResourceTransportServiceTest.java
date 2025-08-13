@@ -20,6 +20,7 @@ package io.nosqlbench.vectordata.downloader;
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.events.EventSink;
 import io.nosqlbench.vectordata.events.NoOpEventSink;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,6 +39,24 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @ExtendWith(JettyFileServerExtension.class)
 public class ResourceTransportServiceTest {
+    
+    @BeforeAll
+    public static void setUp() throws IOException {
+        // Create test data files in the ephemeral temp directory
+        Path tempTestServerDir = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve("httptest");
+        Files.createDirectories(tempTestServerDir);
+        
+        // Create test files with different extensions that the tests expect
+        createTestFile(tempTestServerDir.resolve("test_http.fvecs"), "This is test fvecs data for HTTP transport testing.");
+        createTestFile(tempTestServerDir.resolve("test_http.bvecs"), "This is test bvecs data for HTTP download testing.");
+        
+        System.out.println("Created test files in: " + tempTestServerDir);
+    }
+    
+    private static void createTestFile(Path file, String content) throws IOException {
+        Files.write(file, content.getBytes());
+        System.out.println("  Created: " + file.getFileName() + " (" + content.length() + " bytes)");
+    }
 
     @Test
     public void testResourceMetadataForHttpResources() throws Exception {

@@ -17,11 +17,14 @@ package io.nosqlbench.vectordata.util;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Utility class for setting up temporary testserver directory structures
@@ -31,8 +34,21 @@ public class TempTestServerSetup {
     
     private static final Path SOURCE_RESOURCES_DIR = 
         Paths.get("src/test/resources/testserver");
-    private static final Path MASTER_MREF_DIR = 
-        Paths.get("src/test/resources/testserver/temp/generated_mref_files");
+    
+    // Lock for synchronizing master .mref file generation
+    private static final ReentrantLock MREF_GENERATION_LOCK = new ReentrantLock();
+    
+    // Flag to track if master .mref files have been generated
+    private static volatile boolean masterMrefFilesGenerated = false;
+    
+    /**
+     * Gets the master .mref directory, which is now dynamically located under
+     * the JettyFileServerExtension's temp resources root (usually target/test-classes/testserver/temp)
+     */
+    private static Path getMasterMrefDir() {
+        return io.nosqlbench.jetty.testserver.JettyFileServerExtension.TEMP_RESOURCES_ROOT
+                .resolve("generated_mref_files");
+    }
     
     /**
      * Sets up a complete temporary testserver directory structure including:
@@ -134,7 +150,7 @@ public class TempTestServerSetup {
         };
         
         for (String filename : mrefFiles) {
-            Path sourceFile = MASTER_MREF_DIR.resolve(filename);
+            Path sourceFile = getMasterMrefDir().resolve(filename);
             Path targetFile = targetTestxvecDir.resolve(filename);
             
             if (Files.exists(sourceFile)) {
@@ -163,12 +179,56 @@ public class TempTestServerSetup {
     }
     
     /**
-     * Ensures that master .mref files exist before setting up temp testserver.
-     * This helps provide clear error messages if dependencies aren't met.
+     * Ensures that master .mref files exist, generating them if necessary.
+     * This method is thread-safe and will only generate the files once.
+     * All callers will block until generation is complete if needed.
      * 
-     * @return true if all master .mref files exist, false otherwise
+     * @return true if all master .mref files exist or were successfully generated
      */
     public static boolean masterMrefFilesExist() {
+        // Fast path - if already generated, just verify they still exist
+        if (masterMrefFilesGenerated) {
+            return verifyMrefFilesExist();
+        }
+        
+        // Acquire lock for generation check/execution
+        MREF_GENERATION_LOCK.lock();
+        try {
+            // Double-check after acquiring lock (another thread may have generated them)
+            if (masterMrefFilesGenerated) {
+                return verifyMrefFilesExist();
+            }
+            
+            // Check if files already exist
+            if (verifyMrefFilesExist()) {
+                masterMrefFilesGenerated = true;
+                return true;
+            }
+            
+            // Files don't exist - generate them
+            System.out.println("Master .mref files not found - generating them now...");
+            boolean success = generateMasterMrefFiles();
+            
+            if (success) {
+                masterMrefFilesGenerated = true;
+                System.out.println("Master .mref files generated successfully");
+            } else {
+                System.err.println("Failed to generate master .mref files");
+            }
+            
+            return success;
+            
+        } finally {
+            MREF_GENERATION_LOCK.unlock();
+        }
+    }
+    
+    /**
+     * Verifies that all required .mref files exist.
+     * 
+     * @return true if all files exist, false otherwise
+     */
+    private static boolean verifyMrefFilesExist() {
         String[] mrefFiles = {
             "testxvec_base.fvec.mref",
             "testxvec_query.fvec.mref",
@@ -177,13 +237,77 @@ public class TempTestServerSetup {
         };
         
         for (String filename : mrefFiles) {
-            Path mrefFile = MASTER_MREF_DIR.resolve(filename);
+            Path mrefFile = getMasterMrefDir().resolve(filename);
             if (!Files.exists(mrefFile)) {
-                System.out.println("Missing master .mref file: " + mrefFile);
                 return false;
             }
         }
         
         return true;
+    }
+    
+    /**
+     * Generates the master .mref files from source data.
+     * This is equivalent to what MasterMrefFileGenerator does, but callable directly.
+     * 
+     * @return true if generation succeeded, false otherwise
+     */
+    private static boolean generateMasterMrefFiles() {
+        try {
+            Path sourceDataDir = Paths.get("src/test/resources/testserver/rawdatasets/testxvec");
+            Path tempMrefDir = getMasterMrefDir();
+            
+            // Ensure directory exists
+            Files.createDirectories(tempMrefDir);
+            System.out.println("  Master .mref directory: " + tempMrefDir.toAbsolutePath());
+            
+            // Generate .mref files from static source data
+            String[] sourceFiles = {
+                "testxvec_base.fvec",
+                "testxvec_query.fvec", 
+                "testxvec_distances.fvec",
+                "testxvec_indices.ivec"
+            };
+            
+            for (String filename : sourceFiles) {
+                Path sourceFile = sourceDataDir.resolve(filename);
+                Path mrefFile = tempMrefDir.resolve(filename + ".mref");
+                
+                System.out.println("  Generating: " + filename + ".mref");
+                
+                // Verify source file exists
+                if (!Files.exists(sourceFile)) {
+                    System.err.println("    ERROR: Source file not found: " + sourceFile.toAbsolutePath());
+                    return false;
+                }
+                
+                // Remove existing .mref file if present
+                if (Files.exists(mrefFile)) {
+                    Files.delete(mrefFile);
+                }
+                
+                // Generate new .mref file
+                var progress = MerkleRefFactory.fromData(sourceFile);
+                var merkleRef = progress.getFuture().get();
+                
+                merkleRef.save(mrefFile);
+                merkleRef.close();
+                
+                // Verify generation succeeded
+                if (!Files.exists(mrefFile)) {
+                    System.err.println("    ERROR: Failed to generate .mref file: " + mrefFile);
+                    return false;
+                }
+                
+                System.out.println("    Generated: " + mrefFile.getFileName() + " (" + Files.size(mrefFile) + " bytes)");
+            }
+            
+            return true;
+            
+        } catch (Exception e) {
+            System.err.println("Error generating master .mref files: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 }

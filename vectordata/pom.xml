@@ -198,6 +198,10 @@
           <includes>
             <include>**/VectorDataTestSuite.java</include>
           </includes>
+          <!-- Configure ephemeral test resources to use target/ directory -->
+          <systemPropertyVariables>
+            <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+          </systemPropertyVariables>
         </configuration>
         <executions>
           <!-- Default execution runs regular tests -->
@@ -211,6 +215,9 @@
               <includes>
                 <include>**/VectorDataTestSuite.java</include>
               </includes>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
             </configuration>
           </execution>
           <!-- Performance test execution runs only when activated -->
@@ -225,6 +232,9 @@
                 <include>**/PerformanceTestSuite.java</include>
               </includes>
               <skip>${skipPerformanceTests}</skip>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
             </configuration>
           </execution>
         </executions>

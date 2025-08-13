@@ -17,6 +17,7 @@ package io.nosqlbench.vectordata.downloader.testserver;
  * under the License.
  */
 
+import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -37,10 +38,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class MasterMrefFileGenerator {
     
-    private static final Path TEMP_MREF_DIR = 
-        Paths.get("src/test/resources/testserver/temp/generated_mref_files");
     private static final Path SOURCE_DATA_DIR = 
         Paths.get("src/test/resources/testserver/rawdatasets/testxvec");
+    
+    /**
+     * Gets the master .mref directory, which is now dynamically located under
+     * the JettyFileServerExtension's temp resources root (usually target/test-classes/testserver/temp)
+     */
+    private static Path getMasterMrefDir() {
+        return JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve("generated_mref_files");
+    }
     
     @Test
     @Order(1)
@@ -48,8 +55,9 @@ public class MasterMrefFileGenerator {
         System.out.println("Generating canonical .mref files for test infrastructure...");
         
         // Ensure temp directory exists
-        Files.createDirectories(TEMP_MREF_DIR);
-        System.out.println("Created temp directory: " + TEMP_MREF_DIR.toAbsolutePath());
+        Path tempMrefDir = getMasterMrefDir();
+        Files.createDirectories(tempMrefDir);
+        System.out.println("Created temp directory: " + tempMrefDir.toAbsolutePath());
         
         // Generate .mref files from static source data
         String[] sourceFiles = {
@@ -61,7 +69,7 @@ public class MasterMrefFileGenerator {
         
         for (String filename : sourceFiles) {
             Path sourceFile = SOURCE_DATA_DIR.resolve(filename);
-            Path mrefFile = TEMP_MREF_DIR.resolve(filename + ".mref");
+            Path mrefFile = tempMrefDir.resolve(filename + ".mref");
             
             System.out.println("Processing: " + filename);
             
@@ -97,6 +105,6 @@ public class MasterMrefFileGenerator {
         }
         
         System.out.println("Successfully generated all canonical .mref files!");
-        System.out.println("Master .mref files location: " + TEMP_MREF_DIR.toAbsolutePath());
+        System.out.println("Master .mref files location: " + tempMrefDir.toAbsolutePath());
     }
 }

@@ -18,6 +18,7 @@ package io.nosqlbench.vectordata.downloader.testserver;
  */
 
 
+import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.Merklev2Footer;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,19 +34,24 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class TestMrefFileReading {
     
-    private static final Path TEMP_MREF_DIR = 
-        Paths.get("src/test/resources/testserver/temp/generated_mref_files");
+    /**
+     * Gets the master .mref directory, which is now dynamically located under
+     * the JettyFileServerExtension's temp resources root (usually target/test-classes/testserver/temp)
+     */
+    private static Path getMasterMrefDir() {
+        return JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve("generated_mref_files");
+    }
     
     @BeforeEach
     void checkPrerequisites() {
-        Path mrefFile = TEMP_MREF_DIR.resolve("testxvec_base.fvec.mref");
+        Path mrefFile = getMasterMrefDir().resolve("testxvec_base.fvec.mref");
         assumeTrue(Files.exists(mrefFile), 
             "Requires master .mref files - run MasterMrefFileGenerator first");
     }
     
     @Test
     public void testReadMrefFile() throws Exception {
-        Path mrefFile = TEMP_MREF_DIR.resolve("testxvec_base.fvec.mref");
+        Path mrefFile = getMasterMrefDir().resolve("testxvec_base.fvec.mref");
         
         System.out.println("Testing reading of master-generated .mref file: " + mrefFile);
         System.out.println("File size: " + Files.size(mrefFile));
