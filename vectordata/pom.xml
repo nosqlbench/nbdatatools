@@ -4,28 +4,53 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <version>${revision}</version>
+    <artifactId>mvn-defaults</artifactId>
+    <relativePath>../mvn-defaults</relativePath>
+  </parent>
+
   <artifactId>vectordata</artifactId>
-  <groupId>io.nosqlbench</groupId>
-  <version>${revision}</version>
   <name>${project.artifactId}</name>
   <description>semi-formal spec for vector test data in hdf5 with API</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
   <properties>
-    <revision>0.1.4-SNAPSHOT</revision>
-    <maven.compiler.source>22</maven.compiler.source>
-    <maven.compiler.target>22</maven.compiler.target>
-    <maven.compiler.release>22</maven.compiler.release>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javadoc.name>vectordata</javadoc.name>
+    <skipPerformanceTests>true</skipPerformanceTests>
   </properties>
 
   <dependencies>
 
     <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>testdata-apis</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>io-xvec</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>io-transport</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
       <groupId>io.jhdf</groupId>
       <artifactId>jhdf</artifactId>
       <version>0.9.2</version>
+      <exclusions>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -35,18 +60,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <version>3.24.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <version>5.10.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>org.snakeyaml</groupId>
       <artifactId>snakeyaml-engine</artifactId>
       <version>2.9</version>
@@ -55,7 +68,70 @@
     <dependency>
       <groupId>com.squareup.okhttp3</groupId>
       <artifactId>okhttp</artifactId>
-      <version>4.11.0</version> <!-- Use the latest version -->
+      <version>4.12.0</version> <!-- Use the latest version -->
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-suite</artifactId>
+      <version>1.10.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>1.16.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.11.0</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.httpcomponents.core5</groupId>
+      <artifactId>httpcore5</artifactId>
+      <version>5.3.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.httpcomponents.core5</groupId>
+      <artifactId>httpcore5-h2</artifactId>
+      <version>5.3.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>jetty-test-server</artifactId>
+      <version>${revision}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Micrometer for performance monitoring -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <version>1.13.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <version>1.13.2</version>
+      <optional>true</optional>
     </dependency>
 
 
@@ -116,49 +192,54 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.2.1</version>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- Run only the test suite, not individual tests -->
+          <includes>
+            <include>**/VectorDataTestSuite.java</include>
+          </includes>
+          <!-- Configure ephemeral test resources to use target/ directory -->
+          <systemPropertyVariables>
+            <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+          </systemPropertyVariables>
+        </configuration>
         <executions>
+          <!-- Default execution runs regular tests -->
           <execution>
-            <id>enforce-java</id>
+            <id>default-test</id>
+            <phase>test</phase>
             <goals>
-              <goal>enforce</goal>
+              <goal>test</goal>
             </goals>
             <configuration>
-              <rules>
-                <!--                The GraalVM vendor version is only enforced in the native profile -->
-                <!--                <requireProperty>-->
-                <!--                  <property>java.vendor.version</property>-->
-                <!--                  <regex>.*GraalVM.*</regex>-->
-                <!--                  <message>-->
-                <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
-                <!--                  </message>-->
-                <!--                </requireProperty>-->
-                <requireJavaVersion>
-                  <version>[23,)</version>
-                </requireJavaVersion>
-                <!--                <dependencyConvergence>-->
-                <!--                </dependencyConvergence>-->
-                <requireProfileIdsExist/>
-              </rules>
+              <includes>
+                <include>**/VectorDataTestSuite.java</include>
+              </includes>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+          <!-- Performance test execution runs only when activated -->
+          <execution>
+            <id>performance-tests</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>**/PerformanceTestSuite.java</include>
+              </includes>
+              <skip>${skipPerformanceTests}</skip>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
             </configuration>
           </execution>
         </executions>
       </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-source-plugin</artifactId>
-        <version>3.3.1</version>
-        <executions>
-          <execution>
-            <id>attach-sources</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>jar-no-fork</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-gpg-plugin</artifactId>
@@ -235,14 +316,6 @@
         </executions>
       </plugin>
 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
-        <configuration>
-          <release>23</release>
-        </configuration>
-      </plugin>
 <!--      <plugin>-->
 <!--        <groupId>org.apache.maven.plugins</groupId>-->
 <!--        <artifactId>maven-jar-plugin</artifactId>-->
@@ -295,19 +368,14 @@
       <plugin>
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.7.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <publishingServerId>portal-snapshots</publishingServerId>
-          <autoPublish>true</autoPublish>
-          <waitUntil>uploaded</waitUntil>
-
-          <publishingServerId>central</publishingServerId>
-          <autoPublish>false</autoPublish>
-          <waitUntil>uploaded</waitUntil>
-          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>
-
-        </configuration>
+<!--        <version>0.7.0</version>-->
+<!--        <extensions>true</extensions>-->
+<!--        <configuration>-->
+<!--          <publishingServerId>central</publishingServerId>-->
+<!--          <autoPublish>false</autoPublish>-->
+<!--          <waitUntil>uploaded</waitUntil>-->
+<!--          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>-->
+<!--        </configuration>-->
       </plugin>
 
 
@@ -317,14 +385,19 @@
       <resource>
         <directory>src/main/resources</directory>
         <includes>
-          <include>META_INF/services/**</include>
-          <!--          <include>META-INF/functions</include>-->
-          <!--          <include>data/**</include>-->
-          <!--          <include>docs-for-virtdata/**</include>-->
-          <!--          <include>docs/**</include>-->
+          <include>META-INF/services/**</include>
         </includes>
       </resource>
     </resources>
+
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+        <excludes>
+          <exclude>testserver/temp/**</exclude>
+        </excludes>
+      </testResource>
+    </testResources>
 
   </build>
 
@@ -334,36 +407,6 @@
       <id>native</id>
       <build>
         <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-enforcer-plugin</artifactId>
-            <version>3.2.1</version>
-            <executions>
-              <execution>
-                <id>enforce-java</id>
-                <goals>
-                  <goal>enforce</goal>
-                </goals>
-                <configuration>
-                  <rules>
-                    <requireProperty>
-                      <property>java.vendor.version</property>
-                      <regex>.*GraalVM.*</regex>
-                      <message>
-                        You must use a GraalVM JDK. The detected JDK is not GraalVM.
-                      </message>
-                    </requireProperty>
-                    <requireJavaVersion>
-                      <version>[23,)</version>
-                    </requireJavaVersion>
-                    <!--                    This would be nice, but jhdf is on older log4j API versions -->
-                    <!--                    <dependencyConvergence/>-->
-                    <requireProfileIdsExist/>
-                  </rules>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
 
           <!--          Building with native image seems infeasible with some dependencies-->
           <!--          <plugin>-->

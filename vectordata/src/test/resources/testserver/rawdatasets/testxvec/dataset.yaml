@@ -1,0 +1,12 @@
+attributes:
+  distance_function: COSINE
+  license: APL
+  url: https://github.com/nosqlbench/nbdatatools
+
+profiles:
+  default:
+    base: testxvec_base.fvec
+    query: testxvec_query.fvec
+    distances: testxvec_distances.fvec
+    indices: testxvec_indices.ivec
+

@@ -20,8 +20,8 @@ package io.nosqlbench.vectordata.layout;
 
 import io.jhdf.api.Group;
 import io.jhdf.api.Node;
-import io.nosqlbench.vectordata.SHARED;
-import io.nosqlbench.vectordata.internalapi.datasets.attrs.RootGroupAttributes;
+import io.nosqlbench.vectordata.utils.SHARED;
+import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,9 +52,18 @@ public record TestGroupLayout(
 )
 {
 
+  /// Constant for the attributes section name in configuration files
   public static final String ATTRIBUTES = "attributes";
+  /// Constant for the attachments section name in configuration files
   public static final String ATTACHMENTS = "attachments";
 
+  /// Creates a TestGroupLayout from an HDF5 Group.
+  ///
+  /// This method extracts profile configurations, attributes, and attachments from an existing HDF5 group.
+  ///
+  /// @param group The HDF5 group to extract configuration from
+  /// @return A new TestGroupLayout instance
+  /// @throws RuntimeException If the group doesn't contain valid profile data
   public static TestGroupLayout fromGroup(Group group) {
     String profilesData = group.getAttribute("profiles").getData().toString();
     Map<String,?> profilesMap = null;
@@ -77,6 +86,13 @@ public record TestGroupLayout(
     return new TestGroupLayout(profiles, null, RootGroupAttributes.fromGroup(group), attachments);
   }
 
+  /// Creates a TestGroupLayout from a YAML configuration string.
+  ///
+  /// This method parses a YAML string containing profile configurations, attributes, and attachments.
+  ///
+  /// @param yaml The YAML configuration string
+  /// @return A new TestGroupLayout instance
+  /// @throws RuntimeException If the YAML doesn't contain valid configuration data
   public static TestGroupLayout fromYaml(String yaml) {
     Object configObject = SHARED.yamlLoader.loadFromString(yaml);
     if (configObject instanceof Map<?, ?> m) {
@@ -124,6 +140,13 @@ public record TestGroupLayout(
     }
   }
 
+  /// Loads a TestGroupLayout from a file.
+  ///
+  /// This method reads a YAML configuration file and creates a TestGroupLayout from it.
+  ///
+  /// @param mappingFile The path to the YAML configuration file
+  /// @return A new TestGroupLayout instance
+  /// @throws RuntimeException If the file cannot be read or doesn't contain valid configuration data
   public static TestGroupLayout load(Path mappingFile) {
     String configdata = null;
     try {
@@ -134,12 +157,19 @@ public record TestGroupLayout(
     return fromYaml(configdata);
   }
 
+  /// Converts this TestGroupLayout to a YAML string.
+  ///
+  /// @return A YAML string representation of this TestGroupLayout
   public String toYaml() {
     Map<String, Object> data = toData();
     return SHARED.yamlDumper.dumpToString(data);
   }
 
-  private Map<String, Object> toData() {
+  /// Converts this TestGroupLayout to a map structure suitable for serialization.
+  ///
+  /// @return A map containing the data from this TestGroupLayout
+  /// @throws RuntimeException If profiles is null
+  public Map<String, Object> toData() {
     LinkedHashMap<String, Object> map = new LinkedHashMap<>();
 
     if (attributes != null) {
@@ -171,10 +201,18 @@ public record TestGroupLayout(
     return map;
   }
 
+  /// Creates a new TestGroupLayout with the specified attributes.
+  ///
+  /// @param attributes The new attributes to use
+  /// @return A new TestGroupLayout with the specified attributes
   public TestGroupLayout withAttributes(RootGroupAttributes attributes) {
     return new TestGroupLayout(this.profiles, this.profile_defaults, attributes, this.attachments);
   }
 
+  /// Creates a new TestGroupLayout with the specified profile defaults.
+  ///
+  /// @param profileDefaults The new profile defaults to use
+  /// @return A new TestGroupLayout with the specified profile defaults
   public TestGroupLayout withProfileDefaults(FProfiles profileDefaults) {
     return new TestGroupLayout(this.profiles, profileDefaults, this.attributes, this.attachments);
   }

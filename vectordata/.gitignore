@@ -1,0 +1,22 @@
+# Maven build directory
+target/
+
+# Temporary test data (now handled by target/ but adding for safety)
+src/test/resources/testserver/temp/*
+!src/test/resources/testserver/temp/.gitkeep
+
+# Maven temporary files
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# System files
+.DS_Store
+Thumbs.db

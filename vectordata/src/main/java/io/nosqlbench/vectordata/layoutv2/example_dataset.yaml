@@ -1,0 +1,38 @@
+attributes:
+  model: test_model1
+  url: https://example.com/test1
+  distance_function: COSINE
+  license: MIT
+  vendor: Test Vendor
+  notes: This is a test dataset
+  tags:
+    tag1: value1
+    tag2: value2
+
+tags:
+  tag1: value1
+  tag2: value2
+
+profiles:
+  default:
+    base:
+      source: test_data.bin
+      window: 1000
+    indices:
+      source: indices.bin
+    distances:
+      source: distances.bin
+    query:
+      source: query_data.bin(0..1000,0..1000)
+      window: 1000
+    other:
+      source:
+        path: other_data.bin
+        window: 10000..20000
+      window: (100,1000)
+    other2:
+      source: other_data.bin(1000..2000,0..1000)
+      window:
+        minIncl: 100
+        maxExcl: 1000
+

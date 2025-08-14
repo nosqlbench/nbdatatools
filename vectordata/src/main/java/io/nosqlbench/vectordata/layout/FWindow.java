@@ -25,9 +25,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/// Represents a window of intervals for accessing data.
+///
+/// A window consists of a list of intervals that define which portions of the data
+/// should be accessed. This is used to limit or filter the data that is processed.
+///
+/// @param intervals The list of intervals that make up this window
 public record FWindow(List<FInterval> intervals) {
 
+  /// the pattern for parsing a window spec
   public final static Pattern PATTERN;
+  ///  the "ALL" window
   public static final FWindow ALL = new FWindow(List.of(new FInterval(-1, -1)));
 
   static {
@@ -41,10 +49,15 @@ public record FWindow(List<FInterval> intervals) {
     PATTERN = Pattern.compile(regex, Pattern.COMMENTS | Pattern.DOTALL);
   }
 
+  /// create a window from specs
+  /// @param specs the specs to create the window from
   public FWindow(String... specs) {
     this(parseSpecs(specs));
   }
 
+  ///  parse a window spec
+  ///  @param specs the specs to parse
+  ///  @return the parsed window
   private static List<FInterval> parseSpecs(String[] specs) {
     List<FInterval> intervals = new ArrayList<>(specs.length);
     for (String spec : specs) {
@@ -53,6 +66,9 @@ public record FWindow(List<FInterval> intervals) {
     return intervals;
   }
 
+  ///  parse a window spec
+  ///  @param spec the spec to parse
+  ///  @return the parsed window
   public static FWindow parse(String spec) {
     if (spec == null) {
       return FWindow.ALL;
@@ -76,6 +92,9 @@ public record FWindow(List<FInterval> intervals) {
     }
   }
 
+  ///  load from an object
+  ///  @param window the object to load from
+  ///  @return the loaded window
   public static FWindow fromObject(Object window) {
     if (window instanceof FWindow fw) {
       return fw;
@@ -94,10 +113,15 @@ public record FWindow(List<FInterval> intervals) {
     }
   }
 
+  /// convert to raw data for diagnostics
+  /// @return the raw data
   public String toData() {
     return this.intervals().stream().map(FInterval::toData).collect(Collectors.joining(","));
   }
 
+  /// translate an index from the window to the underlying data
+  /// @param index the index in the window
+  /// @return the index in the underlying data
   public long translate(long index) {
     return intervals.get(0).minIncl() + index;
   }
