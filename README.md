@@ -40,13 +40,17 @@ Here is a preview of the available commands:
     # see all the options
     # additional notes added to this view
     java -jar nbvectors.jar --help
-    
+
     help            Display help information about the specified command.
 
-    verify_knn      self-check KNN test data answer-keys
-                    # not suggested for a full verification, but good for sparse
-                    # sampling or basic smoke testing of the test data itself
-                    # requires ranked gt metrics (of a known distance function)
+    analyze         Analyze test data files
+                    # Contains subcommands to help understand the contents of test data files
+                    # Subcommands include:
+                    #   count_zeros - Count zero vectors in vector files
+                    #   verify_knn  - self-check KNN test data answer-keys
+                    #                 not suggested for a full verification, but good for sparse
+                    #                 sampling or basic smoke testing of the test data itself
+                    #                 requires ranked gt metrics (of a known distance function)
 
     tag_hdf5        read or write hdf attributes
                     # this will likely be removed, as it will be obviated 
@@ -80,10 +84,13 @@ Here is a preview of the available commands:
                     # that can be used to find and download specific files from
                     # a remote location
 
-    hugging_dl      Download Huggingface Datasets via API
-                    # This is useful for downloading datasets from Hugging Face
-                    # any huggingface dataset which has a parquet format can be 
-                    # downloaded and used as a data source
+    huggingface      Hugging Face operations for NoSQLBench
+                    # This provides a set of utilities for working with Hugging Face
+                    # Subcommands include:
+                    #   dl - Download Hugging Face datasets via API
+                    #        This is useful for downloading datasets from Hugging Face
+                    #        any huggingface dataset which has a parquet format can be 
+                    #        downloaded and used as a data source
 
     datasets        Browse and download hdf5 datasets from accessible catalogs
                     # This is useful for browsing and downloading datasets from 
