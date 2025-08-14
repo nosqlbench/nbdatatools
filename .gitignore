@@ -27,6 +27,7 @@ bin/**
 /vectordata/src/test/resources/testserver/temp/
 **/temp/**
 /.junie/constructs/
+**/pom.xml.versionsBackup
 
 ### BROKK'S CONFIGURATION ###
 .brokk/**
