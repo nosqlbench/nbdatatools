@@ -1,0 +1,4 @@
+This is a basic test file for the Jetty file server fixture.
+It contains multiple lines of text to test file serving functionality.
+This line contains some additional content for range request testing.
+Final line of the test file.
