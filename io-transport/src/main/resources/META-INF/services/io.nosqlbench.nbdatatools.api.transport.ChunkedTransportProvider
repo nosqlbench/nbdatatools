@@ -1,0 +1,2 @@
+io.nosqlbench.vectordata.transport.FileTransportProvider
+io.nosqlbench.vectordata.transport.HttpTransportProvider
