@@ -1,4 +1,3 @@
-
 # nbdatatools
 
 This is an accessory module of the NoSQLBench project, focusing on test data management, 
