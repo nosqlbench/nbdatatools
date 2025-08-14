@@ -24,4 +24,20 @@ bin/**
 **/.flattened-pom.xml
 **/stargate-token.txt
 **/lucenedir
+/vectordata/src/test/resources/testserver/temp/
+**/temp/**
+/.junie/constructs/
+**/pom.xml.versionsBackup
 
+### BROKK'S CONFIGURATION ###
+.brokk/**
+/.brokk/workspace.properties
+/.brokk/sessions/
+/.brokk/dependencies/
+/.brokk/history.zip
+!.brokk/style.md
+!.brokk/review.md
+!.brokk/project.properties
+/.junie/
+/.claude/
+/.brokk/
