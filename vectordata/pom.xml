@@ -368,19 +368,14 @@
       <plugin>
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.7.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <publishingServerId>portal-snapshots</publishingServerId>
-          <autoPublish>true</autoPublish>
-          <waitUntil>uploaded</waitUntil>
-
-          <publishingServerId>central</publishingServerId>
-          <autoPublish>false</autoPublish>
-          <waitUntil>uploaded</waitUntil>
-          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>
-
-        </configuration>
+<!--        <version>0.7.0</version>-->
+<!--        <extensions>true</extensions>-->
+<!--        <configuration>-->
+<!--          <publishingServerId>central</publishingServerId>-->
+<!--          <autoPublish>false</autoPublish>-->
+<!--          <waitUntil>uploaded</waitUntil>-->
+<!--          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>-->
+<!--        </configuration>-->
       </plugin>
 
 
