@@ -967,8 +967,19 @@ public class MAFileChannel extends AsynchronousFileChannel {
                     MAX_TRANSPORT_CHUNK_SIZE + " bytes) or scheduler issues.");
             }
             
-                // Successfully completed all iterative processing
+            // Ensure any final BitSet updates are persisted before declaring success
+            if (merkleState instanceof MerkleDataImpl) {
+                ((MerkleDataImpl) merkleState).ensureStatePersisted().thenRun(() -> {
+                    // Successfully completed all iterative processing
+                    completionFuture.complete(null);
+                }).exceptionally(throwable -> {
+                    completionFuture.completeExceptionally(throwable);
+                    return null;
+                });
+            } else {
+                // For non-MerkleDataImpl implementations, complete immediately
                 completionFuture.complete(null);
+            }
                 
             } catch (Exception e) {
                 // Complete the future exceptionally if anything fails

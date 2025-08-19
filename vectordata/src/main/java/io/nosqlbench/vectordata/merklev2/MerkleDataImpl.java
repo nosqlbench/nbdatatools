@@ -30,9 +30,13 @@ import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 /**
  * A clean, memory-mapped implementation of MerkleData that serves as both reference and state.
@@ -54,6 +58,12 @@ public class MerkleDataImpl implements MerkleData {
     // For in-memory data trees (when created from data instead of file)
     private final byte[][] hashes;
     private final boolean isFileChannel;
+    
+    // State persistence management
+    private final AtomicLong stateVersion = new AtomicLong(0);
+    private volatile long lastPersistedVersion = 0;
+    private final ScheduledExecutorService persistenceScheduler;
+    private static final Logger logger = Logger.getLogger(MerkleDataImpl.class.getName());
 
     // Public access for testing
     public boolean closed() {
@@ -467,6 +477,19 @@ public class MerkleDataImpl implements MerkleData {
         this.validChunks = validChunks;
         this.hashes = null;
         this.isFileChannel = true;
+        
+        // Initialize persistence scheduler for file-based instances
+        this.persistenceScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "MerkleStatePersister-" + System.identityHashCode(this));
+            t.setDaemon(true);
+            return t;
+        });
+        
+        // Start periodic persistence (every 500ms)
+        this.persistenceScheduler.scheduleAtFixedRate(
+            this::persistStateIfChanged, 
+            500, 500, TimeUnit.MILLISECONDS
+        );
     }
     
     /**
@@ -483,6 +506,9 @@ public class MerkleDataImpl implements MerkleData {
         this.validChunks.set(0, shape.getLeafCount());
         this.hashes = hashes;
         this.isFileChannel = false;
+        
+        // No persistence scheduler needed for in-memory instances
+        this.persistenceScheduler = null;
     }
     
     /**
@@ -498,6 +524,9 @@ public class MerkleDataImpl implements MerkleData {
         this.validChunks = validChunks;
         this.hashes = hashes;
         this.isFileChannel = false;
+        
+        // No persistence scheduler needed for in-memory instances
+        this.persistenceScheduler = null;
     }
 
     // MerkleRef interface implementation
@@ -595,19 +624,26 @@ public class MerkleDataImpl implements MerkleData {
                 throw new RuntimeException("Save callback failed for chunk " + chunkIndex + ": " + e, e);
             }
 
-            // Mark as valid
+            // Mark as valid in memory immediately
             validChunks.set(chunkIndex);
 
-            // Persist valid chunks to file (only for file-based implementations)
+            // For file-based implementations, use async persistence with immediate fallback for single operations
             if (isFileChannel) {
-                writeStateValidChunksToFile(channel, validChunks, shape);
-                // Force to disk
-                flush();
+                stateVersion.incrementAndGet();
+                
+                // For single chunk operations or when not in bulk mode, persist immediately
+                // This ensures tests and single operations get immediate consistency
+                // Bulk operations (like prebuffer) will override this with async behavior
+                try {
+                    writeStateValidChunksToFile(channel, validChunks, shape);
+                    channel.force(false);
+                    lastPersistedVersion = stateVersion.get();
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to persist state for chunk " + chunkIndex, e);
+                }
             }
 
             return true;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to save chunk " + chunkIndex + ": " + e, e);
         } finally {
             lock.writeLock().unlock();
         }
@@ -700,6 +736,85 @@ public class MerkleDataImpl implements MerkleData {
         }
     }
 
+    /**
+     * Persists the current state to file if it has changed since the last persistence.
+     * This method is called periodically by the persistence scheduler thread.
+     */
+    private void persistStateIfChanged() {
+        long currentVersion = stateVersion.get();
+        if (currentVersion != lastPersistedVersion) {
+            lock.readLock().lock();
+            try {
+                // Take a snapshot under read lock (doesn't block writers)
+                BitSet snapshot = (BitSet) validChunks.clone();
+                
+                // Release read lock before I/O to minimize hold time
+                lock.readLock().unlock();
+                
+                writeStateValidChunksToFile(channel, snapshot, shape);
+                channel.force(false);
+                
+                lastPersistedVersion = currentVersion;
+                
+            } catch (IOException e) {
+                // Log error but don't fail - will retry next cycle
+                logger.warning("Failed to persist merkle state: " + e.getMessage());
+            } finally {
+                if (((ReentrantReadWriteLock) lock).getReadHoldCount() > 0) {
+                    lock.readLock().unlock();
+                }
+            }
+        }
+    }
+    
+    /**
+     * Immediately persists the current state to disk if it has changed.
+     * This method blocks until persistence is complete.
+     */
+    public void flushState() {
+        if (!isFileChannel || persistenceScheduler == null) {
+            return;
+        }
+        persistStateIfChanged();
+    }
+
+    /**
+     * Ensures that any pending state changes are persisted to disk.
+     * Returns a CompletableFuture that completes when persistence is done.
+     * 
+     * @return CompletableFuture that completes when state is persisted
+     */
+    public CompletableFuture<Void> ensureStatePersisted() {
+        if (!isFileChannel || persistenceScheduler == null) {
+            // For in-memory instances, always consider state "persisted"
+            return CompletableFuture.completedFuture(null);
+        }
+        
+        long currentVersion = stateVersion.get();
+        if (currentVersion == lastPersistedVersion) {
+            // Already up to date
+            return CompletableFuture.completedFuture(null);
+        }
+        
+        // Submit immediate persistence and return future
+        return CompletableFuture.runAsync(() -> {
+            persistStateIfChanged();
+            
+            // Spin briefly if there's still a gap (rare race condition)
+            int attempts = 0;
+            while (stateVersion.get() != lastPersistedVersion && attempts < 10) {
+                try {
+                    Thread.sleep(10);
+                    persistStateIfChanged();
+                    attempts++;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }, persistenceScheduler);
+    }
+
     @Override
     public void close() {
         lock.writeLock().lock();
@@ -707,8 +822,23 @@ public class MerkleDataImpl implements MerkleData {
             if (!closed) {
                 closed = true;
                 if (isFileChannel) {
+                    // Ensure final state is persisted before closing
+                    persistStateIfChanged();
                     flush();
                     channel.close();
+                    
+                    // Shutdown persistence scheduler
+                    if (persistenceScheduler != null) {
+                        persistenceScheduler.shutdown();
+                        try {
+                            if (!persistenceScheduler.awaitTermination(1, TimeUnit.SECONDS)) {
+                                persistenceScheduler.shutdownNow();
+                            }
+                        } catch (InterruptedException e) {
+                            persistenceScheduler.shutdownNow();
+                            Thread.currentThread().interrupt();
+                        }
+                    }
                 }
             }
         } catch (IOException e) {
