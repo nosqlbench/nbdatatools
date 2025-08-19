@@ -26,6 +26,8 @@ import io.micrometer.core.instrument.Timer;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportIO;
 import io.nosqlbench.nbdatatools.api.transport.FetchResult;
+import io.nosqlbench.nbdatatools.api.concurrent.ProgressTrackingCompletableFuture;
+import io.nosqlbench.nbdatatools.api.concurrent.StateProgressTrackingFuture;
 import io.nosqlbench.vectordata.downloader.ProgressTrackingTransportClient;
 import io.nosqlbench.vectordata.events.EventSink;
 import io.nosqlbench.vectordata.events.NoOpEventSink;
@@ -433,7 +435,8 @@ public class MAFileChannel extends AsynchronousFileChannel {
     /**
      * Asynchronously prebuffers a range of bytes by ensuring all chunks containing the range are downloaded.
      * This method does not block and returns immediately with a CompletableFuture that completes when
-     * all chunks in the range are available.
+     * all chunks in the range are available. The returned future also implements ProgressTrackingCompletableFuture
+     * for callers that want to track download progress.
      *
      * @param position The starting position in the file
      * @param length The number of bytes to prebuffer
@@ -445,20 +448,49 @@ public class MAFileChannel extends AsynchronousFileChannel {
         
         if (position < 0) {
             meterRegistry.counter("ma_file_channel.prebuffer.operations", "status", "failed").increment();
-            return CompletableFuture.failedFuture(new IOException("Negative position: " + position));
+            StateProgressTrackingFuture<Void> errorFuture = new StateProgressTrackingFuture<>(CompletableFuture.failedFuture(new IOException("Negative position: " + position)));
+            return errorFuture;
         }
         if (length < 0) {
             meterRegistry.counter("ma_file_channel.prebuffer.operations", "status", "failed").increment();
-            return CompletableFuture.failedFuture(new IOException("Negative length: " + length));
+            StateProgressTrackingFuture<Void> errorFuture = new StateProgressTrackingFuture<>(CompletableFuture.failedFuture(new IOException("Negative length: " + length)));
+            return errorFuture;
         }
 
         try {
+            // Calculate total work (chunks that need to be downloaded)
+            int startChunk = merkleShape.getChunkIndexForPosition(position);
+            int endChunk = merkleShape.getChunkIndexForPosition(
+                Math.min(position + length - 1, merkleShape.getTotalContentSize() - 1));
+            
+            int totalChunks = 0;
+            int validChunks = 0;
+            for (int chunk = startChunk; chunk <= endChunk; chunk++) {
+                totalChunks++;
+                if (merkleState.isValid(chunk)) {
+                    validChunks++;
+                }
+            }
+            
             // Use iterative scheduling to handle large requests that may exceed transport limits
             // The iterative method includes its own comprehensive validation
             CompletableFuture<Void> downloadFuture = executeScheduledDownloadsIteratively(position, length);
             
+            // Create progress tracking future
+            StateProgressTrackingFuture<Void> progressFuture = new StateProgressTrackingFuture<>(downloadFuture);
+            progressFuture.setTotalWork(totalChunks);
+            progressFuture.setCurrentWork(validChunks);
+            
+            // Track progress by monitoring chunk validation status
+            downloadFuture.thenRun(() -> {
+                // Update progress periodically during download
+                // Note: In a real implementation, this would be updated more granularly
+                // during the download process itself
+                progressFuture.setCurrentWork(totalChunks);
+            });
+            
             // Return future with proper cleanup
-            return downloadFuture.whenComplete((v, throwable) -> {
+            return progressFuture.whenComplete((v, throwable) -> {
                 // Record metrics
                 sample.stop(Timer.builder("ma_file_channel.prebuffer.duration")
                     .register(meterRegistry));
@@ -474,7 +506,8 @@ public class MAFileChannel extends AsynchronousFileChannel {
             sample.stop(Timer.builder("ma_file_channel.prebuffer.duration")
                 .register(meterRegistry));
             meterRegistry.counter("ma_file_channel.prebuffer.operations", "status", "failed").increment();
-            return CompletableFuture.failedFuture(e);
+            StateProgressTrackingFuture<Void> errorFuture = new StateProgressTrackingFuture<>(CompletableFuture.failedFuture(e));
+            return errorFuture;
         }
     }
 
