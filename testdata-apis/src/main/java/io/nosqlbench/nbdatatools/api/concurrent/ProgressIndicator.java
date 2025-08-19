@@ -17,8 +17,10 @@ package io.nosqlbench.nbdatatools.api.concurrent;
  * under the License.
  */
 
+import java.io.PrintStream;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 
 /**
@@ -47,6 +49,17 @@ public interface ProgressIndicator<T>  {
      * @return The current work completed as a double value. Should be between 0 and getTotalWork()
      */
     double getCurrentWork();
+    
+    /**
+     * Gets the number of bytes per work unit for contextual display purposes.
+     * This allows progress indicators that work in abstract units (like chunks)
+     * to display meaningful byte amounts with appropriate ISO units.
+     * 
+     * @return The number of bytes per work unit, or 1.0 if not applicable
+     */
+    default double getBytesPerUnit() {
+        return 1.0;
+    }
     
     /**
      * Gets the progress as a percentage.
@@ -103,60 +116,8 @@ public interface ProgressIndicator<T>  {
     default double getRemainingWork() {
         return Math.max(0, getTotalWork() - getCurrentWork());
     }
+
     
-    /**
-     * Registers a callback to be invoked when progress is updated.
-     * The callback receives the current work and total work values.
-     * 
-     * @param progressListener A BiConsumer that accepts (currentWork, totalWork)
-     */
-    void addProgressListener(BiConsumer<Double, Double> progressListener);
-    
-    /**
-     * Removes a previously registered progress listener.
-     * 
-     * @param progressListener The listener to remove
-     * @return true if the listener was removed, false if it was not registered
-     */
-    boolean removeProgressListener(BiConsumer<Double, Double> progressListener);
-    
-    /**
-     * Gets the underlying CompletableFuture.
-     * This allows access to all standard CompletableFuture methods.
-     * 
-     * @return The underlying CompletableFuture
-     */
-    CompletableFuture<T> toCompletableFuture();
-    
-    /**
-     * Waits if necessary for this future to complete, and then returns its result.
-     * 
-     * @return the result value
-     * @throws java.util.concurrent.CancellationException if this future was cancelled
-     * @throws java.util.concurrent.ExecutionException if this future completed exceptionally
-     * @throws InterruptedException if the current thread was interrupted while waiting
-     */
-    default T get() throws InterruptedException, java.util.concurrent.ExecutionException {
-        return toCompletableFuture().get();
-    }
-    
-    /**
-     * Waits if necessary for at most the given time for this future to complete,
-     * and then returns its result, if available.
-     * 
-     * @param timeout the maximum time to wait
-     * @param unit the time unit of the timeout argument
-     * @return the result value
-     * @throws java.util.concurrent.CancellationException if this future was cancelled
-     * @throws java.util.concurrent.ExecutionException if this future completed exceptionally
-     * @throws InterruptedException if the current thread was interrupted while waiting
-     * @throws java.util.concurrent.TimeoutException if the wait timed out
-     */
-    default T get(long timeout, TimeUnit unit) throws InterruptedException, 
-                                              java.util.concurrent.ExecutionException,
-                                              java.util.concurrent.TimeoutException {
-        return toCompletableFuture().get(timeout, unit);
-    }
     
     /**
      * Creates a string representation of the current progress.
@@ -164,10 +125,24 @@ public interface ProgressIndicator<T>  {
      * @return A formatted string showing progress (e.g., "45.5/100.0 (45.5%)")
      */
     default String getProgressString() {
-        return String.format("%.1f/%.1f (%.1f%%)", 
-            getCurrentWork(), 
-            getTotalWork(), 
-            getProgressPercentage());
+        double bytesPerUnit = getBytesPerUnit();
+        if (bytesPerUnit > 1.0) {
+            // Show both unit count and byte amounts with appropriate ISO units
+            double currentBytes = getCurrentWork() * bytesPerUnit;
+            double totalBytes = getTotalWork() * bytesPerUnit;
+            return String.format("%.1f/%.1f chunks (%s/%s, %.1f%%)", 
+                getCurrentWork(), 
+                getTotalWork(), 
+                formatBytes(currentBytes),
+                formatBytes(totalBytes),
+                getProgressPercentage());
+        } else {
+            // Default format for non-byte units
+            return String.format("%.1f/%.1f (%.1f%%)", 
+                getCurrentWork(), 
+                getTotalWork(), 
+                getProgressPercentage());
+        }
     }
     
     /**
@@ -223,5 +198,319 @@ public interface ProgressIndicator<T>  {
             return String.format("Progress[%.1f/%.1f (%.1f%%)]", 
                 currentWork, totalWork, getPercentage());
         }
+    }
+    
+    /**
+     * Prints the progress status of this ProgressIndicator to the provided output stream
+     * at regular intervals until completion.
+     * 
+     * If this instance is also a CompletableFuture, it will wait for the future to complete.
+     * If not, it will poll the progress until it reaches 100%.
+     * 
+     * Includes rate estimation and remaining time calculation based on progress history.
+     * Only prints updates when the progress string has changed.
+     * Includes a busy indicator using ANSI escape codes.
+     * 
+     * @param outputStream The output stream to print progress to
+     * @param intervalMs The interval in milliseconds between progress updates
+     * @return A CompletableFuture that completes when monitoring stops
+     */
+    default CompletableFuture<Void> monitorProgress(PrintStream outputStream, long intervalMs) {
+        return CompletableFuture.supplyAsync(() -> {
+            // Set up shutdown hook for Ctrl-C (SIGINT) handling
+            final java.util.concurrent.atomic.AtomicBoolean interrupted = new java.util.concurrent.atomic.AtomicBoolean(false);
+            final Thread shutdownHook = new Thread(() -> {
+                interrupted.set(true);
+                outputStream.print("\r\033[K"); // Clear line
+                outputStream.println("Interrupted by user (Ctrl-C)");
+                outputStream.flush();
+                
+                // If this is a CompletableFuture, try to cancel it
+                if (this instanceof CompletableFuture) {
+                    ((CompletableFuture<?>) this).cancel(true);
+                }
+            });
+            
+            try {
+                // Track progress history for rate calculation (sparse sampling)
+                java.util.Deque<ProgressSample> progressHistory = new java.util.ArrayDeque<>();
+                final int MAX_SAMPLES = 10; // Keep only recent samples
+                
+                // Busy indicator characters
+                final String[] BUSY_CHARS = {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"};
+                int busyIndex = 0;
+                
+                String lastProgressString = null;
+                long startTime = System.currentTimeMillis();
+                long lastProgressUpdate = startTime;
+                boolean hasOutput = false;
+                
+                // Add shutdown hook (will be called on Ctrl-C)
+                Runtime.getRuntime().addShutdownHook(shutdownHook);
+                
+                // Print initial progress
+                String currentProgressString = getEnhancedProgressString(progressHistory, startTime);
+                outputStream.print(currentProgressString);
+                outputStream.flush();
+                lastProgressString = currentProgressString;
+                hasOutput = true;
+                
+                // Add initial sample
+                progressHistory.addLast(new ProgressSample(getCurrentWork(), System.currentTimeMillis()));
+                
+                // Check if this instance is also a CompletableFuture
+                if (this instanceof CompletableFuture) {
+                    CompletableFuture<?> future = (CompletableFuture<?>) this;
+                    
+                    // Loop until the future completes or is interrupted
+                    while (!future.isDone() && !interrupted.get()) {
+                        try {
+                            // Wait for a shorter interval to update busy indicator
+                            long busyInterval = Math.min(intervalMs / 4, 250); // Update busy indicator more frequently
+                            future.get(busyInterval, TimeUnit.MILLISECONDS);
+                            // If we get here, the future completed
+                            break;
+                        } catch (TimeoutException e) {
+                            long currentTime = System.currentTimeMillis();
+                            double currentWork = getCurrentWork();
+                            
+                            // Check if enough time has passed for a progress update
+                            if (currentTime - lastProgressUpdate >= intervalMs) {
+                                // Add sample to history (sparse sampling)
+                                progressHistory.addLast(new ProgressSample(currentWork, currentTime));
+                                if (progressHistory.size() > MAX_SAMPLES) {
+                                    progressHistory.removeFirst();
+                                }
+                                
+                                currentProgressString = getEnhancedProgressString(progressHistory, startTime);
+                                if (!currentProgressString.equals(lastProgressString)) {
+                                    // Clear current line and print new progress
+                                    if (hasOutput) {
+                                        outputStream.print("\r\033[K"); // Clear line
+                                    }
+                                    outputStream.print(currentProgressString);
+                                    outputStream.flush();
+                                    lastProgressString = currentProgressString;
+                                    hasOutput = true;
+                                }
+                                lastProgressUpdate = currentTime;
+                            } else {
+                                // Just update the busy indicator
+                                if (hasOutput) {
+                                    outputStream.print("\r\033[K"); // Clear line
+                                }
+                                outputStream.print(lastProgressString + " " + BUSY_CHARS[busyIndex]);
+                                outputStream.flush();
+                                busyIndex = (busyIndex + 1) % BUSY_CHARS.length;
+                                hasOutput = true;
+                            }
+                        }
+                    }
+                    
+                    // Clear line and print final status
+                    if (hasOutput) {
+                        outputStream.print("\r\033[K"); // Clear line
+                    }
+                    if (future.isCompletedExceptionally()) {
+                        outputStream.println("Task failed");
+                    } else {
+                        outputStream.println(getEnhancedProgressString(progressHistory, startTime) + " - Complete");
+                    }
+                } else {
+                    // Not a CompletableFuture, poll until 100% complete or interrupted
+                    while (!isWorkComplete() && !interrupted.get()) {
+                        try {
+                            // Sleep for a shorter interval to update busy indicator
+                            long busyInterval = Math.min(intervalMs / 4, 250);
+                            Thread.sleep(busyInterval);
+                            
+                            long currentTime = System.currentTimeMillis();
+                            double currentWork = getCurrentWork();
+                            
+                            // Check if enough time has passed for a progress update
+                            if (currentTime - lastProgressUpdate >= intervalMs) {
+                                // Add sample to history (sparse sampling)
+                                progressHistory.addLast(new ProgressSample(currentWork, currentTime));
+                                if (progressHistory.size() > MAX_SAMPLES) {
+                                    progressHistory.removeFirst();
+                                }
+                                
+                                currentProgressString = getEnhancedProgressString(progressHistory, startTime);
+                                if (!currentProgressString.equals(lastProgressString)) {
+                                    // Clear current line and print new progress
+                                    if (hasOutput) {
+                                        outputStream.print("\r\033[K"); // Clear line
+                                    }
+                                    outputStream.print(currentProgressString);
+                                    outputStream.flush();
+                                    lastProgressString = currentProgressString;
+                                    hasOutput = true;
+                                }
+                                lastProgressUpdate = currentTime;
+                            } else {
+                                // Just update the busy indicator
+                                if (hasOutput) {
+                                    outputStream.print("\r\033[K"); // Clear line
+                                }
+                                outputStream.print(lastProgressString + " " + BUSY_CHARS[busyIndex]);
+                                outputStream.flush();
+                                busyIndex = (busyIndex + 1) % BUSY_CHARS.length;
+                                hasOutput = true;
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            if (hasOutput) {
+                                outputStream.print("\r\033[K"); // Clear line
+                            }
+                            outputStream.println("Monitoring interrupted");
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    
+                    // Clear line and print final status
+                    if (hasOutput) {
+                        outputStream.print("\r\033[K"); // Clear line
+                    }
+                    if (interrupted.get()) {
+                        outputStream.println("Monitoring cancelled by user");
+                    } else {
+                        outputStream.println(getEnhancedProgressString(progressHistory, startTime) + " - Complete");
+                    }
+                }
+                
+                // Check if we were interrupted
+                if (interrupted.get()) {
+                    throw new InterruptedException("Progress monitoring interrupted by user signal");
+                }
+                
+                return null;
+            } catch (Exception e) {
+                outputStream.println("\nError monitoring progress: " + e.getMessage());
+                throw new RuntimeException(e);
+            } finally {
+                // Remove shutdown hook if monitoring completes normally
+                try {
+                    Runtime.getRuntime().removeShutdownHook(shutdownHook);
+                } catch (IllegalStateException e) {
+                    // Shutdown in progress, hook already executing or removed
+                }
+            }
+        });
+    }
+    
+    /**
+     * Gets an enhanced progress string with rate and time estimation.
+     * 
+     * @param progressHistory Historical progress samples for rate calculation
+     * @param startTime The start time of monitoring
+     * @return Enhanced progress string with rate and estimated time remaining
+     */
+    default String getEnhancedProgressString(java.util.Deque<ProgressSample> progressHistory, long startTime) {
+        String baseProgress = getProgressString();
+        
+        if (progressHistory.size() < 2) {
+            return baseProgress;
+        }
+        
+        // Calculate rate based on recent samples
+        ProgressSample oldest = progressHistory.peekFirst();
+        ProgressSample newest = progressHistory.peekLast();
+        
+        long timeDiff = newest.timestamp - oldest.timestamp;
+        double workDiff = newest.work - oldest.work;
+        
+        if (timeDiff <= 0 || workDiff <= 0) {
+            return baseProgress;
+        }
+        
+        // Calculate rate (work per second)
+        double rate = (workDiff * 1000.0) / timeDiff;
+        
+        // Calculate estimated remaining time
+        double remainingWork = getRemainingWork();
+        String timeEstimate = "";
+        if (rate > 0 && remainingWork > 0) {
+            long estimatedSecondsRemaining = (long) (remainingWork / rate);
+            timeEstimate = formatDuration(estimatedSecondsRemaining);
+        }
+        
+        // Calculate elapsed time
+        long elapsedMs = System.currentTimeMillis() - startTime;
+        String elapsed = formatDuration(elapsedMs / 1000);
+        
+        StringBuilder enhanced = new StringBuilder(baseProgress);
+        enhanced.append(" [").append(String.format("%.1f/s", rate));
+        
+        // Add MBit/s rate if we have byte context
+        double bytesPerUnit = getBytesPerUnit();
+        if (bytesPerUnit > 1.0 && rate > 0) {
+            double bytesPerSecond = rate * bytesPerUnit;
+            double mbitsPerSecond = (bytesPerSecond * 8.0) / (1024.0 * 1024.0); // Convert bytes/s to Mbit/s
+            enhanced.append(String.format(", %.1f Mbit/s", mbitsPerSecond));
+        }
+        
+        enhanced.append(", elapsed: ").append(elapsed);
+        if (!timeEstimate.isEmpty()) {
+            enhanced.append(", ETA: ").append(timeEstimate);
+        }
+        enhanced.append("]");
+        
+        return enhanced.toString();
+    }
+    
+    /**
+     * Formats a duration in seconds to a human-readable string.
+     * 
+     * @param seconds Duration in seconds
+     * @return Formatted duration string (e.g., "2m 30s", "1h 15m", "45s")
+     */
+    default String formatDuration(long seconds) {
+        if (seconds < 60) {
+            return seconds + "s";
+        } else if (seconds < 3600) {
+            long minutes = seconds / 60;
+            long remainingSeconds = seconds % 60;
+            return minutes + "m" + (remainingSeconds > 0 ? " " + remainingSeconds + "s" : "");
+        } else {
+            long hours = seconds / 3600;
+            long remainingMinutes = (seconds % 3600) / 60;
+            return hours + "h" + (remainingMinutes > 0 ? " " + remainingMinutes + "m" : "");
+        }
+    }
+    
+    /**
+     * Formats byte amounts using appropriate ISO units (KB, MB, GB, TB).
+     * 
+     * @param bytes Number of bytes to format
+     * @return Formatted string with appropriate unit (e.g., "1.5 MB", "3.2 GB")
+     */
+    default String formatBytes(double bytes) {
+        if (bytes < 1024) {
+            return String.format("%.0f B", bytes);
+        } else if (bytes < 1024 * 1024) {
+            return String.format("%.1f KB", bytes / 1024);
+        } else if (bytes < 1024 * 1024 * 1024) {
+            return String.format("%.1f MB", bytes / (1024 * 1024));
+        } else if (bytes < 1024L * 1024 * 1024 * 1024) {
+            return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
+        } else {
+            return String.format("%.1f TB", bytes / (1024.0 * 1024 * 1024 * 1024));
+        }
+    }
+    
+    /**
+     * A sample of progress at a specific point in time.
+     */
+    record ProgressSample(double work, long timestamp) {}
+    
+    /**
+     * Prints the progress status of this ProgressIndicator to System.out
+     * at regular intervals until completion.
+     * 
+     * @param intervalMs The interval in milliseconds between progress updates
+     * @return A CompletableFuture that completes when monitoring stops
+     */
+    default CompletableFuture<Void> monitorProgress(long intervalMs) {
+        return monitorProgress(System.out, intervalMs);
     }
 }

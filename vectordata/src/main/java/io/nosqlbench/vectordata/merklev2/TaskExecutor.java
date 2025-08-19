@@ -154,18 +154,31 @@ public class TaskExecutor implements AutoCloseable {
         // Download data from remote source
         CompletableFuture<? extends FetchResult<?>> downloadFuture = 
             transport.fetchRange(start, length);
-        FetchResult<?> result = downloadFuture.get();
-        ByteBuffer nodeData = result.getData();
         
-        // Process the node based on whether it's a leaf or internal node
-        if (task.isLeafNode()) {
-            processLeafNode(task, nodeIndex, start, nodeData);
-        } else {
-            processInternalNode(task, nodeData);
-        }
+        // Chain the processing as a continuation of the download - this enables true concurrency
+        downloadFuture.thenAccept(result -> {
+            try {
+                ByteBuffer nodeData = result.getData();
+                
+                // Process the node based on whether it's a leaf or internal node
+                if (task.isLeafNode()) {
+                    processLeafNode(task, nodeIndex, start, nodeData);
+                } else {
+                    processInternalNode(task, nodeData);
+                }
+                
+                // Complete the task successfully
+                completeTaskSuccessfully(task);
+            } catch (Exception e) {
+                completeTaskExceptionally(task, e);
+            }
+        }).exceptionally(throwable -> {
+            completeTaskExceptionally(task, throwable);
+            return null;
+        });
         
-        // Complete the task successfully
-        completeTaskSuccessfully(task);
+        // Note: We don't block here - the worker thread is free to handle other tasks
+        // while the HTTP download proceeds asynchronously
     }
     
     /// Processes a leaf node download.

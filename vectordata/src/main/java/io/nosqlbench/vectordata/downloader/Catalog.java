@@ -189,8 +189,7 @@ public record Catalog(List<DatasetEntry> datasets) {
               e
           );
         } else {
-          // Log warning for optional catalogs but continue processing
-          System.err.println("Warning: Could not load optional catalog from " + fileUrl + ": " + e.getMessage());
+          // Silently continue processing for optional catalogs
         }
       }
   }

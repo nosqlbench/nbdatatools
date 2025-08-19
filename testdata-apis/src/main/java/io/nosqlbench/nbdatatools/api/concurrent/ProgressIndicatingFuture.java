@@ -19,10 +19,7 @@ package io.nosqlbench.nbdatatools.api.concurrent;
 
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import java.util.function.Supplier;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * A wrapper that adds progress tracking to an existing CompletableFuture using callbacks
@@ -35,8 +32,8 @@ public class ProgressIndicatingFuture<T> extends CompletableFuture<T> implements
     private final CompletableFuture<T> underlying;
     private final Supplier<Double> totalWorkCallback;
     private final Supplier<Double> currentWorkCallback;
-    private final List<BiConsumer<Double, Double>> progressListeners = new CopyOnWriteArrayList<>();
-    
+    private final double bytesPerUnit;
+
     /**
      * Creates a new callback-based progress tracking future.
      * 
@@ -47,9 +44,25 @@ public class ProgressIndicatingFuture<T> extends CompletableFuture<T> implements
     public ProgressIndicatingFuture(CompletableFuture<T> underlying,
                                     Supplier<Double> totalWorkCallback,
                                     Supplier<Double> currentWorkCallback) {
+        this(underlying, totalWorkCallback, currentWorkCallback, 1.0);
+    }
+    
+    /**
+     * Creates a new callback-based progress tracking future with byte context.
+     * 
+     * @param underlying The existing CompletableFuture to wrap
+     * @param totalWorkCallback Callback to get total work (must be thread-safe and non-blocking)
+     * @param currentWorkCallback Callback to get current work (must be thread-safe and non-blocking)
+     * @param bytesPerUnit Number of bytes per work unit for contextual display
+     */
+    public ProgressIndicatingFuture(CompletableFuture<T> underlying,
+                                    Supplier<Double> totalWorkCallback,
+                                    Supplier<Double> currentWorkCallback,
+                                    double bytesPerUnit) {
         this.underlying = underlying;
         this.totalWorkCallback = totalWorkCallback;
         this.currentWorkCallback = currentWorkCallback;
+        this.bytesPerUnit = bytesPerUnit;
         
         // Forward completion from underlying future
         underlying.whenComplete((result, throwable) -> {
@@ -72,17 +85,8 @@ public class ProgressIndicatingFuture<T> extends CompletableFuture<T> implements
     }
     
     @Override
-    public void addProgressListener(BiConsumer<Double, Double> progressListener) {
-        progressListeners.add(progressListener);
+    public double getBytesPerUnit() {
+        return bytesPerUnit;
     }
-    
-    @Override
-    public boolean removeProgressListener(BiConsumer<Double, Double> progressListener) {
-        return progressListeners.remove(progressListener);
-    }
-    
-    @Override
-    public CompletableFuture<T> toCompletableFuture() {
-        return this;
-    }
+
 }

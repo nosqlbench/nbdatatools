@@ -26,8 +26,8 @@ import io.micrometer.core.instrument.Timer;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportIO;
 import io.nosqlbench.nbdatatools.api.transport.FetchResult;
-import io.nosqlbench.nbdatatools.api.concurrent.ProgressTrackingCompletableFuture;
-import io.nosqlbench.nbdatatools.api.concurrent.StateProgressTrackingFuture;
+import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicator;
+import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicatingFuture;
 import io.nosqlbench.vectordata.downloader.ProgressTrackingTransportClient;
 import io.nosqlbench.vectordata.events.EventSink;
 import io.nosqlbench.vectordata.events.NoOpEventSink;
@@ -448,49 +448,50 @@ public class MAFileChannel extends AsynchronousFileChannel {
         
         if (position < 0) {
             meterRegistry.counter("ma_file_channel.prebuffer.operations", "status", "failed").increment();
-            StateProgressTrackingFuture<Void> errorFuture = new StateProgressTrackingFuture<>(CompletableFuture.failedFuture(new IOException("Negative position: " + position)));
+            ProgressIndicatingFuture<Void> errorFuture = new ProgressIndicatingFuture<>(
+                CompletableFuture.<Void>failedFuture(new IOException("Negative position: " + position)),
+                () -> 0.0, () -> 0.0, (double)merkleShape.getChunkSize());
             return errorFuture;
         }
         if (length < 0) {
             meterRegistry.counter("ma_file_channel.prebuffer.operations", "status", "failed").increment();
-            StateProgressTrackingFuture<Void> errorFuture = new StateProgressTrackingFuture<>(CompletableFuture.failedFuture(new IOException("Negative length: " + length)));
+            ProgressIndicatingFuture<Void> errorFuture = new ProgressIndicatingFuture<>(
+                CompletableFuture.<Void>failedFuture(new IOException("Negative length: " + length)),
+                () -> 0.0, () -> 0.0, (double)merkleShape.getChunkSize());
             return errorFuture;
         }
 
         try {
             // Calculate total work (chunks that need to be downloaded)
-            int startChunk = merkleShape.getChunkIndexForPosition(position);
-            int endChunk = merkleShape.getChunkIndexForPosition(
+            final int startChunk = merkleShape.getChunkIndexForPosition(position);
+            final int endChunk = merkleShape.getChunkIndexForPosition(
                 Math.min(position + length - 1, merkleShape.getTotalContentSize() - 1));
-            
-            int totalChunks = 0;
-            int validChunks = 0;
-            for (int chunk = startChunk; chunk <= endChunk; chunk++) {
-                totalChunks++;
-                if (merkleState.isValid(chunk)) {
-                    validChunks++;
-                }
-            }
             
             // Use iterative scheduling to handle large requests that may exceed transport limits
             // The iterative method includes its own comprehensive validation
             CompletableFuture<Void> downloadFuture = executeScheduledDownloadsIteratively(position, length);
             
-            // Create progress tracking future
-            StateProgressTrackingFuture<Void> progressFuture = new StateProgressTrackingFuture<>(downloadFuture);
-            progressFuture.setTotalWork(totalChunks);
-            progressFuture.setCurrentWork(validChunks);
-            
-            // Track progress by monitoring chunk validation status
-            downloadFuture.thenRun(() -> {
-                // Update progress periodically during download
-                // Note: In a real implementation, this would be updated more granularly
-                // during the download process itself
-                progressFuture.setCurrentWork(totalChunks);
-            });
+            // Create progress tracking future with callbacks that interrogate the merkle state
+            ProgressIndicatingFuture<Void> progressFuture = new ProgressIndicatingFuture<>(
+                downloadFuture,
+                // Total work callback - interrogates the range to count total chunks
+                () -> (double)(endChunk - startChunk + 1),
+                // Current work callback - interrogates merkle state to count valid chunks
+                () -> {
+                    int validChunks = 0;
+                    for (int chunk = startChunk; chunk <= endChunk; chunk++) {
+                        if (merkleState.isValid(chunk)) {
+                            validChunks++;
+                        }
+                    }
+                    return (double)validChunks;
+                },
+                // Bytes per unit - use chunk size for contextual byte display
+                (double)merkleShape.getChunkSize()
+            );
             
             // Return future with proper cleanup
-            return progressFuture.whenComplete((v, throwable) -> {
+            progressFuture.whenComplete((v, throwable) -> {
                 // Record metrics
                 sample.stop(Timer.builder("ma_file_channel.prebuffer.duration")
                     .register(meterRegistry));
@@ -502,11 +503,15 @@ public class MAFileChannel extends AsynchronousFileChannel {
                 }
             });
             
+            return progressFuture;
+            
         } catch (Exception e) {
             sample.stop(Timer.builder("ma_file_channel.prebuffer.duration")
                 .register(meterRegistry));
             meterRegistry.counter("ma_file_channel.prebuffer.operations", "status", "failed").increment();
-            StateProgressTrackingFuture<Void> errorFuture = new StateProgressTrackingFuture<>(CompletableFuture.failedFuture(e));
+            ProgressIndicatingFuture<Void> errorFuture = new ProgressIndicatingFuture<>(
+                CompletableFuture.<Void>failedFuture(e),
+                () -> 0.0, () -> 0.0, (double)merkleShape.getChunkSize());
             return errorFuture;
         }
     }
@@ -754,6 +759,9 @@ public class MAFileChannel extends AsynchronousFileChannel {
                 long remainingLength = length;
                 int chunksDownloaded = 0;
                 
+                // Collect all download futures for concurrent execution
+                List<CompletableFuture<Void>> allDownloadFutures = new java.util.ArrayList<>();
+                
             // Process the range iteratively until complete
             while (remainingLength > 0 && totalProcessed < length) {
                 // Calculate next segment size
@@ -853,35 +861,20 @@ public class MAFileChannel extends AsynchronousFileChannel {
                     .map(ChunkScheduler.NodeDownloadTask::getFuture)
                     .collect(java.util.stream.Collectors.toList());
                 
-                // Wait for this segment to complete before proceeding to next
-                // This is CRITICAL - we must wait for each segment to fully complete
-                if (!currentSegmentFutures.isEmpty()) {
-                    try {
-                        // Wait for ALL downloads in this segment to complete
-                        // Use a more robust approach that handles fast completion
-                        CompletableFuture<Void> allFutures = CompletableFuture.allOf(
-                            currentSegmentFutures.toArray(new CompletableFuture[0]));
-                        
-                        // If futures complete immediately, they were likely already done (cached data)
-                        // Otherwise, this will properly block until downloads complete
-                        allFutures.join();
-                        
-                        // Additional verification: check that the chunks we expected to download are now valid
-                        for (Integer chunkIndex : requiredChunks) {
-                            if (!merkleState.isValid(chunkIndex)) {
-                                throw new RuntimeException("Chunk " + chunkIndex + 
-                                    " is still invalid after segment completion at position " + currentPosition);
-                            }
-                        }
-                    } catch (Exception e) {
-                        throw new RuntimeException("Failed during iterative prebuffering at position " + 
-                            currentPosition + ", segment length " + segmentLength, e);
-                    }
-                } else if (!requiredChunks.isEmpty()) {
+                // Don't wait for this segment - collect futures for concurrent execution
+                // This allows all downloads to run concurrently instead of segment-by-segment
+                
+                if (requiredChunks.isEmpty()) {
+                    // No downloads needed for this segment, continue to next
+                } else if (currentSegmentFutures.isEmpty()) {
                     // If we had required chunks but no futures, something went wrong
                     throw new RuntimeException("No download tasks created for required chunks " + 
                         requiredChunks + " at position " + currentPosition + 
                         ". This may indicate all nodes exceed transport limits.");
+                } else {
+                    // Add futures to collection for concurrent execution
+                    allDownloadFutures.addAll(currentSegmentFutures);
+                    chunksDownloaded += requiredChunks.size();
                 }
                 
                 // Move to next segment
@@ -907,6 +900,11 @@ public class MAFileChannel extends AsynchronousFileChannel {
                     double progressPercent = (double) currentChunksValid / totalChunksNeeded * 100.0;
                     // This would be logged if logging was available - for now just track progress
                 }
+            }
+            
+            // Wait for all concurrent downloads to complete before validation
+            if (!allDownloadFutures.isEmpty()) {
+                CompletableFuture.allOf(allDownloadFutures.toArray(new CompletableFuture[0])).join();
             }
             
             // Final validation: ensure all required chunks are now valid
