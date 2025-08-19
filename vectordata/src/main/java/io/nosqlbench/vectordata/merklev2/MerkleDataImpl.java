@@ -585,14 +585,14 @@ public class MerkleDataImpl implements MerkleData {
                     return false;
                 }
             } catch (NoSuchAlgorithmException e) {
-                throw new RuntimeException("SHA-256 algorithm not available", e);
+                throw new RuntimeException("SHA-256 algorithm not available:" + e, e);
             }
 
             // Save data using callback
             try {
                 saveCallback.accept(data.duplicate());
             } catch (Exception e) {
-                throw new RuntimeException("Save callback failed for chunk " + chunkIndex, e);
+                throw new RuntimeException("Save callback failed for chunk " + chunkIndex + ": " + e, e);
             }
 
             // Mark as valid
@@ -607,7 +607,7 @@ public class MerkleDataImpl implements MerkleData {
 
             return true;
         } catch (IOException e) {
-            throw new RuntimeException("Failed to save chunk " + chunkIndex, e);
+            throw new RuntimeException("Failed to save chunk " + chunkIndex + ": " + e, e);
         } finally {
             lock.writeLock().unlock();
         }

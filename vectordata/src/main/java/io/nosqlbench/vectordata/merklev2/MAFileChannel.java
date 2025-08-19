@@ -23,6 +23,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+import io.nosqlbench.nbdatatools.api.fileio.FilesystemSpaceChecker;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportClient;
 import io.nosqlbench.nbdatatools.api.transport.ChunkedTransportIO;
 import io.nosqlbench.nbdatatools.api.transport.FetchResult;
@@ -197,6 +198,20 @@ public class MAFileChannel extends AsynchronousFileChannel {
         this.localContentCache = cache;
         this.merkleShape = state.getMerkleShape();
         this.chunkScheduler = chunkScheduler;
+        
+        // Check filesystem space availability for the cached content
+        long totalContentSize = merkleShape.getTotalContentSize();
+        try {
+            FilesystemSpaceChecker.checkSpaceAvailable(localCachePath, totalContentSize);
+        } catch (FilesystemSpaceChecker.InsufficientSpaceException e) {
+            // Close resources before rethrowing
+            try {
+                cache.close();
+            } catch (IOException closeEx) {
+                e.addSuppressed(closeEx);
+            }
+            throw new IOException("Insufficient disk space for cached content: " + e.getMessage(), e);
+        }
         
         // Initialize metrics registry and event sink
         this.meterRegistry = Metrics.globalRegistry;
