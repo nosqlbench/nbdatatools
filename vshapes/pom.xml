@@ -37,6 +37,28 @@
       <version>${revision}</version>
     </dependency>
 
+<!--    JSON Processing-->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.18.2</version>
+    </dependency>
+
+<!--    Visualization with Jzy3D - Optional at runtime only-->
+    <!--
+    Users can add Jzy3D dependencies manually if they want visualization:
+    <dependency>
+      <groupId>org.jzy3d</groupId>
+      <artifactId>jzy3d-api</artifactId>
+      <version>2.2.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jzy3d</groupId>
+      <artifactId>jzy3d-native-jogl-awt</artifactId>
+      <version>2.2.1</version>
+    </dependency>
+    -->
+
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
