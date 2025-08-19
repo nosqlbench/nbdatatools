@@ -39,6 +39,17 @@
     <module>parquet-reader</module>
   </modules>
 
+  <profiles>
+    <profile>
+      <id>vshapes</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>vshapes</module>
+      </modules>
+    </profile>
+  </profiles>
   <developers>
     <developer>
       <name>Jonathan Shook</name>

@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <version>${revision}</version>
+    <artifactId>mvn-defaults</artifactId>
+    <relativePath>../mvn-defaults</relativePath>
+  </parent>
+
+  <artifactId>vshapes</artifactId>
+  <name>${project.artifactId}</name>
+  <description>Vector Space Analysis, Reduction, and Projection</description>
+  <url>https://github.com/nosqlbench/nbdatatools</url>
+
+  <properties>
+    <javadoc.name>vshapes</javadoc.name>
+    <skipPerformanceTests>true</skipPerformanceTests>
+  </properties>
+
+  <dependencies>
+
+<!--    Core API bridges-->
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>testdata-apis</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+<!--    Vector Formats and Datatypes-->
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>io-xvec</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-suite</artifactId>
+      <version>1.10.2</version>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <repositories>
+    <repository>
+      <name>Central Portal Snapshots</name>
+      <id>central-portal-snapshots</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+  <scm>
+    <connection>scm:git:git://github.com/nosqlbench/nbdatatools.git</connection>
+    <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git
+    </developerConnection>
+    <url>https://github.com/nosqlbench/nbdatatools/tree/main</url>
+  </scm>
+  <distributionManagement>
+    <snapshotRepository>
+      <id>central</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+    </snapshotRepository>
+    <repository>
+      <id>central</id>
+      <url>https://central.sonatype.com/</url>
+    </repository>
+  </distributionManagement>
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Jonathan Shook</name>
+      <email>jshook@gmail.com</email>
+      <organization>nosqlbench.io</organization>
+      <organizationUrl>https://nosqlbench.io/</organizationUrl>
+    </developer>
+    <developer>
+      <name>Mark Wolters</name>
+      <email>mwolters138@gmail.com</email>
+      <organization>nosqlbench.io</organization>
+      <organizationUrl>https://nosqlbench.io/</organizationUrl>
+    </developer>
+  </developers>
+
+  <build>
+    <plugins>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- Run only the test suite, not individual tests -->
+          <includes>
+            <include>**/VectorDataTestSuite.java</include>
+          </includes>
+          <!-- Configure ephemeral test resources to use target/ directory -->
+          <systemPropertyVariables>
+            <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+          </systemPropertyVariables>
+        </configuration>
+        <executions>
+          <!-- Default execution runs regular tests -->
+          <execution>
+            <id>default-test</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>**/VectorDataTestSuite.java</include>
+              </includes>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+          <!-- Performance test execution runs only when activated -->
+          <execution>
+            <id>performance-tests</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>**/PerformanceTestSuite.java</include>
+              </includes>
+              <skip>${skipPerformanceTests}</skip>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.0.1</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+            <configuration>
+              <keyname>nosqlbenchdroid@gmail.com</keyname>
+              <passphraseServerId>gpg.passphrase</passphraseServerId>
+              <!--              <useAgent>true</useAgent>-->
+              <gpgArguments>
+                <cmdParam>--pinentry-mode</cmdParam>
+                <cmdParam>loopback</cmdParam>
+              </gpgArguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>0.15</version>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <includes>
+            <include>**/*.java</include>
+          </includes>
+          <excludes>
+            <exclude>**/gen/**</exclude>
+            <exclude>**/generated/**</exclude>
+            <exclude>**/jmh_generated/**</exclude>
+            <exclude>**/generated-sources/**</exclude>
+          </excludes>
+          <addLicenseHeaders>true</addLicenseHeaders>
+          <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>1.3.0</version>
+        <configuration>
+          <updatePomFile>true</updatePomFile>
+          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>flatten.clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+<!--      <plugin>-->
+<!--        <groupId>org.apache.maven.plugins</groupId>-->
+<!--        <artifactId>maven-jar-plugin</artifactId>-->
+<!--        <version>3.3.0</version>-->
+<!--        <configuration>-->
+<!--          <archive>-->
+<!--          </archive>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.11.2</version>
+        <configuration>
+          <!--          <additionalOptions>-->
+          <!--            <additionalOption>-Xdoclint:none</additionalOption>-->
+          <!--          </additionalOptions>-->
+          <!--          <doclint>none</doclint>-->
+
+
+          <!--          <additionalJOptions>&#45;&#45;enable-preview</additionalJOptions>-->
+          <!--          <release>23</release>-->
+          <!--          <doctitle>${javadoc.name}</doctitle>-->
+          <!--          <header>${javadoc.name}</header>-->
+          <!--          <windowtitle>${javadoc.name}</windowtitle>-->
+          <!--          <detectJavaApiLink>false</detectJavaApiLink>-->
+          <!--          <detectLinks>false</detectLinks>-->
+          <!--          <detectOfflineLinks>false</detectOfflineLinks>-->
+          <!--                    <additionalparam>-Xdoclint:none</additionalparam>-->
+          <!--                    <additionalJOption>-Xdoclint:none</additionalJOption>-->
+          <!--          <notimestamp>true</notimestamp>-->
+          <!--          <groups>-->
+          <!--            <group>-->
+          <!--              <title>Adapter Drivers</title>-->
+          <!--              <packages>io.nosqlbench.adapter.*</packages>-->
+          <!--            </group>-->
+          <!--          </groups>-->
+        </configuration>
+        <executions>
+          <execution>
+            <id>attach-javadoc</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+<!--        <version>0.7.0</version>-->
+<!--        <extensions>true</extensions>-->
+<!--        <configuration>-->
+<!--          <publishingServerId>central</publishingServerId>-->
+<!--          <autoPublish>false</autoPublish>-->
+<!--          <waitUntil>uploaded</waitUntil>-->
+<!--          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>-->
+<!--        </configuration>-->
+      </plugin>
+
+
+    </plugins>
+
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <includes>
+          <include>META-INF/services/**</include>
+        </includes>
+      </resource>
+    </resources>
+
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+        <excludes>
+          <exclude>testserver/temp/**</exclude>
+        </excludes>
+      </testResource>
+    </testResources>
+
+  </build>
+</project>
