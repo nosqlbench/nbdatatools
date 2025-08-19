@@ -358,11 +358,11 @@ public class MerkleDataImpl implements MerkleData {
      * @param validChunks The BitSet indicating which chunks are valid
      * @return A MerkleDataImpl with the given hashes and BitSet
      */
-    static MerkleDataImpl createFromHashesAndBitSet(MerkleShape shape, byte[][] hashes, BitSet validChunks) {
+    public static MerkleDataImpl createFromHashesAndBitSet(MerkleShape shape, byte[][] hashes, BitSet validChunks) {
         return new MerkleDataImpl(shape, hashes, validChunks);
     }
     
-    static MerkleDataImpl createFromFileChannelAndBitSet(MerkleShape shape, FileChannel channel, BitSet validChunks) {
+    public static MerkleDataImpl createFromFileChannelAndBitSet(MerkleShape shape, FileChannel channel, BitSet validChunks) {
         return new MerkleDataImpl(shape, channel, validChunks);
     }
     

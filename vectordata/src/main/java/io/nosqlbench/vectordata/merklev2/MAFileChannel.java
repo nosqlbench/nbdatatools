@@ -135,6 +135,20 @@ public class MAFileChannel extends AsynchronousFileChannel {
      * @throws IOException If initialization fails or invalid state combination is encountered
      */
     public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource, ChunkScheduler chunkScheduler) throws IOException {
+        this(localCachePath, merkleStatePath, remoteSource, chunkScheduler, false);
+    }
+
+    /**
+     * Creates a new MAFileChannel with a custom scheduler and optional validation mode.
+     * 
+     * @param localCachePath Path to local cache file
+     * @param merkleStatePath Path to merkle state file  
+     * @param remoteSource Remote source URL
+     * @param chunkScheduler Custom chunk scheduler implementation
+     * @param validationMode If true, checks existing file chunks for potential validity
+     * @throws IOException If initialization fails or invalid state combination is encountered
+     */
+    public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource, ChunkScheduler chunkScheduler, boolean validationMode) throws IOException {
         // Ensure merkleStatePath ends with .mrkl (state file, not reference file)
         String statePathStr = merkleStatePath.toString();
         Path mrklStatePath;
@@ -180,6 +194,11 @@ public class MAFileChannel extends AsynchronousFileChannel {
             state = MerkleState.load(mrklStatePath);
             cache = AsynchronousFileChannel.open(localCachePath,
                 StandardOpenOption.READ, StandardOpenOption.WRITE);
+            
+            // If validation mode is enabled, check existing file chunks
+            if (validationMode) {
+                performValidationModeChecks(state, cache);
+            }
                 
         } else {
             // Case 3: Any other initial state is invalid
@@ -1063,6 +1082,95 @@ public class MAFileChannel extends AsynchronousFileChannel {
             return MerkleRef.load(tempPath);
         } finally {
             client.close();
+        }
+    }
+
+    /**
+     * Performs validation mode checks on existing file chunks.
+     * This method checks regions of the file which are present but not marked as valid in the bitset.
+     * It treats chunks which have non-zero values in the first 1k of data as potentially valid data,
+     * as if they had just been downloaded but not verified yet. Then it validates them against
+     * the expected hash values.
+     * 
+     * @param state The merkle state containing the validation bitset
+     * @param cache The local cache file channel
+     * @throws IOException If an I/O error occurs during validation
+     */
+    private void performValidationModeChecks(MerkleState state, AsynchronousFileChannel cache) throws IOException {
+        MerkleShape shape = state.getMerkleShape();
+        int totalChunks = shape.getTotalChunks();
+        int chunksChecked = 0;
+        int chunksValidated = 0;
+        
+        for (int chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            // Skip chunks that are already marked as valid
+            if (state.isValid(chunkIndex)) {
+                continue;
+            }
+            
+            long chunkStart = shape.getChunkStartPosition(chunkIndex);
+            long chunkEnd = shape.getChunkEndPosition(chunkIndex);
+            long chunkSize = chunkEnd - chunkStart;
+            
+            // Check if the chunk size is within reasonable bounds for validation
+            if (chunkSize > Integer.MAX_VALUE) {
+                continue; // Skip chunks that are too large
+            }
+            
+            try {
+                // Read the first 1k of the chunk to check if it has non-zero data
+                int sampleSize = (int) Math.min(1024, chunkSize);
+                ByteBuffer sampleBuffer = ByteBuffer.allocate(sampleSize);
+                
+                Future<Integer> readFuture = cache.read(sampleBuffer, chunkStart);
+                int bytesRead = readFuture.get();
+                
+                if (bytesRead > 0) {
+                    sampleBuffer.flip();
+                    
+                    // Check if the sample contains non-zero data
+                    boolean hasNonZeroData = false;
+                    while (sampleBuffer.hasRemaining()) {
+                        if (sampleBuffer.get() != 0) {
+                            hasNonZeroData = true;
+                            break;
+                        }
+                    }
+                    
+                    if (hasNonZeroData) {
+                        chunksChecked++;
+                        
+                        // Read the full chunk for validation
+                        ByteBuffer fullChunkBuffer = ByteBuffer.allocate((int) chunkSize);
+                        Future<Integer> fullReadFuture = cache.read(fullChunkBuffer, chunkStart);
+                        int fullBytesRead = fullReadFuture.get();
+                        
+                        if (fullBytesRead == chunkSize) {
+                            fullChunkBuffer.flip();
+                            
+                            // Attempt to validate this chunk using the merkle state
+                            boolean validated = state.saveIfValid(chunkIndex, fullChunkBuffer, data -> {
+                                // Save callback - in validation mode, we don't need to save the data
+                                // since it's already in the cache file. This is just for validation.
+                            });
+                            
+                            if (validated) {
+                                chunksValidated++;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // Log the error but continue with other chunks
+                System.err.println("Error validating chunk " + chunkIndex + ": " + e.getMessage());
+            }
+        }
+        
+        if (chunksChecked > 0) {
+            System.out.println("Validation mode: checked " + chunksChecked + " chunks with non-zero data");
+            System.out.println("Validation mode: validated " + chunksValidated + " chunks successfully");
+        } else {
+            System.out.println("Validation mode: no chunks with non-zero data found for validation");
         }
     }
 }
