@@ -467,25 +467,29 @@ public class MAFileChannel extends AsynchronousFileChannel {
             final int endChunk = merkleShape.getChunkIndexForPosition(
                 Math.min(position + length - 1, merkleShape.getTotalContentSize() - 1));
             
-            // Use iterative scheduling to handle large requests that may exceed transport limits
-            // The iterative method includes its own comprehensive validation
-            CompletableFuture<Void> downloadFuture = executeScheduledDownloadsIteratively(position, length);
+            // Count initially valid chunks (already downloaded)
+            int initiallyValidChunks = 0;
+            for (int chunk = startChunk; chunk <= endChunk; chunk++) {
+                if (merkleState.isValid(chunk)) {
+                    initiallyValidChunks++;
+                }
+            }
             
-            // Create progress tracking future with callbacks that interrogate the merkle state
+            // Create atomic counter for progress tracking that won't block on file I/O
+            final java.util.concurrent.atomic.AtomicInteger completedChunks = 
+                new java.util.concurrent.atomic.AtomicInteger(initiallyValidChunks);
+            final int totalChunks = endChunk - startChunk + 1;
+            
+            // Use iterative scheduling to handle large requests that may exceed transport limits
+            CompletableFuture<Void> downloadFuture = executeScheduledDownloadsIteratively(position, length, completedChunks, startChunk, endChunk);
+            
+            // Create progress tracking future with fast, non-blocking callbacks
             ProgressIndicatingFuture<Void> progressFuture = new ProgressIndicatingFuture<>(
                 downloadFuture,
-                // Total work callback - interrogates the range to count total chunks
-                () -> (double)(endChunk - startChunk + 1),
-                // Current work callback - interrogates merkle state to count valid chunks
-                () -> {
-                    int validChunks = 0;
-                    for (int chunk = startChunk; chunk <= endChunk; chunk++) {
-                        if (merkleState.isValid(chunk)) {
-                            validChunks++;
-                        }
-                    }
-                    return (double)validChunks;
-                },
+                // Total work callback - simply return the calculated total
+                () -> (double)totalChunks,
+                // Current work callback - use atomic counter (no file I/O blocking)
+                () -> (double)completedChunks.get(),
                 // Bytes per unit - use chunk size for contextual byte display
                 (double)merkleShape.getChunkSize()
             );
@@ -716,8 +720,12 @@ public class MAFileChannel extends AsynchronousFileChannel {
     /// 
     /// @param position Starting byte position
     /// @param length Number of bytes to prebuffer
+    /// @param progressCounter Atomic counter for tracking completed chunks (for progress display)
+    /// @param startChunk Starting chunk index for progress tracking
+    /// @param endChunk Ending chunk index for progress tracking
     /// @return CompletableFuture that completes when the entire range is prebuffered
-    private CompletableFuture<Void> executeScheduledDownloadsIteratively(long position, long length) {
+    private CompletableFuture<Void> executeScheduledDownloadsIteratively(long position, long length, 
+            java.util.concurrent.atomic.AtomicInteger progressCounter, int startChunk, int endChunk) {
         // Use 1.5GB as max chunk size to safely stay under 2GB transport limit
         // This leaves room for merkle tree overhead and ensures we don't hit transport limits
         final long MAX_TRANSPORT_CHUNK_SIZE = 1_610_612_736L; // 1.5GB in bytes
@@ -729,9 +737,7 @@ public class MAFileChannel extends AsynchronousFileChannel {
         CompletableFuture.runAsync(() -> {
             try {
                 // First, check if any chunks in the range actually need downloading
-                int startChunk = merkleShape.getChunkIndexForPosition(position);
-                int endChunk = merkleShape.getChunkIndexForPosition(
-                    Math.min(position + length - 1, merkleShape.getTotalContentSize() - 1));
+                // Use the provided startChunk and endChunk parameters
                 
                 int totalChunksRequired = 0;
                 for (int chunk = startChunk; chunk <= endChunk; chunk++) {
@@ -872,8 +878,30 @@ public class MAFileChannel extends AsynchronousFileChannel {
                         requiredChunks + " at position " + currentPosition + 
                         ". This may indicate all nodes exceed transport limits.");
                 } else {
-                    // Add futures to collection for concurrent execution
-                    allDownloadFutures.addAll(currentSegmentFutures);
+                    // Add futures to collection for concurrent execution and attach progress tracking
+                    for (ChunkScheduler.NodeDownloadTask task : result.tasks()) {
+                        CompletableFuture<Void> future = task.getFuture();
+                        
+                        // Determine how many chunks this task covers
+                        int chunksForThisTask;
+                        if (task.isLeafNode()) {
+                            // Leaf nodes always cover exactly 1 chunk
+                            chunksForThisTask = 1;
+                        } else {
+                            // Internal nodes cover multiple chunks - calculate from leaf range
+                            MerkleShape.MerkleNodeRange leafRange = task.getLeafRange();
+                            chunksForThisTask = (int)(leafRange.getEnd() - leafRange.getStart());
+                        }
+                        
+                        // Attach completion handler for progress tracking
+                        CompletableFuture<Void> progressTrackingFuture = future.whenComplete((v, throwable) -> {
+                            if (throwable == null) {
+                                // Successfully completed - increment progress counter by the number of chunks this task covers
+                                progressCounter.addAndGet(chunksForThisTask);
+                            }
+                        });
+                        allDownloadFutures.add(progressTrackingFuture);
+                    }
                     chunksDownloaded += requiredChunks.size();
                 }
                 
@@ -908,12 +936,10 @@ public class MAFileChannel extends AsynchronousFileChannel {
             }
             
             // Final validation: ensure all required chunks are now valid
-            int finalStartChunk = merkleShape.getChunkIndexForPosition(position);
-            int finalEndChunk = merkleShape.getChunkIndexForPosition(
-                Math.min(position + length - 1, merkleShape.getTotalContentSize() - 1));
+            // Use the provided startChunk and endChunk parameters
             
             List<Integer> stillInvalidChunks = new java.util.ArrayList<>();
-            for (int chunk = finalStartChunk; chunk <= finalEndChunk; chunk++) {
+            for (int chunk = startChunk; chunk <= endChunk; chunk++) {
                 if (!merkleState.isValid(chunk)) {
                     stillInvalidChunks.add(chunk);
                 }
