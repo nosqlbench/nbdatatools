@@ -102,70 +102,59 @@ public class CMD_merkle_spoilbits implements Callable<Integer> {
             int totalNodes = shape.getNodeCount();
 
             logger.info("Processing merkle file: {}", mrklFile);
-            logger.info("Total leaf nodes: {}", totalLeafNodes);
+            logger.info("Total leaf nodes (chunks): {}", totalLeafNodes);
             logger.info("Total nodes: {}", totalNodes);
             logger.info("Currently valid leaf nodes: {}", validChunks.cardinality());
 
-            // Count non-leaf valid bits
-            int nonLeafValidBits = 0;
-            int leafOffset = shape.getOffset();
-            for (int i = 0; i < leafOffset; i++) {
-                if (validChunks.get(i)) {
-                    nonLeafValidBits++;
-                }
-            }
+            // Note: The BitSet only tracks leaf chunks, not internal nodes
+            // BitSet indices 0..totalLeafNodes-1 correspond to chunk indices 0..totalLeafNodes-1
+            logger.info("BitSet size matches leaf count: {}", validChunks.size() >= totalLeafNodes);
 
-            logger.info("Currently valid non-leaf nodes: {}", nonLeafValidBits);
-
-            // Determine which leaf nodes to invalidate
-            List<Integer> leafNodesToInvalidate = new ArrayList<>();
+            // Determine which leaf chunks to invalidate
+            List<Integer> leafChunksToInvalidate = new ArrayList<>();
 
             if (startIndex != null && endIndex != null) {
                 // Range-based invalidation
                 int safeStart = Math.max(0, startIndex);
                 int safeEnd = Math.min(totalLeafNodes, endIndex);
                 
-                for (int i = safeStart; i < safeEnd; i++) {
-                    int nodeIndex = leafOffset + i;
-                    if (validChunks.get(nodeIndex)) {
-                        leafNodesToInvalidate.add(nodeIndex);
+                for (int chunkIndex = safeStart; chunkIndex < safeEnd; chunkIndex++) {
+                    if (validChunks.get(chunkIndex)) {
+                        leafChunksToInvalidate.add(chunkIndex);
                     }
                 }
-                logger.info("Range-based invalidation: {} to {} (found {} valid nodes to invalidate)", 
-                           safeStart, safeEnd - 1, leafNodesToInvalidate.size());
+                logger.info("Range-based invalidation: chunks {} to {} (found {} valid chunks to invalidate)", 
+                           safeStart, safeEnd - 1, leafChunksToInvalidate.size());
             } else {
                 // Percentage-based invalidation
-                List<Integer> validLeafNodes = new ArrayList<>();
-                for (int i = 0; i < totalLeafNodes; i++) {
-                    int nodeIndex = leafOffset + i;
-                    if (validChunks.get(nodeIndex)) {
-                        validLeafNodes.add(nodeIndex);
+                List<Integer> validLeafChunks = new ArrayList<>();
+                for (int chunkIndex = 0; chunkIndex < totalLeafNodes; chunkIndex++) {
+                    if (validChunks.get(chunkIndex)) {
+                        validLeafChunks.add(chunkIndex);
                     }
                 }
 
-                int nodesToInvalidate = (int) Math.round(validLeafNodes.size() * percentage / 100.0);
+                int chunksToInvalidate = (int) Math.round(validLeafChunks.size() * percentage / 100.0);
                 
                 Random random = new Random(seed != null ? seed : System.currentTimeMillis());
-                Collections.shuffle(validLeafNodes, random);
+                Collections.shuffle(validLeafChunks, random);
                 
-                leafNodesToInvalidate = validLeafNodes.subList(0, Math.min(nodesToInvalidate, validLeafNodes.size()));
-                logger.info("Percentage-based invalidation: {}% of {} valid leaf nodes = {} nodes to invalidate", 
-                           percentage, validLeafNodes.size(), leafNodesToInvalidate.size());
+                leafChunksToInvalidate = validLeafChunks.subList(0, Math.min(chunksToInvalidate, validLeafChunks.size()));
+                logger.info("Percentage-based invalidation: {}% of {} valid leaf chunks = {} chunks to invalidate", 
+                           percentage, validLeafChunks.size(), leafChunksToInvalidate.size());
             }
 
             if (dryrun) {
-                logger.info("DRY RUN: Would invalidate {} non-leaf nodes", nonLeafValidBits);
-                logger.info("DRY RUN: Would invalidate {} leaf nodes:", leafNodesToInvalidate.size());
+                logger.info("DRY RUN: Would invalidate {} leaf chunks", leafChunksToInvalidate.size());
                 
-                // Show some examples of leaf nodes that would be invalidated
-                int showCount = Math.min(10, leafNodesToInvalidate.size());
+                // Show some examples of chunks that would be invalidated
+                int showCount = Math.min(10, leafChunksToInvalidate.size());
                 for (int i = 0; i < showCount; i++) {
-                    int nodeIndex = leafNodesToInvalidate.get(i);
-                    int chunkIndex = nodeIndex - leafOffset;
-                    logger.info("DRY RUN:   Leaf node {} (chunk {})", nodeIndex, chunkIndex);
+                    int chunkIndex = leafChunksToInvalidate.get(i);
+                    logger.info("DRY RUN:   Chunk {}", chunkIndex);
                 }
-                if (leafNodesToInvalidate.size() > showCount) {
-                    logger.info("DRY RUN:   ... and {} more", leafNodesToInvalidate.size() - showCount);
+                if (leafChunksToInvalidate.size() > showCount) {
+                    logger.info("DRY RUN:   ... and {} more", leafChunksToInvalidate.size() - showCount);
                 }
             } else {
                 // Create backup before modification
@@ -176,56 +165,24 @@ public class CMD_merkle_spoilbits implements Callable<Integer> {
                 // Create modified bitset
                 BitSet modifiedBitSet = (BitSet) validChunks.clone();
 
-                // Invalidate all non-leaf bits
-                for (int i = 0; i < leafOffset; i++) {
-                    modifiedBitSet.clear(i);
+                // Invalidate selected leaf chunks
+                for (int chunkIndex : leafChunksToInvalidate) {
+                    modifiedBitSet.clear(chunkIndex);
                 }
 
-                // Invalidate selected leaf bits
-                for (int nodeIndex : leafNodesToInvalidate) {
-                    modifiedBitSet.clear(nodeIndex);
-                }
-
-                logger.info("Invalidated {} non-leaf nodes", nonLeafValidBits);
-                logger.info("Invalidated {} leaf nodes", leafNodesToInvalidate.size());
+                logger.info("Invalidated {} leaf chunks", leafChunksToInvalidate.size());
 
                 // Close the original merkle data
                 merkleData.close();
 
-                // Create new MerkleDataImpl with modified BitSet by copying hashes and applying new BitSet
+                // Directly modify the bitset in the original file
                 try {
-                    // Load the merkle data again to get access to hashes
-                    MerkleDataImpl originalData = MerkleRefFactory.load(backupPath);
-                    
-                    // Create hashes array and copy from original
-                    byte[][] hashes = new byte[shape.getNodeCount()][];
-                    for (int i = 0; i < shape.getNodeCount(); i++) {
-                        if (shape.isLeafNode(i)) {
-                            int leafIndex = i - leafOffset;
-                            if (leafIndex >= 0 && leafIndex < shape.getTotalChunks()) {
-                                hashes[i] = originalData.getHashForLeaf(leafIndex);
-                            }
-                        } else {
-                            // For internal nodes, we need to get the hash differently
-                            // This is a limitation of the current API
-                            // For now, we'll copy whatever we can access
-                        }
-                    }
-                    
-                    originalData.close();
-                    
-                    // Create new MerkleDataImpl with modified BitSet
-                    MerkleDataImpl modifiedData = MerkleDataImpl.createFromHashesAndBitSet(shape, hashes, modifiedBitSet);
-                    
-                    // Save the modified data to the original file
-                    modifiedData.save(mrklFile);
-                    modifiedData.close();
-                    
-                    logger.info("Successfully spoiled {} total bits in merkle file", 
-                               nonLeafValidBits + leafNodesToInvalidate.size());
+                    modifyBitSetInFile(mrklFile, modifiedBitSet, shape);
+                    logger.info("Successfully spoiled {} chunks in merkle file", 
+                               leafChunksToInvalidate.size());
                                
                 } catch (Exception e) {
-                    logger.error("Failed to create modified merkle file: {}", e.getMessage());
+                    logger.error("Failed to modify merkle file: {}", e.getMessage());
                     // Restore from backup
                     Files.copy(backupPath, mrklFile);
                     logger.info("Restored original file from backup");
@@ -239,5 +196,41 @@ public class CMD_merkle_spoilbits implements Callable<Integer> {
             logger.error("Error spoiling bits in merkle file: {}", e.getMessage(), e);
             return 1;
         }
+    }
+
+    /**
+     * Directly modifies the BitSet in a .mrkl file without recreating the entire file.
+     * This method writes the modified BitSet directly to the correct location in the file.
+     */
+    private void modifyBitSetInFile(Path mrklFile, BitSet modifiedBitSet, MerkleShape shape) throws IOException {
+        // Constants from MerkleDataImpl
+        final int HASH_SIZE = 32; // SHA-256
+        
+        // Calculate the position where the BitSet is stored in the file
+        long bitsetPosition = (long) shape.getNodeCount() * HASH_SIZE;
+        
+        // Convert BitSet to byte array
+        byte[] bitsetBytes = modifiedBitSet.toByteArray();
+        int requiredBytes = (shape.getLeafCount() + 7) / 8; // Round up to byte boundary
+        
+        // Ensure the byte array is the correct size
+        byte[] paddedBitsetBytes = new byte[requiredBytes];
+        System.arraycopy(bitsetBytes, 0, paddedBitsetBytes, 0, Math.min(bitsetBytes.length, requiredBytes));
+        
+        // Open the file for writing and modify the BitSet region
+        try (var channel = java.nio.channels.FileChannel.open(mrklFile, 
+                java.nio.file.StandardOpenOption.WRITE)) {
+            
+            java.nio.ByteBuffer bitsetBuffer = java.nio.ByteBuffer.wrap(paddedBitsetBytes);
+            channel.write(bitsetBuffer, bitsetPosition);
+            channel.force(false); // Ensure changes are written to disk
+        }
+    }
+
+    /// Main method to run the spoilbits command directly
+    /// @param args Command line arguments
+    public static void main(String[] args) {
+        int exitCode = new picocli.CommandLine(new CMD_merkle_spoilbits()).execute(args);
+        System.exit(exitCode);
     }
 }

@@ -21,6 +21,7 @@ import io.nosqlbench.command.merkle.subcommands.CMD_merkle_create;
 import io.nosqlbench.command.merkle.subcommands.CMD_merkle_diff;
 import io.nosqlbench.command.merkle.subcommands.CMD_merkle_path;
 import io.nosqlbench.command.merkle.subcommands.CMD_merkle_spoilbits;
+import io.nosqlbench.command.merkle.subcommands.CMD_merkle_spoilchunks;
 import io.nosqlbench.command.merkle.subcommands.CMD_merkle_summary;
 import io.nosqlbench.command.merkle.subcommands.CMD_merkle_treeview;
 import io.nosqlbench.command.merkle.subcommands.CMD_merkle_verify;
@@ -45,6 +46,7 @@ import picocli.CommandLine.HelpCommand;
         CMD_merkle_diff.class,
         CMD_merkle_treeview.class,
         CMD_merkle_spoilbits.class,
+        CMD_merkle_spoilchunks.class,
         HelpCommand.class
     })
 public class CMD_merkle implements BundledCommand {

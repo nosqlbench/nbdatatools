@@ -607,7 +607,22 @@ public class MerkleDataImpl implements MerkleData {
             // Verify against reference hash by computing hash and comparing
             try {
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                byte[] actualHash = digest.digest(data.array());
+                
+                // Only hash the actual data in the buffer, not the entire backing array
+                // This is critical for the last chunk which may be smaller than the buffer
+                if (data.hasArray() && data.arrayOffset() == 0 && data.position() == 0 && data.remaining() == data.capacity()) {
+                    // Optimization: if the buffer uses the entire array, we can use it directly
+                    digest.update(data.array(), 0, data.remaining());
+                } else {
+                    // Safe approach: create a byte array with only the actual data
+                    byte[] dataBytes = new byte[data.remaining()];
+                    data.mark();
+                    data.get(dataBytes);
+                    data.reset();
+                    digest.update(dataBytes);
+                }
+                
+                byte[] actualHash = digest.digest();
                 byte[] expectedHash = getHashForLeaf(chunkIndex);
 
                 if (expectedHash == null || !java.util.Arrays.equals(actualHash, expectedHash)) {

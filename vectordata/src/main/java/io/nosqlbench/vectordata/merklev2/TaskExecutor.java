@@ -240,7 +240,7 @@ public class TaskExecutor implements AutoCloseable {
                     // Save to local cache
                     localCache.write(data, chunkStart).get();
                 } catch (Exception e) {
-                    throw new RuntimeException("Failed to save chunk to cache", e);
+                    throw new RuntimeException("Failed to save chunk to cache: " + e, e);
                 }
             });
             
