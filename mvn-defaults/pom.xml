@@ -274,6 +274,51 @@
         <artifactId>log4j-api</artifactId>
         <version>2.24.3</version>
       </dependency>
+      <!-- JCL (Commons Logging) bridge to Log4j2 -->
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-jcl</artifactId>
+        <version>2.24.3</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.zookeeper</groupId>
+        <artifactId>zookeeper</artifactId>
+        <version>3.8.3</version>
+        <exclusions>
+          <exclusion>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>ch.qos.reload4j</groupId>
+            <artifactId>reload4j</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-reload4j</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j13</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
       <dependency>
         <groupId>org.assertj</groupId>
         <artifactId>assertj-core</artifactId>
@@ -440,6 +485,26 @@
                   <!--                    This would be nice, but jhdf is on older log4j API versions -->
                   <!--                    <dependencyConvergence/>-->
                   <requireProfileIdsExist/>
+                  <!-- Ban Log4j 1.x and other problematic logging dependencies -->
+                  <bannedDependencies>
+                    <excludes>
+                      <!-- Log4j 1.x -->
+                      <exclude>log4j:log4j</exclude>
+                      <exclude>log4j:log4j:*:*</exclude>
+                      <!-- reload4j (Log4j 1.x fork) -->
+                      <exclude>ch.qos.reload4j:*</exclude>
+                      <!-- SLF4J bindings for Log4j 1.x -->
+                      <exclude>org.slf4j:slf4j-log4j12</exclude>
+                      <exclude>org.slf4j:slf4j-reload4j</exclude>
+                      <exclude>org.slf4j:slf4j-log4j13</exclude>
+                      <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                      <!-- Logback (can conflict with Log4j 2.x) -->
+                      <exclude>ch.qos.logback:*</exclude>
+                      <!-- Apache Avalon logging -->
+                      <exclude>avalon-logkit:avalon-logkit</exclude>
+                    </excludes>
+                    <message>Banned logging dependencies detected! This project uses Log4j 2.x only. Found banned dependencies in the classpath that could cause conflicts.</message>
+                  </bannedDependencies>
                 </rules>
               </configuration>
             </execution>

@@ -38,6 +38,7 @@ import java.util.List;
 ///     optional catalog locations that will be loaded if available but won't cause errors if missing
 public record TestDataSources(List<URL> locations, List<URL> optionalLocations) {
 
+  public static String DEFAULT_CONFIG_DIR="~/.config/vectordata";
   /// Creates a TestDataSources with default configuration from ~/.config/nbvectors/catalogs.yaml
   public TestDataSources() {
     this(new ArrayList<URL>(), new ArrayList<URL>());
@@ -117,10 +118,10 @@ public record TestDataSources(List<URL> locations, List<URL> optionalLocations) 
     return new TestDataSources(this.locations, this.optionalLocations, loadConfig(configdir), new ArrayList<>());
   }
 
-  /// Configure the test data catalog with the default configuration from ~/.config/nbvectors/catalogs.yaml
+  /// Configure the test data catalog with the default configuration from DEFAULT_CONFIG_DIR/catalogs.yaml
   /// @return A new TestDataSources with the default configuration
   public TestDataSources configure() {
-    return new TestDataSources(loadConfig(Path.of(expandTilde("~/.config/nbvectors"))), new ArrayList<>());
+    return new TestDataSources(loadConfig(Path.of(expandTilde(DEFAULT_CONFIG_DIR))), new ArrayList<>());
   }
 
   /// Creates a new TestDataSources by adding optional catalogs from a configuration directory
@@ -134,7 +135,7 @@ public record TestDataSources(List<URL> locations, List<URL> optionalLocations) 
   /// Configure optional catalogs with the default configuration from ~/.config/nbvectors/catalogs.yaml
   /// @return A new TestDataSources with optional default configuration
   public TestDataSources configureOptional() {
-    return new TestDataSources(this.locations, this.optionalLocations, new ArrayList<>(), loadConfig(Path.of(expandTilde("~/.config/nbvectors")), true));
+    return new TestDataSources(this.locations, this.optionalLocations, new ArrayList<>(), loadConfig(Path.of(expandTilde(DEFAULT_CONFIG_DIR)), true));
   }
 
 
@@ -244,8 +245,8 @@ public record TestDataSources(List<URL> locations, List<URL> optionalLocations) 
   public Catalog catalog() {
     if (this.locations.isEmpty() && this.optionalLocations.isEmpty()) {
       throw new RuntimeException("no catalogs specified, call configure() first for default "
-                                 + "configuration from \"~/.config/nbvectors/catalogs.yaml\", or "
-                                 + "configure(...) to specify a config " + "directory.");
+                                 + "configuration from " + DEFAULT_CONFIG_DIR
+                                 + "/catalogs" + ".yaml\", or configure(...) to specify a config " + "directory.");
     }
     return Catalog.of(this);
   }
@@ -338,6 +339,8 @@ public record TestDataSources(List<URL> locations, List<URL> optionalLocations) 
   /// then falls back to the actual user.home.
   /// @return The home directory path
   private static String getHomeDirectory() {
+    // TODO: This should not have test-specific code in it. Rework it to use a configurable
+    //  system property name instead.
     return System.getProperty("test.home.override", System.getProperty("user.home"));
   }
 
