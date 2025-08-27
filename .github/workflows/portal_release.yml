@@ -64,7 +64,7 @@ jobs:
             ]
 
       - name: Build with Maven
-        run: mvn -B deploy -Drevision="${{ steps.versions.outputs.RELEASE_VERSION }}"
+        run: mvn -X -B deploy -Drevision="${{ steps.versions.outputs.RELEASE_VERSION }}"
 
 #    - name: Publish to GitHub Packages Apache Maven
 #      run: mvn deploy -s $GITHUB_WORKSPACE/settings.xml
