@@ -13,11 +13,12 @@
   <name>${project.artifactId}</name>
 
   <properties>
-    <revision>0.1.7-SNAPSHOT</revision>
+    <revision>0.1.8-SNAPSHOT</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.deploy.skip>true</maven.deploy.skip>
     <maven.compiler.release>24</maven.compiler.release>
     <maven.compiler.source>24</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
   </properties>
 
   <dependencies>
@@ -389,8 +390,8 @@
           <configuration>
             <proc>full</proc>
             <source>24</source>
-            <release>21</release>
-            <target>21</target>
+            <release>24</release>
+            <target>11</target>
           </configuration>
         </plugin>
 
