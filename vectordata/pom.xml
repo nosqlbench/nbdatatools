@@ -315,45 +315,10 @@
           </execution>
         </executions>
       </plugin>
-
-<!--      <plugin>-->
-<!--        <groupId>org.apache.maven.plugins</groupId>-->
-<!--        <artifactId>maven-jar-plugin</artifactId>-->
-<!--        <version>3.3.0</version>-->
-<!--        <configuration>-->
-<!--          <archive>-->
-<!--          </archive>-->
-<!--        </configuration>-->
-<!--      </plugin>-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>3.11.2</version>
-        <configuration>
-          <!--          <additionalOptions>-->
-          <!--            <additionalOption>-Xdoclint:none</additionalOption>-->
-          <!--          </additionalOptions>-->
-          <!--          <doclint>none</doclint>-->
-
-
-          <!--          <additionalJOptions>&#45;&#45;enable-preview</additionalJOptions>-->
-          <!--          <release>23</release>-->
-          <!--          <doctitle>${javadoc.name}</doctitle>-->
-          <!--          <header>${javadoc.name}</header>-->
-          <!--          <windowtitle>${javadoc.name}</windowtitle>-->
-          <!--          <detectJavaApiLink>false</detectJavaApiLink>-->
-          <!--          <detectLinks>false</detectLinks>-->
-          <!--          <detectOfflineLinks>false</detectOfflineLinks>-->
-          <!--                    <additionalparam>-Xdoclint:none</additionalparam>-->
-          <!--                    <additionalJOption>-Xdoclint:none</additionalJOption>-->
-          <!--          <notimestamp>true</notimestamp>-->
-          <!--          <groups>-->
-          <!--            <group>-->
-          <!--              <title>Adapter Drivers</title>-->
-          <!--              <packages>io.nosqlbench.adapter.*</packages>-->
-          <!--            </group>-->
-          <!--          </groups>-->
-        </configuration>
         <executions>
           <execution>
             <id>attach-javadoc</id>
@@ -364,21 +329,10 @@
 
         </executions>
       </plugin>
-
       <plugin>
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>
-<!--        <version>0.7.0</version>-->
-<!--        <extensions>true</extensions>-->
-<!--        <configuration>-->
-<!--          <publishingServerId>central</publishingServerId>-->
-<!--          <autoPublish>false</autoPublish>-->
-<!--          <waitUntil>uploaded</waitUntil>-->
-<!--          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>-->
-<!--        </configuration>-->
       </plugin>
-
-
     </plugins>
 
     <resources>

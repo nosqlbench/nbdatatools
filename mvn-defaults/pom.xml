@@ -16,8 +16,8 @@
     <revision>0.1.8-SNAPSHOT</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.deploy.skip>true</maven.deploy.skip>
-    <maven.compiler.release>24</maven.compiler.release>
-    <maven.compiler.source>24</maven.compiler.source>
+<!--    <maven.compiler.release>24</maven.compiler.release>-->
+    <maven.compiler.source>23</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
   </properties>
 
@@ -389,9 +389,7 @@
           <version>3.14.0</version>
           <configuration>
             <proc>full</proc>
-            <source>24</source>
-            <release>24</release>
-            <target>11</target>
+            <release>11</release>
           </configuration>
         </plugin>
 
@@ -400,29 +398,6 @@
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>3.11.2</version>
           <configuration>
-            <!--          <additionalOptions>-->
-            <!--            <additionalOption>-Xdoclint:none</additionalOption>-->
-            <!--          </additionalOptions>-->
-            <!--          <doclint>none</doclint>-->
-
-
-            <!--          <additionalJOptions>&#45;&#45;enable-preview</additionalJOptions>-->
-            <!--          <release>23</release>-->
-            <!--          <doctitle>${javadoc.name}</doctitle>-->
-            <!--          <header>${javadoc.name}</header>-->
-            <!--          <windowtitle>${javadoc.name}</windowtitle>-->
-            <!--          <detectJavaApiLink>false</detectJavaApiLink>-->
-            <!--          <detectLinks>false</detectLinks>-->
-            <!--          <detectOfflineLinks>false</detectOfflineLinks>-->
-            <!--                    <additionalparam>-Xdoclint:none</additionalparam>-->
-            <!--                    <additionalJOption>-Xdoclint:none</additionalJOption>-->
-            <!--          <notimestamp>true</notimestamp>-->
-            <!--          <groups>-->
-            <!--            <group>-->
-            <!--              <title>Adapter Drivers</title>-->
-            <!--              <packages>io.nosqlbench.adapter.*</packages>-->
-            <!--            </group>-->
-            <!--          </groups>-->
           </configuration>
           <executions>
             <execution>
@@ -434,16 +409,6 @@
 
           </executions>
         </plugin>
-
-        <!--        <plugin>-->
-        <!--          <groupId>org.apache.maven.plugins</groupId>-->
-        <!--          <artifactId>maven-deploy-plugin</artifactId>-->
-        <!--          <version>3.1.3</version>-->
-        <!--          <configuration>-->
-        <!--            <skip>true</skip>-->
-        <!--          </configuration>-->
-        <!--        </plugin>-->
-
         <plugin>
           <groupId>org.sonatype.central</groupId>
           <artifactId>central-publishing-maven-plugin</artifactId>

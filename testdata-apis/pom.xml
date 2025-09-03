@@ -18,9 +18,9 @@
 
   <properties>
     <jline.version>3.28.0</jline.version>
-    <maven.compiler.source>23</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
-    <maven.compiler.release>24</maven.compiler.release>
+<!--    <maven.compiler.source>23</maven.compiler.source>-->
+<!--    <maven.compiler.target>11</maven.compiler.target>-->
+<!--    <maven.compiler.release>24</maven.compiler.release>-->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javadoc.name>testdata-apis</javadoc.name>
   </properties>
@@ -163,16 +163,8 @@
             </goals>
             <configuration>
               <rules>
-                <!--                The GraalVM vendor version is only enforced in the native profile -->
-                <!--                <requireProperty>-->
-                <!--                  <property>java.vendor.version</property>-->
-                <!--                  <regex>.*GraalVM.*</regex>-->
-                <!--                  <message>-->
-                <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
-                <!--                  </message>-->
-                <!--                </requireProperty>-->
                 <requireJavaVersion>
-                  <version>[23,)</version>
+                  <version>[24,)</version>
                 </requireJavaVersion>
                 <!--                <dependencyConvergence>-->
                 <!--                </dependencyConvergence>-->
@@ -276,75 +268,17 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
-        <configuration>
-          <release>23</release>
-        </configuration>
       </plugin>
-<!--      <plugin>-->
-<!--        <groupId>org.apache.maven.plugins</groupId>-->
-<!--        <artifactId>maven-jar-plugin</artifactId>-->
-<!--        <version>3.3.0</version>-->
-<!--        <configuration>-->
-<!--          <archive>-->
-<!--          </archive>-->
-<!--        </configuration>-->
-<!--      </plugin>-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>3.11.2</version>
-        <configuration>
-          <!--          <additionalOptions>-->
-          <!--            <additionalOption>-Xdoclint:none</additionalOption>-->
-          <!--          </additionalOptions>-->
-          <!--          <doclint>none</doclint>-->
-
-
-          <!--          <additionalJOptions>&#45;&#45;enable-preview</additionalJOptions>-->
-          <!--          <release>23</release>-->
-          <!--          <doctitle>${javadoc.name}</doctitle>-->
-          <!--          <header>${javadoc.name}</header>-->
-          <!--          <windowtitle>${javadoc.name}</windowtitle>-->
-          <!--          <detectJavaApiLink>false</detectJavaApiLink>-->
-          <!--          <detectLinks>false</detectLinks>-->
-          <!--          <detectOfflineLinks>false</detectOfflineLinks>-->
-          <!--                    <additionalparam>-Xdoclint:none</additionalparam>-->
-          <!--                    <additionalJOption>-Xdoclint:none</additionalJOption>-->
-          <!--          <notimestamp>true</notimestamp>-->
-          <!--          <groups>-->
-          <!--            <group>-->
-          <!--              <title>Adapter Drivers</title>-->
-          <!--              <packages>io.nosqlbench.adapter.*</packages>-->
-          <!--            </group>-->
-          <!--          </groups>-->
-        </configuration>
-        <executions>
-          <execution>
-            <id>attach-javadoc</id>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-
-        </executions>
       </plugin>
-
       <plugin>
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>
-<!--        <version>0.7.0</version>-->
-<!--        <extensions>true</extensions>-->
-<!--        <configuration>-->
-<!--          <publishingServerId>central</publishingServerId>-->
-<!--          <autoPublish>false</autoPublish>-->
-<!--          <waitUntil>uploaded</waitUntil>-->
-<!--          <centralBaseUrl>https://central.sonatype.com</centralBaseUrl>-->
-<!--        </configuration>-->
       </plugin>
-
-
     </plugins>
-
 
   </build>
 </project>
