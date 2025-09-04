@@ -47,27 +47,25 @@ public class TestGroupLayoutTests {
 
   @Test
   public void testYamlFormat() {
-    String yaml = """
-        attributes:
-          model: testmodel
-          url: testurl
-          distance_function: COSINE
-          license: testlicense
-          vendor: testvendor
-          notes: testnotes
-        profiles:
-          p1:
-            base_vectors:
-              source: test1.hdf5(0..1_000_000,0..128)
-              window: (5..100,0..90)
-            query_vectors:
-              source: test1.hdf5(0..1_000_000,0..128)
-              window: (5..100,0..90)
-          p2:
-            base_vectors:
-              source: test1.hdf5(0..1_000_000,0..128)
-              window: (10..100,0..80)
-        """;
+    String yaml = "attributes:\n" +
+        "  model: testmodel\n" +
+        "  url: testurl\n" +
+        "  distance_function: COSINE\n" +
+        "  license: testlicense\n" +
+        "  vendor: testvendor\n" +
+        "  notes: testnotes\n" +
+        "profiles:\n" +
+        "  p1:\n" +
+        "    base_vectors:\n" +
+        "      source: test1.hdf5(0..1_000_000,0..128)\n" +
+        "      window: (5..100,0..90)\n" +
+        "    query_vectors:\n" +
+        "      source: test1.hdf5(0..1_000_000,0..128)\n" +
+        "      window: (5..100,0..90)\n" +
+        "  p2:\n" +
+        "    base_vectors:\n" +
+        "      source: test1.hdf5(0..1_000_000,0..128)\n" +
+        "      window: (10..100,0..80)";
     TestGroupLayout fgc = TestGroupLayout.fromYaml(yaml);
     //    assertThat(fc2).isEqualTo(fc1);
 

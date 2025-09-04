@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /// Sorts base paths by reverse size, then by name
 public class PathsSorter implements Iterable<PathAggregator> {
@@ -92,7 +93,7 @@ public class PathsSorter implements Iterable<PathAggregator> {
     /// get the sorted path aggregators as a list of paths
     /// @return the sorted paths as a list of paths
     public List<Path> toPaths() {
-      return stream().map(PathAggregator::getRootPath).toList();
+      return stream().map(PathAggregator::getRootPath).collect(java.util.stream.Collectors.toList());
     }
 
     ;

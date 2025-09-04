@@ -33,10 +33,15 @@ public enum DistanceFunction {
   /// @param v2 the second vector
   /// @return the distance between the two vectors
   public double distance(double[] v1, double[] v2) {
-    return switch (this) {
-      case COSINE -> doubleCosineDistance(v1, v2);
-      case DOT_PRODUCT, EUCLIDEAN -> throw new RuntimeException("Not implemented");
-    };
+    switch (this) {
+      case COSINE:
+        return doubleCosineDistance(v1, v2);
+      case DOT_PRODUCT:
+      case EUCLIDEAN:
+        throw new RuntimeException("Not implemented");
+      default:
+        throw new IllegalArgumentException("Unknown distance function: " + this);
+    }
   }
 
   /// compute the distance between two vectors
@@ -44,11 +49,15 @@ public enum DistanceFunction {
   /// @param v2 the second vector
   /// @return the distance between the two vectors
   public double distance(float[] v1, float[] v2) {
-    return switch (this) {
-      case COSINE -> floatCosineDistance(v1, v2);
-      case DOT_PRODUCT, EUCLIDEAN -> throw new RuntimeException("Not implemented");
-
-    };
+    switch (this) {
+      case COSINE:
+        return floatCosineDistance(v1, v2);
+      case DOT_PRODUCT:
+      case EUCLIDEAN:
+        throw new RuntimeException("Not implemented");
+      default:
+        throw new IllegalArgumentException("Unknown distance function: " + this);
+    }
   }
 
   private double floatCosineDistance(float[] vectorA, float[] vectorB) {

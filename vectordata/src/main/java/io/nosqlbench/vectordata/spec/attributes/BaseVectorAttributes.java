@@ -20,16 +20,42 @@ package io.nosqlbench.vectordata.spec.attributes;
 
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 
-/// This record type captures the basic metadata requirements of the vector test data spec
+/// This class captures the basic metadata requirements of the vector test data spec
 /// @see DistanceFunction
-/// @param dimensions the number of dimensions in each vector
-/// @param count the number of vectors in the dataset
-/// @param model the name of the model used to generate the data
-/// @param distance_function the distance function used to compute distance between vectors
-public record BaseVectorAttributes(
-    long count,
-    long dimensions,
-    String model,
-    DistanceFunction distance_function
-) {
+public class BaseVectorAttributes {
+    /// the number of vectors in the dataset
+    private final long count;
+    /// the number of dimensions in each vector  
+    private final long dimensions;
+    /// the name of the model used to generate the data
+    private final String model;
+    /// the distance function used to compute distance between vectors
+    private final DistanceFunction distance_function;
+    
+    public BaseVectorAttributes(long count, long dimensions, String model, DistanceFunction distance_function) {
+        this.count = count;
+        this.dimensions = dimensions;
+        this.model = model;
+        this.distance_function = distance_function;
+    }
+    
+    /// @return the number of vectors in the dataset
+    public long count() {
+        return count;
+    }
+    
+    /// @return the number of dimensions in each vector
+    public long dimensions() {
+        return dimensions;
+    }
+    
+    /// @return the name of the model used to generate the data
+    public String model() {
+        return model;
+    }
+    
+    /// @return the distance function used to compute distance between vectors
+    public DistanceFunction distance_function() {
+        return distance_function;
+    }
 }

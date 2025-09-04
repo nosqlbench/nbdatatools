@@ -62,21 +62,20 @@ public class Hdf5JsonSummarizer implements Function<Path, String> {
   /// @param level the level of the node
   /// @return a descriptive map
   public Map<String, Object> describeNode(Node node, Map<String, Object> parentMap, int level) {
-    switch (node) {
-      case Dataset dataset:
-        Map<String, Object> datasets = (Map<String, Object>) parentMap.computeIfAbsent(
-            "datasets",
-            k -> new LinkedHashMap<String, Object>()
-        );
-        datasets.put(dataset.getName(), describeDataset(dataset, level + 1));
-        break;
-      case Group group:
-        Map<String, Object> groups =
-            (Map<String, Object>) parentMap.computeIfAbsent("groups", k -> new LinkedHashMap<>());
-        groups.put(group.getName(), describeGroup(group, level));
-        //        describeAttrs(group, sb, level);
-        break;
-      default:
+    if (node instanceof Dataset) {
+      Dataset dataset = (Dataset) node;
+      Map<String, Object> datasets = (Map<String, Object>) parentMap.computeIfAbsent(
+          "datasets",
+          k -> new LinkedHashMap<String, Object>()
+      );
+      datasets.put(dataset.getName(), describeDataset(dataset, level + 1));
+    } else if (node instanceof Group) {
+      Group group = (Group) node;
+      Map<String, Object> groups =
+          (Map<String, Object>) parentMap.computeIfAbsent("groups", k -> new LinkedHashMap<>());
+      groups.put(group.getName(), describeGroup(group, level));
+      //        describeAttrs(group, sb, level);
+    } else {
         throw new RuntimeException(
             "unknown type to represent: " + node.getClass().getCanonicalName());
     }

@@ -63,25 +63,21 @@ import java.util.concurrent.Callable;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "self-check KNN test data answer-keys",
-    description = """
-        Reads query vectors from HDF5 data, computes KNN neighborhoods, and
-        compares them against the answer-key data given. This is a pure Java
-        implementation which requires no other vector processing libraries
-        or hardware, so it has two key trade-offs with other methods:
-        1. It is not as fast as a GPU or TPU. It is not expected to be.
-        2. It is a vastly simpler implementation, which makes it arguably easier
-           to rely on as a basic verification tool.
-        This utility is meant to be used in concert with other tools which are
-        faster, but which may benefit from the assurance of a basic coherence check.
-        In essence, if you are not sure your test data is self-correct, then use
-        this tool to double check it with some sparse sampling.
-        
-        The currently supported distance functions and file formats are indicated
-        by the available command line options.
-        
-        The pseudo-standard HDF5 KNN answer-key file format is documented here:
-        https://github.com/nosqlbench/nbdatatools/blob/main/nbvectors/src/docs/hdf5_vectors.md
-        """,
+    description = "Reads query vectors from HDF5 data, computes KNN neighborhoods, and\n" +
+        "compares them against the answer-key data given. This is a pure Java\n" +
+        "implementation which requires no other vector processing libraries\n" +
+        "or hardware, so it has two key trade-offs with other methods:\n" +
+        "1. It is not as fast as a GPU or TPU. It is not expected to be.\n" +
+        "2. It is a vastly simpler implementation, which makes it arguably easier\n" +
+        "   to rely on as a basic verification tool.\n" +
+        "This utility is meant to be used in concert with other tools which are\n" +
+        "faster, but which may benefit from the assurance of a basic coherence check.\n" +
+        "In essence, if you are not sure your test data is self-correct, then use\n" +
+        "this tool to double check it with some sparse sampling.\n\n" +
+        "The currently supported distance functions and file formats are indicated\n" +
+        "by the available command line options.\n\n" +
+        "The pseudo-standard HDF5 KNN answer-key file format is documented here:\n" +
+        "https://github.com/nosqlbench/nbdatatools/blob/main/nbvectors/src/docs/hdf5_vectors.md",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: all tested neighborhoods were correct",
@@ -130,11 +126,9 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
       description = "Valid values: ${COMPLETION-CANDIDATES}")
   private ErrorMode errorMode;
 
-  @Option(names = {"-p", "--phi"}, defaultValue = "0.001d", description = """
-      When comparing values which are not exact, due to floating point rounding
-      errors, the distance within which the values are considered effectively
-      the same.
-      """)
+  @Option(names = {"-p", "--phi"}, defaultValue = "0.001d", description = "When comparing values which are not exact, due to floating point rounding\n" +
+      "errors, the distance within which the values are considered effectively\n" +
+      "the same.")
   private double phi;
 
   @Option(names = {"--profile", "--config"},
@@ -142,8 +136,7 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
       defaultValue = "ALL")
   private String dataconfig = "ALL";
 
-  @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = """
-      Internal diagnostic level, sends content directly to the console.""", defaultValue = "ERROR")
+  @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = "Internal diagnostic level, sends content directly to the console.", defaultValue = "ERROR")
   ConsoleDiagnostics diaglevel;
 
   @Override
@@ -173,20 +166,14 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
               logger.info("loaded neighbor distances: {}", distances.get().toString());
             }
             IntVectors indices = (IntVectors) data.getNeighborIndices()
-                .orElseThrow(() -> new RuntimeException("""
-                    Neighbor indices are not available int he provided data, so distance-based verification is not possible.
-                    """));
+                .orElseThrow(() -> new RuntimeException("Neighbor indices are not available int he provided data, so distance-based verification is not possible."));
             FloatVectors baseVectors =
-                data.getBaseVectors().orElseThrow(() -> new RuntimeException("""
-                    Base vectors are not available in the provided data, so distance-based verification is not possible.
-                    """));
+                data.getBaseVectors().orElseThrow(() -> new RuntimeException("Base vectors are not available in the provided data, so distance-based verification is not possible."));
             FloatVectors queryVectors =
-                data.getQueryVectors().orElseThrow(() -> new RuntimeException("""
-                    Query vectors are not available in the provided data, so distance-based verification is not possible.
-                    """));
+                data.getQueryVectors().orElseThrow(() -> new RuntimeException("Query vectors are not available in the provided data, so distance-based verification is not possible."));
 
-            if (baseVectors instanceof FloatVectors floatVectors) {
-              logger.info("loaded base vectors: {}", floatVectors.toString());
+            if (baseVectors instanceof FloatVectors) {
+              logger.info("loaded base vectors: {}", baseVectors.toString());
             } else {
               throw new RuntimeException("unsupported vector type: " + baseVectors.getClass());
             }
@@ -233,14 +220,20 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
   private StatusView getStatusView() {
     @SuppressWarnings("resource") StatusViewRouter view = new StatusViewRouter();
     switch (output) {
-      case All, Progress:
+      case All:
+      case Progress:
         view.add(new StatusViewLanterna(Math.min(3, interval.count())));
+        break;
       default:
+        break;
     }
     switch (output) {
-      case All, Stdout:
+      case All:
+      case Stdout:
         view.add(new StatusViewStdout(view.isEmpty()));
+        break;
       default:
+        break;
     }
     return view.isEmpty() ? new StatusViewNoOp() : view;
   }

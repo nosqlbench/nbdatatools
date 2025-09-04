@@ -64,15 +64,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path testCatalogDir = tempDir.resolve("test-catalog-tilde");
         Files.createDirectories(testCatalogDir);
         Path catalogFile = testCatalogDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "tilde-test-dataset",
-              "url": "http://example.com/dataset.hdf5",
-              "attributes": {"test": "tilde-expansion"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"tilde-test-dataset\",\n" +
+            "  \"url\": \"http://example.com/dataset.hdf5\",\n" +
+            "  \"attributes\": {\"test\": \"tilde-expansion\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Use tilde notation to reference the catalog
         TestDataSources sources = new TestDataSources()
@@ -95,15 +93,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path testCatalogDir = tempDir.resolve("test-optional-tilde");
         Files.createDirectories(testCatalogDir);
         Path catalogFile = testCatalogDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "optional-tilde-dataset",
-              "url": "http://example.com/optional.hdf5",
-              "attributes": {"type": "optional-tilde"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"optional-tilde-dataset\",\n" +
+            "  \"url\": \"http://example.com/optional.hdf5\",\n" +
+            "  \"attributes\": {\"type\": \"optional-tilde\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Use tilde notation for optional catalog
         TestDataSources sources = new TestDataSources()
@@ -132,15 +128,13 @@ public class TestDataSourcesTildeHandlingTest {
         
         // Create catalog file
         Path catalogFile = catalogDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "config-tilde-dataset",
-              "url": "http://example.com/config.hdf5",
-              "attributes": {"source": "config-tilde"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"config-tilde-dataset\",\n" +
+            "  \"url\": \"http://example.com/config.hdf5\",\n" +
+            "  \"attributes\": {\"source\": \"config-tilde\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create catalogs.yaml in config directory
         Path catalogsYaml = testConfigDir.resolve("catalogs.yaml");
@@ -183,15 +177,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogDir = tempDir.resolve("test-catalog");
         Files.createDirectories(catalogDir);
         Path catalogFile = catalogDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "test-dataset",
-              "url": "http://example.com/test.hdf5",
-              "attributes": {},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"test-dataset\",\n" +
+            "  \"url\": \"http://example.com/test.hdf5\",\n" +
+            "  \"attributes\": {},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
         
         TestDataSources finalSources = withOptional.addCatalogs(catalogDir.toString());
         Catalog catalog = finalSources.catalog();
@@ -208,15 +200,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path nestedDir = tempDir.resolve("test1").resolve("test2");
         Files.createDirectories(nestedDir);
         Path catalogFile = nestedDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "nested-dataset",
-              "url": "http://example.com/nested.hdf5",
-              "attributes": {},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"nested-dataset\",\n" +
+            "  \"url\": \"http://example.com/nested.hdf5\",\n" +
+            "  \"attributes\": {},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Use tilde notation
         TestDataSources sources = new TestDataSources()
@@ -234,15 +224,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogDir = tempDir.resolve("no-tilde-catalog");
         Files.createDirectories(catalogDir);
         Path catalogFile = catalogDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "no-tilde-dataset",
-              "url": "http://example.com/notilde.hdf5",
-              "attributes": {"tilde": "none"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"no-tilde-dataset\",\n" +
+            "  \"url\": \"http://example.com/notilde.hdf5\",\n" +
+            "  \"attributes\": {\"tilde\": \"none\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Use absolute path without tilde
         TestDataSources sources = new TestDataSources()
@@ -261,15 +249,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path requiredDir = tempDir.resolve("required");
         Files.createDirectories(requiredDir);
         Path requiredCatalog = requiredDir.resolve("catalog.json");
-        Files.writeString(requiredCatalog, """
-            [{
-              "name": "required-dataset",
-              "url": "http://example.com/required.hdf5",
-              "attributes": {},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(requiredCatalog, "[{\n" +
+            "  \"name\": \"required-dataset\",\n" +
+            "  \"url\": \"http://example.com/required.hdf5\",\n" +
+            "  \"attributes\": {},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Reference a non-existent optional catalog using tilde
         TestDataSources sources = new TestDataSources()
@@ -296,15 +282,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path homeCatalogDir = tempDir.resolve("my-catalogs");
         Files.createDirectories(homeCatalogDir);
         Path catalogFile = homeCatalogDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "yaml-tilde-dataset",
-              "url": "http://example.com/yaml.hdf5",
-              "attributes": {"from": "yaml"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"yaml-tilde-dataset\",\n" +
+            "  \"url\": \"http://example.com/yaml.hdf5\",\n" +
+            "  \"attributes\": {\"from\": \"yaml\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create catalogs.yaml with tilde path
         Path catalogsYaml = configDir.resolve("catalogs.yaml");
@@ -333,15 +317,13 @@ public class TestDataSourcesTildeHandlingTest {
         
         // Create a catalog file
         Path catalogFile = configPath.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "testapp-dataset",
-              "url": "http://example.com/testapp.hdf5",
-              "attributes": {"path": "correct"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"testapp-dataset\",\n" +
+            "  \"url\": \"http://example.com/testapp.hdf5\",\n" +
+            "  \"attributes\": {\"path\": \"correct\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // This should expand to <tempDir>/.config/testapp, NOT <cwd>/~/.config/testapp
         TestDataSources sources = new TestDataSources()
@@ -367,15 +349,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogDir = tempDir.resolve("app-catalogs");
         Files.createDirectories(catalogDir);
         Path catalogFile = catalogDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "deep-dataset",
-              "url": "http://example.com/deep.hdf5",
-              "attributes": {},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"deep-dataset\",\n" +
+            "  \"url\": \"http://example.com/deep.hdf5\",\n" +
+            "  \"attributes\": {},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create catalogs.yaml pointing to catalog
         Files.writeString(deepPath, "- " + catalogDir.toString() + "\n");
@@ -400,15 +380,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path dataCatalogDir = tempDir.resolve("data-catalog");
         Files.createDirectories(dataCatalogDir);
         Path dataFile = dataCatalogDir.resolve("catalog.json");
-        Files.writeString(dataFile, """
-            [{
-              "name": "directory-test-dataset",
-              "url": "http://example.com/directory.hdf5",
-              "attributes": {"source": "directory"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(dataFile, "[{\n" +
+            "  \"name\": \"directory-test-dataset\",\n" +
+            "  \"url\": \"http://example.com/directory.hdf5\",\n" +
+            "  \"attributes\": {\"source\": \"directory\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create catalogs.yaml in the directory
         Path catalogsYaml = catalogDir.resolve("catalogs.yaml");
@@ -431,15 +409,13 @@ public class TestDataSourcesTildeHandlingTest {
         Path dataCatalogDir = tempDir.resolve("yaml-catalog");
         Files.createDirectories(dataCatalogDir);
         Path dataFile = dataCatalogDir.resolve("catalog.json");
-        Files.writeString(dataFile, """
-            [{
-              "name": "yaml-file-dataset",
-              "url": "http://example.com/yamlfile.hdf5",
-              "attributes": {"source": "yaml-file"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(dataFile, "[{\n" +
+            "  \"name\": \"yaml-file-dataset\",\n" +
+            "  \"url\": \"http://example.com/yamlfile.hdf5\",\n" +
+            "  \"attributes\": {\"source\": \"yaml-file\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create a YAML file directly
         Path yamlFile = tempDir.resolve("my-catalogs.yaml");

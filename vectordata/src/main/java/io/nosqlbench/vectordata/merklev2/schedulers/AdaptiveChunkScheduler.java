@@ -121,12 +121,18 @@ public class AdaptiveChunkScheduler implements ChunkScheduler {
     /// @return The scheduler to use for the current conditions
     ///
     private ChunkScheduler selectDelegateScheduler() {
-        return switch (currentAggressiveness) {
-            case 1 -> conservativeScheduler;  // Most conservative
-            case 2, 3 -> defaultScheduler;    // Balanced approach
-            case 4, 5 -> aggressiveScheduler; // Most aggressive
-            default -> defaultScheduler;      // Fallback
-        };
+        switch (currentAggressiveness) {
+            case 1:
+                return conservativeScheduler;  // Most conservative
+            case 2:
+            case 3:
+                return defaultScheduler;    // Balanced approach
+            case 4:
+            case 5:
+                return aggressiveScheduler; // Most aggressive
+            default:
+                return defaultScheduler;      // Fallback
+        }
     }
     
     ///

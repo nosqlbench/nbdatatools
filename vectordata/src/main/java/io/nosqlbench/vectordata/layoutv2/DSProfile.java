@@ -69,8 +69,8 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
   public static DSProfile fromData(Object views) {
     Map<?,?> vmap = null;
     Map<String, DSView> viewMap = new LinkedHashMap<>();
-    if (views instanceof Map<?,?> m) {
-      vmap = m;
+    if (views instanceof Map<?,?>) {
+      vmap = (Map<?,?>) views;
     } else {
       throw new RuntimeException("invalid profile format:" + views);
     }

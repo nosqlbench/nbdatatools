@@ -18,16 +18,29 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 
+import java.util.Objects;
+
 /// Represents a range within a total data size
 /// Used for both specifying initial ranges and computing chunk boundaries
-/// @param start The starting offset of the range
-/// @param end The ending offset of the range
-public record MerkleRange(long start, long end) {
+public class MerkleRange {
+    private final long start;
+    private final long end;
+
     /// Constructs a new MerkleRange object with the given start and end offsets
-    public MerkleRange {
+    public MerkleRange(long start, long end) {
         if (start < 0 || end < start) {
             throw new IllegalArgumentException("Invalid range: [" + start + ", " + end + "]");
         }
+        this.start = start;
+        this.end = end;
+    }
+
+    public long start() {
+        return start;
+    }
+
+    public long end() {
+        return end;
     }
 
     /// Returns true if this range fully contains another range
@@ -83,17 +96,15 @@ public record MerkleRange(long start, long end) {
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof MerkleRange range))
-            return false;
-
-        return end == range.end && start == range.start;
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        MerkleRange range = (MerkleRange) o;
+        return start == range.start && end == range.end;
     }
 
     @Override
     public int hashCode() {
-        int result = Long.hashCode(start);
-        result = 31 * result + Long.hashCode(end);
-        return result;
+        return Objects.hash(start, end);
     }
 
     /// Returns the length of this range in bytes

@@ -169,7 +169,22 @@ public interface ProgressIndicator<T>  {
     /**
      * A snapshot of progress at a point in time.
      */
-    public static record ProgressSnapshot(double currentWork, double totalWork) {
+    public static class ProgressSnapshot {
+        private final double currentWork;
+        private final double totalWork;
+        
+        public ProgressSnapshot(double currentWork, double totalWork) {
+            this.currentWork = currentWork;
+            this.totalWork = totalWork;
+        }
+        
+        public double currentWork() {
+            return currentWork;
+        }
+        
+        public double totalWork() {
+            return totalWork;
+        }
         
         public double getPercentage() {
             if (totalWork <= 0) {
@@ -191,6 +206,19 @@ public interface ProgressIndicator<T>  {
         
         public double getRemainingWork() {
             return Math.max(0, totalWork - currentWork);
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            ProgressSnapshot that = (ProgressSnapshot) obj;
+            return Double.compare(that.currentWork, currentWork) == 0 && Double.compare(that.totalWork, totalWork) == 0;
+        }
+        
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(currentWork, totalWork);
         }
         
         @Override
@@ -501,7 +529,36 @@ public interface ProgressIndicator<T>  {
     /**
      * A sample of progress at a specific point in time.
      */
-    record ProgressSample(double work, long timestamp) {}
+    class ProgressSample {
+        private final double work;
+        private final long timestamp;
+        
+        public ProgressSample(double work, long timestamp) {
+            this.work = work;
+            this.timestamp = timestamp;
+        }
+        
+        public double work() {
+            return work;
+        }
+        
+        public long timestamp() {
+            return timestamp;
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            ProgressSample that = (ProgressSample) obj;
+            return Double.compare(that.work, work) == 0 && timestamp == that.timestamp;
+        }
+        
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(work, timestamp);
+        }
+    }
     
     /**
      * Prints the progress status of this ProgressIndicator to System.out

@@ -56,9 +56,20 @@ public class LinePartitioner implements Iterable<LinePartitioner.Extent> {
   }
 
   /// an extent of a file
-  /// @param start the starting offset, inclusive
-  /// @param end the ending offset, exclusive
-  public record Extent(long start, long end) {
+  public static class Extent {
+    /// the starting offset, inclusive
+    private final long start;
+    /// the ending offset, exclusive
+    private final long end;
+    
+    public Extent(long start, long end) {
+      this.start = start;
+      this.end = end;
+    }
+    
+    public long start() { return start; }
+    public long end() { return end; }
+    
     /// partition the extent into a list of extents
     /// @param br the file channel to read from
     /// @param partitions the number of partitions to create

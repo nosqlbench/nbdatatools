@@ -36,9 +36,7 @@ import java.util.concurrent.Callable;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "export HDF5 KNN answer-keys to JSON summary files",
-    description = """
-        TBD
-        """,
+    description = "TBD",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
@@ -77,12 +75,15 @@ public class ExportJson implements Callable<Integer>, BundledCommand {
         System.err.println("skipping " + path);
         continue;
       }
-      String summary = null;
-      summary = switch (this.mode) {
-        case raw -> summarizer.apply(path);
+      String summary;
+      switch (this.mode) {
+        case raw:
+          summary = summarizer.apply(path);
+          break;
         //        case cooked -> new TestDataGroup(path).toJson();
-        default -> throw new RuntimeException("unknown mode: " + mode);
-      };
+        default:
+          throw new RuntimeException("unknown mode: " + mode);
+      }
       if (this.save) {
         Path jsonPath = Path.of(path.toString().replaceFirst("\\.hdf5$", ".json"));
         if (Files.exists(jsonPath) && !this.force) {

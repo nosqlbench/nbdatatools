@@ -89,7 +89,9 @@ public class BytebufChunker implements Iterable<CharBuffer> {
           at++;
         }
         int len = at - buf.position();
-        ByteBuffer slice = buf.slice(buf.position(), len);
+        ByteBuffer slice = buf.duplicate();
+        slice.position(buf.position());
+        slice.limit(buf.position() + len);
         buf.position(at);
         return StandardCharsets.UTF_8.decode(slice);
       } catch (Exception e) {

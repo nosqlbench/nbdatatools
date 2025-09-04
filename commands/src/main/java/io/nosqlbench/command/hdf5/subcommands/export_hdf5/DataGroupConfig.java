@@ -26,39 +26,72 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /// Config for a single hdf5 file, with some required and some optional components from other files
-/// @param base_vectors
-///     the base_vectors file to read
-/// @param query_vectors
-///     the query_vectors file to read
-/// @param neighbors
-///     the query_neighbors file to read
-/// @param distances
-///     the query_distances file to read
-/// @param query_terms
-///     the query_terms file to read
-/// @param query_filters
-///     the query_filters file to read
-/// @param base_content
-///     the base_content file to read
-/// @param metadata
-///     the metadata associated with the overall hdf5 file
-/// @param layout
-///     the layout file to read
-public record DataGroupConfig(
-    Optional<Path> base_vectors,
-    Optional<Path> query_vectors,
-    Optional<Path> neighbors,
-    Optional<Path> distances,
-    Optional<Path> base_content,
-    Optional<Path> query_terms,
-    Optional<Path> query_filters,
-    Optional<Path> layout,
-    RootGroupAttributes metadata
-)
-{
+public class DataGroupConfig {
+  private final Optional<Path> base_vectors;
+  private final Optional<Path> query_vectors;
+  private final Optional<Path> neighbors;
+  private final Optional<Path> distances;
+  private final Optional<Path> base_content;
+  private final Optional<Path> query_terms;
+  private final Optional<Path> query_filters;
+  private final Optional<Path> layout;
+  private final RootGroupAttributes metadata;
+
+  public DataGroupConfig(Optional<Path> base_vectors, Optional<Path> query_vectors,
+                       Optional<Path> neighbors, Optional<Path> distances,
+                       Optional<Path> base_content, Optional<Path> query_terms,
+                       Optional<Path> query_filters, Optional<Path> layout,
+                       RootGroupAttributes metadata) {
+    this.base_vectors = base_vectors;
+    this.query_vectors = query_vectors;
+    this.neighbors = neighbors;
+    this.distances = distances;
+    this.base_content = base_content;
+    this.query_terms = query_terms;
+    this.query_filters = query_filters;
+    this.layout = layout;
+    this.metadata = metadata;
+  }
+
+  public Optional<Path> base_vectors() {
+    return base_vectors;
+  }
+
+  public Optional<Path> query_vectors() {
+    return query_vectors;
+  }
+
+  public Optional<Path> neighbors() {
+    return neighbors;
+  }
+
+  public Optional<Path> distances() {
+    return distances;
+  }
+
+  public Optional<Path> base_content() {
+    return base_content;
+  }
+
+  public Optional<Path> query_terms() {
+    return query_terms;
+  }
+
+  public Optional<Path> query_filters() {
+    return query_filters;
+  }
+
+  public Optional<Path> layout() {
+    return layout;
+  }
+
+  public RootGroupAttributes metadata() {
+    return metadata;
+  }
   /// create a file config
   /// @param base_vectors
   ///     the base_vectors file to read
@@ -157,5 +190,42 @@ public record DataGroupConfig(
         RootGroupAttributes.fromMap(new LinkedHashMap<>(cfg))
     );
 
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DataGroupConfig that = (DataGroupConfig) o;
+    return Objects.equals(base_vectors, that.base_vectors) &&
+           Objects.equals(query_vectors, that.query_vectors) &&
+           Objects.equals(neighbors, that.neighbors) &&
+           Objects.equals(distances, that.distances) &&
+           Objects.equals(base_content, that.base_content) &&
+           Objects.equals(query_terms, that.query_terms) &&
+           Objects.equals(query_filters, that.query_filters) &&
+           Objects.equals(layout, that.layout) &&
+           Objects.equals(metadata, that.metadata);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(base_vectors, query_vectors, neighbors, distances,
+                       base_content, query_terms, query_filters, layout, metadata);
+  }
+
+  @Override
+  public String toString() {
+    return "DataGroupConfig{" +
+           "base_vectors=" + base_vectors +
+           ", query_vectors=" + query_vectors +
+           ", neighbors=" + neighbors +
+           ", distances=" + distances +
+           ", base_content=" + base_content +
+           ", query_terms=" + query_terms +
+           ", query_filters=" + query_filters +
+           ", layout=" + layout +
+           ", metadata=" + metadata +
+           '}';
   }
 }

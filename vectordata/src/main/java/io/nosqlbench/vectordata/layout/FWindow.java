@@ -29,9 +29,17 @@ import java.util.stream.Collectors;
 ///
 /// A window consists of a list of intervals that define which portions of the data
 /// should be accessed. This is used to limit or filter the data that is processed.
-///
-/// @param intervals The list of intervals that make up this window
-public record FWindow(List<FInterval> intervals) {
+public class FWindow {
+  /// The list of intervals that make up this window
+  private final List<FInterval> intervals;
+
+  public FWindow(List<FInterval> intervals) {
+    this.intervals = intervals;
+  }
+
+  public List<FInterval> intervals() {
+    return intervals;
+  }
 
   /// the pattern for parsing a window spec
   public final static Pattern PATTERN;
@@ -39,13 +47,11 @@ public record FWindow(List<FInterval> intervals) {
   public static final FWindow ALL = new FWindow(List.of(new FInterval(-1, -1)));
 
   static {
-    String regex = """
-        ^
-        [(\\[]? \\s*
-        (?<intervals>(.)+)
-        [)\\]]? \\s*
-        $
-        """;
+    String regex = "^" +
+        "[\\[\\(]?\\s*" +
+        "(?<intervals>(.)+)" +
+        "[\\]\\)]?\\s*" +
+        "$";
     PATTERN = Pattern.compile(regex, Pattern.COMMENTS | Pattern.DOTALL);
   }
 
@@ -83,12 +89,10 @@ public record FWindow(List<FInterval> intervals) {
       }
       return new FWindow(interval);
     } else {
-      throw new RuntimeException("""
-          "Invalid data window spec: 'SPEC'. Expected a comma separated list of intervals.
-          Each interval is of the form 'START..END', where START and END are integers.
-          The start value in inclusive and the end value is exclusive. The whole window spec can be wrapped in
-          square or round brackets.
-          """.replaceAll("SPEC", spec));
+      throw new RuntimeException(("Invalid data window spec: 'SPEC'. Expected a comma separated list of intervals.\n" +
+          "Each interval is of the form 'START..END', where START and END are integers.\n" +
+          "The start value in inclusive and the end value is exclusive. The whole window spec can be wrapped in\n" +
+          "square or round brackets.\n").replaceAll("SPEC", spec));
     }
   }
 
@@ -96,17 +100,22 @@ public record FWindow(List<FInterval> intervals) {
   ///  @param window the object to load from
   ///  @return the loaded window
   public static FWindow fromObject(Object window) {
-    if (window instanceof FWindow fw) {
+    if (window instanceof FWindow) {
+      FWindow fw = (FWindow) window;
       return fw;
     } else if (window == null) {
       return FWindow.ALL;
-    } else if (window instanceof CharSequence cs) {
+    } else if (window instanceof CharSequence) {
+      CharSequence cs = (CharSequence) window;
       return parse(cs.toString());
-    } else if (window instanceof Number n) {
+    } else if (window instanceof Number) {
+      Number n = (Number) window;
       return new FWindow(List.of(new FInterval(0, n.longValue())));
-    } else if (window instanceof List<?> l) {
-      return new FWindow(l.stream().map(FInterval::fromObject).toList());
-    } else if (window instanceof Map<?, ?> m) {
+    } else if (window instanceof List<?>) {
+      List<?> l = (List<?>) window;
+      return new FWindow(l.stream().map(FInterval::fromObject).collect(java.util.stream.Collectors.toList()));
+    } else if (window instanceof Map<?, ?>) {
+      Map<?, ?> m = (Map<?, ?>) window;
       return fromObject(m.get("intervals"));
     } else {
       throw new RuntimeException("invalid window format:" + window);
@@ -124,5 +133,23 @@ public record FWindow(List<FInterval> intervals) {
   /// @return the index in the underlying data
   public long translate(long index) {
     return intervals.get(0).minIncl() + index;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+    FWindow that = (FWindow) obj;
+    return java.util.Objects.equals(intervals, that.intervals);
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(intervals);
+  }
+
+  @Override
+  public String toString() {
+    return "FWindow{intervals=" + intervals + '}';
   }
 }

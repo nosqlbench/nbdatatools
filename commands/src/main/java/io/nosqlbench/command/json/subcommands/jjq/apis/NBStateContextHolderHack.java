@@ -110,7 +110,9 @@ public class NBStateContextHolderHack implements NBStateContext, Function, AutoC
   /// {@inheritDoc}
   @Override
   public synchronized void close() throws Exception {
-    for (StatefulShutdown statefulShutdown : statefulShutdowns.reversed()) {
+    StatefulShutdown[] shutdownArray = statefulShutdowns.toArray(new StatefulShutdown[0]);
+    for (int i = shutdownArray.length - 1; i >= 0; i--) {
+      StatefulShutdown statefulShutdown = shutdownArray[i];
       System.out.println("shutting down " + statefulShutdown);
       statefulShutdown.shutdown();
     }

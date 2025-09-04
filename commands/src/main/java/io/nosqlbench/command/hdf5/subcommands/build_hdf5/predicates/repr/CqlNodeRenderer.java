@@ -28,10 +28,15 @@ public class CqlNodeRenderer implements PredicateRepresenter {
 
   @Override
   public String apply(PNode<?> node) {
-    return switch (node) {
-      case ConjugateNode n -> reprConjugate(n);
-      case PredicateNode p -> reprPredicate(p);
-    };
+    if (node instanceof ConjugateNode) {
+      ConjugateNode n = (ConjugateNode) node;
+      return reprConjugate(n);
+    } else if (node instanceof PredicateNode) {
+      PredicateNode p = (PredicateNode) node;
+      return reprPredicate(p);
+    } else {
+      throw new IllegalArgumentException("Unknown node type: " + node.getClass());
+    }
   }
 
   private String reprPredicate(PredicateNode p) {
@@ -62,10 +67,15 @@ public class CqlNodeRenderer implements PredicateRepresenter {
   }
 
   private String reprConjugate(ConjugateNode n) {
-    return switch (n.type()) {
-      case AND,OR -> concatenate(n.type().name(),n.values());
-      case PRED -> throw new RuntimeException("impossible unless broken code");
-    };
+    switch (n.type()) {
+      case AND:
+      case OR:
+        return concatenate(n.type().name(),n.values());
+      case PRED:
+        throw new RuntimeException("impossible unless broken code");
+      default:
+        throw new IllegalArgumentException("Unknown conjugate type: " + n.type());
+    }
   }
 
   private String concatenate(String name, PNode<?>[] values) {
@@ -73,7 +83,7 @@ public class CqlNodeRenderer implements PredicateRepresenter {
 
     for (PNode<?> value : values) {
       String nodeRep = apply(value);
-      if (!sb.isEmpty()) {
+      if (sb.length() > 0) {
         sb.append(" ").append(name).append(" ");
       }
       sb.append(nodeRep);

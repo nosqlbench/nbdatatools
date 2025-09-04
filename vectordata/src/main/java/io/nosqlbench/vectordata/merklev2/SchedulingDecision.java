@@ -18,32 +18,64 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 import java.util.List;
+import java.util.Objects;
 
 ///
 /// Records a scheduling decision made by a ChunkScheduler, including
 /// full traceability information for testing and debugging.
 ///
-/// This record captures both the what (which nodes were selected) and
+/// This class captures both the what (which nodes were selected) and
 /// the why (reasoning behind the selection) of scheduling decisions,
 /// enabling comprehensive verification of scheduler behavior.
 ///
-/// @param nodeIndex The merkle node selected for download
-/// @param reason The reasoning category for this selection
-/// @param priority The calculated priority of this download task
-/// @param estimatedBytes The estimated number of bytes this node covers
-/// @param requiredChunks List of chunk indices actually needed by the request
-/// @param coveredChunks List of chunk indices this node will download
-/// @param explanation Human-readable explanation of the decision
-///
-public record SchedulingDecision(
-    int nodeIndex,
-    SchedulingReason reason,
-    int priority,
-    long estimatedBytes,
-    List<Integer> requiredChunks,
-    List<Integer> coveredChunks,
-    String explanation
-) {
+public class SchedulingDecision {
+    private final int nodeIndex;
+    private final SchedulingReason reason;
+    private final int priority;
+    private final long estimatedBytes;
+    private final List<Integer> requiredChunks;
+    private final List<Integer> coveredChunks;
+    private final String explanation;
+
+    public SchedulingDecision(int nodeIndex, SchedulingReason reason, int priority,
+                            long estimatedBytes, List<Integer> requiredChunks,
+                            List<Integer> coveredChunks, String explanation) {
+        this.nodeIndex = nodeIndex;
+        this.reason = reason;
+        this.priority = priority;
+        this.estimatedBytes = estimatedBytes;
+        this.requiredChunks = requiredChunks;
+        this.coveredChunks = coveredChunks;
+        this.explanation = explanation;
+    }
+
+    public int nodeIndex() {
+        return nodeIndex;
+    }
+
+    public SchedulingReason reason() {
+        return reason;
+    }
+
+    public int priority() {
+        return priority;
+    }
+
+    public long estimatedBytes() {
+        return estimatedBytes;
+    }
+
+    public List<Integer> requiredChunks() {
+        return requiredChunks;
+    }
+
+    public List<Integer> coveredChunks() {
+        return coveredChunks;
+    }
+
+    public String explanation() {
+        return explanation;
+    }
     
     ///
     /// Calculates the efficiency of this scheduling decision.
@@ -100,5 +132,36 @@ public record SchedulingDecision(
             nodeIndex, reason, priority, estimatedBytes,
             calculateEfficiency(), calculateCoverage(), explanation
         );
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        SchedulingDecision that = (SchedulingDecision) o;
+        return nodeIndex == that.nodeIndex && priority == that.priority &&
+               estimatedBytes == that.estimatedBytes &&
+               Objects.equals(reason, that.reason) &&
+               Objects.equals(requiredChunks, that.requiredChunks) &&
+               Objects.equals(coveredChunks, that.coveredChunks) &&
+               Objects.equals(explanation, that.explanation);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(nodeIndex, reason, priority, estimatedBytes, requiredChunks, coveredChunks, explanation);
+    }
+
+    @Override
+    public String toString() {
+        return "SchedulingDecision{" +
+               "nodeIndex=" + nodeIndex +
+               ", reason=" + reason +
+               ", priority=" + priority +
+               ", estimatedBytes=" + estimatedBytes +
+               ", requiredChunks=" + requiredChunks +
+               ", coveredChunks=" + coveredChunks +
+               ", explanation='" + explanation + '\'' +
+               '}';
     }
 }

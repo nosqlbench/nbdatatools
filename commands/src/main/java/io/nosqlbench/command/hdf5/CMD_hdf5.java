@@ -43,12 +43,10 @@ import java.util.List;
 @Selector("hdf5")
 @CommandLine.Command(name = "hdf5",
     header = "HDF5 file operations for vector test data",
-    description = """
-        This provides a set of utilities for working with HDF5 files.
-        The command includes subcommands for tagging HDF5 files with attributes,
-        showing details of HDF5 KNN test data files, building HDF5 KNN test
-        data answer-keys from JSON, and exporting HDF5 KNN answer-keys from other formats.
-        """,
+    description = "This provides a set of utilities for working with HDF5 files.\n" +
+        "The command includes subcommands for tagging HDF5 files with attributes,\n" +
+        "showing details of HDF5 KNN test data files, building HDF5 KNN test\n" +
+        "data answer-keys from JSON, and exporting HDF5 KNN answer-keys from other formats.",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
     subcommands = {TagHdf5.class, ShowHdf5.class, BuildHdf5.class, ExportHdf5.class, CommandLine.HelpCommand.class})

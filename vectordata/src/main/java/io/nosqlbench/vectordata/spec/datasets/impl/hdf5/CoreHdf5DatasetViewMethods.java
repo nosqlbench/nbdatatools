@@ -120,7 +120,7 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
   /// get the number of vectors in the dataset
   /// @return the number of vectors in the dataset
   public int getCount() {
-    return window.intervals().getFirst().count();
+    return window.intervals().get(0).count();
   }
 
   /// get the number of dimensions in each vector
@@ -373,13 +373,13 @@ public abstract class CoreHdf5DatasetViewMethods<T> implements DatasetView<T> {
 
   @Override
   public List<T> toList() {
-    List<T> list = IntStream.range(0, getCount()).mapToObj(this::get).toList();
+    List<T> list = IntStream.range(0, getCount()).mapToObj(this::get).collect(java.util.stream.Collectors.toList());
     return list;
   }
 
   @Override
   public <U> List<U> toList(Function<T, U> f) {
-    List<U> list = IntStream.range(0, getCount()).mapToObj(i -> f.apply(get(i))).toList();
+    List<U> list = IntStream.range(0, getCount()).mapToObj(i -> f.apply(get(i))).collect(java.util.stream.Collectors.toList());
     return list;
   }
 

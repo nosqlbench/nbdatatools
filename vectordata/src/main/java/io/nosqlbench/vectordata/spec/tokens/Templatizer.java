@@ -76,18 +76,14 @@ public class Templatizer {
     private final String templateForDiagnostics;
 
     private final static Pattern tokenPattern = Pattern.compile(
-        """
-            (?<pre>[^}]*)
-            \\{ (?<token>.+?) \\}
-            (?<post>[^]]*)
-            """, Pattern.COMMENTS
+        "(?<pre>[^}]*)" +
+            "\\\\{ (?<token>.+?) \\\\}" +
+            "(?<post>[^]]*)", Pattern.COMMENTS
     );
     private final static Pattern barePattern = Pattern.compile(
-        """
-            (?<pre>[^a-zA-Z0-9_]*)
-            (?<token>[a-zA-Z0-9_]+)
-            (?<post>[^]]*)
-            """, Pattern.COMMENTS
+        "(?<pre>[^a-zA-Z0-9_]*)" +
+            "(?<token>[a-zA-Z0-9_]+)" +
+            "(?<post>[^]]*)", Pattern.COMMENTS
     );
     private final Function<String, String> lookup;
 
@@ -109,7 +105,7 @@ public class Templatizer {
 
       Matcher matcher1 = tokenPattern.matcher(section);
       Matcher matcher2 = barePattern.matcher(section);
-      MatchResult inner = matcher1.matches() ? matcher1 : matcher2.matches() ? matcher2 : null;
+      Matcher inner = matcher1.matches() ? matcher1 : matcher2.matches() ? matcher2 : null;
       if (inner == null) {
         throw new RuntimeException(
             "unresolved token in outfile template '" + templateForDiagnostics + "': for '" + section

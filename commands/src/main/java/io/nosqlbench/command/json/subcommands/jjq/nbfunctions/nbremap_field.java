@@ -72,7 +72,8 @@ public class nbremap_field extends NBBaseJQFunction {
     }
     long value = mapper.lookupId(fieldName, fnode.asText());
     JsonNode out = in;
-    if (out instanceof ObjectNode onode) {
+    if (out instanceof ObjectNode) {
+      ObjectNode onode = (ObjectNode) out;
       onode.set(fieldName,new LongNode(value));
     } else {
       throw new RuntimeException("Unable to modify node of type '" + out.getClass().getCanonicalName());

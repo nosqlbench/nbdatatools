@@ -55,7 +55,21 @@ public class PartialDataExampleTest {
     @Test
     void testPartialDataWithCustomTracker() {
         // Custom tracking object
-        record RequestContext(String requestId, int expectedSize, long startTime) {}
+        class RequestContext {
+            private final String requestId;
+            private final int expectedSize;
+            private final long startTime;
+            
+            public RequestContext(String requestId, int expectedSize, long startTime) {
+                this.requestId = requestId;
+                this.expectedSize = expectedSize;
+                this.startTime = startTime;
+            }
+            
+            public String requestId() { return requestId; }
+            public int expectedSize() { return expectedSize; }
+            public long startTime() { return startTime; }
+        }
         
         AtomicReference<RequestContext> receivedContext = new AtomicReference<>();
         AtomicInteger totalBytesReceived = new AtomicInteger(0);

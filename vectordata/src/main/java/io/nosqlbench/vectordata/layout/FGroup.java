@@ -24,15 +24,23 @@ import io.nosqlbench.vectordata.utils.SHARED;
 import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /// Represents a group of profiles for faceted data access.
 ///
 /// A group contains multiple profiles, each with a name and a set of views.
 /// This allows for different ways of accessing and processing the same data.
-///
-/// @param profiles A map of profile names to profile definitions
-public record FGroup(Map<String, FProfiles> profiles) {
+public class FGroup {
+  private final Map<String, FProfiles> profiles;
   private final static Type type = new TypeToken<>(){}.getType();
+
+  public FGroup(Map<String, FProfiles> profiles) {
+    this.profiles = profiles;
+  }
+
+  public Map<String, FProfiles> profiles() {
+    return profiles;
+  }
   /// Creates an FGroup from a JSON string.
   ///
   /// @param json The JSON string to parse
@@ -49,7 +57,8 @@ public record FGroup(Map<String, FProfiles> profiles) {
   /// @param defaultProfile The default profile to use if none is specified
   /// @return The created FGroup
   public static FGroup fromObject(Object facetsObject, FProfiles defaultProfile) {
-    if (facetsObject instanceof Map<?,?> m) {
+    if (facetsObject instanceof Map<?,?>) {
+      Map<?,?> m = (Map<?,?>) facetsObject;
       Map<String, FProfiles> facets = new LinkedHashMap<>();
       m.forEach((k,v) -> {
         String profileName = k.toString();
@@ -81,6 +90,26 @@ public record FGroup(Map<String, FProfiles> profiles) {
       map.put(k,v.toData());
     });
     return map;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    FGroup fGroup = (FGroup) o;
+    return Objects.equals(profiles, fGroup.profiles);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(profiles);
+  }
+
+  @Override
+  public String toString() {
+    return "FGroup{" +
+      "profiles=" + profiles +
+      '}';
   }
 
 }

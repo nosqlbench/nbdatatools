@@ -36,36 +36,29 @@ import java.util.concurrent.Callable;
 @CommandLine.Command(name = "export_hdf5",
     headerHeading = "Usage:%n%n",
     header = "export HDF5 KNN answer-keys from other formats",
-    description = """
-        Reads base vectors, query vectors, neighborhood indices, and optionally, neighbor distances,
-        from ivec, fvec and other formats, and creates HDF5 vector test data files.
-
-        When no mapping file is provided, then these individual input files are specified by the respective options.
-        The output file name is determined, by default, from a template that uses common parameter tokens so that
-        files are automatically named and unique as long as the parameter sets are unique.
-
-        When a mapping file is provided, then the mapping file is used to determine the input files and output file names.
-        This is an example of the mapping file format:
-
-            # mapping.yaml
-            filekey: #this is only unique within the mapping file and is not used otherwise
-             # the following are required
-             query: my_query_vectors.fvec
-             base: my_base_vectors.fvec
-             indices: my_indices.ivec
-             url: https://...
-             license: The license of the model used
-             vendor: The vendor of the model used
-             model: The name of the model used
-            # the following are optional
-             distance_function: The distance function used # defaults to COSINE
-             distances: my_distances.ivec # this is only added to the hdf5 file if provided
-             notes: Any notes about the model used
-
-        When a mapping file is not provided, the remaining metadata can be provided in a yaml
-        file and specified with the --metadata option.
-
-        """,
+    description = "Reads base vectors, query vectors, neighborhood indices, and optionally, neighbor distances,\n" +
+        "from ivec, fvec and other formats, and creates HDF5 vector test data files.\n\n" +
+        "When no mapping file is provided, then these individual input files are specified by the respective options.\n" +
+        "The output file name is determined, by default, from a template that uses common parameter tokens so that\n" +
+        "files are automatically named and unique as long as the parameter sets are unique.\n\n" +
+        "When a mapping file is provided, then the mapping file is used to determine the input files and output file names.\n" +
+        "This is an example of the mapping file format:\n\n" +
+        "    # mapping.yaml\n" +
+        "    filekey: #this is only unique within the mapping file and is not used otherwise\n" +
+        "     # the following are required\n" +
+        "     query: my_query_vectors.fvec\n" +
+        "     base: my_base_vectors.fvec\n" +
+        "     indices: my_indices.ivec\n" +
+        "     url: https://...\n" +
+        "     license: The license of the model used\n" +
+        "     vendor: The vendor of the model used\n" +
+        "     model: The name of the model used\n" +
+        "    # the following are optional\n" +
+        "     distance_function: The distance function used # defaults to COSINE\n" +
+        "     distances: my_distances.ivec # this is only added to the hdf5 file if provided\n" +
+        "     notes: Any notes about the model used\n\n" +
+        "When a mapping file is not provided, the remaining metadata can be provided in a yaml\n" +
+        "file and specified with the --metadata option.",
     synopsisHeading = "%n",
     descriptionHeading = "%nDescription%n%n",
     parameterListHeading = "%nParameters:%n%",

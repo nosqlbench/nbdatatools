@@ -78,9 +78,10 @@ public class ShowHdf5 implements Callable<Integer> {
       } else {
         for (TestDataKind dsname : decode) {
           switch (dsname) {
-            case query_predicates ->
+            case query_predicates:
                 decodeFilters(sb, file.getDatasetByPath(TestDataKind.query_predicates.name()));
-            default ->
+                break;
+            default:
                 throw new RuntimeException("unable to show decoded dataset " + dsname.name());
           }
         }
@@ -107,19 +108,18 @@ public class ShowHdf5 implements Callable<Integer> {
   private void walkHdf(Node node, StringBuilder sb, int level) {
     sb.append(" ".repeat(level)).append(node.getName()).append(" (")
         .append(node.getClass().getSimpleName()).append(")\n");
-    switch (node) {
-      case Dataset dataset:
-        describeDataset(dataset, sb, level + 1);
-        break;
-      case Group group:
-        describeGroup(group, sb, level);
-        for (Node childNode : group.getChildren().values()) {
-          walkHdf(childNode, sb, level + 1);
-        }
-        break;
-      default:
-        throw new RuntimeException(
-            "unknown type to represent: " + node.getClass().getCanonicalName());
+    if (node instanceof Dataset) {
+      Dataset dataset = (Dataset) node;
+      describeDataset(dataset, sb, level + 1);
+    } else if (node instanceof Group) {
+      Group group = (Group) node;
+      describeGroup(group, sb, level);
+      for (Node childNode : group.getChildren().values()) {
+        walkHdf(childNode, sb, level + 1);
+      }
+    } else {
+      throw new RuntimeException(
+          "unknown type to represent: " + node.getClass().getCanonicalName());
     }
   }
 
@@ -133,20 +133,27 @@ public class ShowHdf5 implements Callable<Integer> {
       sb.append(" ".repeat(level + 1)).append(k).append(":\n");
       Object data = v.getData();
 
-      if (data instanceof String s && s.startsWith("{") && s.endsWith("}")) {
-        Type type = new TypeToken<Map<String, ?>>() {
-        }.getType();
-        data = SHARED.gson.fromJson(s, type);
+      if (data instanceof String) {
+        String s = (String) data;
+        if (s.startsWith("{") && s.endsWith("}")) {
+          Type type = new TypeToken<Map<String, ?>>() {
+          }.getType();
+          data = SHARED.gson.fromJson(s, type);
+        }
       }
 
-      if (data instanceof String string && string.contains("\n")) {
-        String[] parts = string.split("\n");
-        for (String part : parts) {
-          sb.append(" ".repeat(level + 2)).append(part).append("\n");
+      if (data instanceof String) {
+        String string = (String) data;
+        if (string.contains("\n")) {
+          String[] parts = string.split("\n");
+          for (String part : parts) {
+            sb.append(" ".repeat(level + 2)).append(part).append("\n");
+          }
+        } else {
+          sb.append(" ".repeat(level + 2)).append(string).append("\n");
         }
-      } else if (data instanceof String string) {
-        sb.append(" ".repeat(level + 2)).append(string).append("\n");
-      } else if (data instanceof Map<?, ?> map && !map.isEmpty()) {
+      } else if (data instanceof Map<?, ?> && !((Map<?, ?>) data).isEmpty()) {
+        Map<?, ?> map = (Map<?, ?>) data;
         map.forEach((k2, v2) -> {
           sb.append(" ".repeat(level + 2)).append(k2).append(": ").append(v2).append("\n");
         });

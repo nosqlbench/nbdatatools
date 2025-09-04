@@ -26,7 +26,25 @@ import java.nio.file.Path;
 import java.util.ServiceLoader;
 import java.util.function.Predicate;
 
-public record ReaderAndPath(String reader, Path source) {
+public class ReaderAndPath {
+  
+  private final String reader;
+  private final Path source;
+  
+  public ReaderAndPath(String reader, Path source) {
+    this.reader = reader;
+    this.source = source;
+  }
+  
+  /// @return the reader
+  public String reader() {
+    return reader;
+  }
+  
+  /// @return the source path
+  public Path source() {
+    return source;
+  }
 
   public ReaderAndPath(String spec) {
     this(getReader(spec),getPath(spec));

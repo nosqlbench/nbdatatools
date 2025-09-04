@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Objects;
 
 /// A FilePartition can be partitioned into a list of smaller FilePartitions.
 /// When the size of the partitions would be too large for Java memory mapping,
@@ -38,12 +39,34 @@ import java.util.Arrays;
 /// When there is less than the required amount of data in the provided partition
 /// ([#partition(int, int)]) then no partitioning is done. This limit profile_defaults to
 /// 20MB for [#partition(int)]
-/// @param path the path containing the current partition
-/// @param start the starting point of the partition as an offset within the file
-/// @param end the ending point of the partition as an offset within the file
-/// @param id a labeling identifier, for debugging purposes
+public class FilePartition {
+  private final Path path;
+  private final long start;
+  private final long end;
+  private final String id;
 
-public record FilePartition(Path path, long start, long end, String id) {
+  public FilePartition(Path path, long start, long end, String id) {
+    this.path = path;
+    this.start = start;
+    this.end = end;
+    this.id = id;
+  }
+
+  public Path path() {
+    return path;
+  }
+
+  public long start() {
+    return start;
+  }
+
+  public long end() {
+    return end;
+  }
+
+  public String id() {
+    return id;
+  }
 
   /// create a file partition
   /// @param path the path containing the current partition
@@ -151,9 +174,15 @@ public record FilePartition(Path path, long start, long end, String id) {
     sb.append(this.start).append("..");
     sb.append(this.end).append("[");
     ByteBuffer bb = this.mapFile();
-    sb.append(StandardCharsets.UTF_8.decode(bb.slice(0, 15)).toString().replaceAll("\n", "\\\\n"));
+    ByteBuffer startSlice = bb.duplicate();
+    startSlice.position(0);
+    startSlice.limit(15);
+    sb.append(StandardCharsets.UTF_8.decode(startSlice).toString().replaceAll("\n", "\\\\n"));
     sb.append("..");
-    sb.append(StandardCharsets.UTF_8.decode(bb.slice(bb.limit() - 15, 15)).toString()
+    ByteBuffer endSlice = bb.duplicate();
+    endSlice.position(bb.limit() - 15);
+    endSlice.limit(bb.limit());
+    sb.append(StandardCharsets.UTF_8.decode(endSlice).toString()
         .replaceAll("\n", "\\\\n"));
     sb.append("]");
     return sb.toString();
@@ -179,5 +208,19 @@ public record FilePartition(Path path, long start, long end, String id) {
       throw e;
     }
     );
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    FilePartition that = (FilePartition) o;
+    return start == that.start && end == that.end &&
+           Objects.equals(path, that.path) && Objects.equals(id, that.id);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(path, start, end, id);
   }
 }

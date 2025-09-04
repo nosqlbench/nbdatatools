@@ -43,9 +43,7 @@ import java.util.function.Supplier;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "build HDF5 KNN test data answer-keys from JSON",
-    description = """
-        TBD
-        """,
+    description = "TBD",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
@@ -72,8 +70,7 @@ public class CMD_build_hdf5 implements Callable<Integer>, BundledCommand {
   /// run a build_hdf5 command
   /// @param args
   ///     command line args
-  @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = """
-      Internal diagnostic level, sends content directly to the console.""", defaultValue = "ERROR")
+  @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = "Internal diagnostic level, sends content directly to the console.", defaultValue = "ERROR")
   public static void main(String[] args) {
 
 //    System.setProperty("slf4j.internal.verbosity", "ERROR");

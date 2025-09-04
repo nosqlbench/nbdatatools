@@ -281,9 +281,19 @@ public class Computations {
 
   /// Represents a delta △ between the provided and expected bitsets, like
   /// {@link #bitmaps(long[], long[])}, but for bitsets instead
-  /// @param provided the actual indices, in the form of a bit mask
-  /// @param expected the expected indices, in the form of a bit mask
-  public record BitSetDelta(BitSet provided, BitSet expected) {
+  public static class BitSetDelta {
+    /// the actual indices, in the form of a bit mask
+    private final BitSet provided;
+    /// the expected indices, in the form of a bit mask
+    private final BitSet expected;
+    
+    public BitSetDelta(BitSet provided, BitSet expected) {
+      this.provided = provided;
+      this.expected = expected;
+    }
+    
+    public BitSet provided() { return provided; }
+    public BitSet expected() { return expected; }
   }
 
 

@@ -17,17 +17,24 @@ package io.nosqlbench.nbvectors.datasource.parquet.traversal;
  * under the License.
  */
 
+import java.util.Objects;
+
 /// Record type to store the result of a pre-scanning phase for Parquet files
 /// Contains information about the total number of records in the file tree
-/// @param totalRecords the total number of records in the file tree
-public record ParquetScanResult(long totalRecords) {
+public class ParquetScanResult {
+    private final long totalRecords;
     
     /// Create a new ParquetScanResult with the given total record count
     /// @param totalRecords the total number of records in the file tree
-    public ParquetScanResult {
+    public ParquetScanResult(long totalRecords) {
         if (totalRecords < 0) {
             throw new IllegalArgumentException("Total records cannot be negative: " + totalRecords);
         }
+        this.totalRecords = totalRecords;
+    }
+
+    public long totalRecords() {
+        return totalRecords;
     }
     
     /// Get the total number of records as an int, checking for overflow
@@ -38,5 +45,25 @@ public record ParquetScanResult(long totalRecords) {
             throw new RuntimeException("int overflow on long size: " + totalRecords);
         }
         return (int) totalRecords;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ParquetScanResult that = (ParquetScanResult) o;
+        return totalRecords == that.totalRecords;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(totalRecords);
+    }
+
+    @Override
+    public String toString() {
+        return "ParquetScanResult{" +
+               "totalRecords=" + totalRecords +
+               '}';
     }
 }

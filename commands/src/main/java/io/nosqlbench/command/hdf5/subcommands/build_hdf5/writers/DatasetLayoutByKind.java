@@ -21,12 +21,45 @@ package io.nosqlbench.command.hdf5.subcommands.build_hdf5.writers;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 
 import java.util.List;
+import java.util.Objects;
 
-/// This record type captures the source and bounds of data for a single dataset kind
+/// This class captures the source and bounds of data for a single dataset kind
 /// in the standard HDF5 KNN answer key format.
-/// @param kind
-///     the kind of dataset (base, query, neighbor, distance, filter, ...)
-/// @param ordered
-///     the ordered list of dataset layouts for this kind
-public record DatasetLayoutByKind(TestDataKind kind, List<TestDatasetLayout> ordered) {
+public class DatasetLayoutByKind {
+  private final TestDataKind kind;
+  private final List<TestDatasetLayout> ordered;
+
+  public DatasetLayoutByKind(TestDataKind kind, List<TestDatasetLayout> ordered) {
+    this.kind = kind;
+    this.ordered = ordered;
+  }
+
+  public TestDataKind kind() {
+    return kind;
+  }
+
+  public List<TestDatasetLayout> ordered() {
+    return ordered;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DatasetLayoutByKind that = (DatasetLayoutByKind) o;
+    return kind == that.kind && Objects.equals(ordered, that.ordered);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(kind, ordered);
+  }
+
+  @Override
+  public String toString() {
+    return "DatasetLayoutByKind{" +
+           "kind=" + kind +
+           ", ordered=" + ordered +
+           '}';
+  }
 }

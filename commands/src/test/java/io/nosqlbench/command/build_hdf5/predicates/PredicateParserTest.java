@@ -36,13 +36,11 @@ class PredicateParserTest {
 
     @Test
     void testSimplePredicate() throws Exception {
-        String json = """
-            {
-              "field": 0,
-              "op": "EQ",
-              "values": [123]
-            }
-            """;
+        String json = "{\n" +
+            "  \"field\": 0,\n" +
+            "  \"op\": \"EQ\",\n" +
+            "  \"values\": [123]\n" +
+            "}";
         
         JsonNode jsonNode = MAPPER.readTree(json);
         PNode<?> node = PredicateParser.parse(jsonNode);
@@ -56,13 +54,11 @@ class PredicateParserTest {
 
     @Test
     void testInPredicate() throws Exception {
-        String json = """
-            {
-              "field": 1,
-              "op": "IN",
-              "values": [3, 4, 5]
-            }
-            """;
+        String json = "{\n" +
+            "  \"field\": 1,\n" +
+            "  \"op\": \"IN\",\n" +
+            "  \"values\": [3, 4, 5]\n" +
+            "}";
         
         JsonNode jsonNode = MAPPER.readTree(json);
         PNode<?> node = PredicateParser.parse(jsonNode);
@@ -76,23 +72,21 @@ class PredicateParserTest {
 
     @Test
     void testConjugateNode() throws Exception {
-        String json = """
-            {
-              "op": "AND",
-              "nodes": [
-                {
-                  "field": 0,
-                  "op": "GE",
-                  "values": [100]
-                },
-                {
-                  "field": 0,
-                  "op": "LE",
-                  "values": [200]
-                }
-              ]
-            }
-            """;
+        String json = "{\n" +
+            "  \"op\": \"AND\",\n" +
+            "  \"nodes\": [\n" +
+            "    {\n" +
+            "      \"field\": 0,\n" +
+            "      \"op\": \"GE\",\n" +
+            "      \"values\": [100]\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"field\": 0,\n" +
+            "      \"op\": \"LE\",\n" +
+            "      \"values\": [200]\n" +
+            "    }\n" +
+            "  ]\n" +
+            "}";
         
         JsonNode jsonNode = MAPPER.readTree(json);
         PNode<?> node = PredicateParser.parse(jsonNode);
@@ -116,13 +110,11 @@ class PredicateParserTest {
     @Test
     void testValidation() throws Exception {
         // Missing required field
-        String missingField = """
-            {
-              "type": "predicate",
-              "op": "EQ",
-              "values": [123]
-            }
-            """;
+        String missingField = "{\n" +
+            "  \"type\": \"predicate\",\n" +
+            "  \"op\": \"EQ\",\n" +
+            "  \"values\": [123]\n" +
+            "}";
         JsonNode jsonNode = MAPPER.readTree(missingField);
         JsonNode finalJsonNode = jsonNode;
         assertThatThrownBy(() -> PredicateParser.parse(finalJsonNode))
@@ -130,14 +122,12 @@ class PredicateParserTest {
             .hasMessageContaining("Missing required field: field");
 
         // Invalid operator
-        String invalidOperator = """
-            {
-              "type": "predicate",
-              "field": 0,
-              "op": "INVALID",
-              "values": [123]
-            }
-            """;
+        String invalidOperator = "{\n" +
+            "  \"type\": \"predicate\",\n" +
+            "  \"field\": 0,\n" +
+            "  \"op\": \"INVALID\",\n" +
+            "  \"values\": [123]\n" +
+            "}";
         jsonNode = MAPPER.readTree(invalidOperator);
         JsonNode finalJsonNode1 = jsonNode;
         assertThatThrownBy(() -> PredicateParser.parse(finalJsonNode1))
@@ -145,14 +135,12 @@ class PredicateParserTest {
             .hasMessageContaining("Unknown operator: INVALID");
 
         // Multiple values for non-IN predicate
-        String multipleValues = """
-            {
-              "type": "predicate",
-              "field": 0,
-              "op": "EQ",
-              "values": [1, 2]
-            }
-            """;
+        String multipleValues = "{\n" +
+            "  \"type\": \"predicate\",\n" +
+            "  \"field\": 0,\n" +
+            "  \"op\": \"EQ\",\n" +
+            "  \"values\": [1, 2]\n" +
+            "}";
         jsonNode = MAPPER.readTree(multipleValues);
         JsonNode finalJsonNode2 = jsonNode;
         assertThatThrownBy(() -> PredicateParser.parse(finalJsonNode2))
@@ -162,14 +150,12 @@ class PredicateParserTest {
 
     @Test
     void testOperatorSymbols() throws Exception {
-        String json = """
-            {
-              "type": "predicate",
-              "field": 0,
-              "op": ">=",
-              "values": [100]
-            }
-            """;
+        String json = "{\n" +
+            "  \"type\": \"predicate\",\n" +
+            "  \"field\": 0,\n" +
+            "  \"op\": \">=\",\n" +
+            "  \"values\": [100]\n" +
+            "}";
         
         JsonNode jsonNode = MAPPER.readTree(json);
         PNode<?> node = PredicateParser.parse(jsonNode);
@@ -179,14 +165,12 @@ class PredicateParserTest {
         assertThat(predicate.op()).isEqualTo(OpType.GE);
         
         // Test with symbol "<"
-        json = """
-            {
-              "type": "predicate",
-              "field": 0,
-              "op": "<",
-              "values": [100]
-            }
-            """;
+        json = "{\n" +
+            "  \"type\": \"predicate\",\n" +
+            "  \"field\": 0,\n" +
+            "  \"op\": \"<\",\n" +
+            "  \"values\": [100]\n" +
+            "}";
         
         jsonNode = MAPPER.readTree(json);
         node = PredicateParser.parse(jsonNode);

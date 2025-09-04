@@ -20,8 +20,44 @@ package io.nosqlbench.nbvectors.datasource.parquet.traversal.functional;
 
 import org.apache.parquet.io.RecordReader;
 
+import java.util.Objects;
+
 /// A record reader with a count
-/// @param reader the record reader
-/// @param count the number of records to read
-/// @param <T> the type of the records
-public record BoundedRecordReader<T>(RecordReader<T> reader, long count) { }
+public class BoundedRecordReader<T> {
+  private final RecordReader<T> reader;
+  private final long count;
+
+  public BoundedRecordReader(RecordReader<T> reader, long count) {
+    this.reader = reader;
+    this.count = count;
+  }
+
+  public RecordReader<T> reader() {
+    return reader;
+  }
+
+  public long count() {
+    return count;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    BoundedRecordReader<?> that = (BoundedRecordReader<?>) o;
+    return count == that.count && Objects.equals(reader, that.reader);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(reader, count);
+  }
+
+  @Override
+  public String toString() {
+    return "BoundedRecordReader{" +
+           "reader=" + reader +
+           ", count=" + count +
+           '}';
+  }
+}

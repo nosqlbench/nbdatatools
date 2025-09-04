@@ -39,27 +39,19 @@ public class BytebufChunkerTest {
     BytebufChunker chunker = new BytebufChunker("test",buf, 10);
     Iterator<CharBuffer> iter = chunker.iterator();
     assertThat(iter.hasNext()).isTrue();
-    assertThat(iter.next().toString()).isEqualTo("""
-        one
-        two
-        three
-        """);
+    assertThat(iter.next().toString()).isEqualTo("one\n" +
+        "two\n" +
+        "three\n");
     assertThat(iter.hasNext()).isTrue();
-    assertThat(iter.next().toString()).isEqualTo("""
-        four
-        five
-        six
-        """);
+    assertThat(iter.next().toString()).isEqualTo("four\n" +
+        "five\n" +
+        "six\n");
     assertThat(iter.hasNext()).isTrue();
-    assertThat(iter.next().toString()).isEqualTo("""
-        seven
-        eight
-        """);
+    assertThat(iter.next().toString()).isEqualTo("seven\n" +
+        "eight\n");
     assertThat(iter.hasNext()).isTrue();
-    assertThat(iter.next().toString()).isEqualTo("""
-        nine
-        ten
-        """);
+    assertThat(iter.next().toString()).isEqualTo("nine\n" +
+        "ten\n");
     assertThat(iter.hasNext()).isFalse();
   }
 

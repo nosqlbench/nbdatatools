@@ -19,22 +19,59 @@ package io.nosqlbench.vectordata.downloader;
 
 /**
  * Metadata about a remote resource.
- * 
- * @param size The size of the resource in bytes, or -1 if unknown
- * @param supportsRanges Whether the resource supports HTTP range requests
- * @param exists Whether the resource exists
- * @param contentType The MIME content type of the resource
- * @param lastModified The last modified timestamp of the resource
- * @param etag The ETag value for the resource
  */
-public record ResourceMetadata(
-    long size,
-    boolean supportsRanges,
-    boolean exists,
-    String contentType,
-    String lastModified,
-    String etag
-) {
+public class ResourceMetadata {
+    /// The size of the resource in bytes, or -1 if unknown
+    private final long size;
+    /// Whether the resource supports HTTP range requests
+    private final boolean supportsRanges;
+    /// Whether the resource exists
+    private final boolean exists;
+    /// The MIME content type of the resource
+    private final String contentType;
+    /// The last modified timestamp of the resource
+    private final String lastModified;
+    /// The ETag value for the resource
+    private final String etag;
+    
+    public ResourceMetadata(long size, boolean supportsRanges, boolean exists, String contentType, String lastModified, String etag) {
+        this.size = size;
+        this.supportsRanges = supportsRanges;
+        this.exists = exists;
+        this.contentType = contentType;
+        this.lastModified = lastModified;
+        this.etag = etag;
+    }
+    
+    /// @return The size of the resource in bytes, or -1 if unknown
+    public long size() {
+        return size;
+    }
+    
+    /// @return Whether the resource supports HTTP range requests
+    public boolean supportsRanges() {
+        return supportsRanges;
+    }
+    
+    /// @return Whether the resource exists
+    public boolean exists() {
+        return exists;
+    }
+    
+    /// @return The MIME content type of the resource
+    public String contentType() {
+        return contentType;
+    }
+    
+    /// @return The last modified timestamp of the resource
+    public String lastModified() {
+        return lastModified;
+    }
+    
+    /// @return The ETag value for the resource
+    public String etag() {
+        return etag;
+    }
     
     /**
      * Creates metadata for a resource that doesn't exist.

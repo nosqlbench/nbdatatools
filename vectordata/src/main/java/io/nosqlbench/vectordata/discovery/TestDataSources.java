@@ -32,11 +32,27 @@ import java.util.Arrays;
 import java.util.List;
 
 /// configuration for the datasets command
-/// @param locations
-///     the locations to search for datasets
-/// @param optionalLocations
-///     optional catalog locations that will be loaded if available but won't cause errors if missing
-public record TestDataSources(List<URL> locations, List<URL> optionalLocations) {
+public class TestDataSources {
+  
+  /// the locations to search for datasets
+  private final List<URL> locations;
+  /// optional catalog locations that will be loaded if available but won't cause errors if missing  
+  private final List<URL> optionalLocations;
+  
+  public TestDataSources(List<URL> locations, List<URL> optionalLocations) {
+    this.locations = locations;
+    this.optionalLocations = optionalLocations;
+  }
+  
+  /// @return the locations to search for datasets
+  public List<URL> locations() {
+    return locations;
+  }
+  
+  /// @return optional catalog locations that will be loaded if available but won't cause errors if missing
+  public List<URL> optionalLocations() {
+    return optionalLocations;
+  }
 
   public static String DEFAULT_CONFIG_DIR="~/.config/vectordata";
   /// Creates a TestDataSources with default configuration from ~/.config/nbvectors/catalogs.yaml
@@ -91,7 +107,8 @@ public record TestDataSources(List<URL> locations, List<URL> optionalLocations) 
       Load yaml = new Load(loadSettings);
       try {
         Object configs = yaml.loadFromString(Files.readString(catalogCatalog));
-        if (configs instanceof List<?> list) {
+        if (configs instanceof List<?>) {
+          List<?> list = (List<?>) configs;
           list.forEach(c -> clocations.add(createUrl((String) c)));
         } else {
           throw new RuntimeException("catalogs.yaml must be a list of strings");
@@ -180,7 +197,8 @@ public record TestDataSources(List<URL> locations, List<URL> optionalLocations) 
     Load yaml = new Load(loadSettings);
     try {
       Object configs = yaml.loadFromString(Files.readString(yamlFile));
-      if (configs instanceof List<?> list) {
+      if (configs instanceof List<?>) {
+        List<?> list = (List<?>) configs;
         list.forEach(c -> clocations.add(createUrl((String) c)));
       } else {
         throw new RuntimeException("YAML file must contain a list of strings: " + yamlFile);

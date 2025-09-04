@@ -52,15 +52,13 @@ import java.util.List;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "Generate pseudo-random vector test data in various forms",
-    description = """
-        This provides a set of basic procedural generation utilities for
-        the purposes of preparing test data. The command includes subcommands
-        for generating shuffled integer vectors (ivec-shuffle), extracting
-        indices from integer vector files (ivec-extract), extracting
-        data from floating-point vector files (fvec-extract), generating
-        vector files with specified types and dimensions (vector-generate),
-        and making basic base, query, and ground truth data (mktestdata).
-        """,
+    description = "This provides a set of basic procedural generation utilities for\n" +
+        "the purposes of preparing test data. The command includes subcommands\n" +
+        "for generating shuffled integer vectors (ivec-shuffle), extracting\n" +
+        "indices from integer vector files (ivec-extract), extracting\n" +
+        "data from floating-point vector files (fvec-extract), generating\n" +
+        "vector files with specified types and dimensions (vector-generate),\n" +
+        "and making basic base, query, and ground truth data (mktestdata).",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
     subcommands = {CMD_generate_ivecShuffle.class, CMD_generate_ivecExtract.class, CMD_generate_fvecExtract.class, CMD_generate_vectors.class, CMD_generate_mktestdata.class, CommandLine.HelpCommand.class})

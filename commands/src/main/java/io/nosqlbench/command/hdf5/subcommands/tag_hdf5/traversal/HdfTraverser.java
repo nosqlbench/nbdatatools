@@ -89,36 +89,36 @@ public class HdfTraverser {
 
       traverser.enterNode(node);
 
-      switch (node) {
-        case HdfFile file -> {
-          if (filter.enterFile(file)) {
-            traverser.enterFile(file);
-            for (Node fileElement : file.getChildren().values()) {
-              traverse(fileElement, traverser);
-            }
-            traverser.leaveFile(file);
+      if (node instanceof HdfFile) {
+        HdfFile file = (HdfFile) node;
+        if (filter.enterFile(file)) {
+          traverser.enterFile(file);
+          for (Node fileElement : file.getChildren().values()) {
+            traverse(fileElement, traverser);
           }
+          traverser.leaveFile(file);
         }
-        case Group group -> {
-          if (filter.enterGroup(group)) {
-            traverser.enterGroup(group);
-            for (Node groupElement : group.getChildren().values()) {
-              traverse(node, traverser);
-            }
-            traverser.leaveGroup(group);
+      } else if (node instanceof Group) {
+        Group group = (Group) node;
+        if (filter.enterGroup(group)) {
+          traverser.enterGroup(group);
+          for (Node groupElement : group.getChildren().values()) {
+            traverse(node, traverser);
           }
+          traverser.leaveGroup(group);
         }
-        case Dataset dataset -> {
-          if (filter.dataset(dataset)) {
-            traverser.dataset(dataset);
-          }
+      } else if (node instanceof Dataset) {
+        Dataset dataset = (Dataset) node;
+        if (filter.dataset(dataset)) {
+          traverser.dataset(dataset);
         }
-        case CommittedDatatype cdt -> {
-          if (filter.committedDataType(cdt)) {
-            traverser.committedDataType(cdt);
-          }
+      } else if (node instanceof CommittedDatatype) {
+        CommittedDatatype cdt = (CommittedDatatype) node;
+        if (filter.committedDataType(cdt)) {
+          traverser.committedDataType(cdt);
         }
-        default -> throw new RuntimeException("Unrecognized node type: " + node);
+      } else {
+        throw new RuntimeException("Unrecognized node type: " + node);
       }
 
       traverser.leaveNode(node);

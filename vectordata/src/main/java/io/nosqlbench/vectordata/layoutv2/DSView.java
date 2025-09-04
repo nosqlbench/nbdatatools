@@ -58,8 +58,8 @@ public class DSView {
   /// @return A new DSView instance
   public static DSView fromData(Object v) {
     Map<?,?> datamap = null;
-    if (v instanceof Map<?,?> m) {
-      datamap = m;
+    if (v instanceof Map<?,?>) {
+      datamap = (Map<?,?>) v;
     } else {
       throw new RuntimeException("invalid view format:" + v);
     }
@@ -99,9 +99,10 @@ public class DSView {
   /// @return True if the objects are equal, false otherwise
   @Override
   public final boolean equals(Object o) {
-    if (!(o instanceof DSView view))
+    if (!(o instanceof DSView))
       return false;
 
+    DSView view = (DSView) o;
     return Objects.equals(name, view.name) && Objects.equals(source, view.source) && Objects.equals(
         window,
         view.window

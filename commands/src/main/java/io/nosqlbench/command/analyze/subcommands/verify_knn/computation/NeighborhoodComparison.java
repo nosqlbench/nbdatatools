@@ -20,19 +20,34 @@ package io.nosqlbench.command.analyze.subcommands.verify_knn.computation;
 
 import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 
+import java.util.Objects;
+
 import static io.nosqlbench.nbdatatools.api.types.bitimage.Glyphs.braille;
 
 /// encapsulate the result of a vector query, including both the known correct result
 /// and the actual result
-/// @param testVector the test vector
-/// @param providedNeighborhood the neighborhood provided by the system under test
-/// @param expectedNeighborhood the neighborhood expected by the test, based on KNN data
-public record NeighborhoodComparison(
-    Indexed<float[]> testVector,
-    int[] providedNeighborhood,
-    int[] expectedNeighborhood
-)
-{
+public class NeighborhoodComparison {
+  private final Indexed<float[]> testVector;
+  private final int[] providedNeighborhood;
+  private final int[] expectedNeighborhood;
+
+  public NeighborhoodComparison(Indexed<float[]> testVector, int[] providedNeighborhood, int[] expectedNeighborhood) {
+    this.testVector = testVector;
+    this.providedNeighborhood = providedNeighborhood;
+    this.expectedNeighborhood = expectedNeighborhood;
+  }
+
+  public Indexed<float[]> testVector() {
+    return testVector;
+  }
+
+  public int[] providedNeighborhood() {
+    return providedNeighborhood;
+  }
+
+  public int[] expectedNeighborhood() {
+    return expectedNeighborhood;
+  }
   /// determine if the provided neighborhood is an error
   /// @return true if the provided neighborhood is an error
   public boolean isError() {
@@ -71,5 +86,23 @@ public record NeighborhoodComparison(
     sb.append("\n");
 
     return sb.toString();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    NeighborhoodComparison that = (NeighborhoodComparison) o;
+    return Objects.equals(testVector, that.testVector) &&
+           java.util.Arrays.equals(providedNeighborhood, that.providedNeighborhood) &&
+           java.util.Arrays.equals(expectedNeighborhood, that.expectedNeighborhood);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = Objects.hash(testVector);
+    result = 31 * result + java.util.Arrays.hashCode(providedNeighborhood);
+    result = 31 * result + java.util.Arrays.hashCode(expectedNeighborhood);
+    return result;
   }
 }

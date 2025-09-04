@@ -22,16 +22,21 @@ import java.nio.ByteBuffer;
 
 /// A predicate node is a node in a predicate tree
 /// @param <T> the type of self
-public sealed interface PNode<T> extends BBWriter<T> permits ConjugateNode, PredicateNode {
+public interface PNode<T> extends BBWriter<T> {
 
     /// Create a predicate node from a byte buffer
     /// @param b the byte buffer to decode the predicate node from
     /// @return a predicate node
     public static PNode<?> fromBuffer(ByteBuffer b) {
         byte typeOrdinal = b.get(b.position());
-        return switch(ConjugateType.values()[typeOrdinal]) {
-            case AND, OR -> new ConjugateNode(b);
-            case PRED -> new PredicateNode(b);
-        };
+        switch(ConjugateType.values()[typeOrdinal]) {
+            case AND:
+            case OR:
+                return new ConjugateNode(b);
+            case PRED:
+                return new PredicateNode(b);
+            default:
+                throw new IllegalArgumentException("Unknown ConjugateType: " + ConjugateType.values()[typeOrdinal]);
+        }
     }
 }

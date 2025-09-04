@@ -34,21 +34,36 @@ import java.util.regex.Pattern;
 /// /group1/group2:varname
 /// /group1/group2.varname
 ///```
-/// @param path the path component to the fully qualified attribute
-/// @param attr the attribute name
-public record AttrSpec(
-    String path,
-    String attr
-)
-{
+public class AttrSpec {
+    /// the path component to the fully qualified attribute
+    private final String path;
+    /// the attribute name
+    private final String attr;
+    
+    public AttrSpec(String path, String attr) {
+        // Example of a simple validation:
+        if (attr == null || attr.isEmpty()) {
+            throw new IllegalArgumentException("attr cannot be null or empty.");
+        }
+        this.path = path;
+        this.attr = attr;
+    }
+    
+    /// @return the path component to the fully qualified attribute
+    public String path() {
+        return path;
+    }
+    
+    /// @return the attribute name
+    public String attr() {
+        return attr;
+    }
   /// a pattern to match attr specs
   @SuppressWarnings({"RegExpRepeatedSpace", "RegExpUnexpectedAnchor"})
   public static final Pattern SPEC_PATTERN = Pattern.compile(
-      """
-          (?<path>/|(?:/[^:/.]+)+)?          # Optional HDF5 path (e.g., /, /group, /group1/group2)
-          [:.]?                              # Optional : or . separating path from attribute
-          (?<attr>[a-zA-Z_][a-zA-Z0-9_]*)    # Variable name (required, follows identifier rules)
-          """, Pattern.COMMENTS
+      "(?<path>/|(?:/[^:/.]+)+)?          # Optional HDF5 path (e.g., /, /group, /group1/group2)\n" +
+          "[:.]?                              # Optional : or . separating path from attribute\n" +
+          "(?<attr>[a-zA-Z_][a-zA-Z0-9_]*)    # Variable name (required, follows identifier rules)\n", Pattern.COMMENTS
   );
 
   /// parse an attribute spec into an attribute spec
@@ -65,13 +80,25 @@ public record AttrSpec(
     return new AttrSpec(path, attr);
   }
 
-  /// an attribute spec
-  /// @param path the path component to the fully qualified attribute
-  /// @param attr the attribute name
-  public AttrSpec {
-    // Example of a simple validation:
-    if (attr == null || attr.isEmpty()) {
-      throw new IllegalArgumentException("attr cannot be null or empty.");
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        AttrSpec attrSpec = (AttrSpec) obj;
+        return path.equals(attrSpec.path) &&
+               attr.equals(attrSpec.attr);
     }
-  }
+
+    @Override
+    public int hashCode() {
+        int result = path.hashCode();
+        result = 31 * result + attr.hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "AttrSpec{path='" + path + "', attr='" + attr + "'}";
+    }
+
 }

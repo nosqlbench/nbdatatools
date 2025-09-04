@@ -78,9 +78,10 @@ public class DSSource {
   /// @return True if the objects are equal, false otherwise
   @Override
   public final boolean equals(Object o) {
-    if (!(o instanceof DSSource dsSource))
+    if (!(o instanceof DSSource))
       return false;
 
+    DSSource dsSource = (DSSource) o;
     return Objects.equals(path, dsSource.path) && Objects.equals(window, dsSource.window);
   }
 
@@ -112,13 +113,14 @@ public class DSSource {
     if (data == null) {
       return null;
     }
-    if (data instanceof String s) {
-      return new DSSource(s);
-    } else if (data instanceof Path p) {
-      return new DSSource(p.toString());
-    } else if (data instanceof DSSource dsSource) {
-      return dsSource;
-    } else if (data instanceof Map<?, ?> m) {
+    if (data instanceof String) {
+      return new DSSource((String) data);
+    } else if (data instanceof Path) {
+      return new DSSource(((Path) data).toString());
+    } else if (data instanceof DSSource) {
+      return (DSSource) data;
+    } else if (data instanceof Map<?, ?>) {
+      Map<?, ?> m = (Map<?, ?>) data;
       String path = (String) m.get("path");
       DSWindow window = DSWindow.fromData(m.get("window"));
       return new DSSource(path, window);

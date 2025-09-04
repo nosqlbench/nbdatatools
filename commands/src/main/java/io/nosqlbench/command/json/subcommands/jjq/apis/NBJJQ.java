@@ -32,8 +32,8 @@ public class NBJJQ {
   /// @return the state context
   public static synchronized NBStateContext getContext(Scope scope) {
     Function nbs = scope.getFunction("nbstate", 0);
-    if (nbs instanceof NBStateContextHolderHack nbsf) {
-      return nbsf;
+    if (nbs instanceof NBStateContextHolderHack) {
+      return (NBStateContextHolderHack) nbs;
     } else {
       throw new RuntimeException("Missing state holder function");
     }

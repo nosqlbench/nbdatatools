@@ -66,7 +66,8 @@ public class nbenum extends NBBaseJQFunction {
     }
     long value = enumer.getAsLong();
     JsonNode out = in;
-    if (out instanceof ObjectNode onode) {
+    if (out instanceof ObjectNode) {
+      ObjectNode onode = (ObjectNode) out;
       onode.set(fieldName, new LongNode(value));
     } else {
       throw new RuntimeException(
@@ -81,7 +82,7 @@ public class nbenum extends NBBaseJQFunction {
   public void start(Scope scope, List<Expression> args, JsonNode in, NBStateContext nbctx)
       throws JsonQueryException
   {
-    args.getFirst().apply(
+    args.get(0).apply(
         scope, in, (fieldname) -> {
           System.out.println("enumerating fieldname:" + fieldname);
           this.fieldName = fieldname.asText();

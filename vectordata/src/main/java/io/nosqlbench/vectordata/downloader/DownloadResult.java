@@ -27,17 +27,42 @@ import java.util.Optional;
 ///
 /// This class contains information about the download result, including the path,
 /// number of bytes downloaded, status, and any errors that occurred.
-///
-/// @param path The path where the file was downloaded
-/// @param status The status of the download (DOWNLOADED, SKIPPED, or FAILED)
-/// @param bytes The number of bytes downloaded
-/// @param error Any exception that occurred during the download, or null if successful
-public record DownloadResult(
-    Path path,
-    DownloadStatus status,
-    long bytes,
-    Exception error
-) {
+public class DownloadResult {
+    /// The path where the file was downloaded
+    private final Path path;
+    /// The status of the download (DOWNLOADED, SKIPPED, or FAILED)
+    private final DownloadStatus status;
+    /// The number of bytes downloaded
+    private final long bytes;
+    /// Any exception that occurred during the download, or null if successful
+    private final Exception error;
+    
+    public DownloadResult(Path path, DownloadStatus status, long bytes, Exception error) {
+        this.path = path;
+        this.status = status;
+        this.bytes = bytes;
+        this.error = error;
+    }
+    
+    /// @return The path where the file was downloaded
+    public Path path() {
+        return path;
+    }
+    
+    /// @return The status of the download (DOWNLOADED, SKIPPED, or FAILED)
+    public DownloadStatus status() {
+        return status;
+    }
+    
+    /// @return The number of bytes downloaded
+    public long bytes() {
+        return bytes;
+    }
+    
+    /// @return Any exception that occurred during the download, or null if successful
+    public Exception error() {
+        return error;
+    }
     /// Creates a successful download result.
     ///
     /// @param path The path where the file was downloaded

@@ -111,9 +111,10 @@ public class DSRoot {
   /// @return True if the objects are equal, false otherwise
   @Override
   public final boolean equals(Object o) {
-    if (!(o instanceof DSRoot dsRoot))
+    if (!(o instanceof DSRoot))
       return false;
 
+    DSRoot dsRoot = (DSRoot) o;
     return Objects.equals(name, dsRoot.name) && Objects.equals(profiles, dsRoot.profiles);
   }
 

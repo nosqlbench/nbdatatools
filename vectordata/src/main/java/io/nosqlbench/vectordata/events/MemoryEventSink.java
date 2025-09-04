@@ -342,13 +342,20 @@ public class MemoryEventSink implements EventSink {
     /// @param level The log level
     /// @return The single character representation of the level
     private char getLevelChar(EventType.Level level) {
-        return switch (level) {
-            case TRACE -> 'T';
-            case DEBUG -> 'D';
-            case INFO -> 'I';
-            case WARN -> 'W';
-            case ERROR -> 'E';
-        };
+        switch (level) {
+            case TRACE:
+                return 'T';
+            case DEBUG:
+                return 'D';
+            case INFO:
+                return 'I';
+            case WARN:
+                return 'W';
+            case ERROR:
+                return 'E';
+            default:
+                throw new IllegalArgumentException("Unknown level: " + level);
+        }
     }
 
     /// Get all events, sorted by timestamp.
@@ -400,7 +407,7 @@ public class MemoryEventSink implements EventSink {
         return events.stream()
             .filter(e -> e.getEventType() == eventType)
             .map(LogEvent::getParams)
-            .toList();
+            .collect(java.util.stream.Collectors.toList());
     }
 
     /// Add a custom event with the specified parameters.

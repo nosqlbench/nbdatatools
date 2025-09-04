@@ -18,11 +18,25 @@ package io.nosqlbench.vectordata.spec.attributes;
  */
 
 
-/// This record type captures attribute requirements for the neighbor distances dataset
-/// @param max_k the number of neighbors provided for each query vector
-/// @param count the number of query vectors
-public record NeighborDistancesAttributes(
-    long count,
-    long max_k
-) {
+/// This class captures attribute requirements for the neighbor distances dataset
+public class NeighborDistancesAttributes {
+    /// the number of query vectors
+    private final long count;
+    /// the number of neighbors provided for each query vector
+    private final long max_k;
+    
+    public NeighborDistancesAttributes(long count, long max_k) {
+        this.count = count;
+        this.max_k = max_k;
+    }
+    
+    /// @return the number of query vectors
+    public long count() {
+        return count;
+    }
+    
+    /// @return the number of neighbors provided for each query vector
+    public long max_k() {
+        return max_k;
+    }
 }

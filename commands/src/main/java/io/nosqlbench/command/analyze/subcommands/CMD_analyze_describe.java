@@ -101,20 +101,33 @@ public class CMD_analyze_describe implements Callable<Integer> {
     /// @return The size of a record in bytes
     private int calculateRecordSizeBytes(String dataTypeStr, int dimensions, FileType fileType) {
         // Base size in bytes for different data types
-        int elementSize = switch (dataTypeStr.toLowerCase()) {
-            case "float" -> 4;  // 4 bytes per float
-            case "int" -> 4;    // 4 bytes per int
-            case "double" -> 8; // 8 bytes per double
-            default -> 4;       // Default to 4 bytes
-        };
+        int elementSize;
+        switch (dataTypeStr.toLowerCase()) {
+            case "float":
+                elementSize = 4;  // 4 bytes per float
+                break;
+            case "int":
+                elementSize = 4;    // 4 bytes per int
+                break;
+            case "double":
+                elementSize = 8; // 8 bytes per double
+                break;
+            default:
+                elementSize = 4;       // Default to 4 bytes
+                break;
+        }
 
         // Calculate record size based on file type
-        return switch (fileType) {
-            case xvec -> 4 + (dimensions * elementSize); // 4 bytes for dimension + data
-            case parquet -> dimensions * elementSize;    // Parquet has its own metadata overhead
-            case csv -> dimensions * elementSize;        // CSV is text-based, this is approximate
-            default -> dimensions * elementSize;         // Default calculation
-        };
+        switch (fileType) {
+            case xvec:
+                return 4 + (dimensions * elementSize); // 4 bytes for dimension + data
+            case parquet:
+                return dimensions * elementSize;    // Parquet has its own metadata overhead
+            case csv:
+                return dimensions * elementSize;        // CSV is text-based, this is approximate
+            default:
+                return dimensions * elementSize;         // Default calculation
+        }
     }
 
     /// Describe a vector file
@@ -135,10 +148,12 @@ public class CMD_analyze_describe implements Callable<Integer> {
             if (vectorCount > 0) {
                 T vector = vectorArray.get(0);
 
-                if (vector instanceof float[] floatVector) {
+                if (vector instanceof float[]) {
+                    float[] floatVector = (float[]) vector;
                     dimensions = floatVector.length;
                     dataTypeStr = "float";
-                } else if (vector instanceof int[] intVector) {
+                } else if (vector instanceof int[]) {
+                    int[] intVector = (int[]) vector;
                     dimensions = intVector.length;
                     dataTypeStr = "int";
                 } else {

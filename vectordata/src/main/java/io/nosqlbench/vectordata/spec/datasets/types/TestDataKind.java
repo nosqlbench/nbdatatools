@@ -89,7 +89,7 @@ public enum TestDataKind {
   private final String description;
   /// The attributes of the dataset which are required, may be null, indicating no attributes are
   /// required for a given dataset
-  private final Class<? extends Record> attributesClass;
+  private final Class<?> attributesClass;
 
   /// Creates a new TestDataKind enum value
   /// @param path
@@ -98,7 +98,7 @@ public enum TestDataKind {
   ///     The description of the dataset
   /// @param attributesClass
   ///     The class of attributes required for this dataset, or null if none
-  TestDataKind(String path, String description, Class<? extends Record> attributesClass)
+  TestDataKind(String path, String description, Class<?> attributesClass)
   {
     this.path = path;
     this.description = description;
@@ -119,7 +119,7 @@ public enum TestDataKind {
 
   /// get the dataset attributes type
   /// @return the attributes type of the dataset or null if none
-  public Class<? extends Record> getAttributesType() {
+  public Class<?> getAttributesType() {
     return attributesClass;
   }
 

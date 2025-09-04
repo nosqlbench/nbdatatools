@@ -23,7 +23,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
-import java.util.HexFormat;
 
 /**
  * Utility to download a chunk from HTTP server and compute its hash.
@@ -82,7 +81,7 @@ public class DownloadAndHashChunk {
         // Compute hash
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hash = digest.digest(chunkData);
-        String hexHash = HexFormat.of().formatHex(hash);
+        String hexHash = bytesToHex(hash);
         
         System.out.println("\nChunk " + chunkIndex + " hash: " + hexHash);
         
@@ -91,6 +90,14 @@ public class DownloadAndHashChunk {
         int bytesToShow = Math.min(32, chunkData.length);
         byte[] firstBytes = new byte[bytesToShow];
         System.arraycopy(chunkData, 0, firstBytes, 0, bytesToShow);
-        System.out.println(HexFormat.of().formatHex(firstBytes));
+        System.out.println(bytesToHex(firstBytes));
+    }
+    
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : bytes) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
     }
 }

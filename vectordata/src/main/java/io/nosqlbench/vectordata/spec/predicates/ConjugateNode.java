@@ -22,11 +22,26 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /// A conjugate node represents a boolean conjugate like AND or OR
-/// @param type the type of {@link ConjugateType}
-/// @param values values to conjugate
-public record ConjugateNode(ConjugateType type, PNode<?>... values)
-    implements BBWriter<ConjugateNode>, PNode<ConjugateNode>
-{
+public class ConjugateNode implements BBWriter<ConjugateNode>, PNode<ConjugateNode> {
+    /// the type of {@link ConjugateType}
+    private final ConjugateType type;
+    /// values to conjugate
+    private final PNode<?>[] values;
+    
+    public ConjugateNode(ConjugateType type, PNode<?>... values) {
+        this.type = type;
+        this.values = values;
+    }
+    
+    /// @return the type of {@link ConjugateType}
+    public ConjugateType type() {
+        return type;
+    }
+    
+    /// @return values to conjugate
+    public PNode<?>[] values() {
+        return values;
+    }
 
   ///  create a conjugate node
   /// @param b the byte buffer to decode the conjugate node from
@@ -66,10 +81,11 @@ public record ConjugateNode(ConjugateType type, PNode<?>... values)
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof ConjugateNode(ConjugateType type1, PNode<?>[] values1)))
+    if (!(o instanceof ConjugateNode))
       return false;
-
-    return Arrays.equals(values, values1) && type == type1;
+    
+    ConjugateNode that = (ConjugateNode) o;
+    return Arrays.equals(values, that.values) && type == that.type;
   }
 
   @Override

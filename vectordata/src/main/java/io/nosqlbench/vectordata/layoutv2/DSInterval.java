@@ -43,13 +43,11 @@ public class DSInterval {
   ///[0→10]
   ///```
   public final static Pattern PATTERN = Pattern.compile(
-      """
-          [(\\[]? \\s*
-          (?<start>\\d[\\d_]*\\w*) \\s*
-          ((\\.\\.|-|→) \\s*
-          (?<end>\\d[\\d_]*\\w*))? \\s*
-          [)\\]]? \\s*
-          """, Pattern.COMMENTS | Pattern.DOTALL
+      "[(\\[]? \\s*\n" +
+          "(?<start>\\d[\\d_]*\\w*) \\s*\n" +
+          "((\\.\\.|-|→) \\s*\n" +
+          "(?<end>\\d[\\d_]*\\w*))? \\s*\n" +
+          "[)\\]]? \\s*\n", Pattern.COMMENTS | Pattern.DOTALL
   );
 
   /// Creates an interval with the specified boundaries.
@@ -72,14 +70,15 @@ public class DSInterval {
   ///     a map of fields, or a string.
   /// @return A {@link DSInterval} object
   public static DSInterval fromData(Object objdata) {
-    if (objdata instanceof DSInterval dsi) {
-      return dsi;
-    } else if (objdata instanceof Map<?, ?> m) {
+    if (objdata instanceof DSInterval) {
+      return (DSInterval) objdata;
+    } else if (objdata instanceof Map<?, ?>) {
+      Map<?, ?> m = (Map<?, ?>) objdata;
       Double min = (Double) m.get("minIncl");
       Double max = (Double) m.get("maxExcl");
       return new DSInterval(min.longValue(), max.longValue());
-    } else if (objdata instanceof String sObj) {
-      return parse(sObj);
+    } else if (objdata instanceof String) {
+      return parse((String) objdata);
     } else {
       throw new RuntimeException("invalid intervals format:" + objdata);
     }
@@ -152,9 +151,10 @@ public class DSInterval {
   /// @return True if the objects are equal, false otherwise
   @Override
   public final boolean equals(Object o) {
-    if (!(o instanceof DSInterval interval))
+    if (!(o instanceof DSInterval))
       return false;
-
+    
+    DSInterval interval = (DSInterval) o;
     return minIncl == interval.minIncl && maxExcl == interval.maxExcl;
   }
 

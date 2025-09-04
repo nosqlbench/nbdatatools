@@ -63,7 +63,7 @@ public class ConcurrentSupplier<T> implements Supplier<T>, AutoCloseable {
   }
 
   private void startFeeder() {
-    Thread feeder = ofVirtual().name("feeder").factory().newThread(() -> {
+    Thread feeder = new Thread(() -> {
       while (source.hasNext()) {
         T next = source.next();
         try {
@@ -73,6 +73,7 @@ public class ConcurrentSupplier<T> implements Supplier<T>, AutoCloseable {
       }
       priming = false;
     });
+    feeder.setName("feeder");
     feeder.start();
   }
 

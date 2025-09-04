@@ -19,12 +19,26 @@ package io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes;
 
 
 /// a neighbor index containing both the dataset index and the associated distance
-/// @param index the index of the neighbor in the dataset
-/// @param distance the distance of the neighbor
-public record NeighborIndex(
-    long index, double distance
-) implements Comparable<NeighborIndex>
-{
+public class NeighborIndex implements Comparable<NeighborIndex> {
+    /// the index of the neighbor in the dataset
+    private final long index;
+    /// the distance of the neighbor
+    private final double distance;
+    
+    public NeighborIndex(long index, double distance) {
+        this.index = index;
+        this.distance = distance;
+    }
+    
+    /// @return the index of the neighbor in the dataset
+    public long index() {
+        return index;
+    }
+    
+    /// @return the distance of the neighbor
+    public double distance() {
+        return distance;
+    }
   @Override
   public int compareTo(NeighborIndex o) {
     return Double.compare(distance, o.distance);

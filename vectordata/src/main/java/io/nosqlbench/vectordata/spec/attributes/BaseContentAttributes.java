@@ -18,11 +18,44 @@ package io.nosqlbench.vectordata.spec.attributes;
  */
 
 
-/// This record type captures attribute requirements for the base content dataset
-/// @param media_type the media type of the content, such as "text/plain" or "image/jpeg"
-/// @param count the number of content items
-public record BaseContentAttributes(
-    String media_type,
-    long count
-) {
+/// This class captures attribute requirements for the base content dataset
+public class BaseContentAttributes {
+    /// the media type of the content, such as "text/plain" or "image/jpeg"
+    private final String media_type;
+    /// the number of content items
+    private final long count;
+
+    public BaseContentAttributes(String media_type, long count) {
+        this.media_type = media_type;
+        this.count = count;
+    }
+
+    public String media_type() {
+        return media_type;
+    }
+
+    public long count() {
+        return count;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        BaseContentAttributes that = (BaseContentAttributes) obj;
+        return count == that.count && java.util.Objects.equals(media_type, that.media_type);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(media_type, count);
+    }
+
+    @Override
+    public String toString() {
+        return "BaseContentAttributes{" +
+                "media_type='" + media_type + '\'' +
+                ", count=" + count +
+                '}';
+    }
 }

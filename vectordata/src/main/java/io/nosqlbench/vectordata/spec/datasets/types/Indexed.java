@@ -18,10 +18,26 @@ package io.nosqlbench.vectordata.spec.datasets.types;
  */
 
 /// An indexed type. The index is an associated id or ordinal
-/// @param index the index of the value
-/// @param value the value
 /// @param <T> the type of the value
 /// @see DatasetView
-public record Indexed<T>(long index, T value) {
-
+public class Indexed<T> {
+    /// the index of the value
+    private final long index;
+    /// the value
+    private final T value;
+    
+    public Indexed(long index, T value) {
+        this.index = index;
+        this.value = value;
+    }
+    
+    /// @return the index of the value
+    public long index() {
+        return index;
+    }
+    
+    /// @return the value
+    public T value() {
+        return value;
+    }
 }

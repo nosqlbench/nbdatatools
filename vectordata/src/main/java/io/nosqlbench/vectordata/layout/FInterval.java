@@ -28,18 +28,30 @@ import java.util.regex.Pattern;
 ///
 /// This class is used to define ranges of data to be processed, with a minimum value
 /// that is included in the range and a maximum value that is excluded.
-///
-/// @param minIncl The inclusive minimum bound of the interval
-/// @param maxExcl The exclusive maximum bound of the interval
-public record FInterval(long minIncl, long maxExcl) {
+public class FInterval {
+  /// The inclusive minimum bound of the interval
+  private final long minIncl;
+  /// The exclusive maximum bound of the interval
+  private final long maxExcl;
+
+  public FInterval(long minIncl, long maxExcl) {
+    this.minIncl = minIncl;
+    this.maxExcl = maxExcl;
+  }
+
+  public long minIncl() {
+    return minIncl;
+  }
+
+  public long maxExcl() {
+    return maxExcl;
+  }
   public final static Pattern PATTERN = Pattern.compile(
-      """
-          [(\\[]? \\s*
-          (?<start>\\d[\\d_]*\\w*) \\s*
-          ((\\.\\.|-|→) \\s*
-          (?<end>\\d[\\d_]*\\w*))? \\s*
-          [)\\]]? \\s*
-          """, Pattern.COMMENTS | Pattern.DOTALL
+      "[(\\[]? \\s*\n" +
+          "(?<start>\\d[\\d_]*\\w*) \\s*\n" +
+          "((\\.\\.|-|→) \\s*\n" +
+          "(?<end>\\d[\\d_]*\\w*))? \\s*\n" +
+          "[)\\]]? \\s*\n", Pattern.COMMENTS | Pattern.DOTALL
   );
 
   /// Parses an interval from a string representation.
@@ -94,18 +106,26 @@ public record FInterval(long minIncl, long maxExcl) {
   /// @param o The object to convert to an FInterval
   /// @return The created FInterval
   public static FInterval fromObject(Object o) {
-    if (o instanceof String s) {
+    if (o instanceof String) {
+      String s = (String) o;
       return parse(s);
-    } else if (o instanceof Number n) {
+    } else if (o instanceof Number) {
+      Number n = (Number) o;
       return new FInterval(0, n.longValue());
-    } else if (o instanceof FInterval fi) {
+    } else if (o instanceof FInterval) {
+      FInterval fi = (FInterval) o;
       return fi;
-    } else if (o instanceof Map<?, ?> map) {
+    } else if (o instanceof Map<?, ?>) {
+      Map<?, ?> map = (Map<?, ?>) o;
       Object min = map.get("minIncl");
       Object max = map.get("maxExcl");
-      if (min instanceof Number minn && max instanceof Number maxn) {
+      if (min instanceof Number && max instanceof Number) {
+        Number minn = (Number) min;
+        Number maxn = (Number) max;
         return new FInterval(minn.longValue(), maxn.longValue());
-      } else if (min instanceof String minstr && max instanceof String maxstr) {
+      } else if (min instanceof String && max instanceof String) {
+        String minstr = (String) min;
+        String maxstr = (String) max;
         return new FInterval(Long.parseLong(minstr), Long.parseLong(maxstr));
       } else {
         throw new RuntimeException("invalid intervals format:" + o);
@@ -113,5 +133,23 @@ public record FInterval(long minIncl, long maxExcl) {
     } else {
       throw new RuntimeException("invalid intervals format:" + o);
     }
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+    FInterval that = (FInterval) obj;
+    return minIncl == that.minIncl && maxExcl == that.maxExcl;
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(minIncl, maxExcl);
+  }
+
+  @Override
+  public String toString() {
+    return "FInterval{minIncl=" + minIncl + ", maxExcl=" + maxExcl + '}';
   }
 }

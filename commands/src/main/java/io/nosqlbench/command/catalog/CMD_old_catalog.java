@@ -37,14 +37,12 @@ import java.util.concurrent.Callable;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header="Create catalog views of vector test data files and dataset directories",
-    description = """
-              When given a directory, it will be recursively traversed to find:
-              1. Directories containing a 'dataset.yaml' file (treated as dataset roots)
-              2. Individual .hdf5 files
-              Catalog files (catalog.json and catalog.yaml) will be created at
-              each directory level, with paths in each catalog being relative
-              to the location of the catalog file.
-              """,
+    description = "When given a directory, it will be recursively traversed to find:\n" +
+              "1. Directories containing a 'dataset.yaml' file (treated as dataset roots)\n" +
+              "2. Individual .hdf5 files\n" +
+              "Catalog files (catalog.json and catalog.yaml) will be created at\n" +
+              "each directory level, with paths in each catalog being relative\n" +
+              "to the location of the catalog file.",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",
@@ -102,7 +100,7 @@ public class CMD_old_catalog implements Callable<Integer> {
     // Normalize all paths to absolute paths
     List<Path> absolutePaths = paths.stream()
         .map(p -> p.toAbsolutePath().normalize())
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
 
     // Start with the first path's parent (or the path itself if it's a directory)
     Path firstPath = absolutePaths.get(0);

@@ -56,21 +56,35 @@ public class DatasetDownloader implements AutoCloseable {
   private volatile boolean running = true;
 
   /// parquet file metadata
-  /// @param dataset the dataset name
-  /// @param config the config name
-  /// @param split the split name
-  /// @param url the url to download from
-  /// @param filename the filename
-  /// @param size the file size
-  public record ParquetFileData(
-      String dataset,
-      String config,
-      String split,
-      String url,
-      String filename,
-      long size
-  )
-  {
+  public static class ParquetFileData {
+    /// the dataset name
+    private final String dataset;
+    /// the config name
+    private final String config;
+    /// the split name
+    private final String split;
+    /// the url to download from
+    private final String url;
+    /// the filename
+    private final String filename;
+    /// the file size
+    private final long size;
+    
+    public ParquetFileData(String dataset, String config, String split, String url, String filename, long size) {
+      this.dataset = dataset;
+      this.config = config;
+      this.split = split;
+      this.url = url;
+      this.filename = filename;
+      this.size = size;
+    }
+    
+    public String dataset() { return dataset; }
+    public String config() { return config; }
+    public String split() { return split; }
+    public String url() { return url; }
+    public String filename() { return filename; }
+    public long size() { return size; }
 
     /// get the fully qualified path
     /// @return the fully qualified path

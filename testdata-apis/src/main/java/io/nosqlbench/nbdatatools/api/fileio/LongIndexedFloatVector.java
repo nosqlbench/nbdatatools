@@ -22,12 +22,24 @@ import java.util.Comparator;
 
 /// IndexedVector global ordering is based on index, not vector shape
 /// If you want to compare by vector value ordering, use [#BY_VECTOR_SHAPE]
-/// @param index the index of the vector from the dataset
-/// @param vector the vector component values
-public record LongIndexedFloatVector(
-    long index, float[] vector
-) implements Comparable<LongIndexedFloatVector>
-{
+public class LongIndexedFloatVector implements Comparable<LongIndexedFloatVector> {
+    /// the index of the vector from the dataset
+    private final long index;
+    /// the vector component values
+    private final float[] vector;
+
+    public LongIndexedFloatVector(long index, float[] vector) {
+        this.index = index;
+        this.vector = vector;
+    }
+
+    public long index() {
+        return index;
+    }
+
+    public float[] vector() {
+        return vector;
+    }
   @Override
   public int compareTo(LongIndexedFloatVector o) {
     return Long.compare(index, o.index);
@@ -50,6 +62,19 @@ public record LongIndexedFloatVector(
       return 0;
     }
   };
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+    LongIndexedFloatVector that = (LongIndexedFloatVector) obj;
+    return index == that.index && java.util.Arrays.equals(vector, that.vector);
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(index, java.util.Arrays.hashCode(vector));
+  }
 
   @Override
   public String toString() {

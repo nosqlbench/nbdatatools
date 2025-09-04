@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /// This is the reference implementation of valid tokens used for configuration
 /// and templating with the vector test data format.
@@ -41,51 +42,42 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
 
   /// The number of base vectors in the dataset
   base_vectors(
-      d -> d.getBaseVectors().map(DatasetView::getCount).map(String::valueOf), """
-      The number of base vectors in the dataset
-      """
+      d -> d.getBaseVectors().map(DatasetView::getCount).map(String::valueOf),
+      "The number of base vectors in the dataset"
   ),
   /// The number of query vectors in the dataset
   query_vectors(
-      d -> d.getQueryVectors().map(DatasetView::getCount).map(String::valueOf), """
-      The number of query vectors in the dataset
-      """
+      d -> d.getQueryVectors().map(DatasetView::getCount).map(String::valueOf),
+      "The number of query vectors in the dataset"
   ),
   /// The number of neighborhoods provided; should be the same as query_vectors
   neighbor_indices(
       d -> d.getNeighborIndices().map(DatasetView::getCount).map(String::valueOf),
-      """
-          The number of neighborhoods provided ; should be the same as query_vectors
-          """
+      "The number of neighborhoods provided ; should be the same as query_vectors"
   ),
   /// The model used to build this dataset
   model(
-      d -> Optional.of(d.getModel()), """
-      The model used to build this dataset
-      """
+      d -> Optional.of(d.getModel()),
+      "The model used to build this dataset"
   ),
   /// The number of components in the vector space
   dimensions(
-      d -> d.getBaseVectors().map(DatasetView::getVectorDimensions).map(String::valueOf), """
-      The number of components in the vector space
-      """
+      d -> d.getBaseVectors().map(DatasetView::getVectorDimensions).map(String::valueOf),
+      "The number of components in the vector space"
   ),
   /// The maximum number of neighbors provided for each query vector
   max_k(
-      d -> d.getNeighborIndices().map(NeighborIndices::getMaxK).map(String::valueOf), """
-      The maximum number of neighbors provided for each query vector
-      """
+      d -> d.getNeighborIndices().map(NeighborIndices::getMaxK).map(String::valueOf),
+      "The maximum number of neighbors provided for each query vector"
   ),
   /// The vendor of the dataset
   vendor(
-      d -> Optional.of(d.getVendor()), """
-      The vendor of the dataset
-      """
+      d -> Optional.of(d.getVendor()),
+      "The vendor of the dataset"
   ),
   /// The distance function used to compute distance between vectors
-  distance_function(d -> Optional.of(d.getDistanceFunction()).map(String::valueOf), """
-      The distance function used to compute distance between vectors
-      """
+  distance_function(d -> Optional.of(d.getDistanceFunction()).map(String::valueOf),
+      "The distance function used to compute distance between vectors"
   );
 
   private static final <T> Optional<String> reduceRange(
@@ -185,15 +177,14 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
     for (SpecToken token : values()) {
       readout.computeIfAbsent(
           token,
-          t -> Arrays.stream(ShortTokens.values()).filter(s -> s.canonicalToken == t).toList()
+          t -> Arrays.stream(ShortTokens.values()).filter(s -> s.canonicalToken == t).collect(java.util.stream.Collectors.toList())
       );
       for (SpecToken specToken : readout.keySet()) {
         List<ShortTokens> synonyms = readout.get(specToken);
         String synonymDetails = synonyms.isEmpty() ? "" :
-            String.join(",", readout.get(specToken).stream().map(ShortTokens::name).toList());
-        String doc = """
-            TOKEN: DESCRIPTION SYNONYMS
-            """.replaceAll("TOKEN", specToken.name())
+            String.join(",", readout.get(specToken).stream().map(ShortTokens::name).collect(java.util.stream.Collectors.toList()));
+        String doc = "TOKEN: DESCRIPTION SYNONYMS\n"
+            .replaceAll("TOKEN", specToken.name())
             .replaceAll("DESCRIPTION", specToken.description)
             .replaceAll("SYNONYMS", synonymDetails);
         docs.add(doc);

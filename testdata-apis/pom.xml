@@ -164,7 +164,7 @@
             <configuration>
               <rules>
                 <requireJavaVersion>
-                  <version>[24,)</version>
+                  <version>[11,)</version>
                 </requireJavaVersion>
                 <!--                <dependencyConvergence>-->
                 <!--                </dependencyConvergence>-->
@@ -199,6 +199,7 @@
             <goals>
               <goal>sign</goal>
             </goals>
+
             <configuration>
               <keyname>nosqlbenchdroid@gmail.com</keyname>
               <passphraseServerId>gpg.passphrase</passphraseServerId>

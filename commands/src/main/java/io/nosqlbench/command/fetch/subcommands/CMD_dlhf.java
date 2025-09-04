@@ -40,11 +40,9 @@ import java.util.concurrent.Callable;
 ///```
 @CommandLine.Command(name = "dlhf",
     header = "Download Huggingface Datasets via API",
-    description = """
-                This provides a set of utilities for working with Hugging Face.
-                The command includes subcommands for downloading datasets and
-                other Hugging Face-specific operations.
-        """,
+    description = "This provides a set of utilities for working with Hugging Face.\n" +
+                "The command includes subcommands for downloading datasets and\n" +
+                "other Hugging Face-specific operations.",
     subcommands = {CommandLine.HelpCommand.class})
 public class CMD_dlhf implements Callable<Integer> {
 

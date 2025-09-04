@@ -75,24 +75,25 @@ public class CMD_analyze_zeros implements Callable<Integer> {
                     Class<?> dataType;
 
                     switch (fileExtension.toLowerCase()) {
-                        case "fvec", "fvecs" -> {
+                        case "fvec":
+                        case "fvecs":
                             fileType = FileType.xvec;
                             dataType = float[].class;
                             CountResult result = countZerosInFile(file, dataType, fileType, currentFileIndex, totalFiles);
                             zeroVectors = result.zeroVectors;
                             totalVectors = result.totalVectors;
-                        }
-                        case "ivec", "ivecs" -> {
+                            break;
+                        case "ivec":
+                        case "ivecs":
                             fileType = FileType.xvec;
                             dataType = int[].class;
-                            CountResult result = countZerosInFile(file, dataType, fileType, currentFileIndex, totalFiles);
-                            zeroVectors = result.zeroVectors;
-                            totalVectors = result.totalVectors;
-                        }
-                        default -> {
+                            CountResult result2 = countZerosInFile(file, dataType, fileType, currentFileIndex, totalFiles);
+                            zeroVectors = result2.zeroVectors;
+                            totalVectors = result2.totalVectors;
+                            break;
+                        default:
                             logger.error("Unsupported file type: {}", fileExtension);
                             continue;
-                        }
                     }
 
                     // Print summary for this file
@@ -177,14 +178,16 @@ public class CMD_analyze_zeros implements Callable<Integer> {
     /// @return true if all components are zero, false otherwise
     @SuppressWarnings("unchecked")
     private <T> boolean isZeroVector(T vector) {
-        if (vector instanceof float[] floatVector) {
+        if (vector instanceof float[]) {
+            float[] floatVector = (float[]) vector;
             for (float value : floatVector) {
                 if (value != 0.0f) {
                     return false;
                 }
             }
             return true;
-        } else if (vector instanceof int[] intVector) {
+        } else if (vector instanceof int[]) {
+            int[] intVector = (int[]) vector;
             for (int value : intVector) {
                 if (value != 0) {
                     return false;

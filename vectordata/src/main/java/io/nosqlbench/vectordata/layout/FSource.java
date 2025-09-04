@@ -26,9 +26,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /// An FSource is a source of data, with an optional window.
-/// @param inpath the path to the source of the data
-/// @param window the window of the source of the data
-public record FSource(String inpath, FWindow window) {
+public class FSource {
+  /// the path to the source of the data
+  private final String inpath;
+  /// the window of the source of the data
+  private final FWindow window;
+
+  public FSource(String inpath, FWindow window) {
+    this.inpath = inpath;
+    this.window = window;
+  }
+
+  public String inpath() {
+    return inpath;
+  }
+
+  public FWindow window() {
+    return window;
+  }
 
   /// Creates a new FSource with the specified path and window
   /// @param origin the path to the source of the data
@@ -75,9 +90,11 @@ public record FSource(String inpath, FWindow window) {
   /// @param source the object to create a source from
   /// @return a new FSource
   public static FSource fromObject(Object source) {
-    if (source instanceof String s) {
+    if (source instanceof String) {
+      String s = (String) source;
       return parse(s);
-    } else if (source instanceof Map<?, ?> m) {
+    } else if (source instanceof Map<?, ?>) {
+      Map<?, ?> m = (Map<?, ?>) source;
       return new FSource(
           (String) m.get("inpath"),
           FWindow.fromObject(m.get("window"))
@@ -90,5 +107,23 @@ public record FSource(String inpath, FWindow window) {
   /// @return the raw data representation of this source
   public String toData() {
     return inpath + ((window != FWindow.ALL) ? "(" + window.toData() + ")" : "");
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+    FSource that = (FSource) obj;
+    return java.util.Objects.equals(inpath, that.inpath) && java.util.Objects.equals(window, that.window);
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(inpath, window);
+  }
+
+  @Override
+  public String toString() {
+    return "FSource{inpath='" + inpath + "', window=" + window + '}';
   }
 }

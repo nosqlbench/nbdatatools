@@ -29,12 +29,20 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /// a group layout is a list of test data layouts, each for a single dataset entry in the group
-/// @param layouts
-///     the list of test data layouts
-public record TestDatafileLayout(List<TestDatasetLayout> layouts) {
+public class TestDatafileLayout {
+  private final List<TestDatasetLayout> layouts;
+
+  public TestDatafileLayout(List<TestDatasetLayout> layouts) {
+    this.layouts = layouts;
+  }
+
+  public List<TestDatasetLayout> layouts() {
+    return layouts;
+  }
   /// load a group layout from a file
   /// @param layout
   ///     the path to the layout file
@@ -50,7 +58,7 @@ public record TestDatafileLayout(List<TestDatasetLayout> layouts) {
     }
     List<Map<?, ?>> slabs = (List<Map<?, ?>>) yaml.loadFromString(layoutYaml);
     List<TestDatasetLayout> layouts =
-        slabs.stream().map(TestDatasetLayout::fromMap).toList();
+        slabs.stream().map(TestDatasetLayout::fromMap).collect(Collectors.toList());
 
     return new TestDatafileLayout(layouts);
   }
@@ -66,5 +74,25 @@ public record TestDatafileLayout(List<TestDatasetLayout> layouts) {
       sorted.put(k, new DatasetLayoutByKind(k, v));
     });
     return sorted;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    TestDatafileLayout that = (TestDatafileLayout) o;
+    return Objects.equals(layouts, that.layouts);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(layouts);
+  }
+
+  @Override
+  public String toString() {
+    return "TestDatafileLayout{" +
+           "layouts=" + layouts +
+           '}';
   }
 }

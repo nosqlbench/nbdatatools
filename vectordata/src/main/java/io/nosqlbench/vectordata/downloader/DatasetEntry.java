@@ -33,29 +33,60 @@ import java.util.Map;
 /// A dataset entry contains metadata about a dataset, including its name, URL,
 /// attributes, profiles, and tags. It provides methods for downloading the dataset
 /// and selecting profiles for use.
-///
-/// @param name The name of the dataset
-/// @param url The URL where the dataset can be downloaded from
-/// @param attributes Additional attributes associated with the dataset
-/// @param profiles The profiles available for this dataset
-/// @param tags Tags associated with the dataset for categorization
-public record DatasetEntry(
-    String name,
-    URL url,
-    Map<String, String> attributes,
-    DSProfileGroup profiles,
-    Map<String, String> tags
-)
-{
+public class DatasetEntry {
+    /// The name of the dataset
+    private final String name;
+    /// The URL where the dataset can be downloaded from
+    private final URL url;
+    /// Additional attributes associated with the dataset
+    private final Map<String, String> attributes;
+    /// The profiles available for this dataset
+    private final DSProfileGroup profiles;
+    /// Tags associated with the dataset for categorization
+    private final Map<String, String> tags;
+    
+    public DatasetEntry(String name, URL url, Map<String, String> attributes, DSProfileGroup profiles, Map<String, String> tags) {
+        this.name = name;
+        this.url = url;
+        this.attributes = attributes;
+        this.profiles = profiles;
+        this.tags = tags;
+    }
+    
+    /// @return The name of the dataset
+    public String name() {
+        return name;
+    }
+    
+    /// @return The URL where the dataset can be downloaded from
+    public URL url() {
+        return url;
+    }
+    
+    /// @return Additional attributes associated with the dataset
+    public Map<String, String> attributes() {
+        return attributes;
+    }
+    
+    /// @return The profiles available for this dataset
+    public DSProfileGroup profiles() {
+        return profiles;
+    }
+    
+    /// @return Tags associated with the dataset for categorization
+    public Map<String, String> tags() {
+        return tags;
+    }
   /// Creates a DatasetEntry from a data object.
   ///
   /// @param entryObj The object containing dataset entry data
   /// @return A new DatasetEntry instance
   public static DatasetEntry fromData(Object entryObj) {
     Map<String, ?> entry = null;
-    if (entryObj instanceof CharSequence cs) {
+    if (entryObj instanceof CharSequence) {
+      CharSequence cs = (CharSequence) entryObj;
       entry = SHARED.mapFromJson(entryObj.toString());
-    } else if (entryObj instanceof Map<?, ?> mapObj) {
+    } else if (entryObj instanceof Map<?, ?>) {
       entry = (Map<String, Object>) entryObj;
     } else {
       throw new RuntimeException("invalid dataset entry format:" + entryObj);

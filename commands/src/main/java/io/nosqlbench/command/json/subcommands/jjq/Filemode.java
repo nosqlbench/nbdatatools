@@ -36,12 +36,17 @@ public enum Filemode {
   /// @param path the path to check
   public boolean isSkip(Path path) {
     if (Files.exists(path)) {
-      return switch (this) {
-        case preserve -> throw new RuntimeException(
+      switch (this) {
+        case preserve:
+          throw new RuntimeException(
             "file 'path' exists, and " + this.getClass().getSimpleName() + "=" + this);
-        case overwrite -> false;
-        case checkpoint -> true;
-      };
+        case overwrite:
+          return false;
+        case checkpoint:
+          return true;
+        default:
+          throw new IllegalArgumentException("Unknown filemode: " + this);
+      }
     } else {
       return false;
     }

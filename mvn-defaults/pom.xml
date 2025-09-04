@@ -17,7 +17,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.deploy.skip>true</maven.deploy.skip>
 <!--    <maven.compiler.release>24</maven.compiler.release>-->
-    <maven.compiler.source>23</maven.compiler.source>
+    <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
   </properties>
 
@@ -388,7 +388,6 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.14.0</version>
           <configuration>
-            <proc>full</proc>
             <release>11</release>
           </configuration>
         </plugin>
@@ -440,6 +439,7 @@
                   <!--                  </message>-->
                   <!--                </requireProperty>-->
                   <requireJavaVersion>
+                    <!-- This is here to allow for java 11 bytecode while allowing markdown docs in the source, for example -->
                     <version>[24,)</version>
                   </requireJavaVersion>
                   <!--                    This would be nice, but jhdf is on older log4j API versions -->

@@ -41,9 +41,7 @@ import java.util.function.Supplier;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "build HDF5 KNN test data answer-keys from JSON",
-    description = """
-        Build HDF5 KNN test data answer-keys from JSON using the provided layout configuration.
-        """,
+    description = "Build HDF5 KNN test data answer-keys from JSON using the provided layout configuration.",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: no errors",

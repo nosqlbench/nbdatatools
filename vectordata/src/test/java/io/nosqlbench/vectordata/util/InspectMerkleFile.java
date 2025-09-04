@@ -22,7 +22,6 @@ import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 
 import java.nio.file.Path;
-import java.util.HexFormat;
 
 /**
  * Utility to inspect merkle file contents and show hashes for specific chunks.
@@ -56,7 +55,7 @@ public class InspectMerkleFile {
                 }
                 
                 byte[] hash = tree.getHashForLeaf(chunkIndex);
-                String hexHash = HexFormat.of().formatHex(hash);
+                String hexHash = bytesToHex(hash);
                 
                 System.out.println("Chunk " + chunkIndex + " hash: " + hexHash);
                 System.out.println("Chunk " + chunkIndex + " valid: " + tree.isValid(chunkIndex));
@@ -67,7 +66,7 @@ public class InspectMerkleFile {
                 
                 for (int i = 0; i < numToShow; i++) {
                     byte[] hash = tree.getHashForLeaf(i);
-                    String hexHash = HexFormat.of().formatHex(hash);
+                    String hexHash = bytesToHex(hash);
                     System.out.println("  Chunk " + i + ": " + hexHash + " (valid: " + tree.isValid(i) + ")");
                 }
                 
@@ -78,5 +77,13 @@ public class InspectMerkleFile {
         } finally {
             tree.close();
         }
+    }
+    
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : bytes) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
     }
 }

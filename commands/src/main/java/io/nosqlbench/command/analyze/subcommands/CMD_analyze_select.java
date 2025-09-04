@@ -68,30 +68,27 @@ public class CMD_analyze_select implements Callable<Integer> {
                 Class<?> dataType;
 
                 switch (fileExtension.toLowerCase()) {
-                    case "fvec", "fvecs" -> {
+                    case "fvec":
+                    case "fvecs":
                         fileType = FileType.xvec;
                         dataType = float[].class;
                         return selectVector(file, dataType, fileType);
-                    }
-                    case "ivec", "ivecs" -> {
+                    case "ivec":
+                    case "ivecs":
                         fileType = FileType.xvec;
                         dataType = int[].class;
                         return selectVector(file, dataType, fileType);
-                    }
-                    case "parquet" -> {
+                    case "parquet":
                         fileType = FileType.parquet;
                         dataType = float[].class;
                         return selectVector(file, dataType, fileType);
-                    }
-                    case "csv" -> {
+                    case "csv":
                         fileType = FileType.csv;
                         dataType = float[].class;
                         return selectVector(file, dataType, fileType);
-                    }
-                    default -> {
+                    default:
                         logger.error("Unsupported file type: {}", fileExtension);
                         return 1;
-                    }
                 }
             } catch (Exception e) {
                 logger.error("Error processing file {}: {}", file, e.getMessage());
@@ -139,10 +136,12 @@ public class CMD_analyze_select implements Callable<Integer> {
 
             // Print the vector data
             System.out.println("Vector Data:");
-            if (vector instanceof float[] floatVector) {
+            if (vector instanceof float[]) {
+                float[] floatVector = (float[]) vector;
                 System.out.printf("- Type: float[%d]%n", floatVector.length);
                 System.out.println("- Values: " + Arrays.toString(floatVector));
-            } else if (vector instanceof int[] intVector) {
+            } else if (vector instanceof int[]) {
+                int[] intVector = (int[]) vector;
                 System.out.printf("- Type: int[%d]%n", intVector.length);
                 System.out.println("- Values: " + Arrays.toString(intVector));
             } else {

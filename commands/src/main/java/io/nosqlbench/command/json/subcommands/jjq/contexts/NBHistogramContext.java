@@ -58,17 +58,27 @@ public class NBHistogramContext extends ConcurrentHashMap<String, AtomicLong>
 
     for (entry id : ids) {
       sb.append(String.format("% 20d", id.id())).append(": ")
-          .append(String.format("% 15d", id.freq)).append("\n");
+          .append(String.format("% 15d", id.freq())).append("\n");
     }
     sb.append("base frequencies:\n")
-        .append(ids.stream().map(s -> String.valueOf(s.freq)).collect(Collectors.joining(",")));
+        .append(ids.stream().map(s -> String.valueOf(s.freq())).collect(Collectors.joining(",")));
     return sb.toString();
   }
 
-  /// a record to hold an props in the histogram
-  /// @param id the id of the props
-  /// @param freq the frequency of the props
-  public record entry(long id, long freq) {
+  /// a class to hold an entry in the histogram
+  public static class entry {
+    /// the id of the entry
+    private final long id;
+    /// the frequency of the entry
+    private final long freq;
+    
+    public entry(long id, long freq) {
+      this.id = id;
+      this.freq = freq;
+    }
+    
+    public long id() { return id; }
+    public long freq() { return freq; }
   }
 
 }

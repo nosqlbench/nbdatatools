@@ -47,7 +47,9 @@ public class EnumeratedIterable<T> implements Iterable<T> {
   /// @param <T> the type of the elements
   /// @return the new enumerated iterable
   public static <T> EnumeratedIterable<T> of(Iterable<T> inner) {
-    if (inner instanceof EnumeratedIterable<T> ei) {
+    if (inner instanceof EnumeratedIterable) {
+      @SuppressWarnings("unchecked")
+      EnumeratedIterable<T> ei = (EnumeratedIterable<T>) inner;
       return ei;
     } else {
       return new EnumeratedIterable<>(inner);

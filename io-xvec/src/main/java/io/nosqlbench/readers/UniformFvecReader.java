@@ -227,9 +227,10 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
     @Override
     public boolean contains(Object o) {
-        if (!(o instanceof float[] array)) {
+        if (!(o instanceof float[])) {
             return false;
         }
+        float[] array = (float[]) o;
 
         if (array.length != dimension) {
             return false;
@@ -248,9 +249,10 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
     @Override
     public int indexOf(Object o) {
-        if (!(o instanceof float[] array) || array.length != dimension) {
+        if (!(o instanceof float[]) || ((float[]) o).length != dimension) {
             return -1;
         }
+        float[] array = (float[]) o;
 
         // Linear search through all vectors
         for (int i = 0; i < size; i++) {
@@ -265,9 +267,10 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
     @Override
     public int lastIndexOf(Object o) {
-        if (!(o instanceof float[] array) || array.length != dimension) {
+        if (!(o instanceof float[]) || ((float[]) o).length != dimension) {
             return -1;
         }
+        float[] array = (float[]) o;
 
         // Linear search through all vectors in reverse
         for (int i = size - 1; i >= 0; i--) {
@@ -375,9 +378,10 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
         @Override
         public boolean contains(Object o) {
-            if (!(o instanceof float[] array)) {
+            if (!(o instanceof float[])) {
                 return false;
             }
+            float[] array = (float[]) o;
 
             if (array.length != parent.getDimension()) {
                 return false;
@@ -396,9 +400,10 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
         @Override
         public int indexOf(Object o) {
-            if (!(o instanceof float[] array) || array.length != parent.getDimension()) {
+            if (!(o instanceof float[]) || ((float[]) o).length != parent.getDimension()) {
                 return -1;
             }
+            float[] array = (float[]) o;
 
             // Linear search through this sublist's vectors
             for (int i = 0; i < size; i++) {
@@ -413,9 +418,10 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
         @Override
         public int lastIndexOf(Object o) {
-            if (!(o instanceof float[] array) || array.length != parent.getDimension()) {
+            if (!(o instanceof float[]) || ((float[]) o).length != parent.getDimension()) {
                 return -1;
             }
+            float[] array = (float[]) o;
 
             // Linear search through this sublist's vectors in reverse
             for (int i = size - 1; i >= 0; i--) {

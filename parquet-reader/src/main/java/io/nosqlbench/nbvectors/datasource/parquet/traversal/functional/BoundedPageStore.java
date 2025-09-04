@@ -23,20 +23,60 @@ import org.apache.parquet.example.data.Group;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.api.RecordMaterializer;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /// Capture the state of a page read store needed to read records from it
-/// @param pageReadStore the page read store
-/// @param messageColumnIO the column IO
-/// @param recordMaterializer the record materializer
-public record BoundedPageStore(
-    PageReadStore pageReadStore,
-    MessageColumnIO messageColumnIO,
-    RecordMaterializer<Group> recordMaterializer
-) implements Supplier<RecordSupplier>
-{
+public class BoundedPageStore implements Supplier<RecordSupplier> {
+  private final PageReadStore pageReadStore;
+  private final MessageColumnIO messageColumnIO;
+  private final RecordMaterializer<Group> recordMaterializer;
+
+  public BoundedPageStore(PageReadStore pageReadStore, MessageColumnIO messageColumnIO,
+                         RecordMaterializer<Group> recordMaterializer) {
+    this.pageReadStore = pageReadStore;
+    this.messageColumnIO = messageColumnIO;
+    this.recordMaterializer = recordMaterializer;
+  }
+
+  public PageReadStore pageReadStore() {
+    return pageReadStore;
+  }
+
+  public MessageColumnIO messageColumnIO() {
+    return messageColumnIO;
+  }
+
+  public RecordMaterializer<Group> recordMaterializer() {
+    return recordMaterializer;
+  }
+
   @Override
   public RecordSupplier get() {
     return new RecordSupplier(this);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    BoundedPageStore that = (BoundedPageStore) o;
+    return Objects.equals(pageReadStore, that.pageReadStore) &&
+           Objects.equals(messageColumnIO, that.messageColumnIO) &&
+           Objects.equals(recordMaterializer, that.recordMaterializer);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(pageReadStore, messageColumnIO, recordMaterializer);
+  }
+
+  @Override
+  public String toString() {
+    return "BoundedPageStore{" +
+           "pageReadStore=" + pageReadStore +
+           ", messageColumnIO=" + messageColumnIO +
+           ", recordMaterializer=" + recordMaterializer +
+           '}';
   }
 }

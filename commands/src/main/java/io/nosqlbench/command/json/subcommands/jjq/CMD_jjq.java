@@ -56,8 +56,7 @@ public class CMD_jjq implements Callable<Integer> {
   @Option(names = {"-p", "--parts"}, required = false, defaultValue = "0")
   private int parts;
 
-  @Option(names = {"-d", "--diag"}, required = false, defaultValue = "false", description = """
-      A debugging mode that provides a simpler execution path, more data, and cleaner stack traces.""")
+  @Option(names = {"-d", "--diag"}, required = false, defaultValue = "false", description = "A debugging mode that provides a simpler execution path, more data, and cleaner stack traces.")
   private boolean diagnose;
 
   @Option(names = {"-m", "--filemode"},

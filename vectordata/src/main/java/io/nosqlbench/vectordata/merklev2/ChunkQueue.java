@@ -20,6 +20,7 @@ package io.nosqlbench.vectordata.merklev2;
 import java.time.Instant;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
@@ -51,12 +52,37 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 /// // Mark task as completed
 /// chunkQueue.markCompleted(task);
 /// ```
-public record ChunkQueue(
-    BlockingQueue<ChunkScheduler.NodeDownloadTask> taskQueue,
-    ConcurrentMap<Integer, CompletableFuture<Void>> inFlightFutures,
-    Deque<CompletedTask> completedTasksHistory,
-    int maxHistorySize
-) implements SchedulingTarget {
+public class ChunkQueue implements SchedulingTarget {
+    private final BlockingQueue<ChunkScheduler.NodeDownloadTask> taskQueue;
+    private final ConcurrentMap<Integer, CompletableFuture<Void>> inFlightFutures;
+    private final Deque<CompletedTask> completedTasksHistory;
+    private final int maxHistorySize;
+
+    public ChunkQueue(BlockingQueue<ChunkScheduler.NodeDownloadTask> taskQueue,
+                     ConcurrentMap<Integer, CompletableFuture<Void>> inFlightFutures,
+                     Deque<CompletedTask> completedTasksHistory,
+                     int maxHistorySize) {
+        this.taskQueue = taskQueue;
+        this.inFlightFutures = inFlightFutures;
+        this.completedTasksHistory = completedTasksHistory;
+        this.maxHistorySize = maxHistorySize;
+    }
+
+    public BlockingQueue<ChunkScheduler.NodeDownloadTask> taskQueue() {
+        return taskQueue;
+    }
+
+    public ConcurrentMap<Integer, CompletableFuture<Void>> inFlightFutures() {
+        return inFlightFutures;
+    }
+
+    public Deque<CompletedTask> completedTasksHistory() {
+        return completedTasksHistory;
+    }
+
+    public int maxHistorySize() {
+        return maxHistorySize;
+    }
     
     /// Creates a new ChunkQueue with the specified history size.
     /// 
@@ -242,13 +268,44 @@ public record ChunkQueue(
     }
     
     /// Result of a scheduling operation containing both tasks and futures.
-    /// 
-    /// @param tasks The tasks that were added during scheduling
-    /// @param futures The futures for the tasks that were added
-    public record SchedulingResult(
-        List<ChunkScheduler.NodeDownloadTask> tasks,
-        List<CompletableFuture<Void>> futures
-    ) {}
+    public static class SchedulingResult {
+        private final List<ChunkScheduler.NodeDownloadTask> tasks;
+        private final List<CompletableFuture<Void>> futures;
+
+        public SchedulingResult(List<ChunkScheduler.NodeDownloadTask> tasks, List<CompletableFuture<Void>> futures) {
+            this.tasks = tasks;
+            this.futures = futures;
+        }
+
+        public List<ChunkScheduler.NodeDownloadTask> tasks() {
+            return tasks;
+        }
+
+        public List<CompletableFuture<Void>> futures() {
+            return futures;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SchedulingResult that = (SchedulingResult) o;
+            return Objects.equals(tasks, that.tasks) && Objects.equals(futures, that.futures);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tasks, futures);
+        }
+
+        @Override
+        public String toString() {
+            return "SchedulingResult{" +
+                "tasks=" + tasks +
+                ", futures=" + futures +
+                '}';
+        }
+    }
     
     /// Functional interface for scheduling operations.
     /// 
@@ -307,17 +364,55 @@ public record ChunkQueue(
     
     /// Represents a completed download task with timing and success information.
     /// 
-    /// This record is used to track the history of completed tasks for analysis
+    /// This class is used to track the history of completed tasks for analysis
     /// and performance monitoring.
-    public record CompletedTask(
-        int nodeIndex,
-        long offset,
-        long size,
-        boolean isLeafNode,
-        Instant completionTime,
-        boolean success,
-        long bytesTransferred
-    ) {
+    public static class CompletedTask {
+        private final int nodeIndex;
+        private final long offset;
+        private final long size;
+        private final boolean isLeafNode;
+        private final Instant completionTime;
+        private final boolean success;
+        private final long bytesTransferred;
+
+        public CompletedTask(int nodeIndex, long offset, long size, boolean isLeafNode,
+                           Instant completionTime, boolean success, long bytesTransferred) {
+            this.nodeIndex = nodeIndex;
+            this.offset = offset;
+            this.size = size;
+            this.isLeafNode = isLeafNode;
+            this.completionTime = completionTime;
+            this.success = success;
+            this.bytesTransferred = bytesTransferred;
+        }
+
+        public int nodeIndex() {
+            return nodeIndex;
+        }
+
+        public long offset() {
+            return offset;
+        }
+
+        public long size() {
+            return size;
+        }
+
+        public boolean isLeafNode() {
+            return isLeafNode;
+        }
+
+        public Instant completionTime() {
+            return completionTime;
+        }
+
+        public boolean success() {
+            return success;
+        }
+
+        public long bytesTransferred() {
+            return bytesTransferred;
+        }
         
         /// Gets the efficiency ratio of this completed task.
         /// 
@@ -345,9 +440,51 @@ public record ChunkQueue(
         }
         
         @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            CompletedTask that = (CompletedTask) o;
+            return nodeIndex == that.nodeIndex && offset == that.offset && size == that.size &&
+                   isLeafNode == that.isLeafNode && success == that.success &&
+                   bytesTransferred == that.bytesTransferred &&
+                   Objects.equals(completionTime, that.completionTime);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(nodeIndex, offset, size, isLeafNode, completionTime, success, bytesTransferred);
+        }
+        
+        @Override
         public String toString() {
             return String.format("CompletedTask{node=%d, offset=%d, size=%d, leaf=%s, success=%s, transferred=%d, efficiency=%.2f}", 
                 nodeIndex, offset, size, isLeafNode, success, bytesTransferred, getEfficiency());
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ChunkQueue that = (ChunkQueue) o;
+        return maxHistorySize == that.maxHistorySize &&
+               Objects.equals(taskQueue, that.taskQueue) &&
+               Objects.equals(inFlightFutures, that.inFlightFutures) &&
+               Objects.equals(completedTasksHistory, that.completedTasksHistory);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(taskQueue, inFlightFutures, completedTasksHistory, maxHistorySize);
+    }
+
+    @Override
+    public String toString() {
+        return "ChunkQueue{" +
+               "taskQueue=" + taskQueue +
+               ", inFlightFutures=" + inFlightFutures +
+               ", completedTasksHistory=" + completedTasksHistory +
+               ", maxHistorySize=" + maxHistorySize +
+               '}';
     }
 }

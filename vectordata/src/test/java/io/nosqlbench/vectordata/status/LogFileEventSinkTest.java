@@ -66,13 +66,14 @@ class LogFileEventSinkTest {
 
         @Override
         public char getLevelSymbol() {
-            return switch (level) {
-                case TRACE -> 'T';
-                case DEBUG -> 'D';
-                case INFO -> 'I';
-                case WARN -> 'W';
-                case ERROR -> 'E';
-            };
+            switch (level) {
+                case TRACE: return 'T';
+                case DEBUG: return 'D';
+                case INFO: return 'I';
+                case WARN: return 'W';
+                case ERROR: return 'E';
+                default: throw new IllegalArgumentException("Unknown level: " + level);
+            }
         }
     }
 

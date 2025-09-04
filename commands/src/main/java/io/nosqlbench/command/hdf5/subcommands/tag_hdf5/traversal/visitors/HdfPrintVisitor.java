@@ -48,13 +48,12 @@ public class HdfPrintVisitor extends BaseHdfVisitor {
   /// {@inheritDoc}
   @Override
   public void dataset(Dataset dataset) {
-    System.out.println("""
-            dims: DIMS
-            type: HDFTYPE
-        javatype: JAVATYPE
-        datasize: DATASIZE
-         storage: STORAGESIZE
-        """.replaceAll("DIMS", Arrays.toString(dataset.getDimensions()))
+    System.out.println(("            dims: DIMS\n" +
+        "            type: HDFTYPE\n" +
+        "        javatype: JAVATYPE\n" +
+        "        datasize: DATASIZE\n" +
+        "         storage: STORAGESIZE\n")
+        .replaceAll("DIMS", Arrays.toString(dataset.getDimensions()))
         .replaceAll("HDFTYPE", dataset.getDataType().getClass().getSimpleName())
         .replaceAll("JAVATYPE", dataset.getJavaType().getTypeName())
         .replaceAll("DATASIZE", String.valueOf(dataset.getSize()))
@@ -70,9 +69,8 @@ public class HdfPrintVisitor extends BaseHdfVisitor {
   /// {@inheritDoc}
   @Override
   public void committedDataType(CommittedDatatype cdt) {
-    System.out.println("""
-          datatype: HDFTYPE
-        """.replaceAll("HDFTYPE", cdt.getDataType().getClass().getSimpleName()));
+    System.out.println("          datatype: HDFTYPE"
+        .replaceAll("HDFTYPE", cdt.getDataType().getClass().getSimpleName()));
   }
 
   /// {@inheritDoc}

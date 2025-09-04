@@ -69,12 +69,12 @@ public class VectorFileIO {
     // First, try to find a provider that matches both type/encoding and file extension
     List<ServiceLoader.Provider<BoundedVectorFileStream>> matchingProviders = streamProviders().stream()
         .filter(provider -> matchesTypeAndEncoding(provider, encoding, dataType))
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
 
     // Check for providers that match the extension
     List<ServiceLoader.Provider<BoundedVectorFileStream>> extensionMatches = matchingProviders.stream()
         .filter(provider -> matchesFileExtension(provider, fileExtension))
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
 
     // If we have providers that match the type/encoding but none match the extension, warn the user
     if (!extensionMatches.isEmpty()) {
@@ -208,7 +208,7 @@ public class VectorFileIO {
     ServiceLoader<BoundedVectorFileStream> serviceLoader =
         ServiceLoader.load(BoundedVectorFileStream.class);
     List<ServiceLoader.Provider<BoundedVectorFileStream>> providers =
-        StreamSupport.stream(serviceLoader.stream().spliterator(), false).toList();
+        StreamSupport.stream(serviceLoader.stream().spliterator(), false).collect(java.util.stream.Collectors.toList());
     return providers;
   }
 
@@ -292,12 +292,12 @@ public class VectorFileIO {
     // Find providers that match the type/encoding
     List<ServiceLoader.Provider<VectorFileArray>> matchingProviders = providers()
         .filter(provider -> matchesTypeAndEncoding(provider, type, aClass))
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
 
     // Filter to find providers that also match the file extension
     List<ServiceLoader.Provider<VectorFileArray>> extensionMatches = matchingProviders.stream()
         .filter(provider -> matchesFileExtension(provider, fileExtension))
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
 
     if (!extensionMatches.isEmpty()) {
       // We have providers that match both criteria
@@ -382,12 +382,12 @@ public class VectorFileIO {
     // Find providers that match the type/encoding
     List<ServiceLoader.Provider<VectorFileStreamStore>> matchingProviders = storeProviders()
         .filter(provider -> matchesTypeAndEncoding(provider, type, aClass))
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
 
     // Filter to find providers that also match the file extension
     List<ServiceLoader.Provider<VectorFileStreamStore>> extensionMatches = matchingProviders.stream()
         .filter(provider -> matchesFileExtension(provider, fileExtension))
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
 
     if (!extensionMatches.isEmpty()) {
       // We have providers that match both criteria

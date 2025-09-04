@@ -58,47 +58,47 @@ public class TransformWalker {
       }
     }
 
-    switch (node) {
-      case HdfFile file -> {
-        for (Node child : file.getChildren().values()) {
-          traverseNode(child, node);
-        }
+    if (node instanceof HdfFile) {
+      HdfFile file = (HdfFile) node;
+      for (Node child : file.getChildren().values()) {
+        traverseNode(child, node);
       }
-      case Group group -> {
-        List<Group> update = transformer.transformGroup(parent, group);
-        update = update == null ? List.of(group) : update;
-        for (Group updatedGroup : update) {
-          out.putGroup(updatedGroup.getName());
-        }
+    } else if (node instanceof Group) {
+      Group group = (Group) node;
+      List<Group> update = transformer.transformGroup(parent, group);
+      update = update == null ? List.of(group) : update;
+      for (Group updatedGroup : update) {
+        out.putGroup(updatedGroup.getName());
       }
-      case Attribute attribute -> {
-        List<Attribute> attributes = transformer.transform(attribute);
-        //        attributes = attributes == null ? List.of(attribute) : attributes;
-        for (Attribute updatedAttribute : attributes == null ? List.of(attribute) : attributes) {
-          if (attributes != null && walknew) {
-            for (Attribute a : attributes) {
+    } else if (node instanceof Attribute) {
+      Attribute attribute = (Attribute) node;
+      List<Attribute> attributes = transformer.transform(attribute);
+      //        attributes = attributes == null ? List.of(attribute) : attributes;
+      for (Attribute updatedAttribute : attributes == null ? List.of(attribute) : attributes) {
+        if (attributes != null && walknew) {
+          for (Attribute a : attributes) {
 //              traverseNode(a);
-            }
           }
-          out.putAttribute(updatedAttribute.getName(), updatedAttribute.getData());
         }
+        out.putAttribute(updatedAttribute.getName(), updatedAttribute.getData());
       }
-      case Dataset dataset -> {
-        List<Dataset> datasets = transformer.transform(dataset);
-        datasets = datasets == null ? List.of(dataset) : datasets;
-        for (Dataset updatedDataset : datasets) {
-          out.putDataset(updatedDataset.getName(), updatedDataset.getData());
-        }
+    } else if (node instanceof Dataset) {
+      Dataset dataset = (Dataset) node;
+      List<Dataset> datasets = transformer.transform(dataset);
+      datasets = datasets == null ? List.of(dataset) : datasets;
+      for (Dataset updatedDataset : datasets) {
+        out.putDataset(updatedDataset.getName(), updatedDataset.getData());
       }
-      case CommittedDatatype cdt -> {
-        List<CommittedDatatype> cdtypes = transformer.transform(cdt);
-        cdtypes = cdtypes == null ? List.of(cdt) : cdtypes;
-        for (CommittedDatatype updatedCdt : cdtypes) {
-          throw new RuntimeException(
-              "Unsupported type until HDF API supports it " + "(CommittedDataType)");
-        }
+    } else if (node instanceof CommittedDatatype) {
+      CommittedDatatype cdt = (CommittedDatatype) node;
+      List<CommittedDatatype> cdtypes = transformer.transform(cdt);
+      cdtypes = cdtypes == null ? List.of(cdt) : cdtypes;
+      for (CommittedDatatype updatedCdt : cdtypes) {
+        throw new RuntimeException(
+            "Unsupported type until HDF API supports it " + "(CommittedDataType)");
       }
-      default -> throw new RuntimeException("Unrecognized node type: " + node);
+    } else {
+      throw new RuntimeException("Unrecognized node type: " + node);
     }
   }
 

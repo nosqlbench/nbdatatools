@@ -128,12 +128,19 @@ public class TestDataFiles {
       }
       
       switch (format) {
-        case fvec -> saveFvecFile(vectors, path);
-        case ivec -> throw new UnsupportedOperationException("ivec format not yet implemented");
-        case bvec -> throw new UnsupportedOperationException("bvec format not yet implemented");
-        case json -> throw new UnsupportedOperationException("json format not yet implemented");
-        case yaml -> throw new UnsupportedOperationException("yaml format not yet implemented");
-        default -> throw new IllegalArgumentException("Unsupported format: " + format);
+        case fvec:
+          saveFvecFile(vectors, path);
+          break;
+        case ivec:
+          throw new UnsupportedOperationException("ivec format not yet implemented");
+        case bvec:
+          throw new UnsupportedOperationException("bvec format not yet implemented");
+        case json:
+          throw new UnsupportedOperationException("json format not yet implemented");
+        case yaml:
+          throw new UnsupportedOperationException("yaml format not yet implemented");
+        default:
+          throw new IllegalArgumentException("Unsupported format: " + format);
       }
       
       return path;

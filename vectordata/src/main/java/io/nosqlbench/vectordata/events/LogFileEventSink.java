@@ -343,14 +343,20 @@ public class LogFileEventSink implements EventSink, Closeable {
     /// @param level The log level as a string
     /// @return The single character representation of the level
     private char getLevelChar(String level) {
-        return switch (level) {
-            case "TRACE" -> 'T';
-            case "DEBUG" -> 'D';
-            case "INFO" -> 'I';
-            case "WARN" -> 'W';
-            case "ERROR" -> 'E';
-            default -> '?';
-        };
+        switch (level) {
+            case "TRACE":
+                return 'T';
+            case "DEBUG":
+                return 'D';
+            case "INFO":
+                return 'I';
+            case "WARN":
+                return 'W';
+            case "ERROR":
+                return 'E';
+            default:
+                return '?';
+        }
     }
 
     /// Flush the event buffer based on age and size criteria.

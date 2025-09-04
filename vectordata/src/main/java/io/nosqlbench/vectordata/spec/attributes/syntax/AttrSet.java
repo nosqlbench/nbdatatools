@@ -21,7 +21,7 @@ package io.nosqlbench.vectordata.spec.attributes.syntax;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/// This record captures a basic string specification for assigning an attribute to an hdf5 parent.
+/// This class captures a basic string specification for assigning an attribute to an hdf5 parent.
 /// The format can support any of these variants:
 /// ```
 /// varname=(String)value
@@ -34,15 +34,29 @@ import java.util.regex.Pattern;
 /// /group1/group2:varname=value
 /// /group1/group2.varname=value
 ///```
-/// @param attrname the attribute spec for the attribute to modify
-/// @param attrvalue the attribute value to set
-public record AttrSet(
-    AttrSpec attrname, AttrValue<?> attrvalue
-)
-{
+public class AttrSet {
+    /// the attribute spec for the attribute to modify
+    private final AttrSpec attrname;
+    /// the attribute value to set
+    private final AttrValue<?> attrvalue;
+    
+    public AttrSet(AttrSpec attrname, AttrValue<?> attrvalue) {
+        this.attrname = attrname;
+        this.attrvalue = attrvalue;
+    }
+    
+    /// @return the attribute spec for the attribute to modify
+    public AttrSpec attrname() {
+        return attrname;
+    }
+    
+    /// @return the attribute value to set
+    public AttrValue<?> attrvalue() {
+        return attrvalue;
+    }
   @SuppressWarnings({"RegExpRepeatedSpace", "RegExpUnexpectedAnchor", "EscapedSpace"})
   private static final Pattern SPEC_PATTERN = Pattern.compile(
-      "(?<attrname>" + AttrSpec.SPEC_PATTERN.pattern() + ")\s*=\s*(?<attrvalue>"
+      "(?<attrname>" + AttrSpec.SPEC_PATTERN.pattern() + ")\\s*=\\s*(?<attrvalue>"
       + AttrValue.SPEC_PATTERN.pattern() + ")", Pattern.COMMENTS
   );
 
@@ -59,5 +73,26 @@ public record AttrSet(
 
     return new AttrSet(attrname, attrvalue);
   }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        AttrSet attrSet = (AttrSet) obj;
+        return attrname.equals(attrSet.attrname) &&
+               attrvalue.equals(attrSet.attrvalue);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = attrname.hashCode();
+        result = 31 * result + attrvalue.hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "AttrSet{attrname=" + attrname + ", attrvalue=" + attrvalue + "}";
+    }
 
 }

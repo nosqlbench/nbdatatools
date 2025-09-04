@@ -171,10 +171,11 @@ public class SchedulingTestFramework {
     ///
     /// Represents a read request for concurrent stream testing.
     ///
-    /// @param offset The starting byte offset
-    /// @param length The number of bytes to read
-    ///
-    public record ReadRequest(long offset, int length) {
+    public static class ReadRequest {
+        /// The starting byte offset
+        private final long offset;
+        /// The number of bytes to read
+        private final int length;
         
         ///
         /// Creates a read request.
@@ -183,14 +184,19 @@ public class SchedulingTestFramework {
         /// @param length Number of bytes to read (must be positive)
         /// @throws IllegalArgumentException if parameters are invalid
         ///
-        public ReadRequest {
+        public ReadRequest(long offset, int length) {
             if (offset < 0) {
                 throw new IllegalArgumentException("Offset cannot be negative: " + offset);
             }
             if (length <= 0) {
                 throw new IllegalArgumentException("Length must be positive: " + length);
             }
+            this.offset = offset;
+            this.length = length;
         }
+        
+        public long offset() { return offset; }
+        public int length() { return length; }
         
         ///
         /// Gets the ending byte position (exclusive).

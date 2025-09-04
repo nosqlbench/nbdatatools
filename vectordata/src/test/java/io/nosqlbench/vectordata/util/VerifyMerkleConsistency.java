@@ -23,7 +23,6 @@ import io.nosqlbench.vectordata.merklev2.MerkleRefBuildProgress;
 import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 
 import java.nio.file.Path;
-import java.util.HexFormat;
 
 /**
  * Utility to verify merkle file consistency by comparing stored hashes with freshly computed ones.
@@ -66,8 +65,8 @@ public class VerifyMerkleConsistency {
                 byte[] existingHash = existingTree.getHashForLeaf(i);
                 byte[] freshHash = freshTree.getHashForLeaf(i);
                 
-                String existingHex = HexFormat.of().formatHex(existingHash);
-                String freshHex = HexFormat.of().formatHex(freshHash);
+                String existingHex = bytesToHex(existingHash);
+                String freshHex = bytesToHex(freshHash);
                 
                 boolean matches = java.util.Arrays.equals(existingHash, freshHash);
                 
@@ -89,5 +88,13 @@ public class VerifyMerkleConsistency {
             existingTree.close();
             freshTree.close();
         }
+    }
+    
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : bytes) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
     }
 }

@@ -19,9 +19,26 @@ package io.nosqlbench.command.analyze.subcommands.verify_knn.options;
 
 
 /// Allow either `min_incl..max_excl` or simply `max_excl` format
-/// @param min the min value, inclusive
-/// @param max the max value, exclusive
-public record Interval(long min, long max)  {
+public class Interval {
+    /// the min value, inclusive
+    private final long min;
+    /// the max value, exclusive
+    private final long max;
+    
+    public Interval(long min, long max) {
+        this.min = min;
+        this.max = max;
+    }
+    
+    /// @return the min value, inclusive
+    public long min() {
+        return min;
+    }
+    
+    /// @return the max value, exclusive
+    public long max() {
+        return max;
+    }
 
   /// get the number of values in the intervals
   /// @return the number of values in the intervals

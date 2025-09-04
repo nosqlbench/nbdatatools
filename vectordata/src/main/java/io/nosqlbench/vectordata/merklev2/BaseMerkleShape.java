@@ -391,7 +391,7 @@ public final class BaseMerkleShape implements MerkleShape {
     }
 
     /**
-     * Gets the capacity for leaf nodes (next power of 2 >= leafCount).
+     * Gets the capacity for leaf nodes (next power of 2 &gt;= leafCount).
      * 
      * @return The leaf node capacity
      */

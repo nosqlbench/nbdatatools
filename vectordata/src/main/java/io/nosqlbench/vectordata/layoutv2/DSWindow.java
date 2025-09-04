@@ -56,10 +56,11 @@ public class DSWindow extends ArrayList<DSInterval> {
     List<DSInterval> intervals = new ArrayList<>();
     if (data==null) {
       return ALL;
-    } else if (data instanceof Map dataMap) {
-      intervals.add(DSInterval.fromData(dataMap));
-    } else if (data instanceof List<?> intervalObjs) {
-      intervals = intervalObjs.stream().map(DSInterval::fromData).toList();
+    } else if (data instanceof Map) {
+      intervals.add(DSInterval.fromData(data));
+    } else if (data instanceof List<?>) {
+      List<?> intervalObjs = (List<?>) data;
+      intervals = intervalObjs.stream().map(DSInterval::fromData).collect(java.util.stream.Collectors.toList());
     }
     return new DSWindow(intervals);
   }

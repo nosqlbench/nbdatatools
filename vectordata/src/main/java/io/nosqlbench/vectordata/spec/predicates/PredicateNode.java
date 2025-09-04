@@ -23,15 +23,34 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /// A predicate node represents a single comparison operation against zero or more values
-/// @param field the field offset
-/// @param op the operator type
-/// @param v the values to compare
-public record PredicateNode(
-    int field,
-    OpType op,
-    long... v
-) implements BBWriter<PredicateNode>, PNode<PredicateNode>
-{
+public class PredicateNode implements BBWriter<PredicateNode>, PNode<PredicateNode> {
+    /// the field offset
+    private final int field;
+    /// the operator type
+    private final OpType op;
+    /// the values to compare
+    private final long[] v;
+    
+    public PredicateNode(int field, OpType op, long... v) {
+        this.field = field;
+        this.op = op;
+        this.v = v;
+    }
+    
+    /// @return the field offset
+    public int field() {
+        return field;
+    }
+    
+    /// @return the operator type
+    public OpType op() {
+        return op;
+    }
+    
+    /// @return the values to compare
+    public long[] v() {
+        return v;
+    }
   /// create a predicate node
   /// @param type the type of {@link ConjugateType}
   /// @param field the field offset
@@ -78,9 +97,11 @@ public record PredicateNode(
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof PredicateNode(int fieldOffset, OpType op1, long[] v1)))
+    if (!(o instanceof PredicateNode))
       return false;
-    return field == fieldOffset && Arrays.equals(v, v1) && op == op1;
+    
+    PredicateNode that = (PredicateNode) o;
+    return field == that.field && Arrays.equals(v, that.v) && op == that.op;
   }
 
   @Override

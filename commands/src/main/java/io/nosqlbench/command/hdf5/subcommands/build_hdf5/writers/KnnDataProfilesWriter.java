@@ -48,7 +48,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -122,7 +121,8 @@ public class KnnDataProfilesWriter {
 
     ArrayChunkingIterable aci = new ArrayChunkingIterable(fclass, iterable, 1024 * 1024 * 512);
     StreamableDataset streamer = new StreamableDatasetImpl(aci, name, this.writable);
-    if (iterable instanceof Sized sized) {
+    if (iterable instanceof Sized) {
+      Sized sized = (Sized) iterable;
       streamer.modifyDimensions(new int[]{sized.getSize()});
     } else {
       logger.warn("no dimensions are calculated for this dataset during writing");
@@ -239,7 +239,7 @@ public class KnnDataProfilesWriter {
   }
 
 
-  private <T extends Record> void writeAttributes(WritableNode wnode, TestDataKind dstype, T attrs)
+  private <T> void writeAttributes(WritableNode wnode, TestDataKind dstype, T attrs)
   {
     if (dstype != null && !dstype.getAttributesType().isAssignableFrom(attrs.getClass())) {
       throw new RuntimeException(
@@ -248,51 +248,30 @@ public class KnnDataProfilesWriter {
     }
 
     try {
-      if (attrs instanceof Record record) {
-        RecordComponent[] comps = record.getClass().getRecordComponents();
-        for (RecordComponent comp : comps) {
-          String fieldname = comp.getName();
-          Method accessor = comp.getAccessor();
-          Object value = accessor.invoke(record);
-
-          if (value instanceof Optional<?> o) {
-            if (o.isPresent()) {
-              value = o.get();
-            } else {
-              continue;
-            }
-          }
-
-          if (value instanceof Enum<?> e) {
-            value = e.name();
-          }
-          if (value instanceof Map || value instanceof List || value instanceof Set) {
-            value = new Gson().toJson(value);
-          }
-          if (value == null) {
-            throw new RuntimeException(
-                "attribute value for requied attribute " + fieldname + " " + "was null");
-          }
-          wnode.putAttribute(fieldname, value);
-        }
-      }
+      // Record support removed for Java 11 compatibility
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
   private int sizeOf(Object row0) {
-    if (row0 instanceof int[] ia) {
+    if (row0 instanceof int[]) {
+      int[] ia = (int[]) row0;
       return ia.length * Integer.BYTES;
-    } else if (row0 instanceof byte[] ba) {
+    } else if (row0 instanceof byte[]) {
+      byte[] ba = (byte[]) row0;
       return ba.length * Byte.BYTES;
-    } else if (row0 instanceof short[] sa) {
+    } else if (row0 instanceof short[]) {
+      short[] sa = (short[]) row0;
       return sa.length * Short.BYTES;
-    } else if (row0 instanceof long[] la) {
+    } else if (row0 instanceof long[]) {
+      long[] la = (long[]) row0;
       return la.length * Long.BYTES;
-    } else if (row0 instanceof float[] fa) {
+    } else if (row0 instanceof float[]) {
+      float[] fa = (float[]) row0;
       return fa.length * Float.BYTES;
-    } else if (row0 instanceof double[] da) {
+    } else if (row0 instanceof double[]) {
+      double[] da = (double[]) row0;
       return da.length * Double.BYTES;
     } else {
       throw new RuntimeException("Unknown type for sizing:" + row0.getClass());

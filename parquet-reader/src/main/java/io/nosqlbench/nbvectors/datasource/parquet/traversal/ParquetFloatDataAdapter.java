@@ -33,6 +33,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /// Handle parquet data appropriately, depending on how it is specified
 @Encoding(FileType.parquet)
@@ -111,7 +112,7 @@ public class ParquetFloatDataAdapter implements BoundedVectorFileStream<float[]>
       sorted.forEach(s -> System.out.println(s.getRootPath()));
 
       return sorted.stream()
-          .map(a -> ParquetVectorStreamer.of(a.getFileList().stream().sorted().toList())).toList();
+          .map(a -> ParquetVectorStreamer.of(a.getFileList().stream().sorted().collect(java.util.stream.Collectors.toList()))).collect(java.util.stream.Collectors.toList());
     }
   }
 

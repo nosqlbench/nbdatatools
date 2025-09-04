@@ -23,32 +23,94 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 
 /**
- * A record type for the footer of a merkle tree file in the merklev2 package.
+ * A class for the footer of a merkle tree file in the merklev2 package.
  * <p>
- * The footer contains metadata about the merkle tree, including:
- * @param chunkSize the size of each chunk in bytes
- * @param totalContentSize the total size of the data in bytes
- * @param totalChunks the total number of chunks
- * @param leafCount the number of leaf nodes in the merkle tree
- * @param capLeaf the capacity for leaf nodes (next power of 2 >= leafCount)
- * @param nodeCount the total number of nodes in the merkle tree
- * @param offset the offset where leaf nodes start in the merkle tree array
- * @param internalNodeCount the number of internal nodes in the merkle tree
- * @param bitSetSize the size of the BitSet in bytes
- * @param footerLength the length of the footer in bytes
+ * The footer contains metadata about the merkle tree.
  */
-public record Merklev2Footer(
-    long chunkSize,
-    long totalContentSize,
-    int totalChunks,
-    int leafCount,
-    int capLeaf,
-    int nodeCount,
-    int offset,
-    int internalNodeCount,
-    int bitSetSize,
-    byte footerLength
-) {
+public class Merklev2Footer {
+    /// the size of each chunk in bytes
+    private final long chunkSize;
+    /// the total size of the data in bytes
+    private final long totalContentSize;
+    /// the total number of chunks
+    private final int totalChunks;
+    /// the number of leaf nodes in the merkle tree
+    private final int leafCount;
+    /// the capacity for leaf nodes (next power of 2 >= leafCount)
+    private final int capLeaf;
+    /// the total number of nodes in the merkle tree
+    private final int nodeCount;
+    /// the offset where leaf nodes start in the merkle tree array
+    private final int offset;
+    /// the number of internal nodes in the merkle tree
+    private final int internalNodeCount;
+    /// the size of the BitSet in bytes
+    private final int bitSetSize;
+    /// the length of the footer in bytes
+    private final byte footerLength;
+    
+    public Merklev2Footer(long chunkSize, long totalContentSize, int totalChunks, int leafCount, int capLeaf, int nodeCount, int offset, int internalNodeCount, int bitSetSize, byte footerLength) {
+        this.chunkSize = chunkSize;
+        this.totalContentSize = totalContentSize;
+        this.totalChunks = totalChunks;
+        this.leafCount = leafCount;
+        this.capLeaf = capLeaf;
+        this.nodeCount = nodeCount;
+        this.offset = offset;
+        this.internalNodeCount = internalNodeCount;
+        this.bitSetSize = bitSetSize;
+        this.footerLength = footerLength;
+    }
+    
+    /// @return the size of each chunk in bytes
+    public long chunkSize() {
+        return chunkSize;
+    }
+    
+    /// @return the total size of the data in bytes
+    public long totalContentSize() {
+        return totalContentSize;
+    }
+    
+    /// @return the total number of chunks
+    public int totalChunks() {
+        return totalChunks;
+    }
+    
+    /// @return the number of leaf nodes in the merkle tree
+    public int leafCount() {
+        return leafCount;
+    }
+    
+    /// @return the capacity for leaf nodes (next power of 2 >= leafCount)
+    public int capLeaf() {
+        return capLeaf;
+    }
+    
+    /// @return the total number of nodes in the merkle tree
+    public int nodeCount() {
+        return nodeCount;
+    }
+    
+    /// @return the offset where leaf nodes start in the merkle tree array
+    public int offset() {
+        return offset;
+    }
+    
+    /// @return the number of internal nodes in the merkle tree
+    public int internalNodeCount() {
+        return internalNodeCount;
+    }
+    
+    /// @return the size of the BitSet in bytes
+    public int bitSetSize() {
+        return bitSetSize;
+    }
+    
+    /// @return the length of the footer in bytes
+    public byte footerLength() {
+        return footerLength;
+    }
 
     /**
      * The fixed size of the footer in bytes
@@ -212,8 +274,10 @@ public record Merklev2Footer(
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof Merklev2Footer that))
+        if (!(o instanceof Merklev2Footer))
             return false;
+        
+        Merklev2Footer that = (Merklev2Footer) o;
 
         return chunkSize == that.chunkSize && 
                totalContentSize == that.totalContentSize && 

@@ -21,9 +21,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
-import org.eclipse.jetty.ee10.servlet.DefaultServlet;
-import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
-import org.eclipse.jetty.ee10.servlet.ServletHolder;
+import org.eclipse.jetty.servlet.DefaultServlet;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -163,7 +163,7 @@ public class JettyFileServerFixture implements AutoCloseable {
         // Create a servlet context handler
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
-        context.setBaseResourceAsString(resourcesRoot.toAbsolutePath().toString());
+        context.setResourceBase(resourcesRoot.toAbsolutePath().toString());
         server.setHandler(context);
 
         // Add the default servlet for serving static files

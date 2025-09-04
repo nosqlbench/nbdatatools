@@ -27,9 +27,17 @@ import java.util.Map;
 ///
 /// A profile contains multiple views, each with a name and a set of parameters.
 /// This allows for different ways of accessing and processing the same data.
-///
-/// @param views A map of view names to view definitions
-public record FProfiles(Map<String, FView> views) {
+public class FProfiles {
+  /// A map of view names to view definitions
+  private final Map<String, FView> views;
+
+  public FProfiles(Map<String, FView> views) {
+    this.views = views;
+  }
+
+  public Map<String, FView> views() {
+    return views;
+  }
 
   /// Creates an FProfiles from an object representation.
   ///
@@ -37,12 +45,14 @@ public record FProfiles(Map<String, FView> views) {
   /// @param defaultProfile The default profile to use if none is specified
   /// @return The created FProfiles
   public static FProfiles fromObject(Object v, FProfiles defaultProfile) {
-    if (v instanceof FProfiles fp) {
+    if (v instanceof FProfiles) {
+      FProfiles fp = (FProfiles) v;
       return fp;
-    } else if (v instanceof Map<?, ?> pmap) {
+    } else if (v instanceof Map<?, ?>) {
+      Map<?, ?> pmap = (Map<?, ?>) v;
 
       Object viewsObject = pmap.get("views");
-      if (viewsObject instanceof Map<?, ?> vmap) {
+      if (viewsObject instanceof Map<?, ?>) {
         return fromObject(viewsObject, defaultProfile);
       }
       Map<String, FView> views = new LinkedHashMap<>();
@@ -75,5 +85,23 @@ public record FProfiles(Map<String, FView> views) {
       map.put(k,v.toData());
     });
     return map;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+    FProfiles that = (FProfiles) obj;
+    return java.util.Objects.equals(views, that.views);
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(views);
+  }
+
+  @Override
+  public String toString() {
+    return "FProfiles{views=" + views + '}';
   }
 }

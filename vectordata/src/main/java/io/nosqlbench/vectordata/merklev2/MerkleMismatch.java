@@ -18,14 +18,57 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 
+import java.util.Objects;
+
 /// Represents a mismatched chunk in the Merkle tree comparison
-/// @param chunkIndex The index of the mismatched chunk
-/// @param startInclusive Starting byte offset of the chunk
-/// @param length Length of the chunk in bytes
-public record MerkleMismatch(int chunkIndex, long startInclusive, long length) {
+public class MerkleMismatch {
+  private final int chunkIndex;
+  private final long startInclusive;
+  private final long length;
+
+  public MerkleMismatch(int chunkIndex, long startInclusive, long length) {
+    this.chunkIndex = chunkIndex;
+    this.startInclusive = startInclusive;
+    this.length = length;
+  }
+
+  public int chunkIndex() {
+    return chunkIndex;
+  }
+
+  public long startInclusive() {
+    return startInclusive;
+  }
+
+  public long length() {
+    return length;
+  }
+
   /// The end offset, exclusive, calculated as start + len
   /// @return The end offset, exclusive
   public long endExclusive() {
     return startInclusive + length;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    MerkleMismatch that = (MerkleMismatch) o;
+    return chunkIndex == that.chunkIndex && startInclusive == that.startInclusive && length == that.length;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(chunkIndex, startInclusive, length);
+  }
+
+  @Override
+  public String toString() {
+    return "MerkleMismatch{" +
+           "chunkIndex=" + chunkIndex +
+           ", startInclusive=" + startInclusive +
+           ", length=" + length +
+           '}';
   }
 }

@@ -52,10 +52,9 @@ public class CsvJsonArrayStreamerTest {
     @Test
     void testJsonArrayInFirstColumn() throws IOException {
         Path testFile = tempDir.resolve("vectors_first_column.csv");
-        Files.writeString(testFile, """
-            "[1.0, 2.0, 3.0]",label1,description1
-            "[4.0, 5.0, 6.0]",label2,description2
-            "[7.0, 8.0, 9.0]",label3,description3"""
+        Files.writeString(testFile, "\"[1.0, 2.0, 3.0]\",label1,description1\n" +
+            "\"[4.0, 5.0, 6.0]\",label2,description2\n" +
+            "\"[7.0, 8.0, 9.0]\",label3,description3"
         );
 
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
@@ -82,11 +81,9 @@ public class CsvJsonArrayStreamerTest {
     @Test
     void testJsonArrayInMiddleColumn() throws IOException {
         Path testFile = tempDir.resolve("vectors_middle_column.csv");
-        Files.writeString(testFile, """
-            id1,"[1.0, 2.0, 3.0]",meta1
-            id2,"[4.0, 5.0, 6.0]",meta2
-            id3,"[7.0, 8.0, 9.0]",meta3
-            """
+        Files.writeString(testFile, "id1,\"[1.0, 2.0, 3.0]\",meta1\n" +
+            "id2,\"[4.0, 5.0, 6.0]\",meta2\n" +
+            "id3,\"[7.0, 8.0, 9.0]\",meta3\n"
         );
 
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
@@ -111,10 +108,9 @@ public class CsvJsonArrayStreamerTest {
     @Test
     void testHeaderWithColumnNames() throws IOException {
         Path testFile = tempDir.resolve("vectors_with_header.csv");
-        Files.writeString(testFile, """
-            id,vector,description
-            id1,"[1.0, 2.0, 3.0]",desc1
-            id2,"[4.0, 5.0, 6.0]",desc2"""
+        Files.writeString(testFile, "id,vector,description\n" +
+            "id1,\"[1.0, 2.0, 3.0]\",desc1\n" +
+            "id2,\"[4.0, 5.0, 6.0]\",desc2"
         );
 
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
@@ -137,10 +133,9 @@ public class CsvJsonArrayStreamerTest {
     @Test
     void testHeaderDetectionWithComplexStructure() throws IOException {
         Path testFile = tempDir.resolve("vectors_complex_header.csv");
-        Files.writeString(testFile, """
-            document_id,embedding_vector,confidence_score,category
-            doc123,"[1.5, 2.5, 3.5, 4.5]",0.98,science
-            doc456,"[5.5, 6.5, 7.5, 8.5]",0.87,history"""
+        Files.writeString(testFile, "document_id,embedding_vector,confidence_score,category\n" +
+            "doc123,\"[1.5, 2.5, 3.5, 4.5]\",0.98,science\n" +
+            "doc456,\"[5.5, 6.5, 7.5, 8.5]\",0.87,history"
         );
 
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
@@ -163,10 +158,9 @@ public class CsvJsonArrayStreamerTest {
     @Test
     void testJsonArrayWithVariableDimensions() throws IOException {
         Path testFile = tempDir.resolve("vectors_variable_dimensions.csv");
-        Files.writeString(testFile, """
-            id1,"[1.0, 2.0, 3.0]",meta1
-            id2,"[4.0, 5.0, 6.0, 7.0]",meta2
-            id3,"[8.0, 9.0]",meta3"""
+        Files.writeString(testFile, "id1,\"[1.0, 2.0, 3.0]\",meta1\n" +
+            "id2,\"[4.0, 5.0, 6.0, 7.0]\",meta2\n" +
+            "id3,\"[8.0, 9.0]\",meta3"
         );
 
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);
@@ -190,10 +184,9 @@ public class CsvJsonArrayStreamerTest {
     @Test
     void testMultipleIterators() throws IOException {
         Path testFile = tempDir.resolve("multiple_iterators.csv");
-        Files.writeString(testFile, """
-            "[1.0, 2.0]",A
-            "[3.0, 4.0]",B
-            "[5.0, 6.0]",C"""
+        Files.writeString(testFile, "\"[1.0, 2.0]\",A\n" +
+            "\"[3.0, 4.0]\",B\n" +
+            "\"[5.0, 6.0]\",C"
         );
 
         CsvJsonArrayStreamer streamer = new CsvJsonArrayStreamer(testFile);

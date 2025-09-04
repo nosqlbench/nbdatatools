@@ -18,5 +18,8 @@ package io.nosqlbench.vectordata.spec.attributes;
  */
 
 /// a placeholder for attributes which are specific to query predicates
-public record QueryPredicatesAttributes() {
+public class QueryPredicatesAttributes {
+    
+    public QueryPredicatesAttributes() {
+    }
 }

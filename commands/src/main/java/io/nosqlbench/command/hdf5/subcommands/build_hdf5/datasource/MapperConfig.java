@@ -184,13 +184,20 @@ public class MapperConfig {
   }
 
   /// a remap configuration
-  /// @param name
-  ///     the name of a remapper configuration
-  /// @param file
-  ///     the file to remap
-  /// @param expr
-  ///     the jq expression to remap
-  public record RemapConfig(String name, Path file, String expr) {
+  public static class RemapConfig {
+    /// the name of a remapper configuration
+    private final String name;
+    /// the file to remap  
+    private final Path file;
+    /// the jq expression to remap
+    private final String expr;
+    
+    public RemapConfig(String name, Path file, String expr) {
+      this.name = name;
+      this.file = file;
+      this.expr = expr;
+    }
+    
     /// create a remapper configuration
     /// @param name
     ///     the name of the remapper configuration
@@ -199,5 +206,9 @@ public class MapperConfig {
     public RemapConfig(String name, Map<String, String> props) {
       this(name, Path.of(props.get("input_file")), props.get("expression"));
     }
+    
+    public String name() { return name; }
+    public Path file() { return file; }
+    public String expr() { return expr; }
   }
 }

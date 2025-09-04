@@ -233,9 +233,10 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
 
     @Override
     public boolean contains(Object o) {
-        if (!(o instanceof int[] array)) {
+        if (!(o instanceof int[])) {
             return false;
         }
+        int[] array = (int[]) o;
 
         if (array.length != dimension) {
             return false;
@@ -254,9 +255,10 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
 
     @Override
     public int indexOf(Object o) {
-        if (!(o instanceof int[] array) || array.length != dimension) {
+        if (!(o instanceof int[]) || ((int[]) o).length != dimension) {
             return -1;
         }
+        int[] array = (int[]) o;
 
         // Linear search through all vectors
         for (int i = 0; i < size; i++) {
@@ -271,9 +273,10 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
 
     @Override
     public int lastIndexOf(Object o) {
-        if (!(o instanceof int[] array) || array.length != dimension) {
+        if (!(o instanceof int[]) || ((int[]) o).length != dimension) {
             return -1;
         }
+        int[] array = (int[]) o;
 
         // Linear search through all vectors in reverse
         for (int i = size - 1; i >= 0; i--) {
@@ -383,9 +386,10 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
 
         @Override
         public boolean contains(Object o) {
-            if (!(o instanceof int[] array)) {
+            if (!(o instanceof int[])) {
                 return false;
             }
+            int[] array = (int[]) o;
 
             if (array.length != parent.getDimension()) {
                 return false;
@@ -404,9 +408,10 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
 
         @Override
         public int indexOf(Object o) {
-            if (!(o instanceof int[] array) || array.length != parent.getDimension()) {
+            if (!(o instanceof int[]) || ((int[]) o).length != parent.getDimension()) {
                 return -1;
             }
+            int[] array = (int[]) o;
 
             // Linear search through this sublist's vectors
             for (int i = 0; i < size; i++) {
@@ -421,9 +426,10 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
 
         @Override
         public int lastIndexOf(Object o) {
-            if (!(o instanceof int[] array) || array.length != parent.getDimension()) {
+            if (!(o instanceof int[]) || ((int[]) o).length != parent.getDimension()) {
                 return -1;
             }
+            int[] array = (int[]) o;
 
             // Linear search through this sublist's vectors in reverse
             for (int i = size - 1; i >= 0; i--) {

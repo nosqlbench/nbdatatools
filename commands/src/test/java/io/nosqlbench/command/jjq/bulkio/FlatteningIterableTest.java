@@ -43,15 +43,12 @@ public class FlatteningIterableTest {
   @Test
   public void testFlatteningOpaqueIterable() {
     List<String> blocks = List.of(
-        """
-            a
-            b
-            c
-            """, """
-            d
-            e
-            f
-            """
+        "a\n" +
+            "b\n" +
+            "c\n", 
+        "d\n" +
+            "e\n" +
+            "f\n"
     );
 
     FlatteningIterable<String, String> fi =

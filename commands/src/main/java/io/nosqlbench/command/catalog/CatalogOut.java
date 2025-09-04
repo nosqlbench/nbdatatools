@@ -342,7 +342,7 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
     // Normalize all paths to absolute paths
     List<Path> absolutePaths = pathList.stream()
         .map(p -> p.toAbsolutePath().normalize())
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
 
     // Start with the first path
     Path commonParent = absolutePaths.get(0);

@@ -18,10 +18,42 @@ package io.nosqlbench.nbdatatools.testdata;
  */
 
 
-public record DummyFloatLayout(
-    int chunksize, int vectorsPerSection, int dimensions, int sections, int totalVectors
-)
-{
+import java.util.Objects;
+
+public class DummyFloatLayout {
+  private final int chunksize;
+  private final int vectorsPerSection;
+  private final int dimensions;
+  private final int sections;
+  private final int totalVectors;
+
+  public DummyFloatLayout(int chunksize, int vectorsPerSection, int dimensions, int sections, int totalVectors) {
+    this.chunksize = chunksize;
+    this.vectorsPerSection = vectorsPerSection;
+    this.dimensions = dimensions;
+    this.sections = sections;
+    this.totalVectors = totalVectors;
+  }
+
+  public int chunksize() {
+    return chunksize;
+  }
+
+  public int vectorsPerSection() {
+    return vectorsPerSection;
+  }
+
+  public int dimensions() {
+    return dimensions;
+  }
+
+  public int sections() {
+    return sections;
+  }
+
+  public int totalVectors() {
+    return totalVectors;
+  }
   public static DummyFloatLayout forShape(int dimensions, int vectorsPerSection, int sections) {
     int reclen = Float.BYTES + (dimensions * Float.BYTES);
     int chunkSize = reclen * vectorsPerSection;
@@ -51,5 +83,30 @@ public record DummyFloatLayout(
       vectors[i] = generateGlobal(i);
     }
     return vectors;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DummyFloatLayout that = (DummyFloatLayout) o;
+    return chunksize == that.chunksize && vectorsPerSection == that.vectorsPerSection &&
+           dimensions == that.dimensions && sections == that.sections && totalVectors == that.totalVectors;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(chunksize, vectorsPerSection, dimensions, sections, totalVectors);
+  }
+
+  @Override
+  public String toString() {
+    return "DummyFloatLayout{" +
+           "chunksize=" + chunksize +
+           ", vectorsPerSection=" + vectorsPerSection +
+           ", dimensions=" + dimensions +
+           ", sections=" + sections +
+           ", totalVectors=" + totalVectors +
+           '}';
   }
 }

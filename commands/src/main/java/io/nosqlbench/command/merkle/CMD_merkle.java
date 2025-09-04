@@ -34,10 +34,9 @@ import picocli.CommandLine.HelpCommand;
 /// Implementation details are delegated to the appropriate subcommand classes.
 @Command(name = "merkle",
     header = "commands for managing merkle tree files",
-    description = """
-        The commands in this section allow you to create merkle trees which optimize downloading
-        with the vectordata module. It will use these remote trees as a way to incrementally
-        pull down data as it is read and verify checksums for the required sections only.""",
+    description = "The commands in this section allow you to create merkle trees which optimize downloading\n" +
+        "with the vectordata module. It will use these remote trees as a way to incrementally\n" +
+        "pull down data as it is read and verify checksums for the required sections only.",
     subcommands = {
         CMD_merkle_create.class,
         CMD_merkle_verify.class,

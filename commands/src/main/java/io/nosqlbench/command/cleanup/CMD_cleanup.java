@@ -42,12 +42,10 @@ import java.util.List;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "Cleanup operations for vector test data",
-    description = """
-        This provides a set of utilities for cleaning up various data files.
-        The command includes subcommands for cleaning fvec files by removing
-        zero and duplicate vectors, and potentially other cleanup operations
-        in the future.
-        """,
+    description = "This provides a set of utilities for cleaning up various data files.\n" +
+        "The command includes subcommands for cleaning fvec files by removing\n" +
+        "zero and duplicate vectors, and potentially other cleanup operations\n" +
+        "in the future.",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
     subcommands = {CMD_cleanfvec.class, CommandLine.HelpCommand.class})

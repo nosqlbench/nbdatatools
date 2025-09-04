@@ -94,17 +94,23 @@ public class ArrayChunkingIterable<T> implements Iterable {
     }
 
     private int sizeOf(Object row0) {
-      if (row0 instanceof int[] ia) {
+      if (row0 instanceof int[]) {
+        int[] ia = (int[]) row0;
         return ia.length * Integer.BYTES;
-      } else if (row0 instanceof byte[] ba) {
+      } else if (row0 instanceof byte[]) {
+        byte[] ba = (byte[]) row0;
         return ba.length * Byte.BYTES;
-      } else if (row0 instanceof short[] sa) {
+      } else if (row0 instanceof short[]) {
+        short[] sa = (short[]) row0;
         return sa.length * Short.BYTES;
-      } else if (row0 instanceof long[] la) {
+      } else if (row0 instanceof long[]) {
+        long[] la = (long[]) row0;
         return la.length * Long.BYTES;
-      } else if (row0 instanceof float[] fa) {
+      } else if (row0 instanceof float[]) {
+        float[] fa = (float[]) row0;
         return fa.length * Float.BYTES;
-      } else if (row0 instanceof double[] da) {
+      } else if (row0 instanceof double[]) {
+        double[] da = (double[]) row0;
         return da.length * Double.BYTES;
       } else {
         throw new RuntimeException("Unknown type for sizing:" + row0.getClass());

@@ -64,7 +64,9 @@ public class CharbufChunker implements Iterable<CharBuffer> {
       char c = c = buf.charAt(at);
       while (c != '\n' && at < buf.remaining())
         c = buf.charAt(at++);
-      CharBuffer slice = buf.slice(buf.position(), at);
+      CharBuffer slice = buf.duplicate();
+      slice.position(buf.position());
+      slice.limit(buf.position() + at);
       buf.position(buf.position() + at);
       return slice;
     }

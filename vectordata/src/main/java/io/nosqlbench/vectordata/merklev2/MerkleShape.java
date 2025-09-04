@@ -156,7 +156,7 @@ public interface MerkleShape {
   int getLeafCount();
 
   /**
-   * Gets the capacity for leaf nodes (next power of 2 >= leafCount).
+   * Gets the capacity for leaf nodes (next power of 2 &gt;= leafCount).
    * 
    * Returns the capacity allocated for leaf nodes in the merkle tree structure.
    * This is the next power of 2 greater than or equal to the leaf count,

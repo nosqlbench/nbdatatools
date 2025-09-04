@@ -122,159 +122,158 @@ public class DSRootSerDesTest {
 
   @Test
   public void testProfileSpecificExample() {
-    String json = """
-        {
-          "1M":{ # profile name
-            "query":{ # view name
-              "source":"bigann_query.bvecs" # must be a map with path,window
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..1000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_1M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_1M.fvecs"
-            }
-          },
-          "2M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..2000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_2M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_2M.fvecs"
-            }
-          },
-          "5M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..5000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_5M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_5M.fvecs"
-            }
-          },
-          "10M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..10000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_10M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_10M.fvecs"
-            }
-          },
-          "20M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..20000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_20M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_20M.fvecs"
-            }
-          },
-          "50M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..50000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_50M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_50M.fvecs"
-            }
-          },
-          "100M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..100000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_100M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_100M.fvecs"
-            }
-          },
-          "200M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..200000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_200M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_200M.fvecs"
-            }
-          },
-          "500M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..500000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_500M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_500M.fvecs"
-            }
-          },
-          "1000M":{
-            "query":{
-              "source":"bigann_query.bvecs"
-            },
-            "base":{
-              "source":"bigann_base.bvecs",
-              "window":"(0..1000000000)"
-            },
-            "indices":{
-              "source":"gnd/idx_1000M.ivecs"
-            },
-            "distances":{
-              "source":"gnd/dis_1000M.fvecs"
-            }
-          }
-        }""";
+    String json = "{\n" +
+        "  \"1M\":{# profile name\n" +
+        "    \"query\":{# view name\n" +
+        "      \"source\":\"bigann_query.bvecs\"# must be a map with path,window\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..1000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_1M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_1M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"2M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..2000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_2M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_2M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"5M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..5000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_5M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_5M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"10M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..10000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_10M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_10M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"20M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..20000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_20M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_20M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"50M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..50000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_50M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_50M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"100M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..100000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_100M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_100M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"200M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..200000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_200M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_200M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"500M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..500000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_500M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_500M.fvecs\"\n" +
+        "    }\n" +
+        "  },\n" +
+        "  \"1000M\":{\n" +
+        "    \"query\":{\n" +
+        "      \"source\":\"bigann_query.bvecs\"\n" +
+        "    },\n" +
+        "    \"base\":{\n" +
+        "      \"source\":\"bigann_base.bvecs\",\n" +
+        "      \"window\":\"(0..1000000000)\"\n" +
+        "    },\n" +
+        "    \"indices\":{\n" +
+        "      \"source\":\"gnd/idx_1000M.ivecs\"\n" +
+        "    },\n" +
+        "    \"distances\":{\n" +
+        "      \"source\":\"gnd/dis_1000M.fvecs\"\n" +
+        "    }\n" +
+        "  }\n" +
+        "}";
     DSProfileGroup profileGroup = DSProfileGroup.fromData(json);
 
   }

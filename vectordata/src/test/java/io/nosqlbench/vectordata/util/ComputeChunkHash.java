@@ -22,7 +22,6 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.security.MessageDigest;
-import java.util.HexFormat;
 
 /**
  * Utility to compute the hash of a specific chunk from a data file.
@@ -68,7 +67,7 @@ public class ComputeChunkHash {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(buffer.array());
             
-            String hexHash = HexFormat.of().formatHex(hash);
+            String hexHash = bytesToHex(hash);
             System.out.println("\nChunk " + chunkIndex + " hash: " + hexHash);
             
             // Show first few bytes of chunk data for debugging
@@ -76,7 +75,15 @@ public class ComputeChunkHash {
             int bytesToShow = Math.min(32, actualChunkSize);
             byte[] firstBytes = new byte[bytesToShow];
             System.arraycopy(buffer.array(), 0, firstBytes, 0, bytesToShow);
-            System.out.println(HexFormat.of().formatHex(firstBytes));
+            System.out.println(bytesToHex(firstBytes));
         }
+    }
+    
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : bytes) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
     }
 }

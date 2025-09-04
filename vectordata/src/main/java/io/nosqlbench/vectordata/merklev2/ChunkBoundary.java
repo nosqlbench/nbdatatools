@@ -18,24 +18,19 @@ package io.nosqlbench.vectordata.merklev2;
  */
 
 /**
- * Immutable record representing the boundaries of a chunk in a file.
+ * Immutable class representing the boundaries of a chunk in a file.
  * Used by ChunkGeometry to provide consistent chunk boundary information
  * across all merkle system components.
- * 
- * @param chunkIndex The zero-based index of this chunk
- * @param startInclusive The starting byte position of this chunk (inclusive)
- * @param endExclusive The ending byte position of this chunk (exclusive)
  */
-public record ChunkBoundary(int chunkIndex, long startInclusive, long endExclusive) {
+public class ChunkBoundary {
+    /// The zero-based index of this chunk
+    private final int chunkIndex;
+    /// The starting byte position of this chunk (inclusive)
+    private final long startInclusive;
+    /// The ending byte position of this chunk (exclusive)
+    private final long endExclusive;
     
-    /**
-     * Validates the chunk boundary parameters.
-     * 
-     * @param chunkIndex The zero-based index of this chunk
-     * @param startInclusive The starting byte position of this chunk (inclusive)
-     * @param endExclusive The ending byte position of this chunk (exclusive)
-     */
-    public ChunkBoundary {
+    public ChunkBoundary(int chunkIndex, long startInclusive, long endExclusive) {
         if (chunkIndex < 0) {
             throw new IllegalArgumentException("Chunk index cannot be negative: " + chunkIndex);
         }
@@ -46,7 +41,26 @@ public record ChunkBoundary(int chunkIndex, long startInclusive, long endExclusi
             throw new IllegalArgumentException(
                 "End position (" + endExclusive + ") must be greater than start position (" + startInclusive + ")");
         }
+        this.chunkIndex = chunkIndex;
+        this.startInclusive = startInclusive;
+        this.endExclusive = endExclusive;
     }
+    
+    /// @return The zero-based index of this chunk
+    public int chunkIndex() {
+        return chunkIndex;
+    }
+    
+    /// @return The starting byte position of this chunk (inclusive)
+    public long startInclusive() {
+        return startInclusive;
+    }
+    
+    /// @return The ending byte position of this chunk (exclusive)
+    public long endExclusive() {
+        return endExclusive;
+    }
+    
     
     /**
      * Gets the size of this chunk in bytes.

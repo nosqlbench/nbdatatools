@@ -30,27 +30,39 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /// Configuration data used to bring multiple sources into a single group data file
-/// @param profiles
-///     the profiles for this group
-/// @param profile_defaults
-///     the defaults to be added to profiles during import processing. This
-///                     is an ephemeral setting which is not persisted into data files
-/// @param attributes
-///     the attributes for the root group of this group data file
-/// @param attachments
-///     the additional files to add to this group. These are brought in as datasets with a single
-///                  string value, under the dataset name of the file name, under the group
-///         "attachments"
-public record TestGroupLayout(
-    FGroup profiles,
-    FProfiles profile_defaults,
-    RootGroupAttributes attributes,
-    List<String> attachments
-)
-{
+public class TestGroupLayout {
+  private final FGroup profiles;
+  private final FProfiles profile_defaults;
+  private final RootGroupAttributes attributes;
+  private final List<String> attachments;
+
+  public TestGroupLayout(FGroup profiles, FProfiles profile_defaults, RootGroupAttributes attributes, List<String> attachments) {
+    this.profiles = profiles;
+    this.profile_defaults = profile_defaults;
+    this.attributes = attributes;
+    this.attachments = attachments;
+  }
+
+  public FGroup profiles() {
+    return profiles;
+  }
+
+  public FProfiles profile_defaults() {
+    return profile_defaults;
+  }
+
+  public RootGroupAttributes attributes() {
+    return attributes;
+  }
+
+  public List<String> attachments() {
+    return attachments;
+  }
 
   /// Constant for the attributes section name in configuration files
   public static final String ATTRIBUTES = "attributes";
@@ -95,7 +107,8 @@ public record TestGroupLayout(
   /// @throws RuntimeException If the YAML doesn't contain valid configuration data
   public static TestGroupLayout fromYaml(String yaml) {
     Object configObject = SHARED.yamlLoader.loadFromString(yaml);
-    if (configObject instanceof Map<?, ?> m) {
+    if (configObject instanceof Map<?, ?>) {
+      Map<?, ?> m = (Map<?, ?>) configObject;
 
       FProfiles profileDefault = null;
       Object defaultsObject = m.get("profile_defaults");
@@ -108,10 +121,11 @@ public record TestGroupLayout(
       }
 
       List<String> addFilesList = Optional.ofNullable(m.get("attachments")).map(o -> {
-        if (!(o instanceof List<?> l)) {
+        if (!(o instanceof List<?>)) {
           throw new RuntimeException("attachments must be a list of paths");
         }
-        return l.stream().map(Object::toString).map(Path::of).map(String::valueOf).toList();
+        List<?> l = (List<?>) o;
+        return l.stream().map(Object::toString).map(Path::of).map(String::valueOf).collect(Collectors.toList());
       }).orElse(List.of());
 
       Object profilesObject = m.get("profiles");
@@ -215,5 +229,31 @@ public record TestGroupLayout(
   /// @return A new TestGroupLayout with the specified profile defaults
   public TestGroupLayout withProfileDefaults(FProfiles profileDefaults) {
     return new TestGroupLayout(this.profiles, profileDefaults, this.attributes, this.attachments);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    TestGroupLayout that = (TestGroupLayout) o;
+    return Objects.equals(profiles, that.profiles) &&
+           Objects.equals(profile_defaults, that.profile_defaults) &&
+           Objects.equals(attributes, that.attributes) &&
+           Objects.equals(attachments, that.attachments);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(profiles, profile_defaults, attributes, attachments);
+  }
+
+  @Override
+  public String toString() {
+    return "TestGroupLayout{" +
+      "profiles=" + profiles +
+      ", profile_defaults=" + profile_defaults +
+      ", attributes=" + attributes +
+      ", attachments=" + attachments +
+      '}';
   }
 }

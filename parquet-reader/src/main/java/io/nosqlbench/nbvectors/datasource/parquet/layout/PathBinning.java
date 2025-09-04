@@ -110,17 +110,16 @@ public class PathBinning extends SimpleFileVisitor<Path> {
     return super.visitFile(path, attrs);
   }
 
-  private static Pattern DEFAULT_BINNING_PATTERN = Pattern.compile("""
-      (?x)                      # Enable extended mode for comments and whitespace
-      ^                         # Start of string
-      (?:
-        .*[\\\\/]               # Greedily match up to the last directory separator
-        (?<bin>[^\\\\/]+)    # Capture only the last directory name (parent directory)
-        [\\\\/]                 # Directory separator after the parent directory
-      )?                        # End of optional parent directory group
-      (?<file>[^\\\\/]+)        # Capture the file name (non-separator characters)
-      $
-      """);
+  private static Pattern DEFAULT_BINNING_PATTERN = Pattern.compile(
+      "(?x)                      # Enable extended mode for comments and whitespace\n" +
+      "^                         # Start of string\n" +
+      "(?:\n" +
+      "  .*[\\\\\\\\/]               # Greedily match up to the last directory separator\n" +
+      "  (?<bin>[^\\\\\\\\/]+)    # Capture only the last directory name (parent directory)\n" +
+      "  [\\\\\\\\/]                 # Directory separator after the parent directory\n" +
+      ")?                        # End of optional parent directory group\n" +
+      "(?<file>[^\\\\\\\\/]+)        # Capture the file name (non-separator characters)\n" +
+      "$\n");
 
   /// the result of binning paths
   /// @see PathBinning

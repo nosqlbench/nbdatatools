@@ -185,14 +185,14 @@ public class PerformanceMonitor {
             // ChunkQueue metrics
             report.append("ChunkQueue Performance:\n");
             report.append(String.format("  Scheduling Operations: %,d (avg: %.2f ms)\n", 
-                chunkQueue.totalSchedulingOps, chunkQueue.avgSchedulingTime));
-            report.append(String.format("  Tasks Added: %,d\n", chunkQueue.totalTasksAdded));
-            report.append(String.format("  Tasks Completed: %,d\n", chunkQueue.totalTasksCompleted));
-            report.append(String.format("  Currently Pending: %d\n", chunkQueue.currentPending));
-            report.append(String.format("  Currently In-Flight: %d\n", chunkQueue.currentInFlight));
+                chunkQueue.totalSchedulingOps(), chunkQueue.avgSchedulingTime()));
+            report.append(String.format("  Tasks Added: %,d\n", chunkQueue.totalTasksAdded()));
+            report.append(String.format("  Tasks Completed: %,d\n", chunkQueue.totalTasksCompleted()));
+            report.append(String.format("  Currently Pending: %d\n", chunkQueue.currentPending()));
+            report.append(String.format("  Currently In-Flight: %d\n", chunkQueue.currentInFlight()));
             
-            if (chunkQueue.totalTasksAdded > 0) {
-                double completionRate = (double) chunkQueue.totalTasksCompleted / chunkQueue.totalTasksAdded * 100;
+            if (chunkQueue.totalTasksAdded() > 0) {
+                double completionRate = (double) chunkQueue.totalTasksCompleted() / chunkQueue.totalTasksAdded() * 100;
                 report.append(String.format("  Completion Rate: %.1f%%\n", completionRate));
             }
             
@@ -201,59 +201,59 @@ public class PerformanceMonitor {
             // MAFileChannel metrics
             report.append("MAFileChannel Performance:\n");
             report.append(String.format("  Read Operations: %,d (avg: %.2f ms)\n", 
-                fileChannel.totalReadOps, fileChannel.avgReadTime));
+                fileChannel.totalReadOps(), fileChannel.avgReadTime()));
             report.append(String.format("  Total Bytes Read: %,d (%.2f MB)\n", 
-                fileChannel.totalBytesRead, fileChannel.totalBytesRead / (1024.0 * 1024.0)));
-            report.append(String.format("  Avg Bytes per Read: %.0f\n", fileChannel.avgBytesPerRead));
+                fileChannel.totalBytesRead(), fileChannel.totalBytesRead() / (1024.0 * 1024.0)));
+            report.append(String.format("  Avg Bytes per Read: %.0f\n", fileChannel.avgBytesPerRead()));
             report.append(String.format("  Prebuffer Operations: %,d (avg: %.2f ms)\n", 
-                fileChannel.totalPrebufferOps, fileChannel.avgPrebufferTime));
+                fileChannel.totalPrebufferOps(), fileChannel.avgPrebufferTime()));
             report.append(String.format("  File Size: %.2f MB\n", 
-                fileChannel.fileSizeBytes / (1024.0 * 1024.0)));
-            report.append(String.format("  Active Downloads: %d\n", fileChannel.currentDownloads));
+                fileChannel.fileSizeBytes() / (1024.0 * 1024.0)));
+            report.append(String.format("  Active Downloads: %d\n", fileChannel.currentDownloads()));
             
-            if (fileChannel.totalReadOps > 0 && fileChannel.avgReadTime > 0) {
-                double throughputMBps = (fileChannel.totalBytesRead / (1024.0 * 1024.0)) / 
-                    ((fileChannel.totalReadOps * fileChannel.avgReadTime) / 1000.0);
+            if (fileChannel.totalReadOps() > 0 && fileChannel.avgReadTime() > 0) {
+                double throughputMBps = (fileChannel.totalBytesRead() / (1024.0 * 1024.0)) / 
+                    ((fileChannel.totalReadOps() * fileChannel.avgReadTime()) / 1000.0);
                 report.append(String.format("  Read Throughput: %.2f MB/s\n", throughputMBps));
             }
             
             report.append("\n");
             
             // System metrics
-            if (system.heapMaxMB > 0) {
+            if (system.heapMaxMB() > 0) {
                 report.append("System Performance:\n");
                 report.append(String.format("  Heap Usage: %.1f MB / %.1f MB (%.1f%%)\n", 
-                    system.heapUsedMB, system.heapMaxMB, 
-                    system.heapUsedMB / system.heapMaxMB * 100));
+                    system.heapUsedMB(), system.heapMaxMB(), 
+                    system.heapUsedMB() / system.heapMaxMB() * 100));
                 report.append("\n");
             }
             
             // Performance insights
             report.append("Performance Insights:\n");
             
-            if (chunkQueue.avgSchedulingTime > 10) {
+            if (chunkQueue.avgSchedulingTime() > 10) {
                 report.append("  ⚠️  High scheduling latency detected (>10ms)\n");
             }
             
-            if (chunkQueue.currentPending > 1000) {
+            if (chunkQueue.currentPending() > 1000) {
                 report.append("  ⚠️  High task queue backlog detected (>1000 tasks)\n");
             }
             
-            if (fileChannel.avgReadTime > 100) {
+            if (fileChannel.avgReadTime() > 100) {
                 report.append("  ⚠️  Slow read operations detected (>100ms)\n");
             }
             
-            if (system.heapMaxMB > 0 && (system.heapUsedMB / system.heapMaxMB) > 0.8) {
+            if (system.heapMaxMB() > 0 && (system.heapUsedMB() / system.heapMaxMB()) > 0.8) {
                 report.append("  ⚠️  High memory usage detected (>80%)\n");
             }
             
-            double taskBacklogRatio = chunkQueue.totalTasksAdded > 0 ? 
-                (double) chunkQueue.currentPending / chunkQueue.totalTasksAdded : 0;
+            double taskBacklogRatio = chunkQueue.totalTasksAdded() > 0 ? 
+                (double) chunkQueue.currentPending() / chunkQueue.totalTasksAdded() : 0;
             if (taskBacklogRatio > 0.1) {
                 report.append("  ⚠️  Significant task backlog detected\n");
             }
             
-            if (fileChannel.currentDownloads == 0 && chunkQueue.currentPending > 0) {
+            if (fileChannel.currentDownloads() == 0 && chunkQueue.currentPending() > 0) {
                 report.append("  ⚠️  Tasks pending but no downloads active\n");
             }
             
@@ -276,30 +276,77 @@ public class PerformanceMonitor {
     }
     
     /// ChunkQueue performance metrics.
-    public record ChunkQueueMetrics(
-        double avgSchedulingTime,
-        long totalSchedulingOps,
-        long totalTasksAdded,
-        long totalTasksCompleted,
-        int currentPending,
-        int currentInFlight
-    ) {}
+    public static class ChunkQueueMetrics {
+        private final double avgSchedulingTime;
+        private final long totalSchedulingOps;
+        private final long totalTasksAdded;
+        private final long totalTasksCompleted;
+        private final int currentPending;
+        private final int currentInFlight;
+        
+        public ChunkQueueMetrics(double avgSchedulingTime, long totalSchedulingOps, long totalTasksAdded,
+                                long totalTasksCompleted, int currentPending, int currentInFlight) {
+            this.avgSchedulingTime = avgSchedulingTime;
+            this.totalSchedulingOps = totalSchedulingOps;
+            this.totalTasksAdded = totalTasksAdded;
+            this.totalTasksCompleted = totalTasksCompleted;
+            this.currentPending = currentPending;
+            this.currentInFlight = currentInFlight;
+        }
+        
+        public double avgSchedulingTime() { return avgSchedulingTime; }
+        public long totalSchedulingOps() { return totalSchedulingOps; }
+        public long totalTasksAdded() { return totalTasksAdded; }
+        public long totalTasksCompleted() { return totalTasksCompleted; }
+        public int currentPending() { return currentPending; }
+        public int currentInFlight() { return currentInFlight; }
+    }
     
     /// MAFileChannel performance metrics.
-    public record MAFileChannelMetrics(
-        double avgReadTime,
-        long totalReadOps,
-        double avgBytesPerRead,
-        long totalBytesRead,
-        double avgPrebufferTime,
-        long totalPrebufferOps,
-        long fileSizeBytes,
-        int currentDownloads
-    ) {}
+    public static class MAFileChannelMetrics {
+        private final double avgReadTime;
+        private final long totalReadOps;
+        private final double avgBytesPerRead;
+        private final long totalBytesRead;
+        private final double avgPrebufferTime;
+        private final long totalPrebufferOps;
+        private final long fileSizeBytes;
+        private final int currentDownloads;
+        
+        public MAFileChannelMetrics(double avgReadTime, long totalReadOps, double avgBytesPerRead,
+                                   long totalBytesRead, double avgPrebufferTime, long totalPrebufferOps,
+                                   long fileSizeBytes, int currentDownloads) {
+            this.avgReadTime = avgReadTime;
+            this.totalReadOps = totalReadOps;
+            this.avgBytesPerRead = avgBytesPerRead;
+            this.totalBytesRead = totalBytesRead;
+            this.avgPrebufferTime = avgPrebufferTime;
+            this.totalPrebufferOps = totalPrebufferOps;
+            this.fileSizeBytes = fileSizeBytes;
+            this.currentDownloads = currentDownloads;
+        }
+        
+        public double avgReadTime() { return avgReadTime; }
+        public long totalReadOps() { return totalReadOps; }
+        public double avgBytesPerRead() { return avgBytesPerRead; }
+        public long totalBytesRead() { return totalBytesRead; }
+        public double avgPrebufferTime() { return avgPrebufferTime; }
+        public long totalPrebufferOps() { return totalPrebufferOps; }
+        public long fileSizeBytes() { return fileSizeBytes; }
+        public int currentDownloads() { return currentDownloads; }
+    }
     
     /// System performance metrics.
-    public record SystemMetrics(
-        double heapUsedMB,
-        double heapMaxMB
-    ) {}
+    public static class SystemMetrics {
+        private final double heapUsedMB;
+        private final double heapMaxMB;
+        
+        public SystemMetrics(double heapUsedMB, double heapMaxMB) {
+            this.heapUsedMB = heapUsedMB;
+            this.heapMaxMB = heapMaxMB;
+        }
+        
+        public double heapUsedMB() { return heapUsedMB; }
+        public double heapMaxMB() { return heapMaxMB; }
+    }
 }

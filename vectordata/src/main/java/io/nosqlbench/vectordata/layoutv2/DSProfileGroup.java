@@ -54,10 +54,10 @@ public class DSProfileGroup extends LinkedHashMap<String, DSProfile> {
   /// @return A new DSProfileGroup instance
   public static DSProfileGroup fromData(Object profiles) {
     Map<String,?> profilesMap = null;
-    if (profiles instanceof Map<?, ?> m) {
-      profilesMap = (Map<String,?>) m;
-    } else if (profiles instanceof String s) {
-      profilesMap = SHARED.mapFromJson(s);
+    if (profiles instanceof Map<?, ?>) {
+      profilesMap = (Map<String,?>) profiles;
+    } else if (profiles instanceof String) {
+      profilesMap = SHARED.mapFromJson((String) profiles);
     } else {
       throw new RuntimeException("invalid profiles format:" + profiles);
     }

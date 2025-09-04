@@ -45,9 +45,19 @@ import java.util.regex.Pattern;
 ///
 /// This class provides methods to search and retrieve dataset entries from various sources,
 /// supporting both local and remote catalogs in JSON format.
-/// @param datasets
-///     The list of dataset entries in the catalog
-public record Catalog(List<DatasetEntry> datasets) {
+public class Catalog {
+
+  /// The list of dataset entries in the catalog
+  private final List<DatasetEntry> datasets;
+  
+  public Catalog(List<DatasetEntry> datasets) {
+    this.datasets = datasets;
+  }
+  
+  /// @return The list of dataset entries in the catalog
+  public List<DatasetEntry> datasets() {
+    return datasets;
+  }
 
   /// HTTP client for downloading catalog files from remote sources
   private static final OkHttpClient httpClient = new OkHttpClient();
@@ -221,9 +231,9 @@ public record Catalog(List<DatasetEntry> datasets) {
   ///     If multiple datasets match the same name
   public Optional<DatasetEntry> findExact(String name) {
     List<DatasetEntry> found =
-        datasets.stream().filter(e -> e.name().equalsIgnoreCase(name)).toList();
+        datasets.stream().filter(e -> e.name().equalsIgnoreCase(name)).collect(java.util.stream.Collectors.toList());
     if (found.size() == 1) {
-      return Optional.of(found.getFirst());
+      return Optional.of(found.get(0));
     } else if (found.size() > 1) {
       throw new RuntimeException("Found multiple datasets matching " + name + ": " + found);
     } else {
@@ -248,7 +258,7 @@ public record Catalog(List<DatasetEntry> datasets) {
     // Find datasets that contain the search term as a substring (case insensitive)
     List<DatasetEntry> substringMatches = datasets.stream()
         .filter(e -> e.name().toLowerCase().contains(searchName.toLowerCase()))
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
     
     if (!substringMatches.isEmpty()) {
       System.err.println("Did you mean one of these datasets?");
@@ -298,7 +308,7 @@ public record Catalog(List<DatasetEntry> datasets) {
   /// @return A list of matching dataset entries (may be empty)
   public List<DatasetEntry> matchGlob(String glob) {
     PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:" + glob);
-    return datasets.stream().filter(e -> pathMatcher.matches(Path.of(e.name()))).toList();
+    return datasets.stream().filter(e -> pathMatcher.matches(Path.of(e.name()))).collect(java.util.stream.Collectors.toList());
   }
 
   /// Matches datasets using a regular expression pattern.
@@ -307,7 +317,7 @@ public record Catalog(List<DatasetEntry> datasets) {
   /// @return A list of matching dataset entries (may be empty)
   public List<DatasetEntry> matchRegex(String regex) {
     Pattern p = Pattern.compile(regex);
-    return datasets.stream().filter(e -> p.matcher(e.name()).matches()).toList();
+    return datasets.stream().filter(e -> p.matcher(e.name()).matches()).collect(java.util.stream.Collectors.toList());
   }
 
   /// Matches a single dataset using a regular expression pattern.
@@ -319,9 +329,9 @@ public record Catalog(List<DatasetEntry> datasets) {
   public Optional<DatasetEntry> matchOne(String regex) {
     Pattern p = Pattern.compile(regex);
     List<DatasetEntry> found =
-        datasets.stream().filter(e -> p.matcher(e.name()).matches()).toList();
+        datasets.stream().filter(e -> p.matcher(e.name()).matches()).collect(java.util.stream.Collectors.toList());
     if (found.size() == 1) {
-      return Optional.of(found.getFirst());
+      return Optional.of(found.get(0));
     } else if (found.size() > 1) {
       throw new RuntimeException(
           "Found multiple datasets matching " + regex + ": " + found + ":" + datasets);

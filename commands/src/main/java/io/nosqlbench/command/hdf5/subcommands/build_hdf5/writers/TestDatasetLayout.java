@@ -23,26 +23,45 @@ import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
-/// This record type captures the source and bounds of data for a single dataset entry
+/// This class captures the source and bounds of data for a single dataset entry
 /// in the standard HDF5 KNN answer key format.
-/// @param kind
-///     the kind of dataset (base, query, neighbor, distance, filter, ...)
-/// @param path
-///     the path to the source file (dir for parquet, ivec, fvec, bvec, ...)
-/// @param config
-///     the name of the config to use for the dataset. This is analogous to the config concept
-///      from huggingface datasets. If there is only one config, then this should be set to
-///     "default"
-/// @param start
-///     the startInclusive index of the data in the source file (startInclusive inclusive) (set to -1 for all)
-/// @param end
-///     the end index of the data in the source file (end exclusive) (set to -1 for all)
-public record TestDatasetLayout(
-    TestDataKind kind, Path path, String config, long start, long end
-) implements Comparable<TestDatasetLayout>
-{
+public class TestDatasetLayout implements Comparable<TestDatasetLayout> {
+  private final TestDataKind kind;
+  private final Path path;
+  private final String config;
+  private final long start;
+  private final long end;
+
+  public TestDatasetLayout(TestDataKind kind, Path path, String config, long start, long end) {
+    this.kind = kind;
+    this.path = path;
+    this.config = config;
+    this.start = start;
+    this.end = end;
+  }
+
+  public TestDataKind kind() {
+    return kind;
+  }
+
+  public Path path() {
+    return path;
+  }
+
+  public String config() {
+    return config;
+  }
+
+  public long start() {
+    return start;
+  }
+
+  public long end() {
+    return end;
+  }
 
   @Override
   public int compareTo(@NotNull TestDatasetLayout o) {
@@ -71,5 +90,31 @@ public record TestDatasetLayout(
         Optional.ofNullable(map.get("startInclusive")).map(String::valueOf).map(Long::parseLong).orElse(-1L),
         Optional.ofNullable(map.get("end")).map(String::valueOf).map(Long::parseLong).orElse(-1L)
     );
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    TestDatasetLayout that = (TestDatasetLayout) o;
+    return start == that.start && end == that.end &&
+           kind == that.kind && Objects.equals(path, that.path) &&
+           Objects.equals(config, that.config);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(kind, path, config, start, end);
+  }
+
+  @Override
+  public String toString() {
+    return "TestDatasetLayout{" +
+           "kind=" + kind +
+           ", path=" + path +
+           ", config='" + config + '\'' +
+           ", start=" + start +
+           ", end=" + end +
+           '}';
   }
 }

@@ -40,32 +40,30 @@ public class TestDataSourcesOptionalPathsTest {
     public void testOptionalCatalogsExistingAreLoaded() throws IOException {
         // Create a test catalog file
         Path catalogFile = tempDir.resolve("catalog.json");
-        String catalogContent = """
-            [
-              {
-                "name": "test-dataset-1",
-                "url": "http://example.com/dataset1.hdf5",
-                "attributes": {
-                  "description": "Test dataset 1"
-                },
-                "profiles": {},
-                "tags": {
-                  "type": "test"
-                }
-              },
-              {
-                "name": "test-dataset-2",
-                "url": "http://example.com/dataset2.hdf5",
-                "attributes": {
-                  "description": "Test dataset 2"
-                },
-                "profiles": {},
-                "tags": {
-                  "type": "test"
-                }
-              }
-            ]
-            """;
+        String catalogContent = "[\n" +
+            "  {\n" +
+            "    \"name\": \"test-dataset-1\",\n" +
+            "    \"url\": \"http://example.com/dataset1.hdf5\",\n" +
+            "    \"attributes\": {\n" +
+            "      \"description\": \"Test dataset 1\"\n" +
+            "    },\n" +
+            "    \"profiles\": {},\n" +
+            "    \"tags\": {\n" +
+            "      \"type\": \"test\"\n" +
+            "    }\n" +
+            "  },\n" +
+            "  {\n" +
+            "    \"name\": \"test-dataset-2\",\n" +
+            "    \"url\": \"http://example.com/dataset2.hdf5\",\n" +
+            "    \"attributes\": {\n" +
+            "      \"description\": \"Test dataset 2\"\n" +
+            "    },\n" +
+            "    \"profiles\": {},\n" +
+            "    \"tags\": {\n" +
+            "      \"type\": \"test\"\n" +
+            "    }\n" +
+            "  }\n" +
+            "]";
         Files.writeString(catalogFile, catalogContent);
 
         // Create TestDataSources with the catalog as optional
@@ -104,15 +102,13 @@ public class TestDataSourcesOptionalPathsTest {
         Path requiredDir = tempDir.resolve("required");
         Files.createDirectories(requiredDir);
         Path requiredCatalog = requiredDir.resolve("catalog.json");
-        Files.writeString(requiredCatalog, """
-            [{
-              "name": "required-dataset",
-              "url": "http://example.com/required.hdf5",
-              "attributes": {},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(requiredCatalog, "[{\n" +
+            "  \"name\": \"required-dataset\",\n" +
+            "  \"url\": \"http://example.com/required.hdf5\",\n" +
+            "  \"attributes\": {},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Reference a non-existent optional catalog
         Path nonExistentDir = tempDir.resolve("non-existent");
@@ -154,29 +150,25 @@ public class TestDataSourcesOptionalPathsTest {
         Path requiredDir = tempDir.resolve("required");
         Files.createDirectories(requiredDir);
         Path requiredCatalog = requiredDir.resolve("catalog.json");
-        Files.writeString(requiredCatalog, """
-            [{
-              "name": "required-dataset",
-              "url": "http://example.com/required.hdf5",
-              "attributes": {"source": "required"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(requiredCatalog, "[{\n" +
+            "  \"name\": \"required-dataset\",\n" +
+            "  \"url\": \"http://example.com/required.hdf5\",\n" +
+            "  \"attributes\": {\"source\": \"required\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create optional catalog that exists
         Path optionalDir1 = tempDir.resolve("optional1");
         Files.createDirectories(optionalDir1);
         Path optionalCatalog1 = optionalDir1.resolve("catalog.json");
-        Files.writeString(optionalCatalog1, """
-            [{
-              "name": "optional-dataset-1",
-              "url": "http://example.com/optional1.hdf5",
-              "attributes": {"source": "optional1"},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(optionalCatalog1, "[{\n" +
+            "  \"name\": \"optional-dataset-1\",\n" +
+            "  \"url\": \"http://example.com/optional1.hdf5\",\n" +
+            "  \"attributes\": {\"source\": \"optional1\"},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create another optional catalog that doesn't exist
         Path optionalDir2 = tempDir.resolve("optional2");
@@ -215,15 +207,13 @@ public class TestDataSourcesOptionalPathsTest {
         Path catalogDir = tempDir.resolve("catalog");
         Files.createDirectories(catalogDir);
         Path catalogFile = catalogDir.resolve("catalog.json");
-        Files.writeString(catalogFile, """
-            [{
-              "name": "config-dataset",
-              "url": "http://example.com/config.hdf5",
-              "attributes": {},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(catalogFile, "[{\n" +
+            "  \"name\": \"config-dataset\",\n" +
+            "  \"url\": \"http://example.com/config.hdf5\",\n" +
+            "  \"attributes\": {},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create catalogs.yaml pointing to the catalog
         Path catalogsYaml = configDir.resolve("catalogs.yaml");
@@ -256,15 +246,13 @@ public class TestDataSourcesOptionalPathsTest {
         Path requiredDir = tempDir.resolve("required");
         Files.createDirectories(requiredDir);
         Path requiredCatalog = requiredDir.resolve("catalog.json");
-        Files.writeString(requiredCatalog, """
-            [{
-              "name": "test-dataset",
-              "url": "http://example.com/test.hdf5",
-              "attributes": {},
-              "profiles": {},
-              "tags": {}
-            }]
-            """);
+        Files.writeString(requiredCatalog, "[{\n" +
+            "  \"name\": \"test-dataset\",\n" +
+            "  \"url\": \"http://example.com/test.hdf5\",\n" +
+            "  \"attributes\": {},\n" +
+            "  \"profiles\": {},\n" +
+            "  \"tags\": {}\n" +
+            "}]");
 
         // Create TestDataSources with empty optional config
         TestDataSources sources = new TestDataSources()

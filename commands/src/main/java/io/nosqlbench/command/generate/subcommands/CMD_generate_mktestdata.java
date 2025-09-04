@@ -66,9 +66,8 @@ import java.util.concurrent.Callable;
 ///```
 @CommandLine.Command(name = "mktestdata",
     header = "Make basic base, query, and ground truth data (if possible) from a vector space",
-    description = """
-        When given a source of vectors, create a set of conditioned base and query
-        vectors in fvec format""",
+    description = "When given a source of vectors, create a set of conditioned base and query\n" +
+        "vectors in fvec format",
     exitCodeList = {"0: success", "1: warning", "2: error"})
 public class CMD_generate_mktestdata implements Callable<Integer> {
   private static final Logger logger = LogManager.getLogger(CMD_generate_mktestdata.class);

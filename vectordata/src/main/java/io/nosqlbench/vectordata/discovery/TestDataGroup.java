@@ -297,7 +297,8 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
       Node child = this.group.getChild(kind.name());
       if (child instanceof Dataset) {
         configSet.add(DEFAULT_PROFILE);
-      } else if (child instanceof Group g) {
+      } else if (child instanceof Group) {
+        Group g = (Group) child;
         Map<String, Node> children = g.getChildren();
         configSet.addAll(children.keySet());
       }

@@ -321,19 +321,25 @@ public class ConcurrentStreamTestResult {
     ///
     /// Represents a pair of stream indices for overlap analysis.
     ///
-    /// @param stream1 Index of the first stream
-    /// @param stream2 Index of the second stream
-    ///
-    public record StreamPair(int stream1, int stream2) {
+    public static class StreamPair {
+        /// Index of the first stream
+        private final int stream1;
+        /// Index of the second stream
+        private final int stream2;
         
-        public StreamPair {
+        public StreamPair(int stream1, int stream2) {
             if (stream1 < 0 || stream2 < 0) {
                 throw new IllegalArgumentException("Stream indices must be non-negative");
             }
             if (stream1 == stream2) {
                 throw new IllegalArgumentException("Stream indices must be different");
             }
+            this.stream1 = stream1;
+            this.stream2 = stream2;
         }
+        
+        public int stream1() { return stream1; }
+        public int stream2() { return stream2; }
         
         @Override
         public String toString() {

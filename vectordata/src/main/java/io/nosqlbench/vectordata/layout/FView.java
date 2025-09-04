@@ -23,17 +23,34 @@ import java.util.Map;
 
 /// An FView is a view of a source, with an optional window.
 /// @see FSource
-/// @param source the source of the view
-/// @param window the window of the view
-public record FView(FSource source, FWindow window) {
+public class FView {
+  /// the source of the view
+  private final FSource source;
+  /// the window of the view
+  private final FWindow window;
+
+  public FView(FSource source, FWindow window) {
+    this.source = source;
+    this.window = window;
+  }
+
+  public FSource source() {
+    return source;
+  }
+
+  public FWindow window() {
+    return window;
+  }
 
   /// loads a view from object data
   /// @param pv the object data to load from
   /// @return a view
   public static FView fromObject(Object pv) {
-    if (pv instanceof CharSequence cs) {
+    if (pv instanceof CharSequence) {
+      CharSequence cs = (CharSequence) pv;
       return new FView(new FSource(cs.toString(), FWindow.ALL), FWindow.ALL);
-    } else if (pv instanceof Map<?, ?> m) {
+    } else if (pv instanceof Map<?, ?>) {
+      Map<?, ?> m = (Map<?, ?>) pv;
       FSource source = FSource.fromObject(m.get("source"));
       FWindow window = FWindow.fromObject(m.get("window"));
       return new FView(source, window);
@@ -51,5 +68,23 @@ public record FView(FSource source, FWindow window) {
       map.put("window", window.toData());
     }
     return map;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+    FView that = (FView) obj;
+    return java.util.Objects.equals(source, that.source) && java.util.Objects.equals(window, that.window);
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(source, window);
+  }
+
+  @Override
+  public String toString() {
+    return "FView{source=" + source + ", window=" + window + '}';
   }
 }

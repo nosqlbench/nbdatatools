@@ -83,12 +83,20 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   }
 
   private Class<?> deriveTypeFromExtension(String extension) {
-    return switch (extension.toLowerCase()) {
-      case "ivecs", "ivec" -> int[].class;
-      case "bvecs", "bvec" -> byte[].class;
-      case "fvecs", "fvec" -> float[].class;
-      default -> throw new RuntimeException("Unsupported extension: " + extension);
-    };
+    String lowerExt = extension.toLowerCase();
+    switch (lowerExt) {
+      case "ivecs":
+      case "ivec":
+        return int[].class;
+      case "bvecs":
+      case "bvec":
+        return byte[].class;
+      case "fvecs":
+      case "fvec":
+        return float[].class;
+      default:
+        throw new RuntimeException("Unsupported extension: " + extension);
+    }
   }
 
   @Override
@@ -98,7 +106,7 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
 
   @Override
   public CompletableFuture<Void> prebuffer() {
-    DSInterval w0 = this.window.getFirst(); // cardinal 0 is the vector index, cardinal 1 is the component index
+    DSInterval w0 = this.window.get(0); // cardinal 0 is the vector index, cardinal 1 is the component index
     long recordSize = 4 + (dimensions * componentBytes);
     long start=w0.getMinIncl()*recordSize;
     long end=w0.getMaxExcl()*recordSize;

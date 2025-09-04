@@ -26,17 +26,42 @@ import java.util.concurrent.atomic.AtomicLong;
 ///
 /// This class provides methods to track the progress of a download, check if it's complete,
 /// and retrieve the result when finished.
-///
-/// @param targetPath The path where the file is being downloaded
-/// @param totalBytes The total number of bytes to download
-/// @param currentBytes The current number of bytes downloaded
-/// @param future The CompletableFuture that will complete when the download is done
-public record DownloadProgress(
-    Path targetPath,
-    long totalBytes,
-    AtomicLong currentBytes,
-    CompletableFuture<DownloadResult> future
-) {
+public class DownloadProgress {
+    /// The path where the file is being downloaded
+    private final Path targetPath;
+    /// The total number of bytes to download
+    private final long totalBytes;
+    /// The current number of bytes downloaded
+    private final AtomicLong currentBytes;
+    /// The CompletableFuture that will complete when the download is done
+    private final CompletableFuture<DownloadResult> future;
+    
+    public DownloadProgress(Path targetPath, long totalBytes, AtomicLong currentBytes, CompletableFuture<DownloadResult> future) {
+        this.targetPath = targetPath;
+        this.totalBytes = totalBytes;
+        this.currentBytes = currentBytes;
+        this.future = future;
+    }
+    
+    /// @return The path where the file is being downloaded
+    public Path targetPath() {
+        return targetPath;
+    }
+    
+    /// @return The total number of bytes to download
+    public long totalBytes() {
+        return totalBytes;
+    }
+    
+    /// @return The current number of bytes downloaded
+    public AtomicLong currentBytes() {
+        return currentBytes;
+    }
+    
+    /// @return The CompletableFuture that will complete when the download is done
+    public CompletableFuture<DownloadResult> future() {
+        return future;
+    }
     /// Checks if the download is complete.
     ///
     /// @return true if the download is complete, false otherwise

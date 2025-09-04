@@ -272,34 +272,34 @@ public class MerkleCatalogIntegrationTest {
         
         // Create a catalog entry in the expected JSON format
         // The catalog expects an array of dataset entries
-        return """
-        [
-          {
-            "name": "large_test_dataset",
-            "url": "%s",
-            "attributes": {
-              "model": "test-vectors",
-              "vendor": "nosqlbench",
-              "license": "Apache-2.0",
-              "distance_function": "COSINE"
-            },
-            "profiles": {
-              "default": {
-                "base_vectors": {
-                  "source": {
-                    "path": "%s"
-                  },
-                  "window": "all"
-                }
-              }
-            },
-            "tags": {
-              "format": "fvec",
-              "dimensions": "128",
-              "count": "100000"
-            }
-          }
-        ]
-        """.formatted(baseDirUrl, fileName);
+        String catalogJson = "[\n" +
+          "  {\n" +
+            "    \"name\": \"large_test_dataset\",\n" +
+            "    \"url\": \"%s\",\n" +
+            "    \"attributes\": {\n" +
+              "      \"model\": \"test-vectors\",\n" +
+              "      \"vendor\": \"nosqlbench\",\n" +
+              "      \"license\": \"Apache-2.0\",\n" +
+              "      \"distance_function\": \"COSINE\"\n" +
+            "    },\n" +
+            "    \"profiles\": {\n" +
+              "      \"default\": {\n" +
+                "        \"base_vectors\": {\n" +
+                  "          \"source\": {\n" +
+                    "            \"path\": \"%s\"\n" +
+                  "          },\n" +
+                  "          \"window\": \"all\"\n" +
+                "        }\n" +
+              "      }\n" +
+            "    },\n" +
+            "    \"tags\": {\n" +
+              "      \"format\": \"fvec\",\n" +
+              "      \"dimensions\": \"128\",\n" +
+              "      \"count\": \"100000\"\n" +
+            "    }\n" +
+          "  }\n" +
+        "]\n";
+        
+        return String.format(catalogJson, baseDirUrl, fileName);
     }
 }

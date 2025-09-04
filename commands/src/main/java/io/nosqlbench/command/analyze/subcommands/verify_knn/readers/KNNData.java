@@ -25,26 +25,48 @@ import io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIn
 import io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.Neighborhood;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 
-/// This record type captures the basic requirements of a standard KNN answer key format.
+import java.util.Objects;
+
+/// This class captures the basic requirements of a standard KNN answer key format.
 ///
 /// Credits:
 ///
 /// This starting point for this format was initially derived from the
 /// [ann-benchmark](https://github.com/erikbern/ann-benchmarks) HDF5 format.
-/// @param test the test dataset, containing query vectors, organized by index
-/// @param train the train dataset, containing all vectors to search, organized by index
-/// @param neighbors the neighbors dataset describing correct KNN results, organized by index
-/// @param distances the distances dataset describing pair-wise distances for neighbors,
-///  organized by index
-/// @param hdfFile the hdfFile containing the datasets
-public record KNNData(
-    Dataset test,
-    Dataset train,
-    Dataset neighbors,
-    Dataset distances,
-    HdfFile hdfFile
-) implements AutoCloseable
-{
+public class KNNData implements AutoCloseable {
+  private final Dataset test;
+  private final Dataset train;
+  private final Dataset neighbors;
+  private final Dataset distances;
+  private final HdfFile hdfFile;
+
+  public KNNData(Dataset test, Dataset train, Dataset neighbors, Dataset distances, HdfFile hdfFile) {
+    this.test = test;
+    this.train = train;
+    this.neighbors = neighbors;
+    this.distances = distances;
+    this.hdfFile = hdfFile;
+  }
+
+  public Dataset test() {
+    return test;
+  }
+
+  public Dataset train() {
+    return train;
+  }
+
+  public Dataset neighbors() {
+    return neighbors;
+  }
+
+  public Dataset distances() {
+    return distances;
+  }
+
+  public HdfFile hdfFile() {
+    return hdfFile;
+  }
   /// create a knn data reader
   /// @param hdfFile the hdfFile containing the datasets
   public KNNData(HdfFile hdfFile) {
@@ -106,17 +128,19 @@ public record KNNData(
     Object neighborsData = neighbors.getData(sliceOffset, dimensions);
 
     // normalize type to double, supporting maximum precision for both cases
-    long[] neighborIndices = switch (neighborsData) {
-      case long[][] longdata -> longdata[0];
-      case int[][] intData -> {
-        long[] ary = new long[intData[0].length];
-        for (int i = 0; i < ary.length; i++) {
-          ary[i] = intData[0][i];
-        }
-        yield ary;
+    long[] neighborIndices;
+    if (neighborsData instanceof long[][]) {
+      long[][] longdata = (long[][]) neighborsData;
+      neighborIndices = longdata[0];
+    } else if (neighborsData instanceof int[][]) {
+      int[][] intData = (int[][]) neighborsData;
+      neighborIndices = new long[intData[0].length];
+      for (int i = 0; i < neighborIndices.length; i++) {
+        neighborIndices[i] = intData[0][i];
       }
-      default -> throw new IllegalStateException("Unexpected value: " + neighborsData);
-    };
+    } else {
+      throw new IllegalStateException("Unexpected value: " + neighborsData);
+    }
 
     Object distancesData = distances.getData(sliceOffset, dimensions);
     float[] neighborDistances = ((float[][]) distancesData)[0];
@@ -146,5 +170,33 @@ public record KNNData(
   /// @return the number of training vectors
   public int trainingVectorCount() {
     return train().getDimensions()[0];
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    KNNData knnData = (KNNData) o;
+    return Objects.equals(test, knnData.test) &&
+           Objects.equals(train, knnData.train) &&
+           Objects.equals(neighbors, knnData.neighbors) &&
+           Objects.equals(distances, knnData.distances) &&
+           Objects.equals(hdfFile, knnData.hdfFile);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(test, train, neighbors, distances, hdfFile);
+  }
+
+  @Override
+  public String toString() {
+    return "KNNData{" +
+           "test=" + test +
+           ", train=" + train +
+           ", neighbors=" + neighbors +
+           ", distances=" + distances +
+           ", hdfFile=" + hdfFile +
+           '}';
   }
 }

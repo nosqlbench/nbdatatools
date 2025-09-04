@@ -105,11 +105,14 @@ public class PredicateParser {
     }
     
     private static ConjugateType parseConjugateType(String op) {
-        return switch (op.toUpperCase()) {
-            case "AND" -> ConjugateType.AND;
-            case "OR" -> ConjugateType.OR;
-            default -> throw new IllegalArgumentException("Unknown conjugate type: " + op);
-        };
+        switch (op.toUpperCase()) {
+            case "AND":
+                return ConjugateType.AND;
+            case "OR":
+                return ConjugateType.OR;
+            default:
+                throw new IllegalArgumentException("Unknown conjugate type: " + op);
+        }
     }
     
     private static long[] parseValues(JsonNode valuesNode) {

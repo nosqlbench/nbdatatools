@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collectors;
 
 /// a console display for the huggingface dl command
 public class ConsoleDisplay implements AutoCloseable {
@@ -181,13 +182,13 @@ public class ConsoleDisplay implements AutoCloseable {
         List<FileProgress> activeFiles = fileProgresses.values().stream()
             .filter(p -> !p.isCompleted() || p.isFailed())
             .limit(maxFileProgressLines)
-            .toList();
+            .collect(java.util.stream.Collectors.toList());
 
         if (activeFiles.isEmpty() && !fileProgresses.isEmpty()) {
             // Show last completed file if no active files
             activeFiles = fileProgresses.values().stream()
                 .limit(1)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         }
 
         activeFiles.forEach(progress -> {

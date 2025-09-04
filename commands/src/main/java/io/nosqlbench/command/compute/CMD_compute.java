@@ -45,12 +45,10 @@ import java.util.List;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "Compute operations on vector data for analysis and evaluation",
-    description = """
-        This provides a set of computational utilities for
-        the purposes of analyzing and evaluating vector data. The command includes subcommands
-        for computing k-nearest neighbors (knn) to generate ground truth datasets
-        from base and query vectors with specified distance metrics.
-        """,
+    description = "This provides a set of computational utilities for\n" +
+        "the purposes of analyzing and evaluating vector data. The command includes subcommands\n" +
+        "for computing k-nearest neighbors (knn) to generate ground truth datasets\n" +
+        "from base and query vectors with specified distance metrics.",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
     subcommands = {CMD_compute_knn.class, CommandLine.HelpCommand.class})
