@@ -18,7 +18,6 @@
 
 
   <properties>
-<!--    <maven.compiler.release>24</maven.compiler.release>-->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <mainClass>io.nosqlbench.commands.CommandBundler</mainClass>
     <imageName>nbvectors</imageName>

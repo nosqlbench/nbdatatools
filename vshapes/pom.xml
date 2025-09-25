@@ -280,7 +280,6 @@
 
 
           <!--          <additionalJOptions>&#45;&#45;enable-preview</additionalJOptions>-->
-          <!--          <release>23</release>-->
           <!--          <doctitle>${javadoc.name}</doctitle>-->
           <!--          <header>${javadoc.name}</header>-->
           <!--          <windowtitle>${javadoc.name}</windowtitle>-->
