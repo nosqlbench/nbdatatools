@@ -261,6 +261,13 @@
           <include>META-INF/services/**</include>
         </includes>
       </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>version.properties</include>
+        </includes>
+      </resource>
     </resources>
     <!-- Plugin management for commands modules to ensure consistent compiler setup -->
     <!-- Plugin versions and default configuration are inherited -->

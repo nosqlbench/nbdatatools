@@ -248,11 +248,10 @@ public interface ProgressIndicator<T>  {
             // Set up shutdown hook for Ctrl-C (SIGINT) handling
             final java.util.concurrent.atomic.AtomicBoolean interrupted = new java.util.concurrent.atomic.AtomicBoolean(false);
             final Thread shutdownHook = new Thread(() -> {
+                // Only set interrupted flag, don't print message here
+                // The message will be printed based on actual state
                 interrupted.set(true);
-                outputStream.print("\r\033[K"); // Clear line
-                outputStream.println("Interrupted by user (Ctrl-C)");
-                outputStream.flush();
-                
+
                 // If this is a CompletableFuture, try to cancel it
                 if (this instanceof CompletableFuture) {
                     ((CompletableFuture<?>) this).cancel(true);
@@ -339,8 +338,21 @@ public interface ProgressIndicator<T>  {
                     if (hasOutput) {
                         outputStream.print("\r\033[K"); // Clear line
                     }
-                    if (future.isCompletedExceptionally()) {
+
+                    // Check if we were actually interrupted (vs normal completion)
+                    if (interrupted.get()) {
+                        // Only print "Interrupted by user" if the shutdown hook was triggered
+                        // AND we haven't completed normally
+                        if (!future.isDone() || future.isCancelled()) {
+                            outputStream.println("Interrupted by user (Ctrl-C)");
+                        } else {
+                            // Completed normally even though shutdown hook was triggered
+                            outputStream.println(getEnhancedProgressString(progressHistory, startTime) + " - Complete");
+                        }
+                    } else if (future.isCompletedExceptionally() && !future.isCancelled()) {
                         outputStream.println("Task failed");
+                    } else if (future.isCancelled()) {
+                        outputStream.println("Task cancelled");
                     } else {
                         outputStream.println(getEnhancedProgressString(progressHistory, startTime) + " - Complete");
                     }
@@ -399,16 +411,32 @@ public interface ProgressIndicator<T>  {
                     if (hasOutput) {
                         outputStream.print("\r\033[K"); // Clear line
                     }
-                    if (interrupted.get()) {
-                        outputStream.println("Monitoring cancelled by user");
+
+                    // Only show "Interrupted by user" if we were actually interrupted
+                    // and not just shutting down normally
+                    if (interrupted.get() && !isWorkComplete()) {
+                        outputStream.println("Interrupted by user (Ctrl-C)");
                     } else {
                         outputStream.println(getEnhancedProgressString(progressHistory, startTime) + " - Complete");
                     }
                 }
                 
-                // Check if we were interrupted
+                // Check if we were interrupted and didn't complete normally
+                // Only throw exception if the task was actually interrupted (not just shutdown hook firing)
                 if (interrupted.get()) {
-                    throw new InterruptedException("Progress monitoring interrupted by user signal");
+                    // Check if we completed normally despite shutdown hook firing
+                    boolean completedNormally = false;
+                    if (this instanceof CompletableFuture) {
+                        CompletableFuture<?> future = (CompletableFuture<?>) this;
+                        completedNormally = future.isDone() && !future.isCancelled() && !future.isCompletedExceptionally();
+                    } else {
+                        completedNormally = isWorkComplete();
+                    }
+
+                    // Only throw if we didn't complete normally
+                    if (!completedNormally) {
+                        throw new InterruptedException("Progress monitoring interrupted by user signal");
+                    }
                 }
                 
                 return null;

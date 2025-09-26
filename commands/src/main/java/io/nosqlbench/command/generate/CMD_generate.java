@@ -18,6 +18,7 @@ package io.nosqlbench.command.generate;
  */
 
 
+import io.nosqlbench.command.generate.subcommands.CMD_generate_dataset;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_fvecExtract;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_ivecExtract;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_ivecShuffle;
@@ -33,15 +34,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /// Generate deterministic data sequences for test data preparation
-/// 
+///
 /// This command provides utilities for generating deterministic data sequences
 /// that can be used for test data preparation. It includes subcommands for:
-/// 
+///
+/// - `dataset`: Generate a complete example dataset with base, query, indices, distances, and dataset.yaml
 /// - `ivec-shuffle`: Generate shuffled integer vectors with deterministic ordering
 /// - `ivec-extract`: Extract indices from an ivec file using a range specification
 /// - `fvec-extract`: Extract data from floating-point vector files
 /// - `mktestdata`: Make basic base, query, and ground truth data from a vector space
-/// 
+/// - `vectors`: Generate vector files with specified types and dimensions
+///
 /// The generated data maintains consistent statistical properties and can be
 /// reproduced using the same seed values.
 @Selector("generate")
@@ -54,14 +57,14 @@ import java.util.List;
     header = "Generate pseudo-random vector test data in various forms",
     description = "This provides a set of basic procedural generation utilities for\n" +
         "the purposes of preparing test data. The command includes subcommands\n" +
-        "for generating shuffled integer vectors (ivec-shuffle), extracting\n" +
-        "indices from integer vector files (ivec-extract), extracting\n" +
-        "data from floating-point vector files (fvec-extract), generating\n" +
-        "vector files with specified types and dimensions (vector-generate),\n" +
+        "for generating complete datasets (dataset), shuffled integer vectors\n" +
+        "(ivec-shuffle), extracting indices from integer vector files (ivec-extract),\n" +
+        "extracting data from floating-point vector files (fvec-extract), generating\n" +
+        "vector files with specified types and dimensions (vectors),\n" +
         "and making basic base, query, and ground truth data (mktestdata).",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
-    subcommands = {CMD_generate_ivecShuffle.class, CMD_generate_ivecExtract.class, CMD_generate_fvecExtract.class, CMD_generate_vectors.class, CMD_generate_mktestdata.class, CommandLine.HelpCommand.class})
+    subcommands = {CMD_generate_dataset.class, CMD_generate_ivecShuffle.class, CMD_generate_ivecExtract.class, CMD_generate_fvecExtract.class, CMD_generate_vectors.class, CMD_generate_mktestdata.class, CommandLine.HelpCommand.class})
 
 public class CMD_generate implements BundledCommand {
   /// Logger for this class

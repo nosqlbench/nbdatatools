@@ -115,22 +115,6 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>3.5.0</version>
-        <executions>
-          <execution>
-            <id>java</id>
-            <goals>
-              <goal>java</goal>
-            </goals>
-            <configuration>
-              <mainClass>${mainClass}</mainClass>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.3.0</version>
@@ -167,6 +151,39 @@
           </descriptors>
         </configuration>
       </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.5.0</version>
+        <executions>
+          <execution>
+            <id>java</id>
+            <goals>
+              <goal>java</goal>
+            </goals>
+            <configuration>
+              <mainClass>${mainClass}</mainClass>
+            </configuration>
+          </execution>
+          <execution>
+            <id>link-nbvectors-jar-name</id>
+            <phase>package</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <environmentVariables>
+                <NBJAR_VERSION>${project.version}</NBJAR_VERSION>
+              </environmentVariables>
+              <basedir>${project.basedir}</basedir>
+              <executable>${project.basedir}/scripts/link-jar-name.sh</executable>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+
 
     </plugins>
   </build>

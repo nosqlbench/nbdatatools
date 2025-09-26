@@ -26,7 +26,9 @@ public enum DistanceFunction {
   /// The dot product distance function
   DOT_PRODUCT,
   /// The euclidean distance function
-  EUCLIDEAN;
+  EUCLIDEAN,
+  /// Same as euclidean here
+  L2;
 
   /// compute the distance between two vectors
   /// @param v1 the first vector
@@ -38,6 +40,7 @@ public enum DistanceFunction {
         return doubleCosineDistance(v1, v2);
       case DOT_PRODUCT:
       case EUCLIDEAN:
+      case L2:
         throw new RuntimeException("Not implemented");
       default:
         throw new IllegalArgumentException("Unknown distance function: " + this);
@@ -54,6 +57,7 @@ public enum DistanceFunction {
         return floatCosineDistance(v1, v2);
       case DOT_PRODUCT:
       case EUCLIDEAN:
+      case L2:
         throw new RuntimeException("Not implemented");
       default:
         throw new IllegalArgumentException("Unknown distance function: " + this);
