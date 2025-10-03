@@ -236,35 +236,34 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
         }
 
         return CompletableFuture.supplyAsync(() -> {
+            IOException lastError = null;
+
             try {
-                // Use HEAD request to get content length
-                Request headRequest = new Request.Builder()
-                    .url(sourceUrl)
-                    .head()
-                    .build();
-
-                try (Response response = httpClient.newCall(headRequest).execute()) {
-                    if (!response.isSuccessful()) {
-                        throw new IOException("HEAD request failed with status: " + response.code());
-                    }
-
-                    String contentLength = response.header("Content-Length");
-                    if (contentLength == null) {
-                        throw new IOException("Server did not provide Content-Length header");
-                    }
-
-                    long size = Long.parseLong(contentLength);
-                    cachedSize.set(size);
-                    
-                    // Also check for range support while we have the response
-                    String acceptRanges = response.header("Accept-Ranges");
-                    cachedRangeSupport.set("bytes".equals(acceptRanges));
-                    
+                Long size = tryResolveSizeWithHead();
+                if (size != null) {
                     return size;
                 }
             } catch (IOException e) {
-                throw new RuntimeException("Failed to determine content size", e);
+                lastError = e;
             }
+
+            try {
+                Long size = tryResolveSizeWithRangeProbe();
+                if (size != null) {
+                    return size;
+                }
+            } catch (IOException e) {
+                if (lastError != null) {
+                    e.addSuppressed(lastError);
+                }
+                lastError = e;
+            }
+
+            if (lastError == null) {
+                lastError = new IOException("Server did not provide enough metadata to determine content size");
+            }
+
+            throw new RuntimeException("Failed to determine content size", lastError);
         });
     }
 
@@ -285,7 +284,7 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
 
             try (Response response = httpClient.newCall(headRequest).execute()) {
                 String acceptRanges = response.header("Accept-Ranges");
-                boolean supportsRanges = "bytes".equals(acceptRanges);
+                boolean supportsRanges = acceptRanges != null && "bytes".equalsIgnoreCase(acceptRanges.trim());
                 cachedRangeSupport.set(supportsRanges);
                 return supportsRanges;
             }
@@ -293,6 +292,110 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
             // If we can't determine range support, assume false
             cachedRangeSupport.set(false);
             return false;
+        }
+    }
+
+    /// Attempts to determine the resource size via a HEAD request.
+    private Long tryResolveSizeWithHead() throws IOException {
+        Request headRequest = new Request.Builder()
+            .url(sourceUrl)
+            .head()
+            .build();
+
+        try (Response response = httpClient.newCall(headRequest).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("HEAD request failed with status: " + response.code());
+            }
+
+            String acceptRanges = response.header("Accept-Ranges");
+            if (acceptRanges != null) {
+                cachedRangeSupport.set("bytes".equalsIgnoreCase(acceptRanges.trim()));
+            }
+
+            String contentLength = response.header("Content-Length");
+            if (contentLength == null) {
+                return null;
+            }
+
+            try {
+                long size = Long.parseLong(contentLength);
+                cachedSize.set(size);
+                return size;
+            } catch (NumberFormatException e) {
+                throw new IOException("Server returned non-numeric Content-Length header", e);
+            }
+        }
+    }
+
+    /// Attempts to determine the resource size via a byte range GET probe.
+    private Long tryResolveSizeWithRangeProbe() throws IOException {
+        Request rangeRequest = new Request.Builder()
+            .url(sourceUrl)
+            .addHeader("Range", "bytes=0-0")
+            .build();
+
+        try (Response response = httpClient.newCall(rangeRequest).execute()) {
+            int status = response.code();
+            if (status == 206) {
+                cachedRangeSupport.set(true);
+
+                String contentRange = response.header("Content-Range");
+                if (contentRange != null) {
+                    Long sizeFromRange = parseSizeFromContentRange(contentRange);
+                    if (sizeFromRange != null) {
+                        cachedSize.set(sizeFromRange);
+                        return sizeFromRange;
+                    }
+                }
+                return null;
+            }
+
+            if (status == 200) {
+                cachedRangeSupport.set(false);
+
+                String contentLength = response.header("Content-Length");
+                if (contentLength != null) {
+                    try {
+                        long size = Long.parseLong(contentLength);
+                        cachedSize.set(size);
+                        return size;
+                    } catch (NumberFormatException ignore) {
+                        // Ignore and attempt using the response body metadata below
+                    }
+                }
+
+                ResponseBody body = response.body();
+                if (body != null) {
+                    long size = body.contentLength();
+                    if (size >= 0) {
+                        cachedSize.set(size);
+                        return size;
+                    }
+                }
+
+                return null;
+            }
+
+            throw new IOException("Range probe request failed with status: " + status);
+        }
+    }
+
+    /// Parses the total size component from a Content-Range header value.
+    private Long parseSizeFromContentRange(String contentRange) throws IOException {
+        int slashIndex = contentRange.lastIndexOf('/');
+        if (slashIndex < 0 || slashIndex == contentRange.length() - 1) {
+            throw new IOException("Invalid Content-Range header: " + contentRange);
+        }
+
+        String totalPart = contentRange.substring(slashIndex + 1).trim();
+        if ("*".equals(totalPart)) {
+            return null;
+        }
+
+        try {
+            return Long.parseLong(totalPart);
+        } catch (NumberFormatException e) {
+            throw new IOException("Invalid total size in Content-Range header: " + contentRange, e);
         }
     }
 

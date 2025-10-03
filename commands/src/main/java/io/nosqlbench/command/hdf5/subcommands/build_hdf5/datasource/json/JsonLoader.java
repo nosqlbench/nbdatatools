@@ -28,6 +28,7 @@ import io.nosqlbench.nbdatatools.api.iteration.ConvertingIterable;
 import io.nosqlbench.nbdatatools.api.fileio.LongIndexedFloatVector;
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
+import io.nosqlbench.vectordata.spec.datasets.types.ViewKind;
 import io.nosqlbench.vectordata.spec.predicates.PNode;
 import io.nosqlbench.vectordata.spec.tokens.SpecDataSource;
 
@@ -231,7 +232,10 @@ public class JsonLoader implements SpecDataSource {
       return floats;
     }
 
-    vnode = n.get("distances");
+    vnode = n.get(ViewKind.neighbors.name());
+    if (vnode == null) {
+      vnode = n.get("distances");
+    }
     if (vnode != null) {
       float[] floats = new float[vnode.size()];
       for (int i = 0; i < floats.length; i++) {

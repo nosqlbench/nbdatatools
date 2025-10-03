@@ -168,7 +168,7 @@ For remote datasets:
 # Configure connection pooling
 java -Dnbdatatools.http.max_connections=20 \
      -Dnbdatatools.http.connection_timeout=30000 \
-     -jar nbvectors.jar datasets download --name large_dataset
+     -jar nbvectors.jar datasets download large_dataset:default
 ```
 
 ### Profiling and Monitoring
@@ -631,7 +631,7 @@ Debug network issues:
 # Enable network tracing
 java -Dcom.sun.net.httpserver.HttpServer.debug=true \
      -Djava.net.preferIPv4Stack=true \
-     -jar nbvectors.jar datasets download --name large_dataset
+     -jar nbvectors.jar datasets download large_dataset:default
 ```
 
 ### Custom Debug Tools
@@ -689,7 +689,7 @@ Always verify downloaded data:
 ```bash
 # Verify checksums
 java -jar nbvectors.jar datasets download \
-  --name sensitive_dataset \
+  sensitive_dataset:default \
   --verify \
   --checksum-algorithm SHA-256
 
@@ -728,7 +728,7 @@ Configure secure connections:
 # Use HTTPS only
 java -Dnbdatatools.http.ssl_only=true \
      -Dnbdatatools.http.verify_certificates=true \
-     -jar nbvectors.jar datasets download --name dataset
+     -jar nbvectors.jar datasets download dataset:default
 ```
 
 ## Summary

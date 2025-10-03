@@ -25,9 +25,11 @@ import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
 import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
-import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+import io.nosqlbench.vectordata.spec.datasets.types.ViewKind;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.BaseVectorsXvecImpl;
-import io.nosqlbench.vectordata.spec.datasets.impl.xvec.FloatVectorsXvecImpl;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.NeighborDistancesXvecImpl;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.NeighborIndicesXvecImpl;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.QueryVectorsXvecImpl;
 import io.nosqlbench.vectordata.spec.tokens.SpecToken;
 import io.nosqlbench.vectordata.spec.tokens.Templatizer;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
@@ -35,10 +37,10 @@ import io.nosqlbench.vectordata.layoutv2.DSView;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -103,24 +105,17 @@ public class VirtualTestDataView implements TestDataView {
   /// @return An Optional containing the base vectors dataset, or empty if not available
   @Override
   public Optional<BaseVectors> getBaseVectors() {
-    Optional<DSView> oView = getMatchingView("base_vectors");
-    if (!oView.isPresent()) {
+    Optional<DSView> oView = getMatchingView(ViewKind.base);
+    if (oView.isEmpty()) {
       return Optional.empty();
     }
     DSView dsView = oView.get();
-    String sourcePath = dsView.getSource().getPath();
     try {
-      URL sourceContentURL = new URL(datasetEntry.url(), sourcePath);
-      Path contentPath =
-          cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(sourcePath);
-
-      MAFileChannel channel = resolveMAFileChannel(contentPath,
-          sourceContentURL);
-
-      String extension =
-          sourceContentURL.getFile().substring(sourceContentURL.getFile().lastIndexOf('.') + 1);
-      BaseVectorsXvecImpl newview =
-          new BaseVectorsXvecImpl(channel, channel.size(), dsView.getWindow(), extension);
+      URL sourceUrl = resolveSourceUrl(dsView);
+      Path contentPath = resolveContentPath(dsView);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      BaseVectorsXvecImpl newview = new BaseVectorsXvecImpl(
+          channel, channel.size(), dsView.getWindow(), extractExtension(sourceUrl));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -138,7 +133,7 @@ public class VirtualTestDataView implements TestDataView {
   ///     The URL of the source content
   /// @return A MAFileChannel for accessing the content
   /// @throws IOException If there is an error accessing the file
-  private MAFileChannel resolveMAFileChannel(Path contentPath, URL sourceContentURL)
+  protected MAFileChannel resolveMAFileChannel(Path contentPath, URL sourceContentURL)
       throws IOException
   {
     // Use MAFileChannel for both local and remote resources
@@ -153,13 +148,21 @@ public class VirtualTestDataView implements TestDataView {
   /// @param viewkind 
   ///     The kind of view to find (e.g., "base_vectors", "query_vectors")
   /// @return An Optional containing the matching view, or empty if not found
-  private Optional<DSView> getMatchingView(String viewkind) {
-    TestDataKind testDataKind = TestDataKind.fromString(viewkind);
-    Set<String> allValidKindSynonyms = testDataKind.getAllNames();
+  private Optional<DSView> getMatchingView(ViewKind viewKind) {
+    Set<String> allValidKindSynonyms = viewKind.getAllNames();
 
     for (String viewName : profile.keySet()) {
-      if (allValidKindSynonyms.contains(viewName)) {
+      String normalized = viewName.toLowerCase(Locale.ROOT);
+      if (allValidKindSynonyms.contains(normalized)) {
         return Optional.of(profile.get(viewName));
+      }
+
+      DSView dsView = profile.get(viewName);
+      if (dsView != null && dsView.getName() != null) {
+        String dsViewName = dsView.getName().toLowerCase(Locale.ROOT);
+        if (allValidKindSynonyms.contains(dsViewName)) {
+          return Optional.of(dsView);
+        }
       }
     }
     return Optional.empty();
@@ -173,24 +176,18 @@ public class VirtualTestDataView implements TestDataView {
   /// @return An Optional containing the query vectors dataset, or empty if not available
   @Override
   public Optional<QueryVectors> getQueryVectors() {
-    DSView view = profile.get("query_vectors");
-    if (view == null) {
+    Optional<DSView> oView = getMatchingView(ViewKind.query);
+    if (oView.isEmpty()) {
       return Optional.empty();
     }
+    DSView dsView = oView.get();
     try {
-      URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
-      Path contentPath = cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(view.getSource().getPath());
-      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceURL);
-      FloatVectorsXvecImpl newview = new FloatVectorsXvecImpl(
-          channel,
-          channel.size(),
-          view.getWindow(),
-          sourceURL.getFile()
-      );
-      // Cast is needed because FloatVectorsXvecImpl implements QueryVectors
-      return Optional.of((QueryVectors) newview);
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
+      URL sourceUrl = resolveSourceUrl(dsView);
+      Path contentPath = resolveContentPath(dsView);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      QueryVectorsXvecImpl newview = new QueryVectorsXvecImpl(
+          channel, channel.size(), dsView.getWindow(), extractExtension(sourceUrl));
+      return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -205,20 +202,18 @@ public class VirtualTestDataView implements TestDataView {
   /// @return An Optional containing the neighbor indices dataset, or empty if not available
   @Override
   public Optional<NeighborIndices> getNeighborIndices() {
-    DSView view = profile.get("neighbor_indices");
-    if (view == null) {
+    Optional<DSView> oView = getMatchingView(ViewKind.indices);
+    if (oView.isEmpty()) {
       return Optional.empty();
     }
+    DSView dsView = oView.get();
     try {
-      URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
-      Path contentPath = cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(view.getSource().getPath());
-      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceURL);
-      // Assuming there's an implementation for NeighborIndices similar to BaseVectorsXvecImpl
-      // This would need to be implemented or adapted from existing code
-      // For now, returning empty to avoid compilation errors
-      return Optional.empty();
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
+      URL sourceUrl = resolveSourceUrl(dsView);
+      Path contentPath = resolveContentPath(dsView);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      NeighborIndicesXvecImpl newview = new NeighborIndicesXvecImpl(
+          channel, channel.size(), dsView.getWindow(), extractExtension(sourceUrl));
+      return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -233,20 +228,18 @@ public class VirtualTestDataView implements TestDataView {
   /// @return An Optional containing the neighbor distances dataset, or empty if not available
   @Override
   public Optional<NeighborDistances> getNeighborDistances() {
-    DSView view = profile.get("neighbor_distances");
-    if (view == null) {
+    Optional<DSView> oView = getMatchingView(ViewKind.neighbors);
+    if (oView.isEmpty()) {
       return Optional.empty();
     }
+    DSView dsView = oView.get();
     try {
-      URL sourceURL = new URL(datasetEntry.url(), view.getSource().getPath());
-      Path contentPath = cachedir.resolve(datasetEntry.name()).resolve(profile.getName()).resolve(view.getSource().getPath());
-      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceURL);
-      // Assuming there's an implementation for NeighborDistances similar to BaseVectorsXvecImpl
-      // This would need to be implemented or adapted from existing code
-      // For now, returning empty to avoid compilation errors
-      return Optional.empty();
-    } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
+      URL sourceUrl = resolveSourceUrl(dsView);
+      Path contentPath = resolveContentPath(dsView);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      NeighborDistancesXvecImpl newview = new NeighborDistancesXvecImpl(
+          channel, channel.size(), dsView.getWindow(), extractExtension(sourceUrl));
+      return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -424,6 +417,35 @@ public class VirtualTestDataView implements TestDataView {
     return tokens;
   }
 
+  private URL resolveSourceUrl(DSView view) {
+    if (view.getSource() == null || view.getSource().getPath() == null) {
+      throw new IllegalArgumentException("No source path defined for view " + view.getName());
+    }
+    try {
+      return new URL(datasetEntry.url(), view.getSource().getPath());
+    } catch (MalformedURLException e) {
+      throw new RuntimeException("Invalid source path '" + view.getSource().getPath() + "' for view " + view.getName(), e);
+    }
+  }
+
+  private Path resolveContentPath(DSView view) {
+    if (view.getSource() == null || view.getSource().getPath() == null) {
+      throw new IllegalArgumentException("No source path defined for view " + view.getName());
+    }
+    return cachedir.resolve(datasetEntry.name())
+        .resolve(profile.getName())
+        .resolve(view.getSource().getPath());
+  }
+
+  private String extractExtension(URL sourceUrl) {
+    String file = sourceUrl.getFile();
+    int dot = file.lastIndexOf('.');
+    if (dot < 0 || dot == file.length() - 1) {
+      throw new IllegalArgumentException("Unable to determine file extension for " + file);
+    }
+    return file.substring(dot + 1);
+  }
+
   /// Prebuffers all datasets in this test data view.
   /// For Virtual datasets using DSWindow, this determines the prebuffer range from the DSWindow intervals.
   ///
@@ -434,25 +456,25 @@ public class VirtualTestDataView implements TestDataView {
 
     // Prebuffer base vectors if available
     getBaseVectors().ifPresent(baseVectors -> {
-      CompletableFuture<Void> future = prebufferWithDSWindow("base_vectors", baseVectors);
+      CompletableFuture<Void> future = prebufferWithDSWindow(ViewKind.base, baseVectors);
       futures.add(future);
     });
 
     // Prebuffer query vectors if available
     getQueryVectors().ifPresent(queryVectors -> {
-      CompletableFuture<Void> future = prebufferWithDSWindow("query_vectors", queryVectors);
+      CompletableFuture<Void> future = prebufferWithDSWindow(ViewKind.query, queryVectors);
       futures.add(future);
     });
 
     // Prebuffer neighbor indices if available
     getNeighborIndices().ifPresent(neighborIndices -> {
-      CompletableFuture<Void> future = prebufferWithDSWindow("neighbor_indices", neighborIndices);
+      CompletableFuture<Void> future = prebufferWithDSWindow(ViewKind.indices, neighborIndices);
       futures.add(future);
     });
 
     // Prebuffer neighbor distances if available
     getNeighborDistances().ifPresent(neighborDistances -> {
-      CompletableFuture<Void> future = prebufferWithDSWindow("neighbor_distances", neighborDistances);
+      CompletableFuture<Void> future = prebufferWithDSWindow(ViewKind.neighbors, neighborDistances);
       futures.add(future);
     });
 
@@ -460,7 +482,7 @@ public class VirtualTestDataView implements TestDataView {
   }
 
   /// Helper method to prebuffer a dataset using its DSWindow configuration
-  private CompletableFuture<Void> prebufferWithDSWindow(String viewKind, io.nosqlbench.vectordata.spec.datasets.types.DatasetView<?> dataset) {
+  private CompletableFuture<Void> prebufferWithDSWindow(ViewKind viewKind, io.nosqlbench.vectordata.spec.datasets.types.DatasetView<?> dataset) {
     Optional<DSView> oView = getMatchingView(viewKind);
     if (!oView.isPresent()) {
       // If no DSWindow is configured, prebuffer the whole dataset

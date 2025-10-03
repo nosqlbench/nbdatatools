@@ -173,7 +173,7 @@ java.net.SocketTimeoutException: Connect timed out
 1. **Increase timeout:**
    ```bash
    java -Dnbdatatools.http.timeout=60000 \
-        -jar nbvectors.jar datasets download --name dataset
+        -jar nbvectors.jar datasets download dataset:default
    ```
 
 2. **Check network connectivity:**
@@ -185,7 +185,7 @@ java.net.SocketTimeoutException: Connect timed out
 3. **Use resume capability:**
    ```bash
    java -jar nbvectors.jar datasets download \
-     --name dataset \
+     dataset:default \
      --resume \
      --output ./datasets/
    ```
@@ -193,7 +193,7 @@ java.net.SocketTimeoutException: Connect timed out
 4. **Try fewer concurrent connections:**
    ```bash
    java -Dnbdatatools.http.max_connections=2 \
-        -jar nbvectors.jar datasets download --name dataset
+        -jar nbvectors.jar datasets download dataset:default
    ```
 
 #### "Certificate verification failed"
@@ -214,13 +214,13 @@ sun.security.validator.ValidatorException: PKIX path building failed
 2. **Disable certificate verification (not recommended):**
    ```bash
    java -Dnbdatatools.http.verify_certificates=false \
-        -jar nbvectors.jar datasets download --name dataset
+        -jar nbvectors.jar datasets download dataset:default
    ```
 
 3. **Use HTTP instead of HTTPS (if available):**
    ```bash
    java -jar nbvectors.jar datasets download \
-     --name dataset \
+     dataset:default \
      --url http://example.com/dataset.hdf5
    ```
 
@@ -248,7 +248,7 @@ Exception: HDF5-DIAG: Error detected in HDF5 (1.10.7) thread 0
    ```bash
    # Re-download with verification
    java -jar nbvectors.jar datasets download \
-     --name dataset \
+     dataset:default \
      --verify \
      --force
    ```
@@ -351,21 +351,21 @@ Exception: Dataset '/base/data' not found in HDF5 file
 1. **Increase parallel connections:**
    ```bash
    java -jar nbvectors.jar datasets download \
-     --name large_dataset \
+     large_dataset:default \
      --threads 8
    ```
 
 2. **Use regional mirrors (if available):**
    ```bash
    java -jar nbvectors.jar datasets download \
-     --name dataset \
+     dataset:default \
      --mirror us-west
    ```
 
 3. **Resume partial downloads:**
    ```bash
    java -jar nbvectors.jar datasets download \
-     --name dataset \
+     dataset:default \
      --resume
    ```
 
@@ -486,7 +486,7 @@ Merkle verification failed: Chunk 42 hash mismatch
    ```bash
    # Re-download from source
    java -jar nbvectors.jar datasets download \
-     --name dataset \
+     dataset:default \
      --force \
      --verify
    ```
@@ -681,7 +681,7 @@ java -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG \
 ```bash
 # Network debugging
 java -Dorg.slf4j.simpleLogger.log.io.nosqlbench.transport=DEBUG \
-     -jar nbvectors.jar datasets download --name dataset
+     -jar nbvectors.jar datasets download dataset:default
 
 # HDF5 debugging  
 java -Dorg.slf4j.simpleLogger.log.io.nosqlbench.hdf5=DEBUG \
@@ -730,7 +730,7 @@ jcmd <pid> GC.dump /tmp/heap.hprof
 java -Dorg.apache.commons.logging.Log=org.apache.commons.logging.impl.SimpleLog \
      -Dorg.apache.commons.logging.simplelog.showdatetime=true \
      -Dorg.apache.commons.logging.simplelog.log.org.apache.http.wire=DEBUG \
-     -jar nbvectors.jar datasets download --name dataset
+     -jar nbvectors.jar datasets download dataset:default
 ```
 
 **Network connectivity testing:**

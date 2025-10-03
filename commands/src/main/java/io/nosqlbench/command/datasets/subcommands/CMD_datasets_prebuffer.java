@@ -18,10 +18,11 @@ package io.nosqlbench.command.datasets.subcommands;
  */
 
 import io.nosqlbench.vectordata.downloader.Catalog;
-import io.nosqlbench.vectordata.downloader.DatasetEntry;
+import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -32,7 +33,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Callable;
 
@@ -45,7 +45,7 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
 
     private static final Logger logger = LogManager.getLogger(CMD_datasets_prebuffer.class);
 
-    @CommandLine.Parameters(description = "Dataset and profile to prebuffer in format dataset:profile", 
+    @CommandLine.Parameters(description = "Dataset and profile to prebuffer using 'dataset:profile'. Escape literal ':' with '\\:'.",
                            arity = "1..*")
     private List<String> datasets = new ArrayList<>();
 
@@ -85,17 +85,21 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
             
             Catalog catalog = Catalog.of(config);
             
-            for (String datasetSpec : datasets) {
-                if (!datasetSpec.contains(":")) {
-                    System.err.println("Dataset specification must be in format 'dataset:profile', got: " + datasetSpec);
+            for (String rawSpec : datasets) {
+                DatasetProfileSpec spec;
+                try {
+                    spec = DatasetProfileSpec.parse(rawSpec);
+                } catch (IllegalArgumentException iae) {
+                    System.err.println("Invalid dataset specification '" + rawSpec + "': " + iae.getMessage());
                     return 1;
                 }
-                
-                String[] parts = datasetSpec.split(":", 2);
-                String datasetName = parts[0];
-                String profileName = parts[1];
-                
-                if (prebufferDataset(catalog, datasetName, profileName) != 0) {
+
+                if (spec.profile().isEmpty()) {
+                    System.err.println("Dataset specification must include a profile (e.g. dataset:profile). Got: " + rawSpec);
+                    return 1;
+                }
+
+                if (prebufferDataset(catalog, spec) != 0) {
                     return 1;
                 }
             }
@@ -111,28 +115,17 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
         }
     }
     
-    private int prebufferDataset(Catalog catalog, String datasetName, String profileName) {
+    private int prebufferDataset(Catalog catalog, DatasetProfileSpec spec) {
+        String profileName = spec.profile().orElseThrow();
         try {
-            // Find the dataset using standard API
-            Optional<DatasetEntry> datasetOpt = catalog.datasets().stream()
-                .filter(d -> d.name().equals(datasetName))
-                .findFirst();
-                
-            if (datasetOpt.isEmpty()) {
-                System.err.println("Dataset not found: " + datasetName);
-                return 1;
-            }
-            
-            DatasetEntry dataset = datasetOpt.get();
-            
             // Use the standard ProfileSelector API
-            ProfileSelector profileSelector = dataset.select()
+            ProfileSelector profileSelector = catalog.select(spec)
                 .setCacheDir(cacheDir.toString());
-            
+
             // Get the TestDataView using the standard profile() method
             TestDataView testDataView = profileSelector.profile(profileName);
-            
-            System.out.println("Prebuffering dataset: " + datasetName + ":" + profileName);
+
+            System.out.println("Prebuffering dataset: " + spec.dataset() + ":" + profileName);
             if (verbose) {
                 System.out.println("Test data view: " + testDataView.getName());
                 System.out.println("URL: " + testDataView.getUrl());
@@ -201,7 +194,7 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
             return 0;
             
         } catch (Exception e) {
-            System.err.println("Error prebuffering dataset " + datasetName + ":" + profileName + ": " + e.getMessage());
+            System.err.println("Error prebuffering dataset " + spec.dataset() + ":" + profileName + ": " + e.getMessage());
             if (verbose) {
                 e.printStackTrace();
             }
@@ -252,30 +245,31 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
             viewList.add("*");
             return viewList;
         }
-        
+
         // Split by comma and trim whitespace
         String[] viewArray = views.split(",");
         for (String view : viewArray) {
             String trimmedView = view.trim().toLowerCase();
-            if (!trimmedView.isEmpty()) {
-                // Validate the view name
-                if (trimmedView.equals("base_vectors") || 
-                    trimmedView.equals("query_vectors") || 
-                    trimmedView.equals("neighbor_indices") || 
-                    trimmedView.equals("neighbor_distances") ||
-                    trimmedView.equals("*")) {
-                    viewList.add(trimmedView);
-                } else {
-                    System.err.println("Warning: Unknown view name '" + trimmedView + "', ignoring");
-                }
+            if (trimmedView.isEmpty()) {
+                continue;
             }
+
+            if (trimmedView.equals("*")) {
+                viewList.clear();
+                viewList.add("*");
+                break;
+            }
+
+            TestDataKind.fromOptionalString(trimmedView)
+                .ifPresentOrElse(kind -> viewList.add(kind.name().toLowerCase()),
+                    () -> System.err.println("Warning: Unknown view name '" + trimmedView + "', ignoring"));
         }
-        
+
         // If no valid views were found, default to all
         if (viewList.isEmpty()) {
             viewList.add("*");
         }
-        
+
         return viewList;
     }
 }

@@ -106,11 +106,31 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
 
   @Override
   public CompletableFuture<Void> prebuffer() {
-    DSInterval w0 = this.window.get(0); // cardinal 0 is the vector index, cardinal 1 is the component index
-    long recordSize = 4 + (dimensions * componentBytes);
-    long start=w0.getMinIncl()*recordSize;
-    long end=w0.getMaxExcl()*recordSize;
-    return channel.prebuffer(start,end);
+    try {
+      // If window is empty, prebuffer entire file
+      if (this.window.isEmpty()) {
+        return channel.prebuffer(0, channel.size());
+      }
+
+      // Calculate the full range across all windows
+      long minStart = Long.MAX_VALUE;
+      long maxEnd = Long.MIN_VALUE;
+      long recordSize = 4 + (dimensions * componentBytes);
+
+      for (DSInterval interval : this.window) {
+        long start = interval.getMinIncl() * recordSize;
+        long end = interval.getMaxExcl() * recordSize;
+        minStart = Math.min(minStart, start);
+        maxEnd = Math.max(maxEnd, end);
+      }
+
+      // Prebuffer the entire range from min to max
+      return channel.prebuffer(minStart, maxEnd);
+    } catch (IOException e) {
+      CompletableFuture<Void> failed = new CompletableFuture<>();
+      failed.completeExceptionally(e);
+      return failed;
+    }
   }
 
   /// Returns the number of bytes per component based on the data type.

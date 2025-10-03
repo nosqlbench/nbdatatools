@@ -19,7 +19,9 @@ package io.nosqlbench.vectordata.downloader;
 
 
 import com.google.gson.reflect.TypeToken;
+import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
+import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.utils.SHARED;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -241,6 +243,48 @@ public class Catalog {
       printDatasetSuggestions(name);
       return Optional.empty();
     }
+  }
+
+  /// Select a dataset using either a dataset name or a dataset:profile specification. When a
+  /// profile component is included, the returned selector will enforce that profile while still
+  /// allowing callers to chain configuration methods like setCacheDir.
+  /// @param datasetSpec dataset name or dataset:profile string
+  /// @return A ProfileSelector that optionally has a preset profile
+  public ProfileSelector select(String datasetSpec) {
+    return select(DatasetProfileSpec.parse(datasetSpec));
+  }
+
+  /// Select a dataset using a previously parsed DatasetProfileSpec.
+  /// @param spec normalized dataset/profile specification
+  /// @return A ProfileSelector for the requested dataset, optionally pre-bound to a profile
+  public ProfileSelector select(DatasetProfileSpec spec) {
+    DatasetEntry datasetEntry = requireDataset(spec.dataset());
+    ProfileSelector selector = datasetEntry.select();
+    return spec.profile()
+        .<ProfileSelector>map(profile -> new PresetProfileSelector(selector, profile))
+        .orElse(selector);
+  }
+
+  /// Convenience method that returns the TestDataView for a dataset:profile specification.
+  /// @param datasetAndProfile combined dataset and profile
+  /// @return The resolved TestDataView
+  public TestDataView profile(String datasetAndProfile) {
+    return profile(DatasetProfileSpec.parse(datasetAndProfile));
+  }
+
+  /// Convenience method that returns the TestDataView for a pre-parsed specification.
+  /// @param spec normalized dataset/profile specification
+  /// @return The resolved TestDataView
+  public TestDataView profile(DatasetProfileSpec spec) {
+    return spec.profile()
+        .map(profile -> select(spec).profile(profile))
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Profile component required when using Catalog.profile"));
+  }
+
+  private DatasetEntry requireDataset(String datasetName) {
+    return findExact(datasetName)
+        .orElseThrow(() -> new IllegalArgumentException("Dataset '" + datasetName + "' not found"));
   }
 
   /// Prints helpful suggestions to stderr when a dataset is not found.

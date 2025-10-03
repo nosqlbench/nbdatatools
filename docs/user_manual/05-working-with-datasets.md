@@ -85,11 +85,13 @@ Download a dataset to local storage:
 
 ```bash
 java -jar nbvectors.jar datasets download \
-  --name "sift-128-euclidean" \
+  sift-128-euclidean:default \
   --output ./datasets/
 ```
 
 The file will be saved as `./datasets/sift-128-euclidean.hdf5`.
+
+To target an alternate profile, change the part after the colon (for example `sift-128-euclidean:validation`). Escape literal colons in dataset names with `\:` such as `vector\:set:default`.
 
 ### Advanced Download Options
 
@@ -97,7 +99,7 @@ With verification and resume capability:
 
 ```bash
 java -jar nbvectors.jar datasets download \
-  --name "deep-image-96-angular" \
+  deep-image-96-angular:default \
   --output ./datasets/ \
   --verify \
   --resume \

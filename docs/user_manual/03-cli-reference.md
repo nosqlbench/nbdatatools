@@ -193,11 +193,13 @@ java -jar nbvectors.jar datasets list \
 Download datasets from catalogs.
 
 ```bash
-java -jar nbvectors.jar datasets download --name <dataset> --output <dir>
+java -jar nbvectors.jar datasets download <dataset:profile>... --output <dir>
 ```
 
+**Parameters:**
+- `<dataset:profile>...` - One or more dataset/profile specs. Escape literal colons in dataset names with `\:` (for example `vector\:set:default`).
+
 **Options:**
-- `--name, -n` - Dataset name (required)
 - `--output, -o` - Output directory (required)
 - `--catalog` - Specific catalog
 - `--verify` - Verify download integrity
@@ -206,7 +208,7 @@ java -jar nbvectors.jar datasets download --name <dataset> --output <dir>
 **Example:**
 ```bash
 java -jar nbvectors.jar datasets download \
-  --name "sift-128-euclidean" \
+  mnist:default \
   --output ./datasets/ \
   --verify
 ```
@@ -459,7 +461,7 @@ java -jar nbvectors.jar datasets info --name "sift-128-euclidean"
 
 # Download it
 java -jar nbvectors.jar datasets download \
-  --name "sift-128-euclidean" \
+  sift-128-euclidean:default \
   --output ./data/
 ```
 

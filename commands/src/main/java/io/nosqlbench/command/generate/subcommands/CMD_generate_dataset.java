@@ -20,6 +20,7 @@ package io.nosqlbench.command.generate.subcommands;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.spec.datasets.types.ViewKind;
 import org.apache.commons.rng.RestorableUniformRandomProvider;
 import org.apache.commons.rng.sampling.distribution.ContinuousSampler;
 import org.apache.logging.log4j.LogManager;
@@ -301,20 +302,20 @@ public class CMD_generate_dataset implements Callable<Integer> {
         Map<String, Object> base = new LinkedHashMap<>();
         base.put("source", basePath);
         base.put("window", baseCount);
-        profile.put("base", base);
+        profile.put(ViewKind.base.name(), base);
 
         Map<String, Object> query = new LinkedHashMap<>();
         query.put("source", queryPath);
         query.put("window", queryCount);
-        profile.put("query", query);
+        profile.put(ViewKind.query.name(), query);
 
         Map<String, Object> indices = new LinkedHashMap<>();
         indices.put("source", indicesPath);
-        profile.put("indices", indices);
+        profile.put(ViewKind.indices.name(), indices);
 
         Map<String, Object> distances = new LinkedHashMap<>();
         distances.put("source", distancesPath);
-        profile.put("distances", distances);
+        profile.put(ViewKind.neighbors.name(), distances);
 
         return profile;
     }

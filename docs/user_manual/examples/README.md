@@ -52,7 +52,7 @@ java -jar nbvectors.jar datasets list \
 
 # Download dataset
 java -jar nbvectors.jar datasets download \
-  --name "sift-128-euclidean" \
+  sift-128-euclidean:default \
   --output ./datasets/ \
   --verify \
   --resume
@@ -368,7 +368,7 @@ java -Dnbdatatools.threads.io=8 \
 java -Dnbdatatools.http.max_connections=8 \
      -Dnbdatatools.http.timeout=60000 \
      -jar nbvectors.jar datasets download \
-     --name large_dataset \
+     large_dataset:default \
      --threads 4 \
      --resume
 ```

@@ -130,7 +130,7 @@ Download a specific dataset:
 
 ```bash
 java -jar nbvectors.jar datasets download \
-  --name "sift-128-euclidean" \
+  sift-128-euclidean:default \
   --output ./datasets/
 ```
 

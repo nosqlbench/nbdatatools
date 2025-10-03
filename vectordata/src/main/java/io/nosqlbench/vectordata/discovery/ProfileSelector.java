@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.discovery;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -17,6 +17,7 @@ package io.nosqlbench.vectordata.discovery;
  * under the License.
  */
 
+import java.util.Optional;
 
 /// Interface for selecting and configuring dataset profiles.
 ///
@@ -38,4 +39,20 @@ public interface ProfileSelector {
   /// @param cacheDir The directory to use for caching
   /// @return This ProfileSelector for method chaining
   ProfileSelector setCacheDir(String cacheDir);
+
+  /// @return The preset profile name when this selector was constructed from a dataset:profile
+  /// specification. Implementations that don't pre-bind a profile can rely on the default empty
+  /// optional.
+  default Optional<String> presetProfile() {
+    return Optional.empty();
+  }
+
+  /// Resolve the preset profile, if one was provided. This is primarily intended for callers who
+  /// used a dataset:profile spec and would otherwise have to repeat the profile name. Implementations
+  /// can override this for caching or specialized behavior.
+  default TestDataView profile() {
+    return presetProfile()
+        .map(this::profile)
+        .orElseThrow(() -> new IllegalStateException("No preset profile specified"));
+  }
 }

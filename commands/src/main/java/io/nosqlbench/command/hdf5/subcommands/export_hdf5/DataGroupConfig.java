@@ -19,6 +19,7 @@ package io.nosqlbench.command.hdf5.subcommands.export_hdf5;
 
 
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
+import io.nosqlbench.vectordata.spec.datasets.types.ViewKind;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -163,26 +164,31 @@ public class DataGroupConfig {
   /// @return a file config
   public static DataGroupConfig of(Map<String, String> cfg) {
 
-    String base = cfg.remove("base");
+    String base = cfg.remove(ViewKind.base.name());
     if (base == null) {
       throw new RuntimeException("base is required");
     }
 
-    String query = cfg.remove("query");
+    String query = cfg.remove(ViewKind.query.name());
     if (query == null) {
       throw new RuntimeException("query is required");
     }
 
-    String indices = cfg.remove("indices");
+    String indices = cfg.remove(ViewKind.indices.name());
     if (indices == null) {
       throw new RuntimeException("indices is required");
+    }
+
+    String neighbors = cfg.remove(ViewKind.neighbors.name());
+    if (neighbors == null) {
+      neighbors = cfg.remove("distances");
     }
 
     return new DataGroupConfig(
         Optional.of(Path.of(base)),
         Optional.of(Path.of(query)),
         Optional.of(Path.of(indices)),
-        Optional.ofNullable(cfg.remove("distances")).map(Path::of),
+        Optional.ofNullable(neighbors).map(Path::of),
         Optional.ofNullable(cfg.remove("base_content")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_terms")).map(Path::of),
         Optional.ofNullable(cfg.remove("query_filters")).map(Path::of),
