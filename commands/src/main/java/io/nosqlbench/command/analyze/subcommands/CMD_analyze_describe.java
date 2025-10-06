@@ -176,8 +176,7 @@ public class CMD_analyze_describe implements Callable<Integer> {
             // Close the vector array
             vectorArray.close();
         } catch (Exception e) {
-            logger.error("Error describing file {}: {}", file, e.getMessage());
-            throw new RuntimeException("Failed to describe file: " + e.getMessage(), e);
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 }

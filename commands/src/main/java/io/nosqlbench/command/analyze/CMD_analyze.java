@@ -17,10 +17,11 @@ package io.nosqlbench.command.analyze;
  * under the License.
  */
 
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_describe;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_check_endian;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_select;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_verifyknn;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_zeros;
-import io.nosqlbench.command.analyze.subcommands.CMD_analyze_describe;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,7 +39,8 @@ import java.util.concurrent.Callable;
         CMD_analyze_zeros.class,
         CMD_analyze_verifyknn.class,
         CMD_analyze_describe.class,
-        CMD_analyze_select.class
+        CMD_analyze_select.class,
+        CMD_analyze_check_endian.class
     })
 public class CMD_analyze implements Callable<Integer>, BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_analyze.class);

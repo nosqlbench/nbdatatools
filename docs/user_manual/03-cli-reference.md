@@ -178,6 +178,7 @@ java -jar nbvectors.jar datasets list [options]
 
 **Options:**
 - `--catalog` - Specific catalog to query
+- `--at` - One or more catalog URLs or paths to use instead of configured catalogs
 - `--filter` - Filter expression
 - `--format` - Output format (table, json, csv)
 

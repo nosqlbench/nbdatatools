@@ -114,13 +114,9 @@ public class UniformIvecStreamer implements BoundedVectorFileStream<int[]> {
       // Calculate the total number of vectors in the file
       try {
         long fileSize = fileChannel.size();
-        if (fileSize % recordSize != 0) {
-          throw new IOException("File size is not a multiple of record size. File may be corrupted.");
-        }
-
-        this.size = (int) (fileSize / recordSize);
+        this.size = ReaderUtils.computeVectorCount(this.filePath, fileSize, this.recordSize, 4);
       } catch (IOException e) {
-        throw new RuntimeException("Failed to get file size: " + e.getMessage(), e);
+        throw new RuntimeException(e.getMessage(), e);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);

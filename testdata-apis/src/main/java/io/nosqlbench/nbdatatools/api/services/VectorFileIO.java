@@ -310,10 +310,7 @@ public class VectorFileIO {
           reader.open(outputFile);
           return reader;
         } catch (Exception e) {
-          throw new RuntimeException(
-              "Failed to initialize vector file array:" + e.getMessage(),
-              e
-          );
+          throw new RuntimeException(e.getMessage(), e);
         }
       }).orElseThrow(() -> new IllegalArgumentException(
           "Failed to initialize vector file array for type " + aClass.getSimpleName()
@@ -331,10 +328,7 @@ public class VectorFileIO {
           reader.open(outputFile);
           return reader;
         } catch (Exception e) {
-          throw new RuntimeException(
-              "Failed to initialize vector file array:" + e.getMessage(),
-              e
-          );
+          throw new RuntimeException(e.getMessage(), e);
         }
       }).orElseThrow(() -> new IllegalArgumentException(
           "Failed to initialize vector file array for type " + aClass.getSimpleName()

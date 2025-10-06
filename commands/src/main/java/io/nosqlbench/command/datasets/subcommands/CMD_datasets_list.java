@@ -49,6 +49,10 @@ public class CMD_datasets_list implements Callable<Integer> {
         defaultValue = "~/.config/vectordata")
     private Path configdir;
 
+    @CommandLine.Option(names = {"--at"},
+        description = "One or more catalog URLs or paths to use instead of configured catalogs")
+    private List<String> atCatalogs = new ArrayList<>();
+
     @CommandLine.Option(names = {"--verbose", "-v"}, description = "Show more information")
     private boolean verbose = false;
 
@@ -59,8 +63,14 @@ public class CMD_datasets_list implements Callable<Integer> {
                 .replace("${HOME}", System.getProperty("user.home")));
         
         Gson gson = new Gson();
-        TestDataSources config = new TestDataSources().configure(this.configdir);
-        config = config.addCatalogs(this.catalogs);
+        TestDataSources config = new TestDataSources();
+
+        if (!this.atCatalogs.isEmpty()) {
+            config = config.addCatalogs(this.atCatalogs);
+        } else {
+            config = config.configure(this.configdir);
+            config = config.addCatalogs(this.catalogs);
+        }
         
         Catalog catalog = Catalog.of(config);
         catalog.datasets().forEach(entry -> {
