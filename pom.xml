@@ -11,9 +11,9 @@
 
   <parent>
     <groupId>io.nosqlbench</groupId>
-    <artifactId>mvn-defaults</artifactId>
+    <artifactId>datatools-mvn-defaults</artifactId>
     <version>${revision}</version>
-    <relativePath>mvn-defaults</relativePath>
+    <relativePath>datatools-mvn-defaults</relativePath>
   </parent>
 
   <!-- NOTE: This reactor project uses the container project for defaults.
@@ -28,15 +28,15 @@
   </dependencies>
 
   <modules>
-    <module>commands</module>
-    <module>mvn-defaults</module>
-    <module>testdata-apis</module>
-    <module>vectordata</module>
-    <module>nbvectors</module>
-    <module>io-xvec</module>
-    <module>io-transport</module>
-    <module>jetty-test-server</module>
-    <module>parquet-reader</module>
+    <module>datatools-commands</module>
+    <module>datatools-mvn-defaults</module>
+    <module>datatools-testdata-apis</module>
+    <module>datatools-nbvectors</module>
+    <module>datatools-io-xvec</module>
+    <module>datatools-io-transport</module>
+    <module>datatools-jetty-test-server</module>
+    <module>datatools-parquet-reader</module>
+    <module>datatools-vectordata</module>
   </modules>
 
   <profiles>
@@ -46,7 +46,7 @@
         <activeByDefault>true</activeByDefault>
       </activation>
       <modules>
-        <module>vshapes</module>
+        <module>datatools-vshapes</module>
       </modules>
     </profile>
   </profiles>

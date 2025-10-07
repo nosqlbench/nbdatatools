@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>io.nosqlbench</groupId>
-  <artifactId>mvn-defaults</artifactId>
+  <artifactId>datatools-mvn-defaults</artifactId>
   <version>${revision}</version>
   <packaging>pom</packaging>
   <description>Default module settings for mvn modules in nbdatatools</description>
@@ -13,7 +13,7 @@
   <name>${project.artifactId}</name>
 
   <properties>
-    <revision>0.1.9-SNAPSHOT</revision>
+    <revision>0.1.10-SNAPSHOT</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.deploy.skip>true</maven.deploy.skip>
     <maven.compiler.source>11</maven.compiler.source>
@@ -84,13 +84,13 @@
 
       <dependency>
         <groupId>io.nosqlbench</groupId>
-        <artifactId>testdata-apis</artifactId>
+        <artifactId>datatools-testdata-apis</artifactId>
         <version>${revision}</version>
       </dependency>
 
       <dependency>
         <groupId>io.nosqlbench</groupId>
-        <artifactId>vectordata</artifactId>
+        <artifactId>datatools-vectordata</artifactId>
         <version>${revision}</version>
       </dependency>
 

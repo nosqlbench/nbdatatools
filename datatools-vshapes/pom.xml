@@ -7,11 +7,11 @@
   <parent>
     <groupId>io.nosqlbench</groupId>
     <version>${revision}</version>
-    <artifactId>mvn-defaults</artifactId>
-    <relativePath>../mvn-defaults</relativePath>
+    <artifactId>datatools-mvn-defaults</artifactId>
+    <relativePath>../datatools-mvn-defaults</relativePath>
   </parent>
 
-  <artifactId>vshapes</artifactId>
+  <artifactId>datatools-vshapes</artifactId>
   <name>${project.artifactId}</name>
   <description>Vector Space Analysis, Reduction, and Projection</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
@@ -26,14 +26,14 @@
 <!--    Core API bridges-->
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>testdata-apis</artifactId>
+      <artifactId>datatools-testdata-apis</artifactId>
       <version>${revision}</version>
     </dependency>
 
 <!--    Vector Formats and Datatypes-->
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>io-xvec</artifactId>
+      <artifactId>datatools-io-xvec</artifactId>
       <version>${revision}</version>
     </dependency>
 

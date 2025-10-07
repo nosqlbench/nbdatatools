@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>parquet-reader</artifactId>
+  <artifactId>datatools-parquet-reader</artifactId>
   <name>${project.artifactId}</name>
   <description>A parquet reader for nbvectors</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
@@ -12,9 +12,9 @@
 
   <parent>
     <groupId>io.nosqlbench</groupId>
-    <artifactId>mvn-defaults</artifactId>
+    <artifactId>datatools-mvn-defaults</artifactId>
     <version>${revision}</version>
-    <relativePath>../mvn-defaults</relativePath>
+    <relativePath>../datatools-mvn-defaults</relativePath>
   </parent>
 
   <dependencies>
@@ -27,7 +27,7 @@
 
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>testdata-apis</artifactId>
+      <artifactId>datatools-testdata-apis</artifactId>
       <version>${revision}</version>
     </dependency>
 

@@ -4,16 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>commands</artifactId>
+  <artifactId>datatools-commands</artifactId>
   <name>${project.artifactId}</name>
   <description>Command reactor module for nbvectors</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
   <parent>
     <groupId>io.nosqlbench</groupId>
-    <artifactId>mvn-defaults</artifactId>
+    <artifactId>datatools-mvn-defaults</artifactId>
     <version>${revision}</version>
-    <relativePath>../mvn-defaults</relativePath>
+    <relativePath>../datatools-mvn-defaults</relativePath>
   </parent>
 
   <packaging>jar</packaging>
@@ -21,12 +21,12 @@
   <dependencies>
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>io-xvec</artifactId>
+      <artifactId>datatools-io-xvec</artifactId>
       <version>${revision}</version>
     </dependency>
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>io-transport</artifactId>
+      <artifactId>datatools-io-transport</artifactId>
       <version>${revision}</version>
     </dependency>
 
@@ -51,19 +51,19 @@
 
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>testdata-apis</artifactId>
+      <artifactId>datatools-testdata-apis</artifactId>
       <version>${revision}</version>
     </dependency>
 
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>vectordata</artifactId>
+      <artifactId>datatools-vectordata</artifactId>
       <version>${revision}</version>
     </dependency>
 
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>parquet-reader</artifactId>
+      <artifactId>datatools-parquet-reader</artifactId>
       <version>${revision}</version>
       <exclusions>
         <exclusion>
@@ -244,7 +244,7 @@
     </dependency>
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>jetty-test-server</artifactId>
+      <artifactId>datatools-jetty-test-server</artifactId>
       <version>${revision}</version>
       <scope>test</scope>
     </dependency>

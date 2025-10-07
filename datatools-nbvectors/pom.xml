@@ -6,12 +6,12 @@
 
   <parent>
     <groupId>io.nosqlbench</groupId>
-    <artifactId>mvn-defaults</artifactId>
+    <artifactId>datatools-mvn-defaults</artifactId>
     <version>${revision}</version>
-    <relativePath>../mvn-defaults</relativePath>
+    <relativePath>../datatools-mvn-defaults</relativePath>
   </parent>
 
-  <artifactId>nbvectors</artifactId>
+  <artifactId>datatools-nbvectors</artifactId>
   <name>${project.artifactId}</name>
   <description>test data management for nosqblench vector workloads</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
@@ -27,38 +27,11 @@
   </properties>
 
   <dependencies>
-<!--    <dependency>-->
-<!--      <groupId>io.nosqlbench</groupId>-->
-<!--      <artifactId>testdata-apis</artifactId>-->
-<!--      <version>${revision}</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>io.nosqlbench</groupId>-->
-<!--      <artifactId>vectordata</artifactId>-->
-<!--      <version>${revision}</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>io.nosqlbench</groupId>-->
-<!--      <artifactId>io-xvec</artifactId>-->
-<!--      <version>${revision}</version>-->
-<!--    </dependency>-->
-<!--    <dependency>-->
-<!--      <groupId>io.nosqlbench</groupId>-->
-<!--      <artifactId>io-transport</artifactId>-->
-<!--      <version>${revision}</version>-->
-<!--    </dependency>-->
   <dependency>
     <groupId>io.nosqlbench</groupId>
-    <artifactId>commands</artifactId>
+    <artifactId>datatools-commands</artifactId>
     <version>${revision}</version>
   </dependency>
-
-
-<!--    <dependency>-->
-<!--      <groupId>io.nosqlbench</groupId>-->
-<!--      <artifactId>parquet-reader</artifactId>-->
-<!--      <version>${revision}</version>-->
-<!--    </dependency>-->
   </dependencies>
 
   <repositories>
@@ -111,8 +84,8 @@
     </developer>
   </developers>
 
-
   <build>
+    <finalName>nbvectors</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
