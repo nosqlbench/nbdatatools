@@ -85,7 +85,6 @@
   </developers>
 
   <build>
-    <finalName>nbvectors</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

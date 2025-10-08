@@ -20,7 +20,7 @@ set -x
 
 NBJAR_VERSION=${NBJAR_VERSION:?NBJAR_VERSION must be specified}
 JAR_NAME="nbvectors.jar"
-BIN_NAME="nbvectors"
+BIN_NAME="datatools-nbvectors"
 
 echo "NBJAR_VERSION: ${NBJAR_VERSION}"
 echo "NBJAR_NAME: ${JAR_NAME}"
