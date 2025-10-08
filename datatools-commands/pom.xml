@@ -140,25 +140,6 @@
       <version>2.9</version>
     </dependency>
 
-    <!--    <dependency>-->
-    <!--      <groupId>org.apache.lucene</groupId>-->
-    <!--      <artifactId>lucene-core</artifactId>-->
-    <!--      <version>10.1.0</version>-->
-    <!--    </dependency>-->
-    <!--    &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.lucene/lucene-analysis-common &ndash;&gt;-->
-    <!--    <dependency>-->
-    <!--      <groupId>org.apache.lucene</groupId>-->
-    <!--      <artifactId>lucene-analysis-common</artifactId>-->
-    <!--      <version>10.1.0</version>-->
-    <!--    </dependency>-->
-
-    <!--    For progress bars only -->
-    <!--    <dependency>-->
-    <!--      <groupId>me.tongfei</groupId>-->
-    <!--      <artifactId>progressbar</artifactId>-->
-    <!--      <version>0.10.0</version>-->
-    <!--    </dependency>-->
-
     <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
     <dependency>
       <groupId>org.apache.httpcomponents.client5</groupId>
@@ -177,32 +158,6 @@
       <version>4.12.0</version>
     </dependency>
 
-
-    <!--    &lt;!&ndash; ND4J CUDA dependency &ndash;&gt;-->
-    <!--    <dependency>-->
-    <!--      <groupId>org.nd4j</groupId>-->
-    <!--      <artifactId>nd4j-cuda-11.6-platform</artifactId>-->
-    <!--      <version>${nd4j.version}</version>-->
-    <!--    </dependency>-->
-
-    <!--    &lt;!&ndash; ND4J Arrow integration &ndash;&gt;-->
-    <!--    <dependency>-->
-    <!--      <groupId>org.nd4j</groupId>-->
-    <!--      <artifactId>nd4j-arrow</artifactId>-->
-    <!--      <version>${nd4j.version}</version>-->
-    <!--    </dependency>-->
-
-    <!--    <dependency>-->
-    <!--      <groupId>org.nd4j</groupId>-->
-    <!--      <artifactId>nd4j-native</artifactId>-->
-    <!--      <version>1.0.0-M2.1</version>-->
-    <!--    </dependency>-->
-    <!--    &lt;!&ndash; DataVec dependency for data processing &ndash;&gt;-->
-    <!--    <dependency>-->
-    <!--      <groupId>org.datavec</groupId>-->
-    <!--      <artifactId>datavec-api</artifactId>-->
-    <!--      <version>${nd4j.version}</version>-->
-    <!--    </dependency>-->
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-rng-client-api</artifactId>

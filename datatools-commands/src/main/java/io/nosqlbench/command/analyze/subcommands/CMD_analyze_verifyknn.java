@@ -192,13 +192,9 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
 
               int[] expectedNeighborhood;
               // This neighborhood is the one we calculate from the test and train vectors.
-
-              // This neighborhood is the one we calculate from the test and train vectors.
               expectedNeighborhood = computeNeighborhood(query, baseVectors, view);
-              //
-              //        Neighborhood expectedNeighborhood = computeNeighborhood(queryVector, knndata, view);
-              // Compute the ordered intersection view of these relative to each other
 
+              // Compute the ordered intersection view of these relative to each other
               NeighborhoodComparison comparison =
                   new NeighborhoodComparison(query, providedNeighborhood, expectedNeighborhood);
               view.onNeighborhoodComparison(comparison);

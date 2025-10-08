@@ -19,12 +19,6 @@
 
   <dependencies>
 
-<!--    <dependency>-->
-<!--      <groupId>io.nosqlbench</groupId>-->
-<!--      <artifactId>vectordata</artifactId>-->
-<!--      <version>${revision}</version>-->
-<!--    </dependency>-->
-
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>datatools-testdata-apis</artifactId>

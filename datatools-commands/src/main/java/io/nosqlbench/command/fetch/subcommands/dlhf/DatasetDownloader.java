@@ -226,8 +226,6 @@ public class DatasetDownloader implements AutoCloseable {
     Request request = Request.get(parquetMetadataUrl).addHeader("Accept", "application/json");
 
     if (TOKEN != null && !TOKEN.isEmpty()) {
-//      head.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN);
-
       request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN);
     }
 

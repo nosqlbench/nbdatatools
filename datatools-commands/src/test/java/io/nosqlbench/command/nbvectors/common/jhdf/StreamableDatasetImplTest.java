@@ -72,7 +72,6 @@ class StreamableDatasetImplTest {
     StreamableDataset sd = new StreamableDatasetImpl(sf, "", out);
     sd.modifyDimensions(new int[]{(chunkRows * chunkIdx.size()) + 1, rowsize});
     out.putDataset("testname", sd);
-//    out.close();
     assertThrows(HdfWritingException.class, out::close);
   }
 

@@ -639,7 +639,6 @@ public class CMD_convert_hdf52dataset implements Callable<Integer> {
                     logger.info("Wrote first vector with length {}", vectors[i].length);
                 }
             }
-            // writer.flush();  // VectorStreamStore may not have flush
             logger.info("Successfully wrote {} vectors", written);
 
             // Verify file exists after writing
