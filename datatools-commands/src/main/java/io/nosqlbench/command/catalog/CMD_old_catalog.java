@@ -67,14 +67,6 @@ public class CMD_old_catalog implements Callable<Integer> {
   /// @param args
   ///     command line args
   public static void main(String[] args) {
-
-//    System.setProperty("slf4j.internal.verbosity", "ERROR");
-//    System.setProperty(
-//        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-//        CustomConfigurationFactory.class.getCanonicalName()
-//    );
-
-    //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     CMD_old_catalog command = new CMD_old_catalog();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)

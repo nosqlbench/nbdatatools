@@ -350,48 +350,6 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
     return CompletableFuture.completedFuture(get(index));
   }
 
-//  /// Creates a default vector for testing purposes.
-//  /// The default vector contains non-zero values to ensure it passes validation checks.
-//  ///
-//  /// @return A default vector of the appropriate type with non-zero values
-//  @SuppressWarnings("unchecked")
-//  private T createDefaultVector() {
-//    // Use a default dimension of 3 if dimensions is not set or invalid
-//    int dim = dimensions > 0 ? dimensions : 3;
-//
-//    if (aryType == int.class) {
-//      int[] result = new int[dim];
-//      // Fill with non-zero values
-//      for (int i = 0; i < dim; i++) {
-//        result[i] = i + 1;
-//      }
-//      return (T) result;
-//    } else if (aryType == byte.class) {
-//      byte[] result = new byte[dim];
-//      // Fill with non-zero values
-//      for (int i = 0; i < dim; i++) {
-//        result[i] = (byte)(i + 1);
-//      }
-//      return (T) result;
-//    } else if (aryType == float.class) {
-//      float[] result = new float[dim];
-//      // Fill with non-zero values
-//      for (int i = 0; i < dim; i++) {
-//        result[i] = 0.1f * (i + 1);
-//      }
-//      return (T) result;
-//    } else if (aryType == double.class) {
-//      double[] result = new double[dim];
-//      // Fill with non-zero values
-//      for (int i = 0; i < dim; i++) {
-//        result[i] = 0.1 * (i + 1);
-//      }
-//      return (T) result;
-//    } else {
-//      throw new RuntimeException("Unsupported component type: " + aryType.getName());
-//    }
-//  }
-
   /// Converts raw bytes to the appropriate vector type.
   ///
   /// @param bytes 

@@ -38,12 +38,6 @@ public class CommandBundler {
   ///     command line args
   public static void main(String[] args) {
     System.setProperty("log4j2.StatusLogger.level", "OFF");
-    //    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    //    System.setProperty(
-    //        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-    //        CustomConfigurationFactory.class.getCanonicalName()
-    //    );   Logger logger = LogManager.getLogger(CommandBundler.class);
-
     CommandBundler command = new CommandBundler();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);

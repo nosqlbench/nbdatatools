@@ -252,11 +252,6 @@ public class DatasetDownloader implements AutoCloseable {
 
       ParquetFileData fileData = new ParquetFileData(dataset, config, split, url, filename, size);
       parquetFiles.add(fileData);
-
-//      String downloadUrl = HF_DOWNLOAD_BASE + datasetName + "/resolve/main/" + filename;
-//      if (TOKEN != null && !TOKEN.isEmpty()) {
-//        downloadUrl += "?token=" + TOKEN;
-//      }
     }
 
     summarizeParquetMetadata(parquetFiles);
@@ -283,26 +278,8 @@ public class DatasetDownloader implements AutoCloseable {
       ));
     }
 
-//    // Schema information
-//    if (!parquetFiles.isEmpty()) {
-//      display.addPreDownloadInfo("\nParquet Schema:");
-//      for (String column : parquetFiles.get(0).columnNames) {
-//        display.addPreDownloadInfo(java.lang.String.format("  - %s", column));
-//      }
-//    }
-//
-    // Dataset totals
-//    long totalRows = parquetFiles.stream().mapToLong(f -> f.numRows).sum();
-//    long totalSize = parquetFiles.stream().mapToLong(f -> f.fileSize).sum();
-
     display.addPreDownloadInfo(java.lang.String.format("\nDataset Summary:"));
     display.addPreDownloadInfo(java.lang.String.format("  Total Files: %d", parquetFiles.size()));
-//    display.addPreDownloadInfo(java.lang.String.format("  Total Rows: %,d", totalRows));
-//    display.addPreDownloadInfo(java.lang.String.format(
-//        "  Total Size: %,d MB (%,d GB)",
-//        totalSize / (1024 * 1024),
-//        totalSize / (1024 * 1024 * 1024)
-//    ));
   }
 
   private void downloadFile(ParquetFileData fileInfo) throws Exception {

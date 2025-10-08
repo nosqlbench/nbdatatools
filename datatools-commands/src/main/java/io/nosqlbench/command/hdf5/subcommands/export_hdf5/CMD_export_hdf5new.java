@@ -86,12 +86,6 @@ public class CMD_export_hdf5new implements Callable<Integer> {
   /// @param args
   ///     command line args
   public static void main(String[] args) {
-    //    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    //    System.setProperty(
-    //        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-    //        CustomConfigurationFactory.class.getCanonicalName()
-    //    );
-
     CMD_export_hdf5new command = new CMD_export_hdf5new();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
         .setOptionsCaseInsensitive(true);
@@ -104,26 +98,7 @@ public class CMD_export_hdf5new implements Callable<Integer> {
     List<TestGroupLayout> configs = new ArrayList<>();
     layouts.stream().map(TestGroupLayout::load).forEach(configs::add);
 
-    //    if (this.mappingFiles != null && !mappingFiles.isEmpty()) {
-    //      for (Path mappingFile : this.mappingFiles) {
-    //        configs.add(GroupedDataConfig.file(mappingFile));
-    //      }
-    //    } else {
-    //      throw new RuntimeException("mapping file is required");
-    //    }
-    //
-    //    String template = this.outfile;
-
     for (TestGroupLayout config : configs) {
-
-      //      if (!this.force && config.epochTimestamp()
-      //          .isBefore(vectorFilesConfig.getLastModifiedTime()))
-      //      {
-      //        System.err.println(
-      //            "skipping " + entry + " because it is up to date (use --force to override)");
-      //        continue;
-      //      }
-
       KnnDataProfilesWriter writer = new KnnDataProfilesWriter(this.outfile, config);
       writer.writeHdf5();
     }

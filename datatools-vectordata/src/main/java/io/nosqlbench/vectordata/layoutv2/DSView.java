@@ -81,10 +81,6 @@ public class DSView {
     this.window = window;
   }
 
-//  public DSWindow setWindow(List<DSInterval> intervals) {
-//    this.window = new DSWindow(intervals);
-//    return window;
-//  }
 
   /// Returns a string representation of this view.
   /// @return A string representation of this view

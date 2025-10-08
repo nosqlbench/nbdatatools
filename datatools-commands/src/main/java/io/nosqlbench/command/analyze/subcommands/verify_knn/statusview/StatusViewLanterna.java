@@ -92,12 +92,7 @@ public class StatusViewLanterna implements AutoCloseable, StatusView {
   private void initLayout() {
     statusWindow = new BasicWindow("Status");
     statusWindow.setHints(List.of(Window.Hint.FIT_TERMINAL_WINDOW, Window.Hint.NO_DECORATIONS));
-    //    statusWindow.setHints(List.of(Window.Hint.FULL_SCREEN,Window.Hint.EXPANDED));
-    //        Window.Hint.FIT_TERMINAL_WINDOW
-    //        ,
-    //        Window.Hint.NO_DECORATIONS
     gui.addWindow(statusWindow);
-    //    gui.setActiveWindow(statusWindow);
 
     content = new Panel(new LinearLayout(Direction.VERTICAL));
     SimpleTheme customtheme = SimpleTheme.makeTheme(

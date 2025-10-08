@@ -212,33 +212,6 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     return sb.toString();
   }
 
-  //  @Override
-  //  public String toString() {
-  //    StringBuilder sb = new StringBuilder();
-  //    sb.append("VectorData()").append("\n").append(group.getFileAsPath()).append(") {\n");
-  //    sb.append(" model: ").append(getModel()).append("\n");
-  //    sb.append(" license: ").append(getLicense()).append("\n");
-  //    sb.append(" vendor: ").append(getVendor()).append("\n");
-  //    sb.append(" distance_function: ").append(getDistanceFunction()).append("\n");
-  //    sb.append(" url: ").append(getUrl()).append("\n");
-  //    getNotes().ifPresent(n -> sb.append(" notes: ").append(n).append("\n"));
-  //    getBaseVectors().ifPresent(v -> sb.append(" base_vectors: ").append(v.toString()).append("\n"));
-  //    getQueryVectors().ifPresent(v -> sb.append(" query_vectors: ").append(v.toString())
-  //        .append("\n"));
-  //    IntVectorConfigs indices = getNeighborIndices();
-  //    if (!indices.isEmpty()) {
-  //      sb.append(" neighbor_indices:\n");
-  //      indices.forEach((k, v) -> {
-  //        sb.append("  ").append(k).append(":").append(v).append("\n");
-  //      });
-  //    }
-  //
-  //    getNeighborDistances().ifPresent(v -> sb.append(" neighbor_distances: ").append(v.toString())
-  //        .append("\n"));
-  //    sb.append("}");
-  //    return sb.toString();
-  //  }
-
   /// Gets the first dataset found from a list of possible paths.
   ///
   /// @param names The paths to search for datasets
@@ -457,10 +430,4 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
         .map(DistanceFunction::valueOf).orElse(DistanceFunction.COSINE);
   }
 
-  //  public String toJson() {
-//    return SHARED.gson.toJson(Map.of(
-////        "attributes", attributes
-//        "profiles", groupProfiles
-//    ));
-//  }
 }

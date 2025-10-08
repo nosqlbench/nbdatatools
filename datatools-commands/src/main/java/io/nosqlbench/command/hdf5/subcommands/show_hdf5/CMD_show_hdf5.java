@@ -69,14 +69,6 @@ public class CMD_show_hdf5 implements Callable<Integer>, BundledCommand {
   /// @param args
   ///     command line args
   public static void main(String[] args) {
-
-    //    System.setProperty("slf4j.internal.verbosity", "ERROR");
-    //    System.setProperty(
-    //        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-    //        CustomConfigurationFactory.class.getCanonicalName()
-    //    );
-
-    //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     CMD_show_hdf5 command = new CMD_show_hdf5();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)

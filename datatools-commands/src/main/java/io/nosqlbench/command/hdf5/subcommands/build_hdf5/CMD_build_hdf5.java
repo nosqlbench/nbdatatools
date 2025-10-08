@@ -72,14 +72,6 @@ public class CMD_build_hdf5 implements Callable<Integer>, BundledCommand {
   ///     command line args
   @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = "Internal diagnostic level, sends content directly to the console.", defaultValue = "ERROR")
   public static void main(String[] args) {
-
-//    System.setProperty("slf4j.internal.verbosity", "ERROR");
-//    System.setProperty(
-//        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-//        CustomConfigurationFactory.class.getCanonicalName()
-//    );
-
-    //    System.setProperty("slf4j.internal.verbosity", "DEBUG");
     CMD_build_hdf5 command = new CMD_build_hdf5();
     logger.info("instancing commandline");
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)

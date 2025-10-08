@@ -54,17 +54,6 @@ public class CatalogOut extends ArrayList<Map<String, Object>> {
   ///     the entries to add
   public CatalogOut(List<Map<String, Object>> entries) {
     super(entries);
-    //    if (mode==CatalogMode.update) {
-    //      if (Files.exists(path)) {
-    //        try {
-    //          this.putAll(gson.fromJson(Files.newBufferedReader(path), Map.class));
-    //        } catch (IOException e) {
-    //          throw new RuntimeException(e);
-    //        }
-    //      } else {
-    //        logger.warn("catalog file does not exist for update mode, will create a new one: " + path);
-    //      }
-    //    }
   }
 
   /// load all files and directories into the catalog

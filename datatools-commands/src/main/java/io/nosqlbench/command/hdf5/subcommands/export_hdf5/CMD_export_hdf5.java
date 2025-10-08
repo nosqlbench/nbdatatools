@@ -135,11 +135,6 @@ public class CMD_export_hdf5 implements Callable<Integer> {
   /// @param args
   ///     command line args
   public static void main(String[] args) {
-//    System.setProperty("slf4j.internal.verbosity", "ERROR");
-//    System.setProperty(
-//        ConfigurationFactory.CONFIGURATION_FACTORY_PROPERTY,
-//        CustomConfigurationFactory.class.getCanonicalName()
-//    );
 
     CMD_export_hdf5 command = new CMD_export_hdf5();
     CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)

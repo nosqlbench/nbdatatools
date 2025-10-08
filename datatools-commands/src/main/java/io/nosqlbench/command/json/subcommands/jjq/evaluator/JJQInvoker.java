@@ -66,44 +66,6 @@ public class JJQInvoker implements Runnable, AutoCloseable {
       JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
       f.run();
 
-      //      if (diagnose) {
-      //        try {
-      //          for (FilePartition partition : partitions) {
-      //            try (ConcurrentSupplier<String> lines = partitions.getFirst().asConcurrentSupplier();) {
-      //              JqProc f = new JqProc("diagnostic evaluation", scope, lines, mapper, query, output);
-      //              f.run();
-      //            }
-      //          }
-      //        } catch (Exception e) {
-      //          throw new RuntimeException(e);
-      //        }
-      //      } else {
-      //        try (ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor()) {
-      //          futures = new LinkedList<>();
-      //
-      //          int count = 0;
-      //          for (FilePartition partition : partitions) {
-      //            count++;
-      //            ConcurrentSupplier<String> supplier = partition.asConcurrentSupplier();
-      //            JqProc f = new JqProc(partition.toString(), scope, supplier, mapper, query, output);
-      //            Future<?> future = exec.submit(f);
-      //            futures.addLast(future);
-      //          }
-      //
-      //          while (!futures.isEmpty()) {
-      //            try {
-      //              Future<?> f = futures.removeLast();
-      //              Object result = f.get();
-      //              if (result != null) {
-      //                System.out.println("result:" + result);
-      //              }
-      //            } catch (Exception e) {
-      //              throw new RuntimeException(e);
-      //            }
-      //          }
-      //        }
-      //      }
-
       System.out.println("NbState:");
       NBJJQ.getState(rootScope).forEach((k, v) -> System.out.println(" max_k:" + k + ", v:" + v));
     } catch (Exception e) {
@@ -145,32 +107,6 @@ public class JJQInvoker implements Runnable, AutoCloseable {
       throw new RuntimeException(e);
     }
 
-
-    //
-    //    Scope rootScope = Scope.newEmptyScope();
-    //    BuiltinFunctionLoader bifl = BuiltinFunctionLoader.getInstance();
-    //
-    //    bifl.listFunctions(Versions.JQ_1_6, rootScope)
-    //        .forEach((max_k, v) -> System.out.println("function: " + max_k));
-    //
-    //    FileSystemModuleLoader fsml = new FileSystemModuleLoader(
-    //        rootScope,
-    //        Versions.JQ_1_6,
-    //        FileSystems.getDefault().getPath("").toAbsolutePath(),
-    //        Paths.get(Scope.class.getClassLoader().getResource("").toURI())
-    //    );
-    //
-    //    rootScope.setModuleLoader(new ChainedModuleLoader(new ModuleLoader[]{
-    //        BuiltinModuleLoader.getInstance(), fsml
-    //    }));
-    //
-    //
-    //    BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, rootScope);
-    //
-    //
-    //    return rootScope;
-    //    //    Scope workScope = Scope.newChildScope(rootScope);
-    //    //    return workScope;
   }
 
   @Override

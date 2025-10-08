@@ -116,28 +116,6 @@
       <version>1.6</version>
     </dependency>
 
-    <!--    <dependency>-->
-    <!--      <groupId>com.github.haifengl</groupId>-->
-    <!--      <artifactId>smile-core</artifactId>-->
-    <!--      <version>4.2.0</version>-->
-    <!--    </dependency>-->
-    <!--&lt;!&ndash;    <dependency>&ndash;&gt;-->
-    <!--&lt;!&ndash;      <groupId>com.github.haifengl</groupId>&ndash;&gt;-->
-    <!--&lt;!&ndash;      <artifactId>smile-data</artifactId>&ndash;&gt;-->
-    <!--&lt;!&ndash;      <version>2.6.0</version>&ndash;&gt;-->
-    <!--&lt;!&ndash;    </dependency>&ndash;&gt;-->
-    <!--    <dependency>-->
-    <!--      <groupId>com.github.haifengl</groupId>-->
-    <!--      <artifactId>smile-base</artifactId>-->
-    <!--      <version>4.2.0</version>-->
-    <!--    </dependency>-->
-    <!--    <dependency>-->
-    <!--      <groupId>com.github.haifengl</groupId>-->
-    <!--      <artifactId>smile-io</artifactId>-->
-    <!--      <version>2.6.0</version>-->
-    <!--    </dependency>-->
-
-
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>

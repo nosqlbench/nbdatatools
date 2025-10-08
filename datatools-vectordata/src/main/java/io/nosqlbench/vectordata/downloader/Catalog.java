@@ -112,12 +112,6 @@ public class Catalog {
           Request.Builder requestBuilder = new Request.Builder().url(fileUrl)
               .header("Accept", "application/yaml, application/json");
 
-          //          // Add authorization if token is present in environment
-          //          String token = System.getenv("HF_TOKEN");
-          //          if (token != null && !token.isEmpty()) {
-          //            requestBuilder.header("Authorization", "Bearer " + token);
-          //          }
-
           Request request = requestBuilder.build();
 
           try (Response response = httpClient.newCall(request).execute()) {
@@ -177,23 +171,6 @@ public class Catalog {
           DatasetEntry dsEntry = DatasetEntry.fromData(remapped);
           entries.add(dsEntry);
         }
-//        catalogEntries = SHARED.gson.fromJson(
-//            content, new TypeToken<List<DatasetEntry>>() {
-//            }.getType()
-//        );
-//        ListIterator<DatasetEntry> li = catalogEntries.listIterator();
-//        while (li.hasNext()) {
-//          DatasetEntry entry = li.next();
-//          li.set(new DatasetEntry(
-//              entry.name(),
-//              new URL(location, entry.name()),
-//              entry.attributes(),
-//              entry.datasets(),
-//              entry.tokens(),
-//              entry.tags()
-//          ));
-//        }
-//        entries.addAll(catalogEntries);
       } catch (IOException e) {
         if (required) {
           throw new RuntimeException(
@@ -336,13 +313,6 @@ public class Catalog {
     
     System.err.println(sb.toString());
   }
-
-  //  /// Find a dataset by a partial name, case insensitive
-  //  /// @param name the name of the dataset to find
-  //  /// @return the dataset, if found
-  //  public Optional<DatasetEntry> findSubstring(String name) {
-  //    return datasets.stream().filter(e -> e.name().toLowerCase().contains(name.toLowerCase())).findFirst();
-  //  }
 
   /// Matches datasets using a file glob pattern.
   ///

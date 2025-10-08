@@ -109,30 +109,11 @@ public class DataSourceAdapter {
     ReaderAndPath rp = new ReaderAndPath(path.toString());
     BoundedVectorFileStream<float[]> sizedReader = rp.getSizedReader(float[].class);
     return sizedReader;
-    //
-//    if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
-//      return new FvecToFloatArray(path);
-//    } else if (Files.isDirectory(path)) {
-//      return new ParquetFloatDataAdapter(List.of(path));
-//    } else {
-//      throw new RuntimeException("file type not recognized: " + path);
-//    }
   }
 
   public static Iterable<?> adaptAnyType(Path path) {
     ReaderAndPath rp = new ReaderAndPath(path.toString());
     BoundedVectorFileStream<?> sizedReader = rp.getSizedReader(Object.class);
     return sizedReader;
-//    if (path.toString().endsWith(".bvec") || path.toString().endsWith(".bvecs")) {
-//      return new BvecToByteArray(path);
-//    } else if (path.toString().endsWith(".ivec") || path.toString().endsWith(".ivecs")) {
-//      return new IvecToIntArray(path);
-//    } else if (path.toString().endsWith(".fvec") || path.toString().endsWith(".fvecs")) {
-//      return new FvecToFloatArray(path);
-//    } else if (Files.isDirectory(path)) {
-//      return new ParquetFloatDataAdapter(List.of(path));
-//    } else {
-//      throw new RuntimeException("file type not recognized: " + path);
-//    }
   }
 }

@@ -78,16 +78,6 @@ public class CMD_tag_hdf5 implements Callable<Integer>, BundledCommand {
     traversers.add(new HdfPrintVisitor());
     traversers.add(new HdfWriterVisitor(out));
     hdfTraverser.traverse(in, traversers);
-//
-//    TransformWalker walker = new TransformWalker(out, transformer);
-//    WritableGroup result = walker.traverseNode(in);
-
-//
-//    HdfVisitorFilter filter = new RemoveAttrsFilter();
-//    HdfCompoundVisitor traversers = new HdfCompoundVisitor();
-//    traversers.add(new HdfPrintVisitor());
-//    traversers.add(new HdfWriterVisitor(out));
-//    hdfTraverser.traverse(in, traversers);
     return 0;
   }
 

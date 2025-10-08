@@ -285,17 +285,6 @@ public class UniformIvecReader extends ImmutableSizedReader<int[]> implements Ve
         return -1;
     }
 
-
-//    @Override
-//    public boolean containsAll(Collection<?> c) {
-//        for (Object o : c) {
-//            if (!contains(o)) {
-//                return false;
-//            }
-//        }
-//        return true;
-//    }
-
     @Override
     public Object[] toArray() {
         Object[] result = new Object[size];
