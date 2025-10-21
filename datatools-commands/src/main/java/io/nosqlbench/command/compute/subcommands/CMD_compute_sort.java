@@ -22,14 +22,6 @@ import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
-import io.nosqlbench.status.StatusContext;
-import io.nosqlbench.status.StatusScope;
-import io.nosqlbench.status.StatusTracker;
-import io.nosqlbench.status.eventing.RunState;
-import io.nosqlbench.status.eventing.StatusSink;
-import io.nosqlbench.status.eventing.StatusUpdate;
-import io.nosqlbench.status.sinks.ConsoleLoggerSink;
-import io.nosqlbench.status.sinks.ConsolePanelSink;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -37,25 +29,9 @@ import picocli.CommandLine;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.PriorityQueue;
-import java.util.Arrays;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 /// Command to sort vectors from xvec format files using memory-efficient external merge sort
 ///
@@ -108,8 +84,23 @@ public class CMD_compute_sort implements Callable<Integer> {
     private Integer explicitThreads;
 
     @CommandLine.Option(names = {"--progress"},
-        description = "Show progress updates (default: true for TTY, false otherwise)")
+        description = "Show progress updates (default: auto-detect TTY)")
     private Boolean showProgress;
+
+    @CommandLine.Option(names = {"--progress-interval"},
+        description = "Progress update interval in seconds (default: ${DEFAULT-VALUE})",
+        defaultValue = "5")
+    private int progressInterval = 5;
+
+    @CommandLine.Option(names = {"-v", "--verbose"}, description = "Enable verbose output")
+    private boolean verbose = false;
+
+    @CommandLine.Option(names = {"-q", "--quiet"}, description = "Suppress all output except errors")
+    private boolean quiet = false;
+
+    @CommandLine.Option(names = {"--dry-run", "-n"},
+        description = "Show what would be done without actually doing it")
+    private boolean dryRun = false;
 
     @CommandLine.Option(names = {"--resume"},
         description = "Resume from existing chunk files (skip chunks that are already complete)")
@@ -122,172 +113,16 @@ public class CMD_compute_sort implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
+    // Progress tracking
+    private volatile int chunksCompleted = 0;
+    private volatile int totalChunks = 0;
+    private volatile long vectorsProcessed = 0;
+    private volatile long totalVectors = 0;
+
     // Parsed range values
     private long rangeStart = 0;
     private long rangeEnd = Long.MAX_VALUE;
     private boolean rangeSpecified = false;
-
-    private static final class ChunkSortProgress implements RunnableStatus<ChunkSortProgress> {
-        private final AtomicInteger expectedChunks = new AtomicInteger();
-        private final AtomicInteger completedChunks = new AtomicInteger();
-        private final AtomicInteger resumedChunks = new AtomicInteger();
-        private final AtomicLong processedVectors = new AtomicLong();
-        private final AtomicLong totalVectors = new AtomicLong();
-        private final AtomicReference<RunState> state = new AtomicReference<>(RunState.PENDING);
-
-        void start(int chunks, long vectors) {
-            expectedChunks.set(Math.max(chunks, 0));
-            totalVectors.set(Math.max(vectors, 0));
-            state.set(RunState.RUNNING);
-        }
-
-        void recordChunk(int vectors, boolean resumed) {
-            long addedVectors = Math.max(vectors, 0);
-            long total = totalVectors.get();
-            long updated = processedVectors.addAndGet(addedVectors);
-            if (total > 0 && updated > total) {
-                processedVectors.set(total);
-            }
-
-            int newCompleted = completedChunks.incrementAndGet();
-            int expected = expectedChunks.get();
-            if (expected > 0 && newCompleted > expected) {
-                completedChunks.set(expected);
-            }
-            if (resumed) {
-                resumedChunks.incrementAndGet();
-            }
-        }
-
-        void success() {
-            int expected = expectedChunks.get();
-            if (expected > 0) {
-                completedChunks.set(expected);
-            }
-            long total = totalVectors.get();
-            if (total > 0) {
-                processedVectors.set(total);
-            }
-            state.set(RunState.SUCCESS);
-        }
-
-        void fail() {
-            state.updateAndGet(current -> {
-                if (current == RunState.SUCCESS || current == RunState.FAILED || current == RunState.CANCELLED) {
-                    return current;
-                }
-                return RunState.FAILED;
-            });
-        }
-
-        @Override
-        public StatusUpdate<ChunkSortProgress> toStatusUpdate() {
-            int expected = expectedChunks.get();
-            int completed = completedChunks.get();
-            long total = totalVectors.get();
-            long processed = processedVectors.get();
-            RunState currentState = state.get();
-
-            double chunkFraction = expected > 0 ? Math.min(1.0, (double) completed / expected) : 0.0;
-            double vectorFraction = total > 0 ? Math.min(1.0, (double) processed / total) : chunkFraction;
-            double progress = expected > 0 && total > 0 ? (chunkFraction + vectorFraction) / 2.0
-                : (expected > 0 ? chunkFraction : vectorFraction);
-
-            if (currentState == RunState.SUCCESS) {
-                progress = 1.0;
-            }
-
-            return new StatusUpdate<>(progress, currentState, this);
-        }
-
-        @Override
-        public String getName() {
-            int expected = expectedChunks.get();
-            int completed = completedChunks.get();
-            long total = totalVectors.get();
-            long processed = processedVectors.get();
-            int resumed = resumedChunks.get();
-
-            String chunkPart = expected > 0
-                ? String.format("%d/%d chunks", completed, expected)
-                : String.format("%d chunks", completed);
-            String vectorPart = total > 0
-                ? String.format("%,d/%,d vectors", processed, total)
-                : String.format("%,d vectors", processed);
-            String resumePart = resumed > 0 ? ", resumed " + resumed : "";
-            return "Chunk Sorting (" + chunkPart + ", " + vectorPart + resumePart + ")";
-        }
-    }
-
-    private static final class MergeProgress implements RunnableStatus<MergeProgress> {
-        private final AtomicLong totalVectors = new AtomicLong();
-        private final AtomicLong mergedVectors = new AtomicLong();
-        private final AtomicReference<RunState> state = new AtomicReference<>(RunState.PENDING);
-
-        void start(long total) {
-            totalVectors.set(Math.max(total, 0));
-            state.set(RunState.RUNNING);
-        }
-
-        void updateMerged(long merged) {
-            long capped = Math.max(merged, 0);
-            long total = totalVectors.get();
-            if (total > 0 && capped > total) {
-                capped = total;
-            }
-            mergedVectors.set(capped);
-        }
-
-        void success() {
-            long total = totalVectors.get();
-            if (total > 0) {
-                mergedVectors.set(total);
-            }
-            state.set(RunState.SUCCESS);
-        }
-
-        void fail() {
-            state.updateAndGet(current -> {
-                if (current == RunState.SUCCESS || current == RunState.FAILED || current == RunState.CANCELLED) {
-                    return current;
-                }
-                return RunState.FAILED;
-            });
-        }
-
-        @Override
-        public StatusUpdate<MergeProgress> toStatusUpdate() {
-            long total = totalVectors.get();
-            long merged = mergedVectors.get();
-            RunState currentState = state.get();
-            double progress = total > 0 ? Math.min(1.0, (double) merged / total) : 0.0;
-            if (currentState == RunState.SUCCESS) {
-                progress = 1.0;
-            }
-            return new StatusUpdate<>(progress, currentState, this);
-        }
-
-        @Override
-        public String getName() {
-            long total = totalVectors.get();
-            long merged = mergedVectors.get();
-            if (total > 0) {
-                return String.format("Chunk Merge (%,d/%,d vectors)", merged, total);
-            }
-            return String.format("Chunk Merge (%,d vectors)", merged);
-        }
-    }
-
-    private interface RunnableStatus<T extends RunnableStatus<T>> extends io.nosqlbench.status.eventing.StatusSource<T> {
-        StatusUpdate<T> toStatusUpdate();
-
-        @Override
-        default StatusUpdate<T> getTaskStatus() {
-            return toStatusUpdate();
-        }
-
-        String getName();
-    }
 
     /**
      * Parse the range specification
@@ -438,6 +273,14 @@ public class CMD_compute_sort implements Callable<Integer> {
             // Ensure at least 1
             maxConcurrentChunks = Math.max(1, maxConcurrentChunks);
 
+            if (verbose) {
+                printVerbose(String.format("Memory analysis: max=%dMB, available=%dMB, usable=%dMB, chunk=%dMB, maxConcurrent=%d",
+                    maxHeapBytes / (1024*1024),
+                    availableMemory / (1024*1024),
+                    usableMemory / (1024*1024),
+                    estimatedChunkMemoryBytes / (1024*1024),
+                    maxConcurrentChunks));
+            }
             logger.debug("Memory analysis: max={}MB, available={}MB, usable={}MB, chunk={}MB, maxConcurrent={}",
                 maxHeapBytes / (1024*1024),
                 availableMemory / (1024*1024),
@@ -455,6 +298,9 @@ public class CMD_compute_sort implements Callable<Integer> {
      * Determine if progress should be shown
      */
     private boolean shouldShowProgress() {
+        if (quiet) {
+            return false;
+        }
         if (showProgress != null) {
             return showProgress;
         }
@@ -462,19 +308,45 @@ public class CMD_compute_sort implements Callable<Integer> {
         return System.console() != null;
     }
 
-    private StatusSink chooseStatusSink() {
+    /**
+     * Print progress update (thread-safe)
+     */
+    private synchronized void printProgress(String phase, int current, int total, String details) {
         if (!shouldShowProgress()) {
-            return null;
+            return;
         }
-        if (System.console() != null) {
-            try {
-                return ConsolePanelSink.builder().build();
-            } catch (Exception e) {
-                logger.warn("ConsolePanelSink unavailable, falling back to ConsoleLoggerSink: {}", e.getMessage());
-                return new ConsoleLoggerSink();
-            }
+
+        int percentage = total > 0 ? (current * 100 / total) : 0;
+        String progress = String.format("\r%s: [%3d%%] %d/%d %s",
+            phase, percentage, current, total, details);
+        System.out.print(progress);
+        System.out.flush();
+
+        if (current >= total) {
+            System.out.println(); // New line when complete
         }
-        return new ConsoleLoggerSink();
+    }
+
+    /**
+     * Print a simple message (respects progress mode and quiet flag, thread-safe)
+     */
+    private synchronized void printMessage(String message) {
+        if (quiet) {
+            return;
+        }
+        if (shouldShowProgress()) {
+            System.out.print("\r" + " ".repeat(80) + "\r"); // Clear line
+        }
+        System.out.println(message);
+    }
+
+    /**
+     * Print verbose message (only when verbose is enabled)
+     */
+    private synchronized void printVerbose(String message) {
+        if (verbose && !quiet) {
+            System.out.println("[VERBOSE] " + message);
+        }
     }
 
     @Override
@@ -493,9 +365,24 @@ public class CMD_compute_sort implements Callable<Integer> {
             return EXIT_FILE_EXISTS;
         }
 
-        ChunkSortProgress chunkProgress = new ChunkSortProgress();
-        MergeProgress mergeProgress = new MergeProgress();
-        StatusSink sink = chooseStatusSink();
+        // Dry-run mode: show what would be done and exit
+        if (dryRun) {
+            printMessage("DRY RUN MODE - no files will be modified");
+            printMessage("Input: " + inputPath);
+            printMessage("Output: " + outputPath);
+            if (rangeSpecified) {
+                printMessage("Range: [" + rangeStart + ", " + rangeEnd + ") - would sort " + (rangeEnd - rangeStart) + " vectors");
+            }
+            printMessage("Chunk size: " + chunkSize + " vectors");
+            printMessage("Parallel: " + parallel);
+            if (parallel && explicitThreads != null) {
+                printMessage("Threads: " + explicitThreads);
+            }
+            printMessage("Force overwrite: " + force);
+            printMessage("Resume: " + resume);
+            printMessage("\nDry run complete - no actions taken");
+            return EXIT_SUCCESS;
+        }
 
         try {
             // Create parent directories if needed
@@ -513,63 +400,37 @@ public class CMD_compute_sort implements Callable<Integer> {
             // Calculate optimal resource configuration
             ResourceConfig resourceConfig = calculateResourceConfig();
 
-            logger.info("Starting external merge sort...");
-            logger.info("Input: {}", inputPath);
-            logger.info("Output: {}", outputPath);
+            printMessage("Starting external merge sort...");
+            printMessage("Input: " + inputPath);
+            printMessage("Output: " + outputPath);
             if (rangeSpecified) {
-                logger.info("Range: [{}, {}) - sorting {} vectors", rangeStart, rangeEnd, (rangeEnd - rangeStart));
+                printMessage("Range: [" + rangeStart + ", " + rangeEnd + ") - sorting " + (rangeEnd - rangeStart) + " vectors");
             }
-            logger.info("Chunk size: {} vectors", chunkSize);
-            logger.info("Temp directory: {}", actualTempDir);
+            printMessage("Chunk size: " + chunkSize + " vectors");
+            printMessage("Temp directory: " + actualTempDir);
             if (resume) {
-                logger.info("Resume mode: enabled (skipping already-completed chunks)");
+                printMessage("Resume mode: enabled (skipping already-completed chunks)");
             }
-            logger.info("Concurrency: {} threads, max {} chunks in flight",
-                resourceConfig.threadCount, resourceConfig.maxConcurrentChunks);
+            printMessage("Concurrency: " + resourceConfig.threadCount + " threads, max " +
+                resourceConfig.maxConcurrentChunks + " chunks in flight");
+            printVerbose("Progress interval: " + progressInterval + " seconds");
 
-            String scopeName = inputPath.getFileName() != null
-                ? inputPath.getFileName().toString()
-                : "compute-sort-run";
+            // Detect file type and data type
+            FileType fileType = FileType.xvec;
 
-            try (StatusContext context = new StatusContext("compute-sort");
-                 StatusScope runScope = context.createScope(scopeName)) {
-
-                if (sink != null) {
-                    context.addSink(sink);
-                }
-
-                try (StatusTracker<ChunkSortProgress> ignoredChunkTracker = runScope.trackTask(chunkProgress);
-                     StatusTracker<MergeProgress> ignoredMergeTracker = runScope.trackTask(mergeProgress)) {
-
-                    // Detect file type and data type
-                    FileType fileType = FileType.xvec;
-
-                    // Determine data type from file extension
-                    String fileName = inputPath.getFileName().toString().toLowerCase();
-                    if (fileName.endsWith(".fvec") || fileName.endsWith(".fvecs")) {
-                        sortFile(fileType, float[].class, actualTempDir, resourceConfig, chunkProgress, mergeProgress);
-                    } else if (fileName.endsWith(".dvec") || fileName.endsWith(".dvecs")) {
-                        sortFile(fileType, double[].class, actualTempDir, resourceConfig, chunkProgress, mergeProgress);
-                    } else if (fileName.endsWith(".ivec") || fileName.endsWith(".ivecs")) {
-                        sortFile(fileType, int[].class, actualTempDir, resourceConfig, chunkProgress, mergeProgress);
-                    } else if (fileName.endsWith(".bvec") || fileName.endsWith(".bvecs")) {
-                        sortFile(fileType, byte[].class, actualTempDir, resourceConfig, chunkProgress, mergeProgress);
-                    } else {
-                        System.err.println("Error: Unsupported file type. Supported: .fvec, .dvec, .ivec, .bvec");
-                        chunkProgress.fail();
-                        mergeProgress.fail();
-                        return EXIT_ERROR;
-                    }
-                }
-            } finally {
-                if (sink instanceof AutoCloseable) {
-                    AutoCloseable closable = (AutoCloseable) sink;
-                    try {
-                        closable.close();
-                    } catch (Exception e) {
-                        logger.debug("Error closing status sink: {}", e.getMessage(), e);
-                    }
-                }
+            // Determine data type from file extension
+            String fileName = inputPath.getFileName().toString().toLowerCase();
+            if (fileName.endsWith(".fvec") || fileName.endsWith(".fvecs")) {
+                sortFile(fileType, float[].class, actualTempDir, resourceConfig);
+            } else if (fileName.endsWith(".dvec") || fileName.endsWith(".dvecs")) {
+                sortFile(fileType, double[].class, actualTempDir, resourceConfig);
+            } else if (fileName.endsWith(".ivec") || fileName.endsWith(".ivecs")) {
+                sortFile(fileType, int[].class, actualTempDir, resourceConfig);
+            } else if (fileName.endsWith(".bvec") || fileName.endsWith(".bvecs")) {
+                sortFile(fileType, byte[].class, actualTempDir, resourceConfig);
+            } else {
+                System.err.println("Error: Unsupported file type. Supported: .fvec, .dvec, .ivec, .bvec");
+                return EXIT_ERROR;
             }
 
             // Clean up temp directory if we created it
@@ -577,18 +438,14 @@ public class CMD_compute_sort implements Callable<Integer> {
                 deleteDirectory(actualTempDir);
             }
 
-            logger.info("Sort completed successfully!");
+            printMessage("Sort completed successfully!");
             return EXIT_SUCCESS;
 
         } catch (IOException e) {
-            chunkProgress.fail();
-            mergeProgress.fail();
             System.err.println("Error: I/O problem - " + e.getMessage());
             logger.error("I/O error during sort", e);
             return EXIT_ERROR;
         } catch (Exception e) {
-            chunkProgress.fail();
-            mergeProgress.fail();
             System.err.println("Error sorting vectors: " + e.getMessage());
             logger.error("Error during sort", e);
             return EXIT_ERROR;
@@ -598,41 +455,31 @@ public class CMD_compute_sort implements Callable<Integer> {
     /**
      * Sort a file with a specific data type using external merge sort
      */
-    private <T> void sortFile(FileType fileType,
-                              Class<T> dataClass,
-                              Path tempDir,
-                              ResourceConfig resourceConfig,
-                              ChunkSortProgress chunkProgress,
-                              MergeProgress mergeProgress) throws IOException {
+    private <T> void sortFile(FileType fileType, Class<T> dataClass, Path tempDir, ResourceConfig resourceConfig) throws IOException {
         // Phase 1: Read input, sort chunks, write to temp files
-        List<Path> chunkFiles = sortAndWriteChunks(fileType, dataClass, tempDir, resourceConfig, chunkProgress);
+        List<Path> chunkFiles = sortAndWriteChunks(fileType, dataClass, tempDir, resourceConfig);
 
         if (chunkFiles.isEmpty()) {
             System.err.println("Error: No data to sort");
             throw new IllegalStateException("No data in input file");
         }
 
-        logger.info("Created {} sorted chunk(s)", chunkFiles.size());
+        printMessage("Created " + chunkFiles.size() + " sorted chunk(s)");
 
         // Phase 2: Merge sorted chunks into output file
         if (chunkFiles.size() == 1) {
             // Only one chunk - just rename/copy it
             Files.move(chunkFiles.get(0), outputPath);
-            logger.info("Single chunk - moved directly to output");
-            mergeProgress.start(1);
-            mergeProgress.updateMerged(1);
-            mergeProgress.success();
+            printMessage("Single chunk - moved directly to output");
         } else {
             // Multiple chunks - perform k-way merge
-            mergeChunks(fileType, dataClass, chunkFiles, mergeProgress);
-            logger.info("Merged {} chunks into output file", chunkFiles.size());
+            mergeChunks(fileType, dataClass, chunkFiles);
+            printMessage("Merged " + chunkFiles.size() + " chunks into output file");
 
             // Clean up chunk files
             for (Path chunkFile : chunkFiles) {
                 Files.deleteIfExists(chunkFile);
             }
-
-            mergeProgress.success();
         }
     }
 
@@ -658,14 +505,12 @@ public class CMD_compute_sort implements Callable<Integer> {
      * Uses thread pool with configured concurrency (1 thread = sequential, N threads = parallel)
      * Each worker thread uses its own random access reader to read its assigned chunk directly
      */
-    private <T> List<Path> sortAndWriteChunks(FileType fileType,
-                                              Class<T> dataClass,
-                                              Path tempDir,
-                                              ResourceConfig resourceConfig,
-                                              ChunkSortProgress chunkProgress) throws IOException {
+    private <T> List<Path> sortAndWriteChunks(FileType fileType, Class<T> dataClass, Path tempDir,
+                                               ResourceConfig resourceConfig) throws IOException {
         List<Path> chunkFiles = Collections.synchronizedList(new ArrayList<>());
         List<Future<ChunkResult>> futures = new ArrayList<>();
 
+        // Create thread pool with optimal thread count
         ExecutorService executor = Executors.newFixedThreadPool(
             resourceConfig.threadCount,
             new ThreadFactory() {
@@ -679,13 +524,19 @@ public class CMD_compute_sort implements Callable<Integer> {
             }
         );
 
+        // Semaphore to limit concurrent chunks in memory
         Semaphore memoryLimiter = new Semaphore(resourceConfig.maxConcurrentChunks);
+
         AtomicInteger chunkCounter = new AtomicInteger(0);
+        AtomicInteger totalVectors = new AtomicInteger(0);
+        AtomicInteger chunksCompleted = new AtomicInteger(0);
         AtomicInteger skippedChunks = new AtomicInteger(0);
 
+        // Open random access reader to get file size and initialize dimensions
         VectorFileArray<T> reader = VectorFileIO.randomAccess(fileType, dataClass, inputPath);
         int totalVectorsInFile = reader.size();
 
+        // Apply range constraints
         long effectiveStart = rangeSpecified ? rangeStart : 0;
         long effectiveEnd = rangeSpecified ? Math.min(rangeEnd, totalVectorsInFile) : totalVectorsInFile;
 
@@ -693,15 +544,15 @@ public class CMD_compute_sort implements Callable<Integer> {
             throw new IOException("Range start " + effectiveStart + " is beyond file size " + totalVectorsInFile);
         }
 
-        int vectorsToSort = (int) (effectiveEnd - effectiveStart);
+        int vectorsToSort = (int)(effectiveEnd - effectiveStart);
         int expectedChunks = (vectorsToSort + chunkSize - 1) / chunkSize;
 
-        chunkProgress.start(expectedChunks, vectorsToSort);
-
+        // Initialize dimensions from first vector in range for chunk validation
         if (vectorsToSort > 0) {
-            initializeVectorDimensions(reader.get((int) effectiveStart), dataClass);
+            initializeVectorDimensions(reader.get((int)effectiveStart), dataClass);
         }
 
+        // Now scan for existing chunks without holding the input stream open
         if (resume) {
             for (int chunkNum = 0; chunkNum < expectedChunks; chunkNum++) {
                 int expectedVectorCount = (chunkNum == expectedChunks - 1)
@@ -712,36 +563,44 @@ public class CMD_compute_sort implements Callable<Integer> {
                     String extension = getExtension(dataClass);
                     Path chunkFile = tempDir.resolve("chunk_" + chunkNum + extension);
 
-                    chunkProgress.recordChunk(expectedVectorCount, true);
-                    skippedChunks.incrementAndGet();
+                    // Create a completed future for the existing chunk
+                    CompletableFuture<ChunkResult> completedFuture = CompletableFuture.completedFuture(
+                        new ChunkResult(chunkFile, chunkNum, expectedVectorCount, null));
+                    futures.add(completedFuture);
+
+                    int completed = chunksCompleted.incrementAndGet();
+                    int skipped = skippedChunks.incrementAndGet();
+                    printProgress("Scanning for existing chunks", completed, expectedChunks,
+                        String.format("(%d skipped)", skipped));
+
                     chunkCounter.incrementAndGet();
+                    totalVectors.addAndGet(expectedVectorCount);
                     chunkFiles.add(chunkFile);
                 } else {
+                    // Stop at first missing chunk - we'll process from here
                     break;
                 }
             }
         }
 
+        // If all chunks exist, we're done
         if (chunkCounter.get() >= expectedChunks) {
-            logger.info("All chunks already exist - skipping sort phase");
+            printMessage("All chunks already exist - skipping sort phase");
             executor.shutdown();
-            chunkProgress.success();
-            try {
-                reader.close();
-            } catch (Exception e) {
-                logger.debug("Error closing reader after resume: {}", e.getMessage(), e);
-            }
             return chunkFiles;
         }
 
+        // Submit work for remaining chunks using random access
+        // Each worker opens its own random access reader and reads its chunk directly by index
         for (int chunkNum = chunkCounter.get(); chunkNum < expectedChunks; chunkNum++) {
             final int finalChunkNum = chunkNum;
             final int startIdxRelative = chunkNum * chunkSize;
             final int endIdxRelative = Math.min(startIdxRelative + chunkSize, vectorsToSort);
-            final int startIdx = (int) effectiveStart + startIdxRelative;
-            final int endIdx = (int) effectiveStart + endIdxRelative;
+            final int startIdx = (int)effectiveStart + startIdxRelative;
+            final int endIdx = (int)effectiveStart + endIdxRelative;
             final int chunkVectorCount = endIdx - startIdx;
 
+            // Acquire permit before submitting (blocks if too many chunks in flight)
             try {
                 memoryLimiter.acquire();
             } catch (InterruptedException e) {
@@ -749,15 +608,26 @@ public class CMD_compute_sort implements Callable<Integer> {
                 throw new IOException("Interrupted while waiting for memory", e);
             }
 
+            // Submit chunk for parallel sorting
             Future<ChunkResult> future = executor.submit(() -> {
-                try (VectorFileArray<T> workerReader = VectorFileIO.randomAccess(fileType, dataClass, inputPath)) {
+                try {
+                    // Each worker opens its own random access reader
+                    VectorFileArray<T> workerReader = VectorFileIO.randomAccess(fileType, dataClass, inputPath);
+
+                    // Read the chunk into memory
                     List<T> chunkToSort = new ArrayList<>(chunkVectorCount);
                     for (int i = startIdx; i < endIdx; i++) {
                         chunkToSort.add(workerReader.get(i));
                     }
 
+                    // Sort and write the chunk
                     Path chunkFile = writeChunk(chunkToSort, finalChunkNum, fileType, dataClass, tempDir);
-                    chunkProgress.recordChunk(chunkVectorCount, false);
+
+                    int completed = chunksCompleted.incrementAndGet();
+                    int skipped = skippedChunks.get();
+                    printProgress("Sorting chunks", completed, expectedChunks,
+                        String.format("(%d skipped)", skipped));
+
                     return new ChunkResult(chunkFile, finalChunkNum, chunkVectorCount, null);
                 } catch (Exception e) {
                     return new ChunkResult(null, finalChunkNum, chunkVectorCount, e);
@@ -769,37 +639,32 @@ public class CMD_compute_sort implements Callable<Integer> {
             futures.add(future);
         }
 
-        try {
-            for (Future<ChunkResult> future : futures) {
-                ChunkResult result = future.get();
+        // Wait for all chunks to complete and collect results
+        for (int i = 0; i < futures.size(); i++) {
+            try {
+                ChunkResult result = futures.get(i).get();
                 if (result.error != null) {
-                    chunkProgress.fail();
                     throw new IOException("Error sorting chunk " + result.chunkNumber, result.error);
                 }
-                chunkFiles.add(result.chunkFile);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            chunkProgress.fail();
-            throw new IOException("Interrupted while waiting for chunk completion", e);
-        } catch (ExecutionException e) {
-            chunkProgress.fail();
-            throw new IOException("Error during parallel chunk sorting", e.getCause());
-        } finally {
-            try {
-                reader.close();
-            } catch (Exception e) {
-                logger.debug("Error closing reader: {}", e.getMessage(), e);
+                if (!chunkFiles.contains(result.chunkFile)) {
+                    chunkFiles.add(result.chunkFile);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while waiting for chunk completion", e);
+            } catch (ExecutionException e) {
+                throw new IOException("Error during parallel chunk sorting", e.getCause());
             }
         }
 
         int skipped = skippedChunks.get();
         if (skipped > 0) {
-            logger.info("Total vectors processed: {} ({} chunks resumed)", vectorsToSort, skipped);
+            printMessage("Total vectors processed: " + vectorsToSort + " (" + skipped + " chunks resumed)");
         } else {
-            logger.info("Total vectors processed: {}", vectorsToSort);
+            printMessage("Total vectors processed: " + vectorsToSort);
         }
 
+        // Shutdown executor
         executor.shutdown();
         try {
             if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
@@ -810,8 +675,10 @@ public class CMD_compute_sort implements Callable<Integer> {
             Thread.currentThread().interrupt();
         }
 
+        // Sort chunk files by chunk number to maintain order
         chunkFiles.sort(Comparator.comparing(path -> {
             String name = path.getFileName().toString();
+            // Extract chunk number from filename like "chunk_5.fvec"
             int underscoreIdx = name.indexOf('_');
             int dotIdx = name.indexOf('.');
             if (underscoreIdx >= 0 && dotIdx > underscoreIdx) {
@@ -820,7 +687,6 @@ public class CMD_compute_sort implements Callable<Integer> {
             return 0;
         }));
 
-        chunkProgress.success();
         return chunkFiles;
     }
 
@@ -920,10 +786,7 @@ public class CMD_compute_sort implements Callable<Integer> {
     /**
      * Phase 2: Merge sorted chunks using k-way merge
      */
-    private <T> void mergeChunks(FileType fileType,
-                                 Class<T> dataClass,
-                                 List<Path> chunkFiles,
-                                 MergeProgress mergeProgress) throws IOException {
+    private <T> void mergeChunks(FileType fileType, Class<T> dataClass, List<Path> chunkFiles) throws IOException {
         // Open all chunk files
         List<BoundedVectorFileStream<T>> streams = new ArrayList<>();
         List<Iterator<T>> iterators = new ArrayList<>();
@@ -952,16 +815,19 @@ public class CMD_compute_sort implements Callable<Integer> {
 
             // Calculate total vectors to merge for progress tracking
             long totalVectorsToMerge = streams.stream().mapToLong(s -> s.getSize()).sum();
-            mergeProgress.start(totalVectorsToMerge);
 
             int mergedCount = 0;
+            int progressUpdateInterval = Math.max(1000, (int)(totalVectorsToMerge / 100)); // Update every 1% or 1000 vectors
 
             // Extract minimum and refill from same chunk
             while (!minHeap.isEmpty()) {
                 VectorEntry<T> entry = minHeap.poll();
                 output.write(entry.vector);
                 mergedCount++;
-                mergeProgress.updateMerged(mergedCount);
+
+                if (mergedCount % progressUpdateInterval == 0) {
+                    printProgress("Merging chunks", mergedCount, (int)totalVectorsToMerge, "vectors");
+                }
 
                 // Refill from the same chunk
                 Iterator<T> it = iterators.get(entry.chunkIndex);
@@ -970,14 +836,8 @@ public class CMD_compute_sort implements Callable<Integer> {
                 }
             }
 
-            mergeProgress.updateMerged(mergedCount);
-            logger.info("Total merged vectors: {}", mergedCount);
-        } catch (Exception e) {
-            mergeProgress.fail();
-            if (e instanceof IOException) {
-                throw (IOException) e;
-            }
-            throw new IOException("Error merging chunks", e);
+            printProgress("Merging chunks", mergedCount, (int)totalVectorsToMerge, "vectors");
+            printMessage("Total merged vectors: " + mergedCount);
         } finally {
             // Close all streams
             for (BoundedVectorFileStream<T> stream : streams) {

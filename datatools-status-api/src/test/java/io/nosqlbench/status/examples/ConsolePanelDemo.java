@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Demonstration application for {@link ConsolePanelSink} with hierarchical task display and
  * integrated log panel. This minimal orchestrator creates a context with ConsolePanelSink,
- * launches a diverse workload via {@link ExampleWorkloadExecutor}, and waits for completion.
+ * launches a diverse workload via {@link DemoWorkloadExecutor}, and waits for completion.
  *
  * <p>Key Features Demonstrated:
  * <ul>
@@ -53,7 +53,7 @@ import java.util.concurrent.TimeUnit;
  * <ol>
  *   <li>{@link ConsolePanelDemo} - Creates context with organizational scope for workload</li>
  *   <li>{@link StatusScope} - Organizational container with no progress/state</li>
- *   <li>Task types ({@link ExampleDataProcessingTask}, {@link ExampleComputeTask}, {@link ExampleValidationTask}) -
+ *   <li>Task types ({@link DemoDataProcessingTask}, {@link DemoComputeTask}, {@link DemoValidationTask}) -
  *       Leaf nodes with actual progress and state</li>
  *   <li>{@link StatusContext} - Routes status updates from tasks to sinks</li>
  *   <li>{@link ConsolePanelSink} - Receives and displays status updates in interactive UI</li>
@@ -100,10 +100,10 @@ import java.util.concurrent.TimeUnit;
  * </ol>
  *
  * @see ConsolePanelSink
- * @see ExampleWorkloadExecutor
- * @see ExampleDataProcessingTask
- * @see ExampleComputeTask
- * @see ExampleValidationTask
+ * @see DemoWorkloadExecutor
+ * @see DemoDataProcessingTask
+ * @see DemoComputeTask
+ * @see DemoValidationTask
  * @see StatusContext
  * @since 4.0.0
  */
@@ -169,7 +169,8 @@ public class ConsolePanelDemo {
             try (StatusScope workloadScope = context.createScope("DemoWorkload")) {
 
                 // Launch diverse workload - all tasks are within the scope
-                ExampleWorkloadExecutor executor = ExampleWorkloadExecutor.runDemoWorkload(workloadScope, clock);
+                DemoWorkloadExecutor
+                    executor = DemoWorkloadExecutor.runDemoWorkload(workloadScope, clock);
 
                 // Wait for workload to complete, checking for early shutdown
                 while (!executor.isComplete() && !consolePanelSink.isClosed()) {

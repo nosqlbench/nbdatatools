@@ -31,8 +31,8 @@ import java.util.Random;
  * Demo task simulating data processing operations (loading, parsing, transforming).
  * Demonstrates I/O-heavy workloads with periodic status updates as a leaf task within a scope.
  */
-class ExampleDataProcessingTask implements StatusSource<ExampleDataProcessingTask>, Runnable {
-    private static final Logger logger = LogManager.getLogger(ExampleDataProcessingTask.class);
+class DemoDataProcessingTask implements StatusSource<DemoDataProcessingTask>, Runnable {
+    private static final Logger logger = LogManager.getLogger(DemoDataProcessingTask.class);
 
     private final String name;
     private final int recordCount;
@@ -44,7 +44,7 @@ class ExampleDataProcessingTask implements StatusSource<ExampleDataProcessingTas
     private volatile RunState state = RunState.PENDING;
     private volatile boolean interrupted = false;
 
-    ExampleDataProcessingTask(String name, int recordCount, StatusScope parentScope, SimulatedClock clock) {
+    DemoDataProcessingTask(String name, int recordCount, StatusScope parentScope, SimulatedClock clock) {
         this.name = name;
         this.recordCount = recordCount;
         this.parentScope = parentScope;
@@ -53,15 +53,15 @@ class ExampleDataProcessingTask implements StatusSource<ExampleDataProcessingTas
 
     @Override
     public void run() {
-        try (StatusTracker<ExampleDataProcessingTask> tracker = createTracker()) {
+        try (StatusTracker<DemoDataProcessingTask> tracker = createTracker()) {
             execute();
         } catch (Exception e) {
             logger.error("Data processing task {} failed: {}", name, e.getMessage());
         }
     }
 
-    private StatusTracker<ExampleDataProcessingTask> createTracker() {
-        return parentScope.trackTask(this, ExampleDataProcessingTask::getTaskStatus);
+    private StatusTracker<DemoDataProcessingTask> createTracker() {
+        return parentScope.trackTask(this, DemoDataProcessingTask::getTaskStatus);
     }
 
     private void execute() throws InterruptedException {
@@ -159,7 +159,7 @@ class ExampleDataProcessingTask implements StatusSource<ExampleDataProcessingTas
     }
 
     @Override
-    public StatusUpdate<ExampleDataProcessingTask> getTaskStatus() {
+    public StatusUpdate<DemoDataProcessingTask> getTaskStatus() {
         double progress = recordCount > 0 ? (double) recordsProcessed / recordCount : 0.0;
         return new StatusUpdate<>(progress, state, this);
     }

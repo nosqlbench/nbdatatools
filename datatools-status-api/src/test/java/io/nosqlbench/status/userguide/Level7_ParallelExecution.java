@@ -77,32 +77,32 @@ import java.util.concurrent.Future;
 public class Level7_ParallelExecution {
 
     public static void main(String[] args) throws Exception {
-        StatusContext ctx7 = new StatusContext("parallel-work");
-        ctx7.addSink(new ConsoleLoggerSink());
-
         ExecutorService executor7 = Executors.newFixedThreadPool(3);
-        try (StatusScope scope7 = ctx7.createScope("Parallel")) {
+        try (StatusContext ctx7 = new StatusContext("parallel-work")) {
+            ctx7.addSink(new ConsoleLoggerSink());
 
-            // NEW: Submit tasks to run in parallel
-            List<Future<?>> futures7 = new ArrayList<>();
+            try (StatusScope scope7 = ctx7.createScope("Parallel")) {
 
-            for (int i = 0; i < 3; i++) {
-                ParallelDataLoader loader7 = new ParallelDataLoader();
-                Future<?> future = executor7.submit(() -> {
-                    try (StatusTracker<ParallelDataLoader> tracker7 = scope7.trackTask(loader7)) {
-                        loader7.load(); // Task executes independently
-                    } // Tracker auto-closes
-                });
-                futures7.add(future);
-            }
+                // NEW: Submit tasks to run in parallel
+                List<Future<?>> futures7 = new ArrayList<>();
 
-            // Wait for all tasks
-            for (Future<?> f : futures7) {
-                f.get();
+                for (int i = 0; i < 3; i++) {
+                    ParallelDataLoader loader7 = new ParallelDataLoader();
+                    Future<?> future = executor7.submit(() -> {
+                        try (StatusTracker<ParallelDataLoader> tracker7 = scope7.trackTask(loader7)) {
+                            loader7.load(); // Task executes independently
+                        } // Tracker auto-closes
+                    });
+                    futures7.add(future);
+                }
+
+                // Wait for all tasks
+                for (Future<?> f : futures7) {
+                    f.get();
+                }
             }
         } finally {
             executor7.shutdown();
-            ctx7.close();
         }
     }
 }

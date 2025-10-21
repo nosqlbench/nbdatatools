@@ -24,16 +24,16 @@ import java.util.List;
 
 /**
  * Executor that manages a diverse workload of demo tasks showing different execution patterns.
- * Coordinates {@link ExampleDataProcessingTask}, {@link ExampleComputeTask}, and {@link ExampleValidationTask}
+ * Coordinates {@link DemoDataProcessingTask}, {@link DemoComputeTask}, and {@link DemoValidationTask}
  * instances within a {@link StatusScope} to demonstrate the organizational hierarchy.
  */
-public class ExampleWorkloadExecutor {
+public class DemoWorkloadExecutor {
     private final List<Runnable> tasks = new ArrayList<>();
     private final List<Thread> threads = new ArrayList<>();
     private volatile boolean workloadComplete = false;
     private final SimulatedClock clock;
 
-    private ExampleWorkloadExecutor(SimulatedClock clock) {
+    private DemoWorkloadExecutor(SimulatedClock clock) {
         this.clock = clock;
     }
 
@@ -43,17 +43,17 @@ public class ExampleWorkloadExecutor {
      * ComputeTasks create their own child scopes containing main task and worker subtasks.
      * This method starts the workload and returns immediately.
      */
-    public static ExampleWorkloadExecutor runDemoWorkload(StatusScope workloadScope, SimulatedClock clock) {
-        ExampleWorkloadExecutor executor = new ExampleWorkloadExecutor(clock);
+    public static DemoWorkloadExecutor runDemoWorkload(StatusScope workloadScope, SimulatedClock clock) {
+        DemoWorkloadExecutor executor = new DemoWorkloadExecutor(clock);
 
         // Create diverse workload showing different patterns
         // Simple tasks are direct children, compute tasks create their own scopes
-        executor.addTask(new ExampleDataProcessingTask("DataLoad", 500, workloadScope, clock));
-        executor.addTask(new ExampleComputeTask("VectorIndexing", 200, 3, workloadScope, clock));
-        executor.addTask(new ExampleValidationTask("SchemaValidation", 40, workloadScope, clock));
-        executor.addTask(new ExampleDataProcessingTask("DataTransform", 300, workloadScope, clock));
-        executor.addTask(new ExampleComputeTask("Clustering", 150, 2, workloadScope, clock));
-        executor.addTask(new ExampleValidationTask("IntegrityCheck", 30, workloadScope, clock));
+        executor.addTask(new DemoDataProcessingTask("DataLoad", 500, workloadScope, clock));
+        executor.addTask(new DemoComputeTask("VectorIndexing", 200, 3, workloadScope, clock));
+        executor.addTask(new DemoValidationTask("SchemaValidation", 40, workloadScope, clock));
+        executor.addTask(new DemoDataProcessingTask("DataTransform", 300, workloadScope, clock));
+        executor.addTask(new DemoComputeTask("Clustering", 150, 2, workloadScope, clock));
+        executor.addTask(new DemoValidationTask("IntegrityCheck", 30, workloadScope, clock));
 
         executor.startAll();
         return executor;

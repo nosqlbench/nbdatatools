@@ -65,17 +65,16 @@ public class Level6_ConfigurePollInterval {
 
     public static void main(String[] args) {
         // NEW: Custom poll interval for responsive updates
-        StatusContext ctx6 = new StatusContext(
+        try (StatusContext ctx6 = new StatusContext(
             "data-pipeline",
-            Duration.ofMillis(50)); // Poll every 50ms instead of default 100ms
+            Duration.ofMillis(50))) { // Poll every 50ms instead of default 100ms
 
-        ctx6.addSink(new ConsoleLoggerSink());
+            ctx6.addSink(new ConsoleLoggerSink());
 
-        DataLoader loader6 = new DataLoader();
-        try (StatusTracker<DataLoader> tracker6 = ctx6.track(loader6)) {
-            loader6.load(); // Task executes independently
-        } finally {
-            ctx6.close();
+            DataLoader loader6 = new DataLoader();
+            try (StatusTracker<DataLoader> tracker6 = ctx6.track(loader6)) {
+                loader6.load(); // Task executes independently
+            }
         }
     }
 }

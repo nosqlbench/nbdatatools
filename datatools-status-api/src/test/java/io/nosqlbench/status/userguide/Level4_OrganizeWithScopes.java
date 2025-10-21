@@ -66,34 +66,33 @@ public class Level4_OrganizeWithScopes {
 
     public static void main(String[] args) throws InterruptedException {
         // NEW: Use explicit scopes to organize tasks
-        StatusContext ctx4 = new StatusContext("data-pipeline");
-        ctx4.addSink(new ConsoleLoggerSink());
+        try (StatusContext ctx4 = new StatusContext("data-pipeline")) {
+            ctx4.addSink(new ConsoleLoggerSink());
 
-        try (StatusScope ingestionScope = ctx4.createScope("Ingestion");
-             StatusScope processingScope = ctx4.createScope("Processing")) {
+            try (StatusScope ingestionScope = ctx4.createScope("Ingestion");
+                 StatusScope processingScope = ctx4.createScope("Processing")) {
 
-            // Group ingestion tasks together
-            DataLoader loader4 = new DataLoader();
-            DataValidator validator4 = new DataValidator();
+                // Group ingestion tasks together
+                DataLoader loader4 = new DataLoader();
+                DataValidator validator4 = new DataValidator();
 
-            try (StatusTracker<DataLoader> loaderTracker4 = ingestionScope.trackTask(loader4);
-                 StatusTracker<DataValidator> validatorTracker4 = ingestionScope.trackTask(validator4)) {
-                loader4.load();       // Tasks execute independently
-                validator4.validate();
+                try (StatusTracker<DataLoader> loaderTracker4 = ingestionScope.trackTask(loader4);
+                     StatusTracker<DataValidator> validatorTracker4 = ingestionScope.trackTask(validator4)) {
+                    loader4.load();       // Tasks execute independently
+                    validator4.validate();
+                }
+
+                // NEW: Wait for ingestion to complete before processing
+                while (!ingestionScope.isComplete()) {
+                    Thread.sleep(10);
+                }
+
+                // Group processing tasks together
+                DataProcessor processor4 = new DataProcessor();
+                try (StatusTracker<DataProcessor> processorTracker4 = processingScope.trackTask(processor4)) {
+                    processor4.process();
+                }
             }
-
-            // NEW: Wait for ingestion to complete before processing
-            while (!ingestionScope.isComplete()) {
-                Thread.sleep(10);
-            }
-
-            // Group processing tasks together
-            DataProcessor processor4 = new DataProcessor();
-            try (StatusTracker<DataProcessor> processorTracker4 = processingScope.trackTask(processor4)) {
-                processor4.process();
-            }
-        } finally {
-            ctx4.close();
         }
     }
 }

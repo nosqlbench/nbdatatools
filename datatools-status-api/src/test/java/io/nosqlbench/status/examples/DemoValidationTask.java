@@ -33,8 +33,8 @@ import java.util.Random;
  * Demo task simulating validation and verification operations.
  * Demonstrates sequential validation stages with nested check operations.
  */
-class ExampleValidationTask implements StatusSource<ExampleValidationTask>, Runnable {
-    private static final Logger logger = LogManager.getLogger(ExampleValidationTask.class);
+class DemoValidationTask implements StatusSource<DemoValidationTask>, Runnable {
+    private static final Logger logger = LogManager.getLogger(DemoValidationTask.class);
 
     private final String name;
     private final int checkCount;
@@ -49,11 +49,11 @@ class ExampleValidationTask implements StatusSource<ExampleValidationTask>, Runn
     private final boolean allowNesting; // Only top-level tasks spawn nested validations
     private final SimulatedClock clock;
 
-    ExampleValidationTask(String name, int checkCount, StatusScope parentScope, SimulatedClock clock) {
+    DemoValidationTask(String name, int checkCount, StatusScope parentScope, SimulatedClock clock) {
         this(name, checkCount, parentScope, true, clock);
     }
 
-    ExampleValidationTask(String name, int checkCount, StatusScope parentScope, boolean allowNesting, SimulatedClock clock) {
+    DemoValidationTask(String name, int checkCount, StatusScope parentScope, boolean allowNesting, SimulatedClock clock) {
         this.name = name;
         this.checkCount = checkCount;
         this.parentScope = parentScope;
@@ -63,18 +63,18 @@ class ExampleValidationTask implements StatusSource<ExampleValidationTask>, Runn
 
     @Override
     public void run() {
-        try (StatusTracker<ExampleValidationTask> tracker = createTracker()) {
+        try (StatusTracker<DemoValidationTask> tracker = createTracker()) {
             execute(tracker);
         } catch (Exception e) {
             logger.error("Validation task {} failed: {}", name, e.getMessage());
         }
     }
 
-    private StatusTracker<ExampleValidationTask> createTracker() {
-        return parentScope.trackTask(this, ExampleValidationTask::getTaskStatus);
+    private StatusTracker<DemoValidationTask> createTracker() {
+        return parentScope.trackTask(this, DemoValidationTask::getTaskStatus);
     }
 
-    private void execute(StatusTracker<ExampleValidationTask> tracker) throws InterruptedException {
+    private void execute(StatusTracker<DemoValidationTask> tracker) throws InterruptedException {
         state = RunState.RUNNING;
         logger.info("Starting validation: {} ({} checks)", name, checkCount);
         logger.debug("Validation scope: {}, Expected duration: ~{}ms", name, checkCount * 150);
@@ -181,9 +181,9 @@ class ExampleValidationTask implements StatusSource<ExampleValidationTask>, Runn
         }
     }
 
-    private void spawnDetailedValidation(StatusTracker<ExampleValidationTask> tracker, String checkType, int checks) {
+    private void spawnDetailedValidation(StatusTracker<DemoValidationTask> tracker, String checkType, int checks) {
         // Use the shared details scope created earlier, disable nesting for child tasks
-        ExampleValidationTask childTask = new ExampleValidationTask(checkType, checks, detailsScope, false, clock);
+        DemoValidationTask childTask = new DemoValidationTask(checkType, checks, detailsScope, false, clock);
         Thread childThread = new Thread(childTask);
         childThreads.add(childThread);
         childThread.start();
@@ -201,7 +201,7 @@ class ExampleValidationTask implements StatusSource<ExampleValidationTask>, Runn
     }
 
     @Override
-    public StatusUpdate<ExampleValidationTask> getTaskStatus() {
+    public StatusUpdate<DemoValidationTask> getTaskStatus() {
         double progress = checkCount > 0 ? (double) checksComplete / checkCount : 0.0;
         return new StatusUpdate<>(progress, state, this);
     }

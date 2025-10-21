@@ -27,7 +27,7 @@ import java.time.Duration;
 /**
  * Example showing the new scope-based organization vs traditional tracker hierarchy.
  */
-public class ScopeUsageExample {
+public class DemoScopeExample {
 
     public static void main(String[] args) throws InterruptedException {
         demonstrateScopes();
@@ -49,21 +49,21 @@ public class ScopeUsageExample {
                  StatusScope processingScope = context.createScope("Processing")) {
 
                 // Track actual work as leaf tasks
-                StatusTracker<ExampleDataProcessingTask> loadTracker =
-                    ingestionScope.trackTask(new ExampleDataProcessingTask("LoadCSV", 100, ingestionScope, clock));
+                StatusTracker<DemoDataProcessingTask> loadTracker =
+                    ingestionScope.trackTask(new DemoDataProcessingTask("LoadCSV", 100, ingestionScope, clock));
 
-                StatusTracker<ExampleValidationTask> validateTracker =
-                    ingestionScope.trackTask(new ExampleValidationTask("ValidateSchema", 20, ingestionScope, clock));
+                StatusTracker<DemoValidationTask> validateTracker =
+                    ingestionScope.trackTask(new DemoValidationTask("ValidateSchema", 20, ingestionScope, clock));
 
                 // ComputeTask creates its own scope hierarchy internally
-                Thread transformThread = new Thread(new ExampleComputeTask("Transform", 80, 2, processingScope, clock));
+                Thread transformThread = new Thread(new DemoComputeTask("Transform", 80, 2, processingScope, clock));
                 transformThread.start();
 
                 // Tasks execute...
                 Thread.sleep(500);
 
                 // ComputeTask creates its own scope hierarchy internally
-                Thread indexThread = new Thread(new ExampleComputeTask("BuildIndex", 120, 3, processingScope, clock));
+                Thread indexThread = new Thread(new DemoComputeTask("BuildIndex", 120, 3, processingScope, clock));
                 indexThread.start();
 
                 System.out.println("\nScope hierarchy:");

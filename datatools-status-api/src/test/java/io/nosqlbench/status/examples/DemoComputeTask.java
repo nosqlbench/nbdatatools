@@ -70,8 +70,8 @@ import java.util.Random;
  * @see SimulatedClock
  * @since 4.0.0
  */
-class ExampleComputeTask implements Runnable {
-    private static final Logger logger = LogManager.getLogger(ExampleComputeTask.class);
+class DemoComputeTask implements Runnable {
+    private static final Logger logger = LogManager.getLogger(DemoComputeTask.class);
 
     private final String name;
     private final int iterations;
@@ -89,7 +89,7 @@ class ExampleComputeTask implements Runnable {
      * @param parentScope the parent tracker scope under which this task's scope will be created
      * @param clock the simulated clock for controlling task timing
      */
-    ExampleComputeTask(String name, int iterations, int parallelSubtasks, StatusScope parentScope, SimulatedClock clock) {
+    DemoComputeTask(String name, int iterations, int parallelSubtasks, StatusScope parentScope, SimulatedClock clock) {
         this.name = name;
         this.iterations = iterations;
         this.parallelSubtasks = parallelSubtasks;
@@ -113,7 +113,7 @@ class ExampleComputeTask implements Runnable {
                 for (int i = 0; i < parallelSubtasks; i++) {
                     String childName = "Worker" + (i + 1);
                     logger.debug("Creating worker task: {}", childName);
-                    ExampleComputeTask childTask = new ExampleComputeTask(childName, iterations / 2, 0, workersScope, clock);
+                    DemoComputeTask childTask = new DemoComputeTask(childName, iterations / 2, 0, workersScope, clock);
                     Thread childThread = new Thread(childTask);
                     childThreads.add(childThread);
                     childThread.start();

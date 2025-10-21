@@ -65,25 +65,24 @@ public class Level5_CustomSinks {
 
     public static void main(String[] args) {
         // Use tasks from previous levels
-        StatusContext ctx5 = new StatusContext("data-pipeline");
-
-        // NEW: Add multiple sinks for different purposes
-        ctx5.addSink(new ConsoleLoggerSink());
         MetricsStatusSink metrics5 = new MetricsStatusSink();
-        ctx5.addSink(metrics5);
 
-        DataLoader loader5 = new DataLoader();
+        try (StatusContext ctx5 = new StatusContext("data-pipeline")) {
+            // NEW: Add multiple sinks for different purposes
+            ctx5.addSink(new ConsoleLoggerSink());
+            ctx5.addSink(metrics5);
 
-        try (StatusScope scope5 = ctx5.createScope("Work")) {
-            try (StatusTracker<DataLoader> tracker5 = scope5.trackTask(loader5)) {
-                loader5.load(); // Task executes independently
+            DataLoader loader5 = new DataLoader();
+
+            try (StatusScope scope5 = ctx5.createScope("Work")) {
+                try (StatusTracker<DataLoader> tracker5 = scope5.trackTask(loader5)) {
+                    loader5.load(); // Task executes independently
+                }
             }
         }
 
         // NEW: Access metrics after tasks complete
         System.out.println("Total tasks: " + metrics5.getTotalTasksStarted());
         System.out.println("Avg duration: " + metrics5.getAverageTaskDuration() + "ms");
-
-        ctx5.close();
     }
 }

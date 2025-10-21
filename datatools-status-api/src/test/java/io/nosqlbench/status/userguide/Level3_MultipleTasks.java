@@ -64,20 +64,19 @@ public class Level3_MultipleTasks {
 
     public static void main(String[] args) {
         // NEW: Shared context for multiple tasks
-        StatusContext ctx3 = new StatusContext("batch-processing");
-        ctx3.addSink(new ConsoleLoggerSink());
+        try (StatusContext ctx3 = new StatusContext("batch-processing")) {
+            ctx3.addSink(new ConsoleLoggerSink());
 
-        DataLoader loader3 = new DataLoader();
-        DataValidator validator3 = new DataValidator();
+            DataLoader loader3 = new DataLoader();
+            DataValidator validator3 = new DataValidator();
 
-        try (StatusTracker<DataLoader> loaderTracker = ctx3.track(loader3);
-             StatusTracker<DataValidator> validatorTracker = ctx3.track(validator3)) {
+            try (StatusTracker<DataLoader> loaderTracker = ctx3.track(loader3);
+                 StatusTracker<DataValidator> validatorTracker = ctx3.track(validator3)) {
 
-            // Execute tasks independently
-            loader3.load();
-            validator3.validate();
-        } finally {
-            ctx3.close(); // Close context when done (shuts down monitor thread)
+                // Execute tasks independently
+                loader3.load();
+                validator3.validate();
+            }
         }
     }
 }
