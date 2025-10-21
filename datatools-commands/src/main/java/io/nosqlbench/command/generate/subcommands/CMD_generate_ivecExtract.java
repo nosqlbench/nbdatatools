@@ -91,7 +91,7 @@ public class CMD_generate_ivecExtract implements Callable<Integer> {
       required = true)
   private String outputFile;
 
-  @CommandLine.Option(names = {"--force"},
+  @CommandLine.Option(names = {"-f", "--force"},
       description = "Force overwrite of output file if it exists",
       defaultValue = "false")
   private boolean force;

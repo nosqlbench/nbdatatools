@@ -19,6 +19,7 @@ package io.nosqlbench.command.compute;
 
 
 import io.nosqlbench.command.compute.subcommands.CMD_compute_knn;
+import io.nosqlbench.command.compute.subcommands.CMD_compute_sort;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
 import io.nosqlbench.nbdatatools.api.services.Selector;
 import org.apache.logging.log4j.LogManager;
@@ -29,12 +30,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /// Compute operations on vector data for analysis and evaluation
-/// 
+///
 /// This command provides utilities for computing operations on vector data
 /// that can be used for analysis and evaluation. It includes subcommands for:
-/// 
+///
 /// - `knn`: Compute k-nearest neighbors ground truth dataset from base and query vectors
-/// 
+/// - `sort`: Sort vectors lexicographically using memory-efficient external merge sort
+///
 /// The computed results maintain consistent properties and can be
 /// reproduced using the same input data and parameters.
 @Selector("compute")
@@ -48,10 +50,11 @@ import java.util.List;
     description = "This provides a set of computational utilities for\n" +
         "the purposes of analyzing and evaluating vector data. The command includes subcommands\n" +
         "for computing k-nearest neighbors (knn) to generate ground truth datasets\n" +
-        "from base and query vectors with specified distance metrics.",
+        "from base and query vectors with specified distance metrics, and for sorting\n" +
+        "vector files lexicographically using memory-efficient external merge sort.",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
-    subcommands = {CMD_compute_knn.class, CommandLine.HelpCommand.class})
+    subcommands = {CMD_compute_knn.class, CMD_compute_sort.class, CommandLine.HelpCommand.class})
 
 public class CMD_compute implements BundledCommand {
   /// Logger for this class

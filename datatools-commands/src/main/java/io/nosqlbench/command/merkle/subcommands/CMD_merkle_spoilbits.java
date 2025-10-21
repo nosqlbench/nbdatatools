@@ -29,6 +29,7 @@ import picocli.CommandLine.Parameters;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
@@ -69,6 +70,10 @@ public class CMD_merkle_spoilbits implements Callable<Integer> {
     @Option(names = {"--dryrun", "-n"}, 
             description = "Show which bits would be invalidated without actually modifying the file")
     private boolean dryrun = false;
+
+    @Option(names = {"-f", "--force"},
+            description = "Force modification of the Merkle file instead of requiring --dryrun")
+    private boolean force = false;
 
     @Override
     public Integer call() throws Exception {
@@ -157,9 +162,15 @@ public class CMD_merkle_spoilbits implements Callable<Integer> {
                     logger.info("DRY RUN:   ... and {} more", leafChunksToInvalidate.size() - showCount);
                 }
             } else {
+                if (!force) {
+                    logger.error("Refusing to modify Merkle file without --force. "
+                        + "Use --dryrun for a preview or rerun with --force.");
+                    return 1;
+                }
+
                 // Create backup before modification
                 Path backupPath = mrklFile.resolveSibling(mrklFile.getFileName() + ".backup");
-                Files.copy(mrklFile, backupPath);
+                Files.copy(mrklFile, backupPath, StandardCopyOption.REPLACE_EXISTING);
                 logger.info("Created backup at: {}", backupPath);
 
                 // Create modified bitset
@@ -184,7 +195,7 @@ public class CMD_merkle_spoilbits implements Callable<Integer> {
                 } catch (Exception e) {
                     logger.error("Failed to modify merkle file: {}", e.getMessage());
                     // Restore from backup
-                    Files.copy(backupPath, mrklFile);
+                    Files.copy(backupPath, mrklFile, StandardCopyOption.REPLACE_EXISTING);
                     logger.info("Restored original file from backup");
                     throw e;
                 }

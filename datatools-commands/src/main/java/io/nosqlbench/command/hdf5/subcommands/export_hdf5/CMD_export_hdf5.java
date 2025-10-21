@@ -126,7 +126,7 @@ public class CMD_export_hdf5 implements Callable<Integer> {
       description = "The layout file to read")
   private Path layout;
 
-  @CommandLine.Option(names = {"--force"},
+  @CommandLine.Option(names = {"-f", "--force"},
       description = "Force overwrite of existing HDF5 files,"
                     + " even if no changes to mapping since last export")
   private boolean force = false;

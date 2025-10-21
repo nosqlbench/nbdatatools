@@ -31,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -79,6 +80,10 @@ public class CMD_merkle_spoilchunks implements Callable<Integer> {
             description = "Bytes to corrupt per chunk: number (5), range (5-20, 5..20), percent (5%%, 5%%-7%%)",
             defaultValue = "1")
     private String bytesToCorrupt = "1";
+
+    @Option(names = {"-f", "--force"},
+            description = "Force modification of Merkle and cache files instead of requiring --dryrun")
+    private boolean force = false;
 
     @Override
     public Integer call() throws Exception {
@@ -190,13 +195,19 @@ public class CMD_merkle_spoilchunks implements Callable<Integer> {
                     logger.info("DRY RUN:   ... and {} more", leafChunksToInvalidate.size() - showCount);
                 }
             } else {
+                if (!force) {
+                    logger.error("Refusing to modify Merkle or cache files without --force. "
+                        + "Use --dryrun for a preview or rerun with --force.");
+                    return 1;
+                }
+
                 // Create backup before modification
                 Path backupPath = mrklFile.resolveSibling(mrklFile.getFileName() + ".backup");
-                Files.copy(mrklFile, backupPath);
+                Files.copy(mrklFile, backupPath, StandardCopyOption.REPLACE_EXISTING);
                 logger.info("Created merkle backup at: {}", backupPath);
 
                 Path cacheBackupPath = cacheFile.resolveSibling(cacheFile.getFileName() + ".backup");
-                Files.copy(cacheFile, cacheBackupPath);
+                Files.copy(cacheFile, cacheBackupPath, StandardCopyOption.REPLACE_EXISTING);
                 logger.info("Created cache backup at: {}", cacheBackupPath);
 
                 try {
@@ -221,8 +232,8 @@ public class CMD_merkle_spoilchunks implements Callable<Integer> {
                 } catch (Exception e) {
                     logger.error("Failed to modify files: {}", e.getMessage(), e);
                     // Restore from backups
-                    Files.copy(backupPath, mrklFile);
-                    Files.copy(cacheBackupPath, cacheFile);
+                    Files.copy(backupPath, mrklFile, StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(cacheBackupPath, cacheFile, StandardCopyOption.REPLACE_EXISTING);
                     logger.info("Restored original files from backups");
                     throw e;
                 }

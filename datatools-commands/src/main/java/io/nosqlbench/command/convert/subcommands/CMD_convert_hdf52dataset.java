@@ -73,7 +73,7 @@ public class CMD_convert_hdf52dataset implements Callable<Integer> {
         description = "Force overwrite if output directory already exists")
     private boolean force = false;
 
-    @CommandLine.Option(names = {"--scan", "-s"},
+    @CommandLine.Option(names = {"--scan"},
         description = "Auto-scan directories for unconverted HDF5 files")
     private boolean scan = true;
 
@@ -112,11 +112,6 @@ public class CMD_convert_hdf52dataset implements Callable<Integer> {
         description = "Suffix for generated dataset directories (default: '_dataset')",
         defaultValue = "_dataset")
     private String datasetSuffix = "_dataset";
-
-    @CommandLine.Option(names = {"-h", "--help"},
-        usageHelp = true,
-        description = "Display this help message")
-    private boolean helpRequested = false;
 
     @Override
     public Integer call() {

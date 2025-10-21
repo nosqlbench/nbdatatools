@@ -114,7 +114,7 @@ class SpoilbitsIntegrationTest {
             // Run spoilbits to invalidate 50% of chunks
             CMD_merkle_spoilbits spoilbits = new CMD_merkle_spoilbits();
             CommandLine cmd = new CommandLine(spoilbits);
-            String[] args = {mrklFile.toString(), "--percentage", "50"};
+            String[] args = {mrklFile.toString(), "--percentage", "50", "--force"};
             int result = cmd.execute(args);
             
             assertEquals(0, result, "Spoilbits command should succeed");
@@ -139,7 +139,7 @@ class SpoilbitsIntegrationTest {
         // Test range-based spoiling
         CMD_merkle_spoilbits spoilbits = new CMD_merkle_spoilbits();
         CommandLine cmd = new CommandLine(spoilbits);
-        String[] args = {mrklFile.toString(), "--start", "0", "--end", "1"};
+        String[] args = {mrklFile.toString(), "--start", "0", "--end", "1", "--force"};
         int result = cmd.execute(args);
         
         assertEquals(0, result, "Range-based spoilbits should succeed");

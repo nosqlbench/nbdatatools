@@ -146,11 +146,6 @@ public class CMD_convert_file implements Callable<Integer> {
         defaultValue = "1000")
     private int progressInterval = 1000;
 
-    @CommandLine.Option(names = {"-h", "--help"},
-        usageHelp = true,
-        description = "Display this help message")
-    private boolean helpRequested = false;
-
     @Override
     public Integer call() {
         try {

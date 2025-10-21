@@ -24,6 +24,7 @@ import io.nosqlbench.vectordata.merklev2.MerkleDataImpl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import java.nio.file.Files;
@@ -51,6 +52,10 @@ public class CMD_merkle_diff implements Callable<Integer> {
 
     @Parameters(index = "1", description = "Second Merkle tree file")
     private Path file2;
+
+    @Option(names = {"-f", "--force"},
+        description = "Force diff generation even if supplemental outputs already exist")
+    private boolean force = false;
 
     /**
      * Sets the first file path for testing purposes.

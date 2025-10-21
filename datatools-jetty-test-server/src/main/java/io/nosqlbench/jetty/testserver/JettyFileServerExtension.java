@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -48,7 +49,26 @@ import java.util.concurrent.atomic.AtomicInteger;
 ///
 /// ```java
 public class JettyFileServerExtension implements BeforeAllCallback, AfterAllCallback {
-  private static final Logger logger = LogManager.getLogger(JettyFileServerExtension.class);
+  static {
+    ensureHostnameResolution();
+    if (System.getProperty("log4j2.hostname") == null) {
+      System.setProperty("log4j2.hostname", "localhost");
+    }
+    if (System.getProperty("LOG4J_HOSTNAME") == null) {
+      System.setProperty("LOG4J_HOSTNAME", "localhost");
+    }
+    if (System.getProperty("log4j2.StatusLogger.level") == null) {
+      System.setProperty("log4j2.StatusLogger.level", "FATAL");
+    }
+  }
+
+  private static Logger logger() {
+    return LazyLoggerHolder.LOGGER;
+  }
+
+  private static class LazyLoggerHolder {
+    private static final Logger LOGGER = LogManager.getLogger(JettyFileServerExtension.class);
+  }
   private static final AtomicInteger referenceCount = new AtomicInteger(0);
   private static JettyFileServerFixture server;
   private static URL baseUrl;
@@ -64,6 +84,21 @@ public class JettyFileServerExtension implements BeforeAllCallback, AfterAllCall
   public static final Path TEMP_RESOURCES_ROOT;
 
   private static final Object lock = new Object();
+
+  private static void ensureHostnameResolution() {
+    if (System.getProperty("jdk.net.hosts.file") != null) {
+      return;
+    }
+    try {
+      Path hostsFile = Files.createTempFile("nbtest-hosts", ".cfg");
+      String content = "127.0.0.1 localhost\n127.0.0.1 testdata\n";
+      Files.writeString(hostsFile, content, StandardCharsets.UTF_8);
+      hostsFile.toFile().deleteOnExit();
+      System.setProperty("jdk.net.hosts.file", hostsFile.toString());
+    } catch (IOException ignored) {
+      // If we can't create a hosts file, hostname resolution may still fail, but we can't log yet.
+    }
+  }
 
   // Static initializer to configure paths
   static {
@@ -91,25 +126,25 @@ public class JettyFileServerExtension implements BeforeAllCallback, AfterAllCall
             Files.createDirectories(TEMP_RESOURCES_ROOT);
           }
 
-          logger.info("Starting Jetty test web server for the module");
+          logger().info("Starting Jetty test web server for the module");
           server = new JettyFileServerFixture(DEFAULT_RESOURCES_ROOT);
           server.setTempDirectory(TEMP_RESOURCES_ROOT);
           server.start();
           baseUrl = server.getBaseUrl();
-          logger.info("Jetty test web server started at {}", baseUrl);
+          logger().info("Jetty test web server started at {}", baseUrl);
 
           // Add shutdown hook to stop the server when the JVM exits
           Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             if (server != null) {
-              logger.info("Stopping Jetty test web server for the module (shutdown hook)");
+              logger().info("Stopping Jetty test web server for the module (shutdown hook)");
               server.close();
               server = null;
               baseUrl = null;
-              logger.info("Jetty test web server stopped");
+              logger().info("Jetty test web server stopped");
             }
           }));
         } catch (IOException e) {
-          logger.error("Failed to start Jetty test web server", e);
+          logger().error("Failed to start Jetty test web server", e);
           throw new RuntimeException("Failed to start Jetty test web server", e);
         }
       }
@@ -138,13 +173,13 @@ public class JettyFileServerExtension implements BeforeAllCallback, AfterAllCall
   public void beforeAll(ExtensionContext context) throws Exception {
     // Initialize server when extension is used
     initialize();
-    logger.debug("JettyFileServerExtension beforeAll called for {}", context.getDisplayName());
+    logger().debug("JettyFileServerExtension beforeAll called for {}", context.getDisplayName());
   }
 
   @Override
   public void afterAll(ExtensionContext context) throws Exception {
     // Server will be stopped by shutdown hook
     // Just log that the extension is being used
-    logger.debug("JettyFileServerExtension afterAll called for {}", context.getDisplayName());
+    logger().debug("JettyFileServerExtension afterAll called for {}", context.getDisplayName());
   }
 }

@@ -106,7 +106,7 @@ class CMD_merkle_spoilchunksTest {
         byte[] originalCacheData = Files.readAllBytes(cacheFile);
         
         CommandLine cmd = new CommandLine(command);
-        String[] args = {mrklFile.toString(), "--percentage", "50", "--bytes-to-corrupt", "3", "--seed", "12345"};
+        String[] args = {mrklFile.toString(), "--percentage", "50", "--bytes-to-corrupt", "3", "--seed", "12345", "--force"};
         
         int result = cmd.execute(args);
         assertEquals(0, result, "Command should succeed");
@@ -133,7 +133,7 @@ class CMD_merkle_spoilchunksTest {
     @Test
     void testPercentageBasedCorruption() throws Exception {
         CommandLine cmd = new CommandLine(command);
-        String[] args = {mrklFile.toString(), "--percentage", "25", "--bytes-to-corrupt", "5%", "--seed", "54321"};
+        String[] args = {mrklFile.toString(), "--percentage", "25", "--bytes-to-corrupt", "5%", "--seed", "54321", "--force"};
         
         int result = cmd.execute(args);
         assertEquals(0, result, "Command should succeed with percentage-based corruption");
@@ -142,7 +142,7 @@ class CMD_merkle_spoilchunksTest {
     @Test
     void testRangeBasedCorruption() throws Exception {
         CommandLine cmd = new CommandLine(command);
-        String[] args = {mrklFile.toString(), "--start", "0", "--end", "1", "--bytes-to-corrupt", "2..10", "--seed", "67890"};
+        String[] args = {mrklFile.toString(), "--start", "0", "--end", "1", "--bytes-to-corrupt", "2..10", "--seed", "67890", "--force"};
         
         int result = cmd.execute(args);
         assertEquals(0, result, "Command should succeed with range-based corruption");
@@ -151,7 +151,7 @@ class CMD_merkle_spoilchunksTest {
     @Test
     void testPercentageRangeCorruption() throws Exception {
         CommandLine cmd = new CommandLine(command);
-        String[] args = {mrklFile.toString(), "--percentage", "10", "--bytes-to-corrupt", "1%-5%", "--seed", "11111"};
+        String[] args = {mrklFile.toString(), "--percentage", "10", "--bytes-to-corrupt", "1%-5%", "--seed", "11111", "--force"};
         
         int result = cmd.execute(args);
         assertEquals(0, result, "Command should succeed with percentage range corruption");

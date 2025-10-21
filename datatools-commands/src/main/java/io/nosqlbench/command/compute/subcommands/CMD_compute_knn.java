@@ -17,7 +17,9 @@ package io.nosqlbench.command.compute.subcommands;
  * under the License.
  */
 
+import io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex;
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
+import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
@@ -28,9 +30,13 @@ import picocli.CommandLine;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.concurrent.Callable;
 
 /// Command to compute k-nearest neighbors ground truth dataset from base and query vectors
@@ -60,7 +66,7 @@ public class CMD_compute_knn implements Callable<Integer> {
         defaultValue = "L2")
     private DistanceMetric distanceMetric = DistanceMetric.L2;
 
-    @CommandLine.Option(names = {"--force"}, description = "Force overwrite if output file already exists")
+    @CommandLine.Option(names = {"-f", "--force"}, description = "Force overwrite if output file already exists")
     private boolean force = false;
 
     @CommandLine.Spec
@@ -184,52 +190,270 @@ public class CMD_compute_knn implements Callable<Integer> {
         return 1.0 - cosineSimilarity;
     }
 
-    /**
-     * Find k nearest neighbors for a query vector from the base vectors
-     * 
-     * @param queryVector Query vector
-     * @param baseVectors List of base vectors
-     * @param k Number of nearest neighbors to find
-     * @return Array of indices of the k nearest neighbors
-     */
-    private int[] findKNearestNeighbors(float[] queryVector, List<float[]> baseVectors, int k) {
-        // Create array of (index, distance) pairs
-        int numBaseVectors = baseVectors.size();
-        IndexDistancePair[] pairs = new IndexDistancePair[numBaseVectors];
+    private int determineBatchSize(int baseCount, int dimension) {
+        Runtime runtime = Runtime.getRuntime();
+        long maxHeapBytes = runtime.maxMemory();
+        long totalMemory = runtime.totalMemory();
+        long freeMemory = runtime.freeMemory();
+        long allocated = totalMemory - freeMemory;
+        long headroom = Math.max(0L, maxHeapBytes - allocated);
+        long usable = Math.max((long) (maxHeapBytes * 0.2), (long) (headroom * 0.8));
 
-        // Calculate distances
-        for (int i = 0; i < numBaseVectors; i++) {
-            double distance = calculateDistance(queryVector, baseVectors.get(i));
-            pairs[i] = new IndexDistancePair(i, distance);
+        long bytesPerVector = estimateVectorBytes(dimension);
+        if (bytesPerVector <= 0) {
+            bytesPerVector = Math.max(16L, (long) dimension * Float.BYTES);
         }
 
-        // Sort by distance (ascending)
-        Arrays.sort(pairs);
-
-        // Take k nearest
-        int[] neighbors = new int[Math.min(k, numBaseVectors)];
-        for (int i = 0; i < neighbors.length; i++) {
-            neighbors[i] = pairs[i].index;
+        long estimated = Math.max(1L, usable / bytesPerVector);
+        long capped = Math.min(estimated, baseCount);
+        if (capped > Integer.MAX_VALUE) {
+            capped = Integer.MAX_VALUE;
         }
-
-        return neighbors;
+        return (int) Math.max(1L, capped);
     }
 
-    /**
-     * Helper class to store index and distance pairs for sorting
-     */
-    private static class IndexDistancePair implements Comparable<IndexDistancePair> {
-        int index;
-        double distance;
+    private long estimateVectorBytes(int dimension) {
+        final int arrayHeaderBytes = 16;
+        final double safetyFactor = 2.0d;
+        return (long) ((dimension * (long) Float.BYTES + arrayHeaderBytes) * safetyFactor);
+    }
 
-        IndexDistancePair(int index, double distance) {
-            this.index = index;
-            this.distance = distance;
+    private NeighborIndex[] selectTopNeighbors(float[] queryVector, List<float[]> baseBatch, int globalStartIndex, int topK) {
+        if (topK <= 0 || baseBatch.isEmpty()) {
+            return new NeighborIndex[0];
         }
 
-        @Override
-        public int compareTo(IndexDistancePair other) {
-            return Double.compare(this.distance, other.distance);
+        PriorityQueue<NeighborIndex> heap = new PriorityQueue<>(topK, Comparator.comparingDouble(NeighborIndex::distance).reversed());
+        for (int i = 0; i < baseBatch.size(); i++) {
+            float[] baseVector = baseBatch.get(i);
+            double distance = calculateDistance(queryVector, baseVector);
+            NeighborIndex candidate = new NeighborIndex(globalStartIndex + i, distance);
+
+            if (heap.size() < topK) {
+                heap.offer(candidate);
+            } else if (distance < heap.peek().distance()) {
+                heap.poll();
+                heap.offer(candidate);
+            }
+        }
+
+        int resultSize = heap.size();
+        NeighborIndex[] result = new NeighborIndex[resultSize];
+        for (int i = resultSize - 1; i >= 0; i--) {
+            result[i] = heap.poll();
+        }
+        return result;
+    }
+
+    private int[] toIndexArray(NeighborIndex[] neighbors) {
+        int[] indices = new int[neighbors.length];
+        for (int i = 0; i < neighbors.length; i++) {
+            indices[i] = (int) neighbors[i].index();
+        }
+        return indices;
+    }
+
+    private float[] toDistanceArray(NeighborIndex[] neighbors) {
+        float[] distances = new float[neighbors.length];
+        for (int i = 0; i < neighbors.length; i++) {
+            distances[i] = (float) neighbors[i].distance();
+        }
+        return distances;
+    }
+
+    private PartitionMetadata computePartition(
+        VectorFileArray<float[]> baseReader,
+        int partitionIndex,
+        int startIndex,
+        int endIndex,
+        int baseDimension,
+        Path neighborsPath,
+        Path distancesPath,
+        int effectiveK
+    ) throws IOException {
+
+        int partitionSize = endIndex - startIndex;
+        if (partitionSize <= 0) {
+            throw new IllegalArgumentException("Partition size must be positive");
+        }
+
+        int partitionK = Math.min(effectiveK, partitionSize);
+        List<float[]> baseBatch = new ArrayList<>(partitionSize);
+        for (int i = startIndex; i < endIndex; i++) {
+            baseBatch.add(baseReader.get(i));
+        }
+
+        logger.info("Partition {}: loaded {} base vectors (indices [{}..{}))", partitionIndex, partitionSize, startIndex, endIndex);
+
+        if (neighborsPath.getParent() != null) {
+            Files.createDirectories(neighborsPath.getParent());
+        }
+        if (distancesPath.getParent() != null) {
+            Files.createDirectories(distancesPath.getParent());
+        }
+
+        try (VectorFileStreamStore<int[]> neighborsStore = VectorFileIO.streamOut(FileType.xvec, int[].class, neighborsPath)
+                 .orElseThrow(() -> new IOException("Could not create intermediate neighbors file: " + neighborsPath));
+             VectorFileStreamStore<float[]> distancesStore = VectorFileIO.streamOut(FileType.xvec, float[].class, distancesPath)
+                 .orElseThrow(() -> new IOException("Could not create intermediate distances file: " + distancesPath));
+             BoundedVectorFileStream<float[]> queryStream = VectorFileIO.streamIn(FileType.xvec, float[].class, queryVectorsPath)
+                 .orElseThrow(() -> new IOException("Could not open query vectors file: " + queryVectorsPath))) {
+
+            int processedQueries = 0;
+            for (float[] queryVector : queryStream) {
+                if (queryVector.length != baseDimension) {
+                    throw new IllegalArgumentException("Query vector dimension (" + queryVector.length
+                        + ") does not match base vector dimension (" + baseDimension + ")");
+                }
+
+                NeighborIndex[] neighbors = selectTopNeighbors(queryVector, baseBatch, startIndex, partitionK);
+                neighborsStore.write(toIndexArray(neighbors));
+                distancesStore.write(toDistanceArray(neighbors));
+
+                processedQueries++;
+                if (processedQueries % 100 == 0) {
+                    System.out.println("Partition " + partitionIndex + ": processed " + processedQueries + " query vectors");
+                }
+            }
+
+            logger.info("Partition {} complete: wrote {} query results (k={})", partitionIndex, processedQueries, partitionK);
+            return new PartitionMetadata(neighborsPath, distancesPath, startIndex, endIndex, processedQueries, partitionK);
+        }
+    }
+
+    private void mergePartitions(
+        List<PartitionMetadata> partitions,
+        Path finalNeighborsPath,
+        Path finalDistancesPath,
+        int effectiveK,
+        int queryCount
+    ) throws IOException {
+
+        if (finalNeighborsPath.getParent() != null) {
+            Files.createDirectories(finalNeighborsPath.getParent());
+        }
+        if (finalDistancesPath.getParent() != null) {
+            Files.createDirectories(finalDistancesPath.getParent());
+        }
+
+        List<BoundedVectorFileStream<int[]>> neighborStreams = new ArrayList<>();
+        List<BoundedVectorFileStream<float[]>> distanceStreams = new ArrayList<>();
+
+        try {
+            for (PartitionMetadata partition : partitions) {
+                neighborStreams.add(VectorFileIO.streamIn(FileType.xvec, int[].class, partition.neighborsPath)
+                    .orElseThrow(() -> new IOException("Could not open intermediate neighbors file: " + partition.neighborsPath)));
+                distanceStreams.add(VectorFileIO.streamIn(FileType.xvec, float[].class, partition.distancesPath)
+                    .orElseThrow(() -> new IOException("Could not open intermediate distances file: " + partition.distancesPath)));
+            }
+
+            List<Iterator<int[]>> neighborIterators = new ArrayList<>(neighborStreams.size());
+            List<Iterator<float[]>> distanceIterators = new ArrayList<>(distanceStreams.size());
+
+            for (BoundedVectorFileStream<int[]> stream : neighborStreams) {
+                neighborIterators.add(stream.iterator());
+            }
+            for (BoundedVectorFileStream<float[]> stream : distanceStreams) {
+                distanceIterators.add(stream.iterator());
+            }
+
+            try (VectorFileStreamStore<int[]> finalNeighborsStore = VectorFileIO.streamOut(FileType.xvec, int[].class, finalNeighborsPath)
+                     .orElseThrow(() -> new IOException("Could not create final neighbors file: " + finalNeighborsPath));
+                 VectorFileStreamStore<float[]> finalDistancesStore = VectorFileIO.streamOut(FileType.xvec, float[].class, finalDistancesPath)
+                     .orElseThrow(() -> new IOException("Could not create final distances file: " + finalDistancesPath))) {
+
+                for (int queryIndex = 0; queryIndex < queryCount; queryIndex++) {
+                    List<NeighborIndex> combined = new ArrayList<>(partitions.size() * Math.max(1, effectiveK));
+
+                    for (int partitionIndex = 0; partitionIndex < partitions.size(); partitionIndex++) {
+                        Iterator<int[]> neighborIterator = neighborIterators.get(partitionIndex);
+                        Iterator<float[]> distanceIterator = distanceIterators.get(partitionIndex);
+
+                        if (!neighborIterator.hasNext() || !distanceIterator.hasNext()) {
+                            throw new IOException("Intermediate results ended unexpectedly for partition "
+                                + partitions.get(partitionIndex).startIndex + "-" + partitions.get(partitionIndex).endIndex);
+                        }
+
+                        int[] neighborIndices = neighborIterator.next();
+                        float[] distanceValues = distanceIterator.next();
+
+                        if (neighborIndices.length != distanceValues.length) {
+                            throw new IOException("Mismatched neighbor and distance counts in partition "
+                                + partitions.get(partitionIndex).neighborsPath);
+                        }
+
+                        for (int i = 0; i < neighborIndices.length; i++) {
+                            combined.add(new NeighborIndex(neighborIndices[i], distanceValues[i]));
+                        }
+                    }
+
+                    Collections.sort(combined);
+                    int resultSize = Math.min(effectiveK, combined.size());
+                    int[] finalIndices = new int[resultSize];
+                    float[] finalDistances = new float[resultSize];
+
+                    for (int i = 0; i < resultSize; i++) {
+                        NeighborIndex neighbor = combined.get(i);
+                        finalIndices[i] = (int) neighbor.index();
+                        finalDistances[i] = (float) neighbor.distance();
+                    }
+
+                    finalNeighborsStore.write(finalIndices);
+                    finalDistancesStore.write(finalDistances);
+                }
+            }
+        } finally {
+            for (BoundedVectorFileStream<int[]> stream : neighborStreams) {
+                try {
+                    stream.close();
+                } catch (Exception e) {
+                    logger.warn("Error closing intermediate neighbors stream {}: {}", stream.getName(), e.getMessage());
+                }
+            }
+            for (BoundedVectorFileStream<float[]> stream : distanceStreams) {
+                try {
+                    stream.close();
+                } catch (Exception e) {
+                    logger.warn("Error closing intermediate distances stream {}: {}", stream.getName(), e.getMessage());
+                }
+            }
+        }
+    }
+
+    private Path buildIntermediatePath(Path baseOutputPath, int startIndex, int endIndex, String suffix, String extension) {
+        String baseName = removeLastExtension(baseOutputPath.getFileName().toString());
+        String fileName = String.format("%s.part_%06d_%06d.%s.%s", baseName, startIndex, endIndex, suffix, extension);
+        Path parent = baseOutputPath.getParent();
+        return parent != null ? parent.resolve(fileName) : Paths.get(fileName);
+    }
+
+    private Path deriveDistancesPath(Path neighborsPath) {
+        String baseName = removeLastExtension(neighborsPath.getFileName().toString());
+        String fileName = baseName + ".distances.fvec";
+        Path parent = neighborsPath.getParent();
+        return parent != null ? parent.resolve(fileName) : Paths.get(fileName);
+    }
+
+    private String removeLastExtension(String filename) {
+        int idx = filename.lastIndexOf('.');
+        return idx >= 0 ? filename.substring(0, idx) : filename;
+    }
+
+    private static class PartitionMetadata {
+        final Path neighborsPath;
+        final Path distancesPath;
+        final int startIndex;
+        final int endIndex;
+        final int queryCount;
+        final int partitionK;
+
+        PartitionMetadata(Path neighborsPath, Path distancesPath, int startIndex, int endIndex, int queryCount, int partitionK) {
+            this.neighborsPath = neighborsPath;
+            this.distancesPath = distancesPath;
+            this.startIndex = startIndex;
+            this.endIndex = endIndex;
+            this.queryCount = queryCount;
+            this.partitionK = partitionK;
         }
     }
 
@@ -241,7 +465,6 @@ public class CMD_compute_knn implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
-        // Validate the paths
         try {
             validatePaths();
         } catch (CommandLine.ParameterException e) {
@@ -249,78 +472,104 @@ public class CMD_compute_knn implements Callable<Integer> {
             return EXIT_ERROR;
         }
 
-        // Check if output file exists and handle force option
-        if (Files.exists(outputPath) && !force) {
-            System.err.println("Error: Output file already exists. Use --force to overwrite.");
-            return EXIT_FILE_EXISTS;
+        if (k <= 0) {
+            System.err.println("Error: Number of neighbors (k) must be positive");
+            return EXIT_ERROR;
+        }
+
+        Path neighborsOutput = outputPath;
+        Path distancesOutput = deriveDistancesPath(neighborsOutput);
+
+        if (!force) {
+            if (Files.exists(neighborsOutput)) {
+                System.err.println("Error: Output neighbors file already exists. Use --force to overwrite.");
+                return EXIT_FILE_EXISTS;
+            }
+            if (Files.exists(distancesOutput)) {
+                System.err.println("Error: Output distances file already exists. Use --force to overwrite.");
+                return EXIT_FILE_EXISTS;
+            }
         }
 
         try {
-            // Create parent directories if they don't exist and there is a parent path
-            Path parent = outputPath.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
+            if (neighborsOutput.getParent() != null) {
+                Files.createDirectories(neighborsOutput.getParent());
+            }
+            if (distancesOutput.getParent() != null) {
+                Files.createDirectories(distancesOutput.getParent());
             }
 
-            // Validate k
-            if (k <= 0) {
-                System.err.println("Error: Number of neighbors (k) must be positive");
-                return EXIT_ERROR;
-            }
-
-            // Load base vectors
-            List<float[]> baseVectors = new ArrayList<>();
-            BoundedVectorFileStream<float[]> baseStream = VectorFileIO.streamIn(FileType.xvec, float[].class, baseVectorsPath)
-                .orElseThrow(() -> new RuntimeException("Could not open base vectors file: " + baseVectorsPath));
-
-            for (float[] vector : baseStream) {
-                baseVectors.add(vector);
-            }
-
-            System.out.println("Loaded " + baseVectors.size() + " base vectors");
-
-            if (baseVectors.isEmpty()) {
-                System.err.println("Error: No base vectors found in file");
-                return EXIT_ERROR;
-            }
-
-            // Prepare output file for ground truth (int[] arrays for each query)
-            try (VectorFileStreamStore<int[]> outputStore = VectorFileIO.streamOut(FileType.xvec, int[].class, outputPath)
-                .orElseThrow(() -> new RuntimeException("Could not create output file: " + outputPath))) {
-
-                // Process query vectors and find k nearest neighbors for each
-                int queryCount = 0;
-                BoundedVectorFileStream<float[]> queryStream = VectorFileIO.streamIn(FileType.xvec, float[].class, queryVectorsPath)
-                    .orElseThrow(() -> new RuntimeException("Could not open query vectors file: " + queryVectorsPath));
-
-                for (float[] queryVector : queryStream) {
-                    // Find k nearest neighbors
-                    int[] neighbors = findKNearestNeighbors(queryVector, baseVectors, k);
-
-                    // Write to output file
-                    outputStore.write(neighbors);
-
-                    queryCount++;
-
-                    // Print progress every 100 queries
-                    if (queryCount % 100 == 0) {
-                        System.out.println("Processed " + queryCount + " query vectors");
-                    }
+            try (VectorFileArray<float[]> baseReader = VectorFileIO.randomAccess(FileType.xvec, float[].class, baseVectorsPath)) {
+                int baseCount = baseReader.getSize();
+                if (baseCount <= 0) {
+                    System.err.println("Error: No base vectors found in file");
+                    return EXIT_ERROR;
                 }
 
-                System.out.println("Successfully computed KNN ground truth for " + queryCount + " query vectors");
-                System.out.println("Base vectors: " + baseVectors.size() + ", k: " + k + ", distance metric: " + distanceMetric);
-                System.out.println("Output file: " + outputPath);
-            }
+                int baseDimension = baseReader.get(0).length;
+                if (baseDimension <= 0) {
+                    System.err.println("Error: Base vectors have zero dimension");
+                    return EXIT_ERROR;
+                }
 
-            return EXIT_SUCCESS;
+                int effectiveK = Math.min(k, baseCount);
+                int batchSize = Math.max(1, determineBatchSize(baseCount, baseDimension));
+                int partitionCount = (int) Math.ceil((double) baseCount / batchSize);
+
+                logger.info("compute knn: baseCount={}, baseDimension={}, effectiveK={}, batchSize={}, partitions={}",
+                    baseCount, baseDimension, effectiveK, batchSize, partitionCount);
+
+                List<PartitionMetadata> partitions = new ArrayList<>();
+                int expectedQueryCount = -1;
+                int partitionIndex = 0;
+
+                for (int start = 0; start < baseCount; start += batchSize) {
+                    int end = Math.min(baseCount, start + batchSize);
+                    Path intermediateNeighbors = buildIntermediatePath(neighborsOutput, start, end, "neighbors", "ivec");
+                    Path intermediateDistances = buildIntermediatePath(neighborsOutput, start, end, "distances", "fvec");
+
+                    PartitionMetadata metadata = computePartition(
+                        baseReader,
+                        partitionIndex,
+                        start,
+                        end,
+                        baseDimension,
+                        intermediateNeighbors,
+                        intermediateDistances,
+                        effectiveK
+                    );
+
+                    if (expectedQueryCount < 0) {
+                        expectedQueryCount = metadata.queryCount;
+                    } else if (metadata.queryCount != expectedQueryCount) {
+                        throw new IllegalStateException("Mismatch in query counts across partitions: expected "
+                            + expectedQueryCount + " but partition " + partitionIndex + " produced " + metadata.queryCount);
+                    }
+
+                    partitions.add(metadata);
+                    partitionIndex++;
+                }
+
+                if (expectedQueryCount < 0) {
+                    System.err.println("Error: No query vectors found in file");
+                    return EXIT_ERROR;
+                }
+
+                mergePartitions(partitions, neighborsOutput, distancesOutput, effectiveK, expectedQueryCount);
+
+                System.out.println("Successfully computed KNN ground truth for " + expectedQueryCount + " query vectors");
+                System.out.println("Base vectors: " + baseCount + ", k: " + effectiveK + ", distance metric: " + distanceMetric);
+                System.out.println("Neighbors file: " + neighborsOutput);
+                System.out.println("Distances file: " + distancesOutput);
+                return EXIT_SUCCESS;
+            }
         } catch (IOException e) {
             System.err.println("Error: I/O problem - " + e.getMessage());
-            e.printStackTrace();
+            logger.error("I/O error during KNN computation", e);
             return EXIT_ERROR;
         } catch (Exception e) {
             System.err.println("Error computing KNN: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Unexpected error during KNN computation", e);
             return EXIT_ERROR;
         }
     }

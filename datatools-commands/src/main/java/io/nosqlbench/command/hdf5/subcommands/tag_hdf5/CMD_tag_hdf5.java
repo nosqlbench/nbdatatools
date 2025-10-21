@@ -50,7 +50,7 @@ public class CMD_tag_hdf5 implements Callable<Integer>, BundledCommand {
       description = "The HDF5 file to modify")
   private Path hdfTarget;
 
-  @CommandLine.Option(names = {"-s", "--set", "--set-attribute"},
+  @CommandLine.Option(names = {"--set", "--set-attribute"},
       description = "The HDF5 attribute to set",
       converter = AttrSetConverter.class)
   private AttrSet[] attrs;

@@ -92,10 +92,6 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
       description = "The index or closed..open range of indices to test")
   private Interval interval;
 
-  @Option(names = {"-h", "--help"}, usageHelp = true, description = "display a help message")
-  private boolean helpRequested = false;
-
-
   @Parameters(description = "The HDF5 file(s) to load")
   private List<Path> hdfpaths;
 

@@ -19,7 +19,9 @@ package io.nosqlbench.command.analyze;
 
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_describe;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_check_endian;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_find;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_select;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_slice;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_verifyknn;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_zeros;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
@@ -40,7 +42,9 @@ import java.util.concurrent.Callable;
         CMD_analyze_verifyknn.class,
         CMD_analyze_describe.class,
         CMD_analyze_select.class,
-        CMD_analyze_check_endian.class
+        CMD_analyze_check_endian.class,
+        CMD_analyze_find.class,
+        CMD_analyze_slice.class
     })
 public class CMD_analyze implements Callable<Integer>, BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_analyze.class);

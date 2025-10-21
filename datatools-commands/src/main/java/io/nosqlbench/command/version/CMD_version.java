@@ -57,7 +57,7 @@ public class CMD_version implements BundledCommand, Callable<Integer> {
 
     private static final Logger logger = LogManager.getLogger(CMD_version.class);
 
-    @CommandLine.Option(names = {"-s", "--short"},
+    @CommandLine.Option(names = {"--short"},
         description = "Display short version only (just version number)")
     private boolean shortVersion = false;
 

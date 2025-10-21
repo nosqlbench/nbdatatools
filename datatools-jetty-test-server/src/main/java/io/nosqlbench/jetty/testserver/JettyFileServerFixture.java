@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,7 +60,41 @@ import java.util.Set;
  * ```
  */
 public class JettyFileServerFixture implements AutoCloseable {
-    private static final Logger logger = LogManager.getLogger(JettyFileServerFixture.class);
+    static {
+        ensureHostnameResolution();
+        if (System.getProperty("log4j2.hostname") == null) {
+            System.setProperty("log4j2.hostname", "localhost");
+        }
+        if (System.getProperty("LOG4J_HOSTNAME") == null) {
+            System.setProperty("LOG4J_HOSTNAME", "localhost");
+        }
+        if (System.getProperty("log4j2.StatusLogger.level") == null) {
+            System.setProperty("log4j2.StatusLogger.level", "FATAL");
+        }
+    }
+
+    private static Logger logger() {
+        return LazyLoggerHolder.LOGGER;
+    }
+
+    private static class LazyLoggerHolder {
+        private static final Logger LOGGER = LogManager.getLogger(JettyFileServerFixture.class);
+    }
+
+    private static void ensureHostnameResolution() {
+        if (System.getProperty("jdk.net.hosts.file") != null) {
+            return;
+        }
+        try {
+            Path hostsFile = Files.createTempFile("nbtest-hosts", ".cfg");
+            String content = "127.0.0.1 localhost\n127.0.0.1 testdata\n";
+            Files.writeString(hostsFile, content, StandardCharsets.UTF_8);
+            hostsFile.toFile().deleteOnExit();
+            System.setProperty("jdk.net.hosts.file", hostsFile.toString());
+        } catch (IOException ignored) {
+            // can't log yet
+        }
+    }
 
     private Server server;
     private int port;
@@ -80,7 +115,7 @@ public class JettyFileServerFixture implements AutoCloseable {
      * @param resourcesRoot The root directory containing the resources to serve
      */
     public JettyFileServerFixture(Path resourcesRoot) {
-        logger.debug("resourcesRoot: {}", resourcesRoot);
+        logger().debug("resourcesRoot: {}", resourcesRoot);
         this.resourcesRoot = resourcesRoot;
 
         // Ensure the resources directory exists
@@ -118,7 +153,7 @@ public class JettyFileServerFixture implements AutoCloseable {
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                     // Skip the temp directory and its subdirectories
                     if (isInTempDirectory(dir)) {
-                        logger.debug("Skipping temp directory: {}", dir);
+                        logger().debug("Skipping temp directory: {}", dir);
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     return FileVisitResult.CONTINUE;
@@ -128,7 +163,7 @@ public class JettyFileServerFixture implements AutoCloseable {
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     // Skip files in the temp directory
                     if (isInTempDirectory(file)) {
-                        logger.debug("Skipping file in temp directory: {}", file);
+                        logger().debug("Skipping file in temp directory: {}", file);
                         return FileVisitResult.CONTINUE;
                     }
 
@@ -136,9 +171,9 @@ public class JettyFileServerFixture implements AutoCloseable {
                     return FileVisitResult.CONTINUE;
                 }
             });
-            logger.debug("Took timestamp snapshot of {} files in {} (excluding temp directory)", fileTimestamps.size(), directory);
+            logger().debug("Took timestamp snapshot of {} files in {} (excluding temp directory)", fileTimestamps.size(), directory);
         } catch (IOException e) {
-            logger.warn("Failed to take file timestamp snapshot: {}", e.getMessage());
+            logger().warn("Failed to take file timestamp snapshot: {}", e.getMessage());
         }
     }
 
@@ -185,7 +220,7 @@ public class JettyFileServerFixture implements AutoCloseable {
         try {
             // Start the server
             server.start();
-            logger.info("Jetty test web server started on port {} serving files from {}", port, resourcesRoot);
+            logger().info("Jetty test web server started on port {} serving files from {}", port, resourcesRoot);
         } catch (Exception e) {
             throw new IOException("Failed to start Jetty server", e);
         }
@@ -222,9 +257,9 @@ public class JettyFileServerFixture implements AutoCloseable {
         if (server != null) {
             try {
                 server.stop();
-                logger.info("Jetty test web server stopped");
+                logger().info("Jetty test web server stopped");
             } catch (Exception e) {
-                logger.error("Error stopping Jetty server", e);
+                logger().error("Error stopping Jetty server", e);
             }
         }
 
@@ -293,7 +328,7 @@ public class JettyFileServerFixture implements AutoCloseable {
             }
 
         } catch (IOException e) {
-            logger.warn("Failed to check for modified files: {}", e.getMessage());
+            logger().warn("Failed to check for modified files: {}", e.getMessage());
         }
     }
 
