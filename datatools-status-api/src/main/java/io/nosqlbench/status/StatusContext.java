@@ -22,6 +22,7 @@ import io.nosqlbench.status.eventing.StatusSource;
 import io.nosqlbench.status.eventing.StatusUpdate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.status.StatusLogger;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -127,7 +128,18 @@ import java.util.function.Function;
  */
 public final class StatusContext implements AutoCloseable, StatusSink {
 
-    private static final Logger logger = LogManager.getLogger(StatusContext.class);
+    private static final Logger logger;
+
+    static {
+        Logger tempLogger;
+        try {
+            tempLogger = LogManager.getLogger(StatusContext.class);
+        } catch (Throwable t) {
+            tempLogger = StatusLogger.getLogger();
+            tempLogger.warn("Falling back to StatusLogger due to logger initialization failure: {}", t.toString());
+        }
+        logger = tempLogger;
+    }
 
     private final String name;
     private final Duration defaultPollInterval;
@@ -515,6 +527,7 @@ public final class StatusContext implements AutoCloseable, StatusSink {
         lastDeliveredStatus.put(task, status);
         if (status != null && isTerminal(status) && finishedTrackers.add(task)) {
             taskFinished(task);
+            monitor.unregister(task);
         }
     }
 

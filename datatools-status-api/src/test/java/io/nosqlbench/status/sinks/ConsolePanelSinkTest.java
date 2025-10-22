@@ -22,8 +22,12 @@ import io.nosqlbench.status.eventing.RunState;
 import io.nosqlbench.status.eventing.StatusSource;
 import io.nosqlbench.status.eventing.StatusUpdate;
 import io.nosqlbench.status.sinks.ConsolePanelSink;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -59,11 +63,20 @@ class ConsolePanelSinkTest {
 
     @Test
     void panelReceivesLifecycleEvents() throws InterruptedException {
+        Terminal testTerminal;
+        try {
+            testTerminal = new DumbTerminal(new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream());
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to create test terminal", e);
+        }
+
         ConsolePanelSink sink = ConsolePanelSink.builder()
                 .withRefreshRateMs(50)
                 .withCompletedTaskRetention(1, TimeUnit.SECONDS)
                 .withCaptureSystemStreams(false)
                 .withColorOutput(false)
+                .withTerminal(testTerminal)
+                .withQuietMode(true)
                 .build();
 
         try (StatusContext context = new StatusContext("panel", Duration.ofMillis(20), List.of(sink))) {

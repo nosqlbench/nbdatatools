@@ -150,6 +150,8 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
     private final AtomicBoolean closed;
     private final AtomicBoolean shouldRender;
     private final AtomicBoolean introComplete; // Flag to prevent rendering during intro
+    private final boolean quietMode;
+    private final boolean usingCustomTerminal;
 
     // Custom keyboard handlers
     private final Map<String, Runnable> customKeyHandlers;
@@ -216,13 +218,20 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
     private static final DateTimeFormatter SCREENSHOT_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private ConsolePanelSink(Builder builder) {
+        this.quietMode = builder.quietMode;
+        this.usingCustomTerminal = builder.terminalOverride != null;
+
         try {
-            this.terminal = TerminalBuilder.builder()
-                    .system(true)
-                    .jansi(true)
-                    .jna(true)  // Enable JNA for better terminal support
-                    .color(builder.useColors)  // Explicitly set color support
-                    .build();
+            if (usingCustomTerminal) {
+                this.terminal = builder.terminalOverride;
+            } else {
+                this.terminal = TerminalBuilder.builder()
+                        .system(true)
+                        .jansi(true)
+                        .jna(true)  // Enable JNA for better terminal support
+                        .color(builder.useColors)  // Explicitly set color support
+                        .build();
+            }
 
             // Enter raw mode to capture single keystrokes without waiting for Enter
             terminal.enterRawMode();
@@ -2256,38 +2265,42 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
         } catch (Exception e) {
             logger.error("Error during terminal cleanup", e);
             // Force terminal restoration even if normal cleanup failed
-            try {
-                System.out.print("\033[0m");      // Reset colors
-                System.out.print("\033[?25h");    // Show cursor
-                System.out.flush();
-            } catch (Exception ignored) {}
+            if (!quietMode) {
+                try {
+                    System.out.print("\033[0m");      // Reset colors
+                    System.out.print("\033[?25h");    // Show cursor
+                    System.out.flush();
+                } catch (Exception ignored) {}
+            }
         } finally {
             // Always restore original streams, even if terminal cleanup fails
             System.setOut(originalOut);
             System.setErr(originalErr);
 
             // Force terminal reset using direct ANSI codes to stdout
-            try {
-                originalOut.print("\033[0m");       // Reset all attributes
-                originalOut.print("\033[?25h");     // Show cursor
-                originalOut.print("\033[?1049l");   // Exit alternate screen
-                originalOut.print("\033c");         // Reset terminal (RIS)
-                originalOut.flush();
-            } catch (Exception ignored) {}
+            if (!quietMode) {
+                try {
+                    originalOut.print("\033[0m");       // Reset all attributes
+                    originalOut.print("\033[?25h");     // Show cursor
+                    originalOut.print("\033[?1049l");   // Exit alternate screen
+                    originalOut.print("\033c");         // Reset terminal (RIS)
+                    originalOut.flush();
+                } catch (Exception ignored) {}
 
-            // Print a newline to ensure clean prompt
-            originalOut.println();
+                // Print a newline to ensure clean prompt
+                originalOut.println();
 
-            // Dump the log buffer to stdout for user context
-            if (!logsSnapshot.isEmpty()) {
-                originalOut.println("=== Console Log History ===");
-                for (String log : logsSnapshot) {
-                    originalOut.println(log);
+                // Dump the log buffer to stdout for user context
+                if (!logsSnapshot.isEmpty()) {
+                    originalOut.println("=== Console Log History ===");
+                    for (String log : logsSnapshot) {
+                        originalOut.println(log);
+                    }
+                    originalOut.println("=== End Console Log History ===");
                 }
-                originalOut.println("=== End Console Log History ===");
-            }
 
-            originalOut.flush();
+                originalOut.flush();
+            }
         }
     }
 
@@ -2631,6 +2644,8 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
         private boolean captureSystemStreams = false;
         private boolean autoExit = false; // Default to false - user must enable
         private Map<String, Runnable> customKeyHandlers = new HashMap<>();
+        private Terminal terminalOverride;
+        private boolean quietMode = false;
 
         public Builder withRefreshRate(long duration, TimeUnit unit) {
             this.refreshRateMs = unit.toMillis(duration);
@@ -2654,6 +2669,30 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
 
         public Builder withCaptureSystemStreams(boolean capture) {
             this.captureSystemStreams = capture;
+            return this;
+        }
+
+        /**
+         * Provides a custom {@link Terminal} instance for rendering instead of using the system terminal.
+         * Useful for testing or headless environments where direct terminal control is undesirable.
+         *
+         * @param terminal custom terminal instance to use
+         * @return this builder
+         */
+        public Builder withTerminal(Terminal terminal) {
+            this.terminalOverride = terminal;
+            return this;
+        }
+
+        /**
+         * Enables a quiet mode that suppresses direct writes to the original System.out stream during cleanup.
+         * Intended for automated test environments where terminal escape sequences may interfere with output capture.
+         *
+         * @param quiet true to suppress cleanup output, false otherwise
+         * @return this builder
+         */
+        public Builder withQuietMode(boolean quiet) {
+            this.quietMode = quiet;
             return this;
         }
 
