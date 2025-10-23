@@ -28,6 +28,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -160,7 +161,7 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * @param name the name of this context for identification purposes
      */
     public StatusContext(String name) {
-        this(name, Duration.ofMillis(100), List.of());
+        this(name, Duration.ofMillis(100), List.of(), Optional.empty());
     }
 
     /**
@@ -170,7 +171,7 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * @param defaultPollInterval the default interval between status observations
      */
     public StatusContext(String name, Duration defaultPollInterval) {
-        this(name, defaultPollInterval, List.of());
+        this(name, defaultPollInterval, List.of(), Optional.empty());
     }
 
     /**
@@ -181,7 +182,40 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * @param sinks initial collection of sinks to register
      */
     public StatusContext(String name, List<StatusSink> sinks) {
-        this(name, Duration.ofMillis(100), sinks);
+        this(name, Duration.ofMillis(100), sinks, Optional.empty());
+    }
+
+    /**
+     * Creates a new context with the specified name and explicit console progress mode.
+     * If the mode is provided, it takes precedence over the auto-attach behavior.
+     *
+     * @param name the name of this context for identification purposes
+     * @param progressMode optional explicit console progress mode
+     */
+    public StatusContext(String name, Optional<ConsoleProgressMode> progressMode) {
+        this(name, Duration.ofMillis(100), List.of(), progressMode);
+    }
+
+    /**
+     * Creates a new context with the specified name, poll interval, and explicit console progress mode.
+     *
+     * @param name the name of this context for identification purposes
+     * @param defaultPollInterval the default interval between status observations
+     * @param progressMode optional explicit console progress mode
+     */
+    public StatusContext(String name, Duration defaultPollInterval, Optional<ConsoleProgressMode> progressMode) {
+        this(name, defaultPollInterval, List.of(), progressMode);
+    }
+
+    /**
+     * Creates a new context with the specified name, sinks, and explicit console progress mode.
+     *
+     * @param name the name of this context for identification purposes
+     * @param sinks initial collection of sinks to register
+     * @param progressMode optional explicit console progress mode
+     */
+    public StatusContext(String name, List<StatusSink> sinks, Optional<ConsoleProgressMode> progressMode) {
+        this(name, Duration.ofMillis(100), sinks, progressMode);
     }
 
     /**
@@ -192,6 +226,19 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * @param sinks initial collection of sinks to register
      */
     public StatusContext(String name, Duration defaultPollInterval, List<StatusSink> sinks) {
+        this(name, defaultPollInterval, sinks, Optional.empty());
+    }
+
+    /**
+     * Creates a new context with full configuration including optional explicit console progress mode.
+     *
+     * @param name the name of this context for identification purposes
+     * @param defaultPollInterval the default interval between status observations (minimum 100ms enforced)
+     * @param sinks initial collection of sinks to register
+     * @param progressMode optional explicit console progress mode that takes precedence over auto-attach
+     */
+    public StatusContext(String name, Duration defaultPollInterval, List<StatusSink> sinks,
+                         Optional<ConsoleProgressMode> progressMode) {
         this.name = Objects.requireNonNull(name, "name");
 
         Duration requestedInterval = Objects.requireNonNullElse(defaultPollInterval, Duration.ofMillis(100));
@@ -208,10 +255,102 @@ public final class StatusContext implements AutoCloseable, StatusSink {
             this.defaultPollInterval = requestedInterval;
         }
 
-        this.sinks = new CopyOnWriteArrayList<>(Objects.requireNonNullElse(sinks, List.of()));
+        // Auto-attach sink if no explicit sinks provided
+        List<StatusSink> effectiveSinks = Objects.requireNonNullElse(sinks, List.of());
+        if (effectiveSinks.isEmpty()) {
+            StatusSink autoSink = autoAttachSink(progressMode);
+            if (autoSink != null) {
+                effectiveSinks = List.of(autoSink);
+            }
+        }
+
+        this.sinks = new CopyOnWriteArrayList<>(effectiveSinks);
         this.activeTrackers = new CopyOnWriteArrayList<>();
         this.activeScopes = new CopyOnWriteArrayList<>();
         this.monitor = new StatusMonitor(this);
+    }
+
+    /**
+     * Automatically attaches an appropriate sink based on explicit {@link ConsoleProgressMode}
+     * or system property "nb.status.sink". This method is called during StatusContext construction
+     * to determine which sink should be used for status output.
+     *
+     * <p><strong>Priority Order:</strong></p>
+     * <ol>
+     *   <li>If {@code progressMode} is present, it takes precedence over all other configuration</li>
+     *   <li>Otherwise, the system property "nb.status.sink" is consulted</li>
+     *   <li>If neither is set, auto-detection based on console availability is used</li>
+     * </ol>
+     *
+     * <p>The system property "nb.status.sink" or explicit mode controls the behavior:
+     * <ul>
+     *   <li><strong>"off"</strong> - No sink is attached (status tracking disabled)</li>
+     *   <li><strong>"log"</strong> - Uses ConsoleLoggerSink (SLF4J logging output)</li>
+     *   <li><strong>"panel" or "console"</strong> - Uses ConsoleLoggerSink (TODO: will use ConsolePanelSink)</li>
+     *   <li><strong>"auto" or "default"</strong> or not set - Auto-detects based on System.console() availability</li>
+     *   <li>Any other value - Logs a warning and falls back to "default" behavior</li>
+     * </ul>
+     *
+     * <p>Default behavior when neither explicit mode nor property is set:
+     * <ul>
+     *   <li>If System.console() is available: ConsoleLoggerSink (future: ConsolePanelSink)</li>
+     *   <li>If running headless (no console): ConsoleLoggerSink</li>
+     * </ul>
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * // Explicit mode takes precedence
+     * StatusContext ctx = new StatusContext("example", Optional.of(ConsoleProgressMode.OFF));
+     *
+     * // Or via system property
+     * System.setProperty("nb.status.sink", "off");
+     * StatusContext ctx = new StatusContext("example");
+     *
+     * // Force logging output
+     * System.setProperty("nb.status.sink", "log");
+     * }</pre>
+     *
+     * @param progressMode optional explicit console progress mode that takes precedence
+     * @return the StatusSink to use for this context, or null if "off" mode is specified
+     */
+    private StatusSink autoAttachSink(Optional<ConsoleProgressMode> progressMode) {
+        // If explicit mode is provided, use it with highest priority
+        ConsoleProgressMode effectiveMode;
+        if (progressMode != null && progressMode.isPresent()) {
+            effectiveMode = progressMode.get();
+        } else {
+            // Fall back to system property or default
+            String modeProp = System.getProperty("nb.status.sink", "default");
+            try {
+                effectiveMode = ConsoleProgressMode.fromString(modeProp);
+                if (effectiveMode == null) {
+                    effectiveMode = ConsoleProgressMode.AUTO;
+                }
+            } catch (IllegalArgumentException e) {
+                logger.warn("Invalid status sink mode '{}', falling back to auto", modeProp);
+                effectiveMode = ConsoleProgressMode.AUTO;
+            }
+        }
+
+        // Apply the effective mode
+        switch (effectiveMode) {
+            case OFF:
+                return null;
+            case LOG:
+                return new io.nosqlbench.status.sinks.ConsoleLoggerSink();
+            case PANEL:
+                // TODO: Implement ConsolePanelSink when available
+                return new io.nosqlbench.status.sinks.ConsoleLoggerSink();
+            case AUTO:
+            default:
+                // Auto mode: use console if available, otherwise log
+                if (System.console() != null) {
+                    // TODO: Implement ConsolePanelSink when available
+                    return new io.nosqlbench.status.sinks.ConsoleLoggerSink();
+                } else {
+                    return new io.nosqlbench.status.sinks.ConsoleLoggerSink();
+                }
+        }
     }
 
     /**

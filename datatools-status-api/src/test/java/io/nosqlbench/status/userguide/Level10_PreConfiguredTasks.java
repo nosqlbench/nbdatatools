@@ -94,29 +94,70 @@ import java.util.List;
 public class Level10_PreConfiguredTasks {
 
     /**
-     * Helper class to pair tasks with their trackers for deferred execution
+     * Helper class to pair tasks with their trackers for deferred execution.
+     * Encapsulates a task, its StatusTracker, and the execution logic to allow
+     * configuration phase (task registration) to be separated from execution phase.
+     *
+     * @param <T> the type of the task being tracked, must implement StatusSource
      */
     private static class TaskExecution<T> implements AutoCloseable {
         final T task;
         final StatusTracker<T> tracker;
         final Runnable executor;
 
+        /**
+         * Creates a TaskExecution wrapper for deferred execution.
+         *
+         * @param task the task to be executed
+         * @param tracker the StatusTracker monitoring this task
+         * @param executor the Runnable that performs the actual task execution
+         */
         TaskExecution(T task, StatusTracker<T> tracker, Runnable executor) {
             this.task = task;
             this.tracker = tracker;
             this.executor = executor;
         }
 
+        /**
+         * Executes the task by running the configured executor.
+         * Task state transitions from PENDING to RUNNING to SUCCESS/FAILED during execution.
+         */
         void execute() {
             executor.run();
         }
 
+        /**
+         * Closes the StatusTracker, marking the task as complete.
+         * Should be called after execute() completes to properly clean up tracking resources.
+         */
         @Override
         public void close() {
             tracker.close();
         }
     }
 
+    /**
+     * Demonstrates the pre-configured tasks pattern where all tasks are registered upfront
+     * before any execution begins. This provides complete visibility into the workflow plan.
+     *
+     * <p>This example shows how to:
+     * <ul>
+     *   <li>Create all tasks in a configuration phase</li>
+     *   <li>Register tasks with StatusTrackers before execution (visible as PENDING)</li>
+     *   <li>Store task/tracker pairs for deferred execution</li>
+     *   <li>Execute tasks in sequence after configuration is complete</li>
+     * </ul>
+     *
+     * <p>Benefits of this pattern:
+     * <ul>
+     *   <li>Complete workflow visibility before any work starts</li>
+     *   <li>Easy to see total task count and estimate duration</li>
+     *   <li>Clear separation between configuration and execution</li>
+     *   <li>Useful for ETL pipelines and batch processing with known stages</li>
+     * </ul>
+     *
+     * @param args command line arguments (not used)
+     */
     public static void main(String[] args) {
         try (StatusContext ctx10 = new StatusContext("pre-configured-pipeline")) {
             ctx10.addSink(new ConsoleLoggerSink());

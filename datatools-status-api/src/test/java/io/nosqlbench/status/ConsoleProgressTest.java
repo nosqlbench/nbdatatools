@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -78,6 +79,56 @@ class ConsoleProgressTest {
             assertEquals(1, sinks.size(), "invalid mode should still install a fallback sink");
             assertTrue(sinks.get(0) instanceof ConsoleLoggerSink,
                 "headless fallback should use ConsoleLoggerSink");
+        }
+    }
+
+    @Test
+    void explicitProgressModeTakesPrecedenceOverSystemProperty() {
+        System.setProperty(PROP_KEY, "log");
+        try (StatusContext context = new StatusContext("explicit-off", Optional.of(ConsoleProgressMode.OFF))) {
+            assertTrue(context.getSinks().isEmpty(),
+                "explicit OFF mode should override system property 'log'");
+        }
+    }
+
+    @Test
+    void explicitLogModeInstallsConsoleLoggerSink() {
+        try (StatusContext context = new StatusContext("explicit-log", Optional.of(ConsoleProgressMode.LOG))) {
+            List<StatusSink> sinks = context.getSinks();
+            assertEquals(1, sinks.size(), "explicit LOG mode should install exactly one sink");
+            assertTrue(sinks.get(0) instanceof ConsoleLoggerSink,
+                "explicit LOG mode should install ConsoleLoggerSink");
+        }
+    }
+
+    @Test
+    void explicitOffModeInstallsNoSinks() {
+        try (StatusContext context = new StatusContext("explicit-off", Optional.of(ConsoleProgressMode.OFF))) {
+            assertTrue(context.getSinks().isEmpty(),
+                "explicit OFF mode should leave context without sinks");
+        }
+    }
+
+    @Test
+    void explicitAutoModeWithNoConsoleInstallsLogger() {
+        Assumptions.assumeTrue(System.console() == null,
+            "test requires headless environment");
+        try (StatusContext context = new StatusContext("explicit-auto", Optional.of(ConsoleProgressMode.AUTO))) {
+            List<StatusSink> sinks = context.getSinks();
+            assertEquals(1, sinks.size(), "explicit AUTO mode should install exactly one sink");
+            assertTrue(sinks.get(0) instanceof ConsoleLoggerSink,
+                "explicit AUTO mode in headless env should install ConsoleLoggerSink");
+        }
+    }
+
+    @Test
+    void emptyOptionalUsesSystemProperty() {
+        System.setProperty(PROP_KEY, "log");
+        try (StatusContext context = new StatusContext("empty-optional", Optional.empty())) {
+            List<StatusSink> sinks = context.getSinks();
+            assertEquals(1, sinks.size(), "empty Optional should fall back to system property");
+            assertTrue(sinks.get(0) instanceof ConsoleLoggerSink,
+                "system property 'log' should install ConsoleLoggerSink");
         }
     }
 }

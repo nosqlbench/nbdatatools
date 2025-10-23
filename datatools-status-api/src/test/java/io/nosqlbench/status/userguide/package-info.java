@@ -37,6 +37,12 @@
  *       Adjust polling frequency</li>
  *   <li>{@link io.nosqlbench.status.userguide.Level7_ParallelExecution} -
  *       Track parallel execution with AtomicLong</li>
+ *   <li>{@link io.nosqlbench.status.userguide.Level8_ParallelClosures} -
+ *       Track many lightweight closures with a single parent task</li>
+ *   <li>{@link io.nosqlbench.status.userguide.Level9_ExplicitProgressCounter} -
+ *       Inline progress counter pattern for one-off batch operations</li>
+ *   <li>{@link io.nosqlbench.status.userguide.Level10_PreConfiguredTasks} -
+ *       Pre-configure all tasks before execution for complete workflow visibility</li>
  * </ul>
  *
  * <h2>Supporting Classes:</h2>
@@ -49,6 +55,8 @@
  *       Example processing task</li>
  *   <li>{@link io.nosqlbench.status.userguide.fauxtasks.ParallelDataLoader} -
  *       Example task using AtomicLong for parallel execution</li>
+ *   <li>{@link io.nosqlbench.status.userguide.fauxtasks.ClosureBasedProcessor} -
+ *       Example parent task that tracks many lightweight closures</li>
  * </ul>
  *
  * @see io.nosqlbench.status.StatusTracker

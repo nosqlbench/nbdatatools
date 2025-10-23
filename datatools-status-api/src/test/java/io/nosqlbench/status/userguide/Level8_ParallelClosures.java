@@ -105,6 +105,21 @@ import java.util.concurrent.Future;
  */
 public class Level8_ParallelClosures {
 
+    /**
+     * Demonstrates tracking many lightweight closures using a single parent StatusSource.
+     * Creates 100 closures that execute in parallel, with a parent task tracking aggregate progress.
+     *
+     * <p>This example shows how to:
+     * <ul>
+     *   <li>Create a single parent task that implements StatusSource</li>
+     *   <li>Submit many lightweight closures to an executor</li>
+     *   <li>Have closures update the parent's progress counter</li>
+     *   <li>Wait for all closures to complete using Futures</li>
+     * </ul>
+     *
+     * @param args command line arguments (not used)
+     * @throws Exception if thread execution or waiting fails
+     */
     public static void main(String[] args) throws Exception {
         ExecutorService executor8 = Executors.newFixedThreadPool(10);
         try (StatusContext ctx8 = new StatusContext("closure-processing")) {

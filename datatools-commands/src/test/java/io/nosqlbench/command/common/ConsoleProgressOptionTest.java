@@ -1,5 +1,3 @@
-package io.nosqlbench.command.common;
-
 /*
  * Copyright (c) nosqlbench
  *
@@ -17,6 +15,9 @@ package io.nosqlbench.command.common;
  * under the License.
  */
 
+package io.nosqlbench.command.common;
+
+import io.nosqlbench.status.ConsoleProgressMode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
@@ -53,7 +54,7 @@ class ConsoleProgressOptionTest {
         DummyCommand command = new DummyCommand();
         new CommandLine(command).parseArgs("--status", "logger");
 
-        assertEquals(ConsoleProgressOption.StatusSelection.LOG, command.option.getStatusSelection());
+        assertEquals(ConsoleProgressMode.LOG, command.option.getProgressMode());
 
         try (ConsoleProgressOption.Scope scope = command.option.scopedProperty()) {
             assertEquals("log", System.getProperty(PROP_KEY));
@@ -83,11 +84,11 @@ class ConsoleProgressOptionTest {
     }
 
     @Test
-    void applyStatusSelectionSetsPropertyWithoutScope() {
+    void applyProgressModeSetsPropertyWithoutScope() {
         DummyCommand command = new DummyCommand();
         new CommandLine(command).parseArgs("--status", "panel");
 
-        command.option.applyStatusSelection();
+        command.option.applyProgressMode();
         assertEquals("panel", System.getProperty(PROP_KEY));
     }
 

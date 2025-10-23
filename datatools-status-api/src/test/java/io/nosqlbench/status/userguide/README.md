@@ -1404,6 +1404,103 @@ try (StatusContext context = new StatusContext("legacy-operation");
 
 ---
 
+## Automatic Sink Attachment
+
+When you create a `StatusContext` without explicitly providing sinks, the API automatically attaches an appropriate sink based on the environment. This behavior can be controlled via the `nb.status.sink` system property.
+
+### Default Behavior (No System Property Set)
+
+If you don't set any property, the system auto-detects the best sink:
+
+```java
+// No sinks provided - auto-attach happens
+try (StatusContext context = new StatusContext("my-operation")) {
+    // Automatically gets ConsoleLoggerSink
+    // (Future: will use ConsolePanelSink when console is available)
+
+    try (StatusTracker<Task> tracker = context.track(new Task())) {
+        tracker.getTracked().execute();
+    }
+}
+```
+
+### Controlling Sink Behavior with System Property
+
+Use the `nb.status.sink` system property to control which sink is automatically attached:
+
+**Available modes:**
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| `off` | No sink attached - silent operation | CI/CD, automated scripts, when output is undesired |
+| `log` | Uses ConsoleLoggerSink (SLF4J logging) | Production environments, when logs are captured |
+| `console` | Uses ConsoleLoggerSink (future: ConsolePanelSink) | Interactive terminals, development |
+| `default` | Auto-detects based on `System.console()` | Let the system choose |
+
+**Setting the property:**
+
+```java
+// At JVM startup
+java -Dnb.status.sink=off MyApplication
+
+// Or programmatically before creating context
+System.setProperty("nb.status.sink", "log");
+try (StatusContext context = new StatusContext("operation")) {
+    // Will use ConsoleLoggerSink
+}
+
+// Disable all output
+System.setProperty("nb.status.sink", "off");
+try (StatusContext context = new StatusContext("silent-operation")) {
+    // No sink attached - completely silent
+}
+```
+
+**Examples:**
+
+```java
+// Example 1: Silent operation for CI/CD
+System.setProperty("nb.status.sink", "off");
+try (StatusContext context = new StatusContext("batch-job")) {
+    // Runs silently, no console output
+    try (StatusTracker<Task> tracker = context.track(task)) {
+        task.execute();
+    }
+}
+
+// Example 2: Force logging even in interactive environment
+System.setProperty("nb.status.sink", "log");
+try (StatusContext context = new StatusContext("logged-operation")) {
+    // Uses ConsoleLoggerSink regardless of console availability
+    try (StatusTracker<Task> tracker = context.track(task)) {
+        task.execute();
+    }
+}
+```
+
+### Explicit Sinks Override Auto-Attachment
+
+If you provide explicit sinks, auto-attachment is skipped:
+
+```java
+// Auto-attachment is bypassed - only your sinks are used
+try (StatusContext context = new StatusContext("operation",
+        List.of(new MetricsStatusSink(), new LoggerStatusSink()))) {
+    // Uses ONLY the sinks you provided (no auto-attachment)
+}
+
+// Or add sinks manually
+try (StatusContext context = new StatusContext("operation")) {
+    context.addSink(new ConsolePanelSink.builder().build());
+    // Auto-attachment was bypassed because we added a sink manually
+    // during context constructor (empty list was passed)
+}
+```
+
+**Important:** Auto-attachment only happens when the StatusContext is created with **no explicit sinks**. Once you provide any sinks (even an empty list explicitly), auto-attachment is skipped.
+
+---
+
 ## Available Sinks
 
 ### ConsoleLoggerSink

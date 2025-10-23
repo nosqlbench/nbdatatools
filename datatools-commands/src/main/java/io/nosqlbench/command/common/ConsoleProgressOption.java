@@ -1,5 +1,3 @@
-package io.nosqlbench.command.common;
-
 /*
  * Copyright (c) nosqlbench
  *
@@ -16,14 +14,16 @@ package io.nosqlbench.command.common;
  * limitations under the License.
  */
 
+package io.nosqlbench.command.common;
+
+import io.nosqlbench.status.ConsoleProgressMode;
 import picocli.CommandLine;
 
-import java.util.Locale;
 import java.util.Objects;
 
 /**
  * Shared {@code --status} CLI option that controls the {@code nb.status.sink} system property
- * understood by {@link io.nosqlbench.status.ConsoleProgress}. Commands using {@link io.nosqlbench.status.StatusContext}
+ * understood by {@link io.nosqlbench.status.StatusContext}. Commands using {@link io.nosqlbench.status.StatusContext}
  * should include this mixin to provide a uniform way to select console output behaviour.
  *
  * <p>The property is applied only when the user specifies {@code --status}. It is restored to its
@@ -40,9 +40,9 @@ public final class ConsoleProgressOption {
             "Console status output mode. Valid values: ${COMPLETION-CANDIDATES}.",
             "Omit to inherit existing configuration or environment."
         },
-        converter = StatusSelectionConverter.class
+        converter = ProgressModeConverter.class
     )
-    private StatusSelection statusSelection;
+    private ConsoleProgressMode progressMode;
 
     /**
      * Applies the requested console status mode, returning a scope that restores the original
@@ -51,11 +51,11 @@ public final class ConsoleProgressOption {
      * @return a scope that should be closed to restore prior configuration
      */
     public Scope scopedProperty() {
-        if (statusSelection == null) {
+        if (progressMode == null) {
             return Scope.noop();
         }
 
-        String desired = statusSelection.propertyValue();
+        String desired = progressMode.getPropertyValue();
         String previous = System.getProperty(PROP_KEY);
         boolean hadPrevious = previous != null;
 
@@ -71,7 +71,7 @@ public final class ConsoleProgressOption {
      * @return {@code true} if the user explicitly selected {@code --status=off}.
      */
     public boolean isExplicitlyOff() {
-        return statusSelection == StatusSelection.OFF;
+        return progressMode == ConsoleProgressMode.OFF;
     }
 
     /**
@@ -79,70 +79,30 @@ public final class ConsoleProgressOption {
      *
      * @return the selected status mode, or {@code null} when not provided
      */
-    public StatusSelection getStatusSelection() {
-        return statusSelection;
+    public ConsoleProgressMode getProgressMode() {
+        return progressMode;
     }
 
     /**
      * Applies the selected status mode without tracking previous values. Useful when callers manage
      * lifecycle elsewhere and only need to honor the user's explicit choice.
      */
-    public void applyStatusSelection() {
-        if (statusSelection != null) {
-            System.setProperty(PROP_KEY, statusSelection.propertyValue());
+    public void applyProgressMode() {
+        if (progressMode != null) {
+            System.setProperty(PROP_KEY, progressMode.getPropertyValue());
         }
     }
 
     /**
-     * Supported console status modes.
+     * Picocli converter that maps user-provided values to {@link ConsoleProgressMode}.
      */
-    public enum StatusSelection {
-        AUTO("auto"),
-        PANEL("panel"),
-        LOG("log"),
-        OFF("off");
-
-        private final String propertyValue;
-
-        StatusSelection(String propertyValue) {
-            this.propertyValue = propertyValue;
-        }
-
-        String propertyValue() {
-            return propertyValue;
-        }
-    }
-
-    /**
-     * Picocli converter that maps user-provided values to {@link StatusSelection}.
-     */
-    public static final class StatusSelectionConverter implements CommandLine.ITypeConverter<StatusSelection> {
+    public static final class ProgressModeConverter implements CommandLine.ITypeConverter<ConsoleProgressMode> {
         @Override
-        public StatusSelection convert(String value) {
-            if (value == null) {
-                return null;
-            }
-            String normalized = value.trim().toLowerCase(Locale.ROOT);
-            switch (normalized) {
-                case "panel":
-                case "tui":
-                    return StatusSelection.PANEL;
-                case "log":
-                case "logger":
-                case "text":
-                    return StatusSelection.LOG;
-                case "off":
-                case "none":
-                case "disable":
-                case "disabled":
-                case "false":
-                    return StatusSelection.OFF;
-                case "auto":
-                case "":
-                    return StatusSelection.AUTO;
-                default:
-                    throw new CommandLine.TypeConversionException(
-                        "Unrecognized status mode '" + value + "'. Expected one of: auto, panel, log, off.");
+        public ConsoleProgressMode convert(String value) {
+            try {
+                return ConsoleProgressMode.fromString(value);
+            } catch (IllegalArgumentException e) {
+                throw new CommandLine.TypeConversionException(e.getMessage());
             }
         }
     }

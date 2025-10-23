@@ -101,6 +101,24 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class Level9_ExplicitProgressCounter {
 
+    /**
+     * Demonstrates the inline progress counter pattern explicitly in the main method.
+     * Creates a StatusSource using an inline class that tracks progress of 100 closures.
+     *
+     * <p>This example shows how to:
+     * <ul>
+     *   <li>Create a shared AtomicLong progress counter visible at the top level</li>
+     *   <li>Define a StatusSource inline using a local class</li>
+     *   <li>Have closures directly increment the shared counter</li>
+     *   <li>Manage state transitions explicitly (RUNNING -> SUCCESS)</li>
+     * </ul>
+     *
+     * <p>This pattern is useful for one-off batch operations where creating a separate
+     * class is not warranted, making the tracking mechanism explicit and easy to understand.
+     *
+     * @param args command line arguments (not used)
+     * @throws Exception if thread execution or waiting fails
+     */
     public static void main(String[] args) throws Exception {
         ExecutorService executor9 = Executors.newFixedThreadPool(10);
         try (StatusContext ctx9 = new StatusContext("explicit-counter-demo")) {
