@@ -43,6 +43,12 @@
  *       Inline progress counter pattern for one-off batch operations</li>
  *   <li>{@link io.nosqlbench.status.userguide.Level10_PreConfiguredTasks} -
  *       Pre-configure all tasks before execution for complete workflow visibility</li>
+ *   <li>{@link io.nosqlbench.status.userguide.Level11_TrackedExecutorBasics} -
+ *       Eliminate manual tracker creation boilerplate with TrackedExecutorService</li>
+ *   <li>{@link io.nosqlbench.status.userguide.Level12_AggregateTracking} -
+ *       Use AGGREGATE mode to efficiently track hundreds or thousands of lightweight tasks</li>
+ *   <li>{@link io.nosqlbench.status.userguide.Level13_MixedTaskTypes} -
+ *       Automatically handle both StatusSource and regular tasks in the same executor</li>
  * </ul>
  *
  * <h2>Supporting Classes:</h2>

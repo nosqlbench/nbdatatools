@@ -315,11 +315,155 @@ try (StatusScope scope7 = ctx7.createScope("Parallel")) {
 
 ---
 
-### Level 8: Nested Scopes (Full Enterprise Pattern)
+### Level 8: Parallel Closures
 
-**Building on Level 7: Deep hierarchical organization for complex pipelines.**
+**Building on Level 7: Track many lightweight closures with a single parent task.**
 
-This is the complete example from the beginning of the guide, now showing how it builds on all previous levels.
+See [Level8_ParallelClosures.java](Level8_ParallelClosures.java) for the complete example.
+
+---
+
+### Level 9: Explicit Progress Counter
+
+**Building on Level 8: Inline progress counter pattern for one-off batch operations.**
+
+See [Level9_ExplicitProgressCounter.java](Level9_ExplicitProgressCounter.java) for the complete example.
+
+---
+
+### Level 10: Pre-Configured Tasks
+
+**Building on Level 9: Pre-configure all tasks before execution for complete workflow visibility.**
+
+See [Level10_PreConfiguredTasks.java](Level10_PreConfiguredTasks.java) for the complete example.
+
+---
+
+### Level 11: TrackedExecutorService Basics
+
+**Building on Level 7: Eliminate manual tracker creation boilerplate with TrackedExecutorService.**
+
+```java
+import io.nosqlbench.status.exec.TrackedExecutorService;
+import io.nosqlbench.status.exec.TrackedExecutors;
+
+ExecutorService executor = Executors.newFixedThreadPool(3);
+try (StatusContext ctx = new StatusContext("tracked-executor-basics")) {
+    ctx.addSink(new ConsoleLoggerSink());
+
+    try (StatusScope scope = ctx.createScope("DataLoading");
+         // NEW: Wrap executor for automatic tracking
+         TrackedExecutorService tracked = TrackedExecutors.wrap(executor, scope).build()) {
+
+        // NEW: Simple submit - tracking happens automatically
+        ParallelDataLoader loader1 = new ParallelDataLoader();
+        Future<?> f1 = tracked.submit(() -> loader1.load());
+        f1.get();
+
+        // NEW: Access statistics
+        System.out.println(tracked.getStatistics());
+    }
+} finally {
+    executor.shutdown();
+}
+```
+
+**Key Differences from Level 7:**
+- No manual StatusTracker creation needed
+- Automatic resource cleanup (implements AutoCloseable)
+- Built-in statistics tracking
+- Works with both StatusSource and regular Callable/Runnable tasks
+
+See [Level11_TrackedExecutorBasics.java](Level11_TrackedExecutorBasics.java) for the complete example.
+
+---
+
+### Level 12: Aggregate Tracking for High Volume
+
+**Building on Level 11: Use AGGREGATE mode to efficiently track hundreds or thousands of lightweight tasks.**
+
+```java
+import io.nosqlbench.status.exec.TrackingMode;
+
+ExecutorService executor = Executors.newFixedThreadPool(20);
+try (StatusContext ctx = new StatusContext("aggregate-tracking")) {
+    ctx.addSink(new ConsoleLoggerSink());
+
+    try (StatusScope scope = ctx.createScope("BatchProcessing");
+         // NEW: AGGREGATE mode for high-volume scenarios
+         TrackedExecutorService tracked = TrackedExecutors.wrap(executor, scope)
+             .withMode(TrackingMode.AGGREGATE)
+             .withTaskGroupName("Record Processing")  // Custom display name
+             .build()) {
+
+        // Submit 100 lightweight tasks
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            futures.add(tracked.submit(() -> processRecord(i)));
+        }
+
+        // Wait for all
+        for (Future<?> f : futures) {
+            f.get();
+        }
+
+        // Shows: "Record Processing [100/100 completed] 100%"
+        System.out.println(tracked.getStatistics());
+    }
+} finally {
+    executor.shutdown();
+}
+```
+
+**Key Differences from Level 11:**
+- Single StatusTracker for all tasks (not one per task)
+- O(1) memory and CPU overhead regardless of task count
+- Best for 100+ lightweight tasks
+- Shows aggregate completion ratio
+
+See [Level12_AggregateTracking.java](Level12_AggregateTracking.java) for the complete example.
+
+---
+
+### Level 13: Mixed Task Types
+
+**Building on Level 11 & 12: Automatically handle both StatusSource and regular tasks in the same executor.**
+
+```java
+try (StatusContext ctx = new StatusContext("mixed-task-types")) {
+    ctx.addSink(new ConsoleLoggerSink());
+
+    try (StatusScope scope = ctx.createScope("MixedWorkload");
+         TrackedExecutorService tracked = TrackedExecutors.wrap(executor, scope)
+             .withMode(TrackingMode.INDIVIDUAL)  // See each task individually
+             .build()) {
+
+        // Type 1: StatusSource task with detailed progress
+        ParallelDataLoader statusSourceTask = new ParallelDataLoader();
+
+        // Type 2: Regular Callable task (no progress detail)
+        Callable<String> regularTask = () -> {
+            Thread.sleep(100);
+            return "Regular result";
+        };
+
+        // Submit mix of task types - all tracked automatically
+        Future<?> f1 = tracked.submit(() -> statusSourceTask.load());  // Detailed progress
+        Future<String> f2 = tracked.submit(regularTask);               // Lifecycle only
+
+        f1.get();
+        String result = f2.get();
+    }
+}
+```
+
+**Key Features:**
+- StatusSource tasks show 0-100% progress
+- Regular tasks show only lifecycle (pending/running/success)
+- Automatic detection and handling
+- No code changes required
+
+See [Level13_MixedTaskTypes.java](Level13_MixedTaskTypes.java) for the complete example.
 
 ---
 
