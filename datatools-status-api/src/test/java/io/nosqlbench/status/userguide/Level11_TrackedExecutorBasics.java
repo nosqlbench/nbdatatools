@@ -22,6 +22,8 @@ import io.nosqlbench.status.exec.TrackedExecutorService;
 import io.nosqlbench.status.exec.TrackedExecutors;
 import io.nosqlbench.status.sinks.ConsoleLoggerSink;
 import io.nosqlbench.status.userguide.fauxtasks.ParallelDataLoader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -90,6 +92,7 @@ import java.util.concurrent.Future;
  * </ul>
  */
 public class Level11_TrackedExecutorBasics {
+    private static final Logger logger = LogManager.getLogger(Level11_TrackedExecutorBasics.class);
 
     public static void main(String[] args) throws Exception {
         ExecutorService executor11 = Executors.newFixedThreadPool(3);
@@ -116,8 +119,8 @@ public class Level11_TrackedExecutorBasics {
                 f3.get();
 
                 // NEW: Access statistics
-                System.out.println("\nExecution Statistics:");
-                System.out.println(tracked11.getStatistics());
+                logger.info("\nExecution Statistics:");
+                logger.info(tracked11.getStatistics());
             } // Tracked executor auto-closes and cleans up all trackers
         } finally {
             executor11.shutdown();

@@ -21,6 +21,8 @@ import io.nosqlbench.status.StatusContext;
 import io.nosqlbench.status.StatusTracker;
 import io.nosqlbench.status.StatusScope;
 import io.nosqlbench.status.sinks.ConsoleLoggerSink;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.time.Duration;
 
@@ -28,6 +30,7 @@ import java.time.Duration;
  * Example showing the new scope-based organization vs traditional tracker hierarchy.
  */
 public class DemoScopeExample {
+    private static final Logger logger = LogManager.getLogger(DemoScopeExample.class);
 
     public static void main(String[] args) throws InterruptedException {
         demonstrateScopes();
@@ -66,26 +69,26 @@ public class DemoScopeExample {
                 Thread indexThread = new Thread(new DemoComputeTask("BuildIndex", 120, 3, processingScope, clock));
                 indexThread.start();
 
-                System.out.println("\nScope hierarchy:");
-                System.out.println("  Ingestion (scope)");
-                System.out.println("    ├─ LoadCSV (task)");
-                System.out.println("    └─ ValidateSchema (task)");
-                System.out.println("  Processing (scope)");
-                System.out.println("    ├─ Transform (scope)");
-                System.out.println("    │   ├─ Transform (main task)");
-                System.out.println("    │   └─ Workers (scope)");
-                System.out.println("    │       ├─ Worker1 (task)");
-                System.out.println("    │       └─ Worker2 (task)");
-                System.out.println("    └─ BuildIndex (scope)");
-                System.out.println("        ├─ BuildIndex (main task)");
-                System.out.println("        └─ Workers (scope)");
-                System.out.println("            ├─ Worker1 (task)");
-                System.out.println("            ├─ Worker2 (task)");
-                System.out.println("            └─ Worker3 (task)");
+                logger.info("\nScope hierarchy:");
+                logger.info("  Ingestion (scope)");
+                logger.info("    ├─ LoadCSV (task)");
+                logger.info("    └─ ValidateSchema (task)");
+                logger.info("  Processing (scope)");
+                logger.info("    ├─ Transform (scope)");
+                logger.info("    │   ├─ Transform (main task)");
+                logger.info("    │   └─ Workers (scope)");
+                logger.info("    │       ├─ Worker1 (task)");
+                logger.info("    │       └─ Worker2 (task)");
+                logger.info("    └─ BuildIndex (scope)");
+                logger.info("        ├─ BuildIndex (main task)");
+                logger.info("        └─ Workers (scope)");
+                logger.info("            ├─ Worker1 (task)");
+                logger.info("            ├─ Worker2 (task)");
+                logger.info("            └─ Worker3 (task)");
 
                 // Check completion
-                System.out.println("\nIs ingestion scope complete? " + ingestionScope.isComplete());
-                System.out.println("Is processing scope complete? " + processingScope.isComplete());
+                logger.info("\nIs ingestion scope complete? " + ingestionScope.isComplete());
+                logger.info("Is processing scope complete? " + processingScope.isComplete());
 
                 // Close trackers
                 loadTracker.close();
@@ -97,9 +100,9 @@ public class DemoScopeExample {
 
                 Thread.sleep(100);
 
-                System.out.println("\nAfter closing all tasks:");
-                System.out.println("Is ingestion scope complete? " + ingestionScope.isComplete());
-                System.out.println("Is processing scope complete? " + processingScope.isComplete());
+                logger.info("\nAfter closing all tasks:");
+                logger.info("Is ingestion scope complete? " + ingestionScope.isComplete());
+                logger.info("Is processing scope complete? " + processingScope.isComplete());
             }
         }
     }

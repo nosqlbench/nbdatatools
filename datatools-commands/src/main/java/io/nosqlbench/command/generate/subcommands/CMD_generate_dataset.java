@@ -17,6 +17,8 @@ package io.nosqlbench.command.generate.subcommands;
  * under the License.
  */
 
+import io.nosqlbench.command.common.RandomSeedOption;
+import io.nosqlbench.command.common.ValueRangeOption;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
@@ -112,25 +114,16 @@ public class CMD_generate_dataset implements Callable<Integer> {
         defaultValue = "L2")
     private String distanceMetric = "L2";
 
-    @CommandLine.Option(names = {"-s", "--seed"},
-        description = "Random seed for reproducible generation",
-        defaultValue = "42")
-    private long seed = 42;
+    @CommandLine.Mixin
+    private RandomSeedOption randomSeedOption = new RandomSeedOption();
+
+    @CommandLine.Mixin
+    private ValueRangeOption valueRangeOption = new ValueRangeOption();
 
     @CommandLine.Option(names = {"-a", "--algorithm"},
         description = "PRNG algorithm to use",
         defaultValue = "XO_SHI_RO_256_PP")
     private RandomGenerators.Algorithm algorithm = RandomGenerators.Algorithm.XO_SHI_RO_256_PP;
-
-    @CommandLine.Option(names = {"--min"},
-        description = "Minimum value for random numbers",
-        defaultValue = "-1.0")
-    private double min = -1.0;
-
-    @CommandLine.Option(names = {"--max"},
-        description = "Maximum value for random numbers",
-        defaultValue = "1.0")
-    private double max = 1.0;
 
     @CommandLine.Option(names = {"--model"},
         description = "Model name for dataset metadata",
@@ -200,6 +193,7 @@ public class CMD_generate_dataset implements Callable<Integer> {
             }
 
             // Generate main dataset
+            long seed = randomSeedOption.getSeed();
             RestorableUniformRandomProvider rng = RandomGenerators.create(algorithm, seed);
 
             String extension = format == FileType.xvec ? "fvec" : format.name().toLowerCase();
@@ -329,7 +323,7 @@ public class CMD_generate_dataset implements Callable<Integer> {
         try (VectorFileStreamStore writer = VectorFileIO.streamOut(format, vecClass, path)
                 .orElseThrow(() -> new IOException("Could not create writer for format: " + format))) {
 
-            ContinuousSampler sampler = RandomGenerators.createUniformSampler(rng, min, max);
+            ContinuousSampler sampler = RandomGenerators.createUniformSampler(rng, valueRangeOption.getMin(), valueRangeOption.getMax());
 
             for (int i = 0; i < count; i++) {
                 Object vector = generateRandomVector(vecClass, dimension, sampler, rng);
@@ -366,9 +360,9 @@ public class CMD_generate_dataset implements Callable<Integer> {
             return vector;
         } else if (vectorClass == int[].class) {
             int[] vector = new int[dimension];
-            int range = (int)(max - min);
+            int range = (int)(valueRangeOption.getMax() - valueRangeOption.getMin());
             for (int i = 0; i < dimension; i++) {
-                vector[i] = (int)min + rng.nextInt(range + 1);
+                vector[i] = (int)valueRangeOption.getMin() + rng.nextInt(range + 1);
             }
             return vector;
         } else {
@@ -382,6 +376,7 @@ public class CMD_generate_dataset implements Callable<Integer> {
 
         // For simplicity, we'll generate random ground truth data
         // In a real implementation, this would compute actual nearest neighbors
+        long seed = randomSeedOption.getSeed();
         RestorableUniformRandomProvider rng = RandomGenerators.create(algorithm, seed + 12345);
 
         // Write indices (ivec format)
@@ -431,7 +426,7 @@ public class CMD_generate_dataset implements Callable<Integer> {
             attributes.put("notes", notes);
         }
         attributes.put("generated_by", "nosqlbench generate dataset");
-        attributes.put("generation_seed", seed);
+        attributes.put("generation_seed", randomSeedOption.getSeed());
         attributes.put("generation_date", new Date().toString());
 
         if (!tags.isEmpty()) {

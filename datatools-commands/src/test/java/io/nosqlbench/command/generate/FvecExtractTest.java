@@ -344,8 +344,8 @@ public class FvecExtractTest {
         "--force"
     );
 
-    // Assert
-    assertThat(exitCode).isEqualTo(1);
+    // Assert - picocli returns exit code 2 for parameter validation errors
+    assertThat(exitCode).isEqualTo(2);
     assertThat(Files.exists(outputFile)).isFalse();
   }
 

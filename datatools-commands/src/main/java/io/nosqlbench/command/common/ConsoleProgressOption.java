@@ -16,10 +16,11 @@
 
 package io.nosqlbench.command.common;
 
-import io.nosqlbench.status.ConsoleProgressMode;
+import io.nosqlbench.status.StatusSinkMode;
 import picocli.CommandLine;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Shared {@code --status} CLI option that controls the {@code nb.status.sink} system property
@@ -42,7 +43,7 @@ public final class ConsoleProgressOption {
         },
         converter = ProgressModeConverter.class
     )
-    private ConsoleProgressMode progressMode;
+    private StatusSinkMode progressMode;
 
     /**
      * Applies the requested console status mode, returning a scope that restores the original
@@ -71,7 +72,7 @@ public final class ConsoleProgressOption {
      * @return {@code true} if the user explicitly selected {@code --status=off}.
      */
     public boolean isExplicitlyOff() {
-        return progressMode == ConsoleProgressMode.OFF;
+        return progressMode == StatusSinkMode.OFF;
     }
 
     /**
@@ -79,8 +80,17 @@ public final class ConsoleProgressOption {
      *
      * @return the selected status mode, or {@code null} when not provided
      */
-    public ConsoleProgressMode getProgressMode() {
+    public StatusSinkMode getProgressMode() {
         return progressMode;
+    }
+
+    /**
+     * Returns the progress mode wrapped in an Optional.
+     *
+     * @return Optional containing the progress mode, or empty if not set
+     */
+    public Optional<StatusSinkMode> getProgressModeOptional() {
+        return Optional.ofNullable(progressMode);
     }
 
     /**
@@ -94,13 +104,13 @@ public final class ConsoleProgressOption {
     }
 
     /**
-     * Picocli converter that maps user-provided values to {@link ConsoleProgressMode}.
+     * Picocli converter that maps user-provided values to {@link StatusSinkMode}.
      */
-    public static final class ProgressModeConverter implements CommandLine.ITypeConverter<ConsoleProgressMode> {
+    public static final class ProgressModeConverter implements CommandLine.ITypeConverter<StatusSinkMode> {
         @Override
-        public ConsoleProgressMode convert(String value) {
+        public StatusSinkMode convert(String value) {
             try {
-                return ConsoleProgressMode.fromString(value);
+                return StatusSinkMode.fromString(value);
             } catch (IllegalArgumentException e) {
                 throw new CommandLine.TypeConversionException(e.getMessage());
             }

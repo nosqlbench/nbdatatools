@@ -23,6 +23,8 @@ import io.nosqlbench.status.exec.TrackedExecutors;
 import io.nosqlbench.status.exec.TrackingMode;
 import io.nosqlbench.status.sinks.ConsoleLoggerSink;
 import io.nosqlbench.status.userguide.fauxtasks.ParallelDataLoader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -125,6 +127,7 @@ import java.util.concurrent.Future;
  * </ul>
  */
 public class Level13_MixedTaskTypes {
+    private static final Logger logger = LogManager.getLogger(Level13_MixedTaskTypes.class);
 
     public static void main(String[] args) throws Exception {
         ExecutorService executor13 = Executors.newFixedThreadPool(4);
@@ -152,7 +155,7 @@ public class Level13_MixedTaskTypes {
                 };
 
                 // Submit mix of task types - all tracked automatically
-                System.out.println("Submitting mixed task types...\n");
+                logger.info("Submitting mixed task types...\n");
 
                 Future<?> f1 = tracked13.submit(() -> statusSourceTask1.load());  // StatusSource (detailed)
                 Future<String> f2 = tracked13.submit(regularTask1);               // Regular (lifecycle only)
@@ -165,18 +168,18 @@ public class Level13_MixedTaskTypes {
                 f3.get();
                 String result4 = f4.get();
 
-                System.out.println("\n\nResults:");
-                System.out.println("  Regular Task 1: " + result2);
-                System.out.println("  Regular Task 2: " + result4);
-                System.out.println("  StatusSource tasks completed with detailed progress");
+                logger.info("\n\nResults:");
+                logger.info("  Regular Task 1: " + result2);
+                logger.info("  Regular Task 2: " + result4);
+                logger.info("  StatusSource tasks completed with detailed progress");
 
-                System.out.println("\nStatistics:");
-                System.out.println(tracked13.getStatistics());
+                logger.info("\nStatistics:");
+                logger.info(tracked13.getStatistics());
 
-                System.out.println("\nKey Observation:");
-                System.out.println("  - StatusSource tasks showed incremental progress (0-100%)");
-                System.out.println("  - Regular tasks showed only lifecycle (pending/running/success)");
-                System.out.println("  - Both tracked seamlessly without code changes");
+                logger.info("\nKey Observation:");
+                logger.info("  - StatusSource tasks showed incremental progress (0-100%)");
+                logger.info("  - Regular tasks showed only lifecycle (pending/running/success)");
+                logger.info("  - Both tracked seamlessly without code changes");
             }
         } finally {
             executor13.shutdown();

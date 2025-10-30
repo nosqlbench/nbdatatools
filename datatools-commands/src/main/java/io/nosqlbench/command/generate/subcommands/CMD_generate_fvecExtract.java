@@ -18,6 +18,9 @@ package io.nosqlbench.command.generate.subcommands;
  */
 
 
+import io.nosqlbench.command.common.BatchProcessingOption;
+import io.nosqlbench.command.common.OutputFileOption;
+import io.nosqlbench.command.common.RangeOption;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
@@ -77,85 +80,29 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
   private final AtomicBoolean displayActive = new AtomicBoolean(false);
   private Thread shutdownHook;
 
+  @CommandLine.Mixin
+  private OutputFileOption outputFileOption = new OutputFileOption();
+
+  @CommandLine.Mixin
+  private RangeOption rangeOption = new RangeOption();
+
+  @CommandLine.Mixin
+  private BatchProcessingOption batchProcessingOption = new BatchProcessingOption();
+
   @CommandLine.Option(names = {"--ivec-file"},
       description = "Path to ivec file containing indices",
       required = true)
   private String ivecFile;
-
-  @CommandLine.Option(names = {"--range"},
-      description = "Range of indices to use (format: start..end), e.g. 0..1000 or 2000..3000",
-      required = true)
-  private String range;
 
   @CommandLine.Option(names = {"--fvec-file"},
       description = "Path to fvec file containing vectors to extract",
       required = true)
   private String fvecFile;
 
-  @CommandLine.Option(names = {"--output"},
-      description = "Path to output fvec file",
-      required = true)
-  private String outputFile;
-
-  @CommandLine.Option(names = {"-f", "--force"},
-      description = "Force overwrite of output file if it exists",
-      defaultValue = "false")
-  private boolean force;
-
-  @CommandLine.Option(names = {"--threads"},
-      description = "Number of threads to use for parallel processing (0 = use available processors)",
-      defaultValue = "0")
-  private int threads;
-
-  @CommandLine.Option(names = {"--memory-limit"},
-      description = "Maximum memory to use for buffering in MB (0 = no limit)",
-      defaultValue = "1024")
-  private long memoryLimitMB;
-
-  @CommandLine.Option(names = {"--batch-size"},
-      description = "Number of vectors to process in each batch",
-      defaultValue = "10000")
-  private int batchSize;
-
   @CommandLine.Option(names = {"--simple-progress"},
       description = "Use simple progress display instead of fancy terminal UI",
       defaultValue = "false")
   private boolean simpleProgress;
-
-  /**
-   * Parse a range string in the format "start..end" into a long array with two elements.
-   *
-   * @param rangeStr The range string to parse
-   * @return A long array with two elements: [start, end]
-   */
-  private long[] parseRange(String rangeStr) {
-    if (rangeStr == null || rangeStr.isEmpty()) {
-      throw new IllegalArgumentException("Range string cannot be empty");
-    }
-
-    String[] parts = rangeStr.split("\\.\\.");
-    if (parts.length != 2) {
-      throw new IllegalArgumentException(
-          "Range must be in format 'start..end', got: " + rangeStr);
-    }
-
-    try {
-      long start = Long.parseLong(parts[0].trim());
-      long end = Long.parseLong(parts[1].trim());
-
-      if (start < 0 || end < 0) {
-        throw new IllegalArgumentException("Range values must be non-negative");
-      }
-
-      if (start > end) {
-        throw new IllegalArgumentException("Start value must be less than or equal to end value");
-      }
-
-      return new long[]{start, end};
-    } catch (NumberFormatException e) {
-      throw new IllegalArgumentException("Invalid range format: " + rangeStr, e);
-    }
-  }
 
   /**
    * Calculate the memory requirement for a given vector dimension and count.
@@ -307,7 +254,7 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
 
       // Format memory usage
       String memoryUsageStr = formatByteSize(bufferMemory);
-      String memoryLimitStr = memoryLimitMB > 0 ? formatByteSize(memoryLimitMB * 1024 * 1024) : "unlimited";
+      String memoryLimitStr = batchProcessingOption.hasMemoryLimit() ? formatByteSize(batchProcessingOption.getMemoryLimitBytes()) : "unlimited";
 
       // Clear the display lines
       displayLines.clear();
@@ -338,14 +285,14 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
       displayLines.add(new AttributedStringBuilder()
           .append("Output FVEC: ")
           .style(AttributedStyle.BOLD)
-          .append(outputFile)
+          .append(outputFileOption.getNormalizedOutputPath().toString())
           .style(AttributedStyle.DEFAULT)
           .toAttributedString());
 
       displayLines.add(new AttributedStringBuilder()
           .append("Range: ")
           .style(AttributedStyle.BOLD)
-          .append(range)
+          .append(rangeOption.getRange() != null ? rangeOption.getRange().toString() : "all")
           .style(AttributedStyle.DEFAULT)
           .toAttributedString());
 
@@ -457,7 +404,7 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
 
     // Format memory usage
     String memoryUsageStr = formatByteSize(bufferMemory);
-    String memoryLimitStr = memoryLimitMB > 0 ? formatByteSize(memoryLimitMB * 1024 * 1024) : "unlimited";
+    String memoryLimitStr = batchProcessingOption.hasMemoryLimit() ? formatByteSize(batchProcessingOption.getMemoryLimitBytes()) : "unlimited";
 
     // Build a simple progress message
     StringBuilder message = new StringBuilder();
@@ -521,35 +468,34 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
    */
   @Override
   public Integer call() {
-    // Parse the range
-    long[] rangeValues;
-    try {
-      rangeValues = parseRange(range);
-    } catch (IllegalArgumentException e) {
-      System.err.println("Error parsing range: " + e.getMessage());
-      return 1;
+    // Range is automatically parsed by picocli - just validate if needed
+    if (rangeOption.getRange() != null) {
+      try {
+        // Validation happens in the Range record's compact constructor
+        rangeOption.getRange();
+      } catch (IllegalArgumentException e) {
+        System.err.println("Error with range: " + e.getMessage());
+        return 1;
+      }
     }
 
-    long startIndex = rangeValues[0];
-    long endIndex = rangeValues[1];
-    long totalVectors = endIndex - startIndex + 1;
+    long startIndex = rangeOption.getRangeStart();
+    long endIndex = rangeOption.getRangeEnd();
+    long totalVectors = rangeOption.getRangeSize();
 
     // Check if output file exists
-    Path outputPath = Paths.get(outputFile);
-    if (Files.exists(outputPath) && !force) {
+    Path outputPath = outputFileOption.getNormalizedOutputPath();
+    if (outputFileOption.outputExistsWithoutForce()) {
       System.err.println("Error: Output file already exists. Use --force to overwrite.");
       return 1;
     }
 
     // Determine thread count
-    int threadCount = threads;
-    if (threadCount <= 0) {
-      threadCount = Runtime.getRuntime().availableProcessors();
-      logger.info("Using {} threads based on available processors", threadCount);
-    }
+    int threadCount = batchProcessingOption.getEffectiveThreadCount();
+    logger.info("Using {} threads based on available processors", threadCount);
 
     // Convert memory limit from MB to bytes
-    long memoryLimitBytes = memoryLimitMB * 1024 * 1024;
+    long memoryLimitBytes = batchProcessingOption.getMemoryLimitBytes();
 
     // Initialize terminal for progress display
     boolean fancyDisplay = initializeTerminal();
@@ -585,9 +531,9 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
 
       // Open the ivec file
       try (VectorFileArray<int[]> ivecReader = VectorFileIO.randomAccess(FileType.xvec, int[].class, ivecPath)) {
-        // Validate range against ivec file size
+        // Validate range against ivec file size (endIndex is exclusive)
         long ivecSize = ivecReader.size();
-        if (startIndex >= ivecSize || endIndex >= ivecSize) {
+        if (startIndex >= ivecSize || endIndex > ivecSize) {
           System.err.println("Warning: Range exceeds IVEC file size. File contains " + ivecSize + " indices. Truncating range.");
           // Truncate the range to the available indices
           if (startIndex >= ivecSize) {
@@ -595,10 +541,10 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
             System.err.println("Error: Start index " + startIndex + " is beyond the file size " + ivecSize);
             return 1;
           }
-          // Adjust end index to be within bounds
-          endIndex = Math.min(endIndex, ivecSize - 1);
-          totalVectors = endIndex - startIndex + 1;
-          logger.info("Adjusted range to {}..{} ({} vectors)", startIndex, endIndex, totalVectors);
+          // Adjust end index to be within bounds (endIndex is exclusive, so max is ivecSize)
+          endIndex = Math.min(endIndex, ivecSize);
+          totalVectors = endIndex - startIndex;
+          logger.info("Adjusted range to [{}..{}) ({} vectors)", startIndex, endIndex, totalVectors);
         }
 
         // Get the dimension of the ivec file (should be 1 for indices)
@@ -621,6 +567,7 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
           try (VectorFileStreamStore<float[]> outputWriter = VectorFileIO.streamOut(FileType.xvec, float[].class, outputPath).orElseThrow(() ->
               new RuntimeException("Failed to create output file: " + outputPath))) {
             // Calculate memory requirement per batch
+            int batchSize = batchProcessingOption.getBatchSize();
             long memoryPerBatch = calculateMemoryRequirement(fvecDimension, batchSize);
             logger.info("Estimated memory per batch: {}", formatByteSize(memoryPerBatch));
 
@@ -639,13 +586,13 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
             AtomicLong currentMemoryUsage = new AtomicLong(0);
             Lock memoryLock = new ReentrantLock();
 
-            while (currentIndex <= endIndex) {
-              // Determine batch end
-              long batchEnd = Math.min(currentIndex + batchSize - 1, endIndex);
-              long batchSize = batchEnd - currentIndex + 1;
+            while (currentIndex < endIndex) {
+              // Determine batch end (exclusive, like endIndex)
+              long batchEnd = Math.min(currentIndex + batchSize, endIndex);
+              long batchVectorCount = batchEnd - currentIndex;
 
               // Reserve memory for this batch
-              long batchMemory = calculateMemoryRequirement(fvecDimension, batchSize);
+              long batchMemory = calculateMemoryRequirement(fvecDimension, batchVectorCount);
 
               // If memory limit is specified, wait until there's enough memory available
               if (memoryLimitBytes > 0) {
@@ -685,8 +632,8 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
               // Submit batch processing task
               CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 try {
-                  // Process each index in the batch
-                  for (long i = batchStart; i <= finalBatchEnd; i++) {
+                  // Process each index in the batch (finalBatchEnd is exclusive)
+                  for (long i = batchStart; i < finalBatchEnd; i++) {
                     // Read the index from the ivec file
                     int[] indexVector = ivecReader.get((int) i);
                     int index = indexVector[0];
@@ -727,8 +674,8 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
 
               futures.add(future);
 
-              // Move to the next batch
-              currentIndex = batchEnd + 1;
+              // Move to the next batch (batchEnd is exclusive, so it's the start of next batch)
+              currentIndex = batchEnd;
 
               // Display progress periodically
               displayProgress(processedCount.get(), totalVectors, startTime, currentMemoryUsage.get());
@@ -789,7 +736,7 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
             // Calculate total time
             Duration totalTime = Duration.between(startTime, Instant.now());
             System.out.println("\nExtraction completed in " + formatDuration(totalTime));
-            System.out.println("Extracted " + processedCount.get() + " vectors to " + outputFile);
+            System.out.println("Extracted " + processedCount.get() + " vectors to " + outputFileOption.getNormalizedOutputPath());
 
             return 0;
           }

@@ -23,6 +23,8 @@ import io.nosqlbench.status.exec.TrackedExecutorService;
 import io.nosqlbench.status.exec.TrackedExecutors;
 import io.nosqlbench.status.exec.TrackingMode;
 import io.nosqlbench.status.sinks.ConsoleLoggerSink;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,6 +106,7 @@ import java.util.concurrent.Future;
  * </ul>
  */
 public class Level12_AggregateTracking {
+    private static final Logger logger = LogManager.getLogger(Level12_AggregateTracking.class);
 
     public static void main(String[] args) throws Exception {
         ExecutorService executor12 = Executors.newFixedThreadPool(20);
@@ -142,11 +145,11 @@ public class Level12_AggregateTracking {
 
                 // NEW: Statistics show aggregate metrics
                 TaskStatistics stats12 = tracked12.getStatistics();
-                System.out.println("\nBatch Processing Results:");
-                System.out.println("  Submitted: " + stats12.getSubmitted());
-                System.out.println("  Completed: " + stats12.getCompleted());
-                System.out.println("  Failed: " + stats12.getFailed());
-                System.out.println("  Completion Rate: " + (stats12.getCompletionRate() * 100) + "%");
+                logger.info("\nBatch Processing Results:");
+                logger.info("  Submitted: " + stats12.getSubmitted());
+                logger.info("  Completed: " + stats12.getCompleted());
+                logger.info("  Failed: " + stats12.getFailed());
+                logger.info("  Completion Rate: " + (stats12.getCompletionRate() * 100) + "%");
 
             } // Single tracker cleanup (not 100 trackers!)
         } finally {

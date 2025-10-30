@@ -2,13 +2,13 @@ package io.nosqlbench.command.compute.subcommands;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -18,6 +18,10 @@ package io.nosqlbench.command.compute.subcommands;
  */
 
 import io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex;
+import io.nosqlbench.command.common.DistanceMetricOption;
+import io.nosqlbench.command.common.DistanceMetricOption.DistanceMetric;
+import io.nosqlbench.command.common.OutputFileOption;
+import io.nosqlbench.command.common.RangeOption;
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
@@ -40,6 +44,11 @@ import java.util.PriorityQueue;
 import java.util.concurrent.Callable;
 
 /// Command to compute k-nearest neighbors ground truth dataset from base and query vectors
+///
+/// Range Specification:
+/// - Via --range option: --range 1000, --range [0,1000), or --range 0..999
+/// - Inline with base file path: -b base.fvec:1000, -b base.fvec:[0,1000), or -b base.fvec:0..999
+/// - Currently only ranges starting from 0 are supported
 @CommandLine.Command(name = "knn",
     description = "Compute k-nearest neighbors ground truth dataset from base and query vectors")
 public class CMD_compute_knn implements Callable<Integer> {
@@ -49,37 +58,31 @@ public class CMD_compute_knn implements Callable<Integer> {
     private static final int EXIT_FILE_EXISTS = 1;
     private static final int EXIT_ERROR = 2;
 
-    @CommandLine.Option(names = {"-b", "--base"}, description = "The base vectors file", required = true)
+    @CommandLine.Option(names = {"-b", "--base"},
+        description = "The base vectors file. Can include inline range: 'file:rangespec' (e.g., 'base.fvec:1000' or 'base.fvec:[0,1000)')",
+        required = true)
     private Path baseVectorsPath;
 
     @CommandLine.Option(names = {"-q", "--query"}, description = "The query vectors file", required = true)
     private Path queryVectorsPath;
 
-    @CommandLine.Option(names = {"-o", "--output"}, description = "The output ground truth file", required = true)
-    private Path outputPath;
+    @CommandLine.Mixin
+    private OutputFileOption outputFileOption = new OutputFileOption();
 
     @CommandLine.Option(names = {"-k", "--neighbors"}, description = "Number of nearest neighbors to find", required = true)
     private int k;
 
-    @CommandLine.Option(names = {"-d", "--distance"}, 
-        description = "Distance metric to use (L2, L1, COSINE)", 
-        defaultValue = "L2")
-    private DistanceMetric distanceMetric = DistanceMetric.L2;
+    @CommandLine.Mixin
+    private DistanceMetricOption distanceMetricOption = new DistanceMetricOption();
 
-    @CommandLine.Option(names = {"-f", "--force"}, description = "Force overwrite if output file already exists")
-    private boolean force = false;
+    @CommandLine.Mixin
+    private RangeOption rangeOption = new RangeOption();
 
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    /**
-     * Enum for supported distance metrics
-     */
-    public enum DistanceMetric {
-        L2,     // Euclidean distance
-        L1,     // Manhattan distance
-        COSINE  // Cosine similarity
-    }
+    // Track if range came from path
+    private boolean rangeFromPath = false;
 
     /**
      * Validates the input and output paths before execution.
@@ -95,7 +98,8 @@ public class CMD_compute_knn implements Callable<Integer> {
                 "Error: No query vectors path provided");
         }
 
-        if (outputPath == null) {
+        // Output path validation handled by OutputFileOption mixin
+        if (outputFileOption.getOutputPath() == null) {
             throw new CommandLine.ParameterException(spec.commandLine(),
                 "Error: No output path provided");
         }
@@ -114,12 +118,48 @@ public class CMD_compute_knn implements Callable<Integer> {
         // Normalize the paths to resolve any "." or ".." components
         baseVectorsPath = baseVectorsPath.normalize();
         queryVectorsPath = queryVectorsPath.normalize();
-        outputPath = outputPath.normalize();
     }
 
     /**
+     * Parse a file path that may include an inline range specification.
+     * Format: "path/to/file:rangespec" where rangespec uses the same formats as --range.
+     *
+     * @param pathString The path string to parse
+     * @return An array with [actualPath, rangeSpec], where rangeSpec may be null
+     */
+    private String[] parsePathWithRange(String pathString) {
+        if (pathString == null || pathString.isEmpty()) {
+            return new String[]{pathString, null};
+        }
+
+        // Find the last colon that's not part of a Windows drive letter (e.g., C:)
+        int colonIndex = -1;
+
+        // Skip potential Windows drive letter (e.g., "C:")
+        int searchStart = 0;
+        if (pathString.length() >= 2 && pathString.charAt(1) == ':') {
+            searchStart = 2;
+        }
+
+        // Look for a colon after the drive letter position
+        colonIndex = pathString.indexOf(':', searchStart);
+
+        if (colonIndex == -1) {
+            // No range specification found
+            return new String[]{pathString, null};
+        }
+
+        // Split into path and range spec
+        String actualPath = pathString.substring(0, colonIndex);
+        String rangeSpec = pathString.substring(colonIndex + 1);
+
+        return new String[]{actualPath, rangeSpec};
+    }
+
+
+    /**
      * Calculate distance between two vectors based on the selected distance metric
-     * 
+     *
      * @param vec1 First vector
      * @param vec2 Second vector
      * @return Distance between the vectors
@@ -129,6 +169,7 @@ public class CMD_compute_knn implements Callable<Integer> {
             throw new IllegalArgumentException("Vectors must have the same dimension");
         }
 
+        DistanceMetric distanceMetric = distanceMetricOption.getDistanceMetric();
         switch (distanceMetric) {
             case L2:
                 return calculateL2Distance(vec1, vec2);
@@ -465,9 +506,39 @@ public class CMD_compute_knn implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
+        // First, extract any inline range specification from the base vectors path
+        String pathFromPathSpec = null;
+        if (baseVectorsPath != null) {
+            String[] pathParts = parsePathWithRange(baseVectorsPath.toString());
+            String actualPath = pathParts[0];
+            String rangeSpec = pathParts[1];
+
+            if (rangeSpec != null) {
+                pathFromPathSpec = rangeSpec;
+                baseVectorsPath = Paths.get(actualPath);
+            }
+        }
+
+        // Handle range specifications: inline path range vs --range option
+        RangeOption.Range effectiveRange = null;
         try {
             validatePaths();
-        } catch (CommandLine.ParameterException e) {
+
+            if (pathFromPathSpec != null && rangeOption.isRangeSpecified()) {
+                // Both specified - this is an error
+                throw new IllegalArgumentException(
+                    "Range specified both in path (" + pathFromPathSpec + ") and via --range option. " +
+                    "Please specify range only once.");
+            } else if (pathFromPathSpec != null) {
+                // Use range from path - parse it manually
+                rangeFromPath = true;
+                effectiveRange = new RangeOption.RangeConverter().convert(pathFromPathSpec);
+            } else if (rangeOption.isRangeSpecified()) {
+                // Use range from --range option
+                effectiveRange = rangeOption.getRange();
+            }
+            // else: effectiveRange remains null (process all vectors)
+        } catch (CommandLine.ParameterException | IllegalArgumentException e) {
             System.err.println(e.getMessage());
             return EXIT_ERROR;
         }
@@ -477,10 +548,17 @@ public class CMD_compute_knn implements Callable<Integer> {
             return EXIT_ERROR;
         }
 
-        Path neighborsOutput = outputPath;
+        // Validate that rangeStart is 0 (non-zero start behavior is not yet defined)
+        if (effectiveRange != null && effectiveRange.start() != 0) {
+            System.err.println("Error: Range start must be 0 (got: " + effectiveRange.start() + "). Non-zero start is not yet supported.");
+            logger.error("Range start must be 0, but got: {}", effectiveRange.start());
+            return EXIT_ERROR;
+        }
+
+        Path neighborsOutput = outputFileOption.getNormalizedOutputPath();
         Path distancesOutput = deriveDistancesPath(neighborsOutput);
 
-        if (!force) {
+        if (!outputFileOption.isForce()) {
             if (Files.exists(neighborsOutput)) {
                 System.err.println("Error: Output neighbors file already exists. Use --force to overwrite.");
                 return EXIT_FILE_EXISTS;
@@ -500,13 +578,31 @@ public class CMD_compute_knn implements Callable<Integer> {
             }
 
             try (VectorFileArray<float[]> baseReader = VectorFileIO.randomAccess(FileType.xvec, float[].class, baseVectorsPath)) {
-                int baseCount = baseReader.getSize();
-                if (baseCount <= 0) {
+                int totalBaseCount = baseReader.getSize();
+                if (totalBaseCount <= 0) {
                     System.err.println("Error: No base vectors found in file");
                     return EXIT_ERROR;
                 }
 
-                int baseDimension = baseReader.get(0).length;
+                // Apply range constraints
+                RangeOption.Range constrainedRange = effectiveRange != null
+                    ? effectiveRange.constrain(totalBaseCount)
+                    : new RangeOption.Range(0, totalBaseCount);
+                long effectiveStart = constrainedRange.start();
+                long effectiveEnd = constrainedRange.end();
+
+                if (effectiveStart >= totalBaseCount) {
+                    System.err.println("Error: Range start " + effectiveStart + " is beyond file size " + totalBaseCount);
+                    return EXIT_ERROR;
+                }
+
+                int baseCount = (int)(effectiveEnd - effectiveStart);
+                if (baseCount <= 0) {
+                    System.err.println("Error: No base vectors in specified range");
+                    return EXIT_ERROR;
+                }
+
+                int baseDimension = baseReader.get((int)effectiveStart).length;
                 if (baseDimension <= 0) {
                     System.err.println("Error: Base vectors have zero dimension");
                     return EXIT_ERROR;
@@ -516,8 +612,14 @@ public class CMD_compute_knn implements Callable<Integer> {
                 int batchSize = Math.max(1, determineBatchSize(baseCount, baseDimension));
                 int partitionCount = (int) Math.ceil((double) baseCount / batchSize);
 
-                logger.info("compute knn: baseCount={}, baseDimension={}, effectiveK={}, batchSize={}, partitions={}",
-                    baseCount, baseDimension, effectiveK, batchSize, partitionCount);
+                String rangeStr = effectiveRange != null ? effectiveRange.toString() : "all";
+                logger.info("compute knn: baseCount={}, baseDimension={}, effectiveK={}, batchSize={}, partitions={}, range={}",
+                    baseCount, baseDimension, effectiveK, batchSize, partitionCount, rangeStr);
+
+                if (effectiveRange != null) {
+                    logger.info("Using range {} - processing {} out of {} total base vectors",
+                        rangeStr, baseCount, totalBaseCount);
+                }
 
                 List<PartitionMetadata> partitions = new ArrayList<>();
                 int expectedQueryCount = -1;
@@ -525,14 +627,18 @@ public class CMD_compute_knn implements Callable<Integer> {
 
                 for (int start = 0; start < baseCount; start += batchSize) {
                     int end = Math.min(baseCount, start + batchSize);
-                    Path intermediateNeighbors = buildIntermediatePath(neighborsOutput, start, end, "neighbors", "ivec");
-                    Path intermediateDistances = buildIntermediatePath(neighborsOutput, start, end, "distances", "fvec");
+                    // Compute actual indices into the file (accounting for range offset)
+                    int actualStart = (int)effectiveStart + start;
+                    int actualEnd = (int)effectiveStart + end;
+
+                    Path intermediateNeighbors = buildIntermediatePath(neighborsOutput, actualStart, actualEnd, "neighbors", "ivec");
+                    Path intermediateDistances = buildIntermediatePath(neighborsOutput, actualStart, actualEnd, "distances", "fvec");
 
                     PartitionMetadata metadata = computePartition(
                         baseReader,
                         partitionIndex,
-                        start,
-                        end,
+                        actualStart,
+                        actualEnd,
                         baseDimension,
                         intermediateNeighbors,
                         intermediateDistances,
@@ -558,7 +664,7 @@ public class CMD_compute_knn implements Callable<Integer> {
                 mergePartitions(partitions, neighborsOutput, distancesOutput, effectiveK, expectedQueryCount);
 
                 System.out.println("Successfully computed KNN ground truth for " + expectedQueryCount + " query vectors");
-                System.out.println("Base vectors: " + baseCount + ", k: " + effectiveK + ", distance metric: " + distanceMetric);
+                System.out.println("Base vectors: " + baseCount + ", k: " + effectiveK + ", distance metric: " + distanceMetricOption.getDistanceMetric());
                 System.out.println("Neighbors file: " + neighborsOutput);
                 System.out.println("Distances file: " + distancesOutput);
                 return EXIT_SUCCESS;

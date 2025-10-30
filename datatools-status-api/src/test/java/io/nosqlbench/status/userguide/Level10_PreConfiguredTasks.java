@@ -23,6 +23,8 @@ import io.nosqlbench.status.sinks.ConsoleLoggerSink;
 import io.nosqlbench.status.userguide.fauxtasks.DataLoader;
 import io.nosqlbench.status.userguide.fauxtasks.DataProcessor;
 import io.nosqlbench.status.userguide.fauxtasks.DataValidator;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -92,6 +94,7 @@ import java.util.List;
  * </ul>
  */
 public class Level10_PreConfiguredTasks {
+    private static final Logger logger = LogManager.getLogger(Level10_PreConfiguredTasks.class);
 
     /**
      * Helper class to pair tasks with their trackers for deferred execution.
@@ -192,7 +195,7 @@ public class Level10_PreConfiguredTasks {
                 ));
 
                 // At this point, all 3 tasks are visible in the monitoring system as PENDING
-                System.out.println("\nAll tasks configured and visible as PENDING. Starting execution...\n");
+                logger.info("\nAll tasks configured and visible as PENDING. Starting execution...\n");
 
                 // Optional: Add a small delay to see all tasks in PENDING state
                 try {
@@ -207,7 +210,7 @@ public class Level10_PreConfiguredTasks {
                     execution.close();    // Close tracker when done
                 }
 
-                System.out.println("\nAll tasks completed.\n");
+                logger.info("\nAll tasks completed.\n");
             }
         }
     }

@@ -18,6 +18,8 @@ package io.nosqlbench.command.generate.subcommands;
  */
 
 
+import io.nosqlbench.command.common.OutputFileOption;
+import io.nosqlbench.command.common.RandomSeedOption;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
@@ -44,43 +46,24 @@ public class CMD_generate_ivecShuffle implements Callable<Integer> {
   private static final int EXIT_FILE_EXISTS = 1;
   private static final int EXIT_ERROR = 2;
 
-  @CommandLine.Option(names = {"-o","--output"}, description = "The output file", required = true)
-  private Path outputPath;
+  @CommandLine.Mixin
+  private OutputFileOption outputFileOption = new OutputFileOption();
 
-  /**
-   * Validates the output path before execution.
-   */
-  @CommandLine.Spec
-  private CommandLine.Model.CommandSpec spec;
-
-  private void validateOutputPath() {
-    if (outputPath == null) {
-      throw new CommandLine.ParameterException(spec.commandLine(), 
-          "Error: No output path provided");
-    }
-
-    // Normalize the path to resolve any "." or ".." components
-    outputPath = outputPath.normalize();
-  }
+  @CommandLine.Mixin
+  private RandomSeedOption randomSeedOption = new RandomSeedOption();
 
   @CommandLine.Option(names = {"-i", "--interval"},
       description = "Number of values to generate and shuffle (interval length)",
       required = true)
   private long interval;
 
-  @CommandLine.Option(names = {"-s", "--seed"},
-      description = "Random seed for reproducible shuffling (0 for non-deterministic)",
-      defaultValue = "0")
-  private long seed;
-
-  @CommandLine.Option(names = {"-f", "--force"},
-      description = "Force overwrite if output file already exists")
-  private boolean force = false;
-
   @CommandLine.Option(names = {"-a", "--algorithm"},
       description = "PRNG algorithm to use (XO_SHI_RO_256_PP, XO_SHI_RO_128_PP, SPLIT_MIX_64, MT, KISS)",
       defaultValue = "XO_SHI_RO_256_PP")
   private RandomGenerators.Algorithm algorithm = RandomGenerators.Algorithm.XO_SHI_RO_256_PP;
+
+  @CommandLine.Spec
+  private CommandLine.Model.CommandSpec spec;
 
   public static void main(String[] args) {
     CMD_generate_ivecShuffle cmd = new CMD_generate_ivecShuffle();
@@ -97,16 +80,10 @@ public class CMD_generate_ivecShuffle implements Callable<Integer> {
    */
   @Override
   public Integer call() throws Exception {
-    // Validate the output path
-    try {
-      validateOutputPath();
-    } catch (CommandLine.ParameterException e) {
-      System.err.println(e.getMessage());
-      return EXIT_ERROR;
-    }
+    Path outputPath = outputFileOption.getNormalizedOutputPath();
 
     // Check if file exists and handle force option
-    if (Files.exists(outputPath) && !force) {
+    if (outputFileOption.outputExistsWithoutForce()) {
       System.err.println("Error: Output file already exists. Use --force to overwrite.");
       return EXIT_FILE_EXISTS;
     }
@@ -130,11 +107,7 @@ public class CMD_generate_ivecShuffle implements Callable<Integer> {
         values.add(i);
       }
 
-      // Determine effective seed: use provided seed, or generate a new one if seed <= 0
-      long effectiveSeed = seed;
-      if (seed <= 0) {
-          effectiveSeed = System.nanoTime() ^ System.currentTimeMillis();
-      }
+      long effectiveSeed = randomSeedOption.getSeed();
       RestorableUniformRandomProvider rng = RandomGenerators.create(algorithm, effectiveSeed);
 
       // Use the improved Fisher-Yates shuffle implementation with high-quality RNG

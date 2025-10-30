@@ -18,6 +18,8 @@ package io.nosqlbench.status.userguide;
 
 import io.nosqlbench.status.StatusTracker;
 import io.nosqlbench.status.userguide.fauxtasks.DataLoader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Level 1: Absolute Minimum - Track ONE Task
@@ -48,6 +50,7 @@ import io.nosqlbench.status.userguide.fauxtasks.DataLoader;
  * @see Level2_AddConsoleOutput for adding console visibility
  */
 public class Level1_AbsoluteMinimum {
+    private static final Logger logger = LogManager.getLogger(Level1_AbsoluteMinimum.class);
 
     public static void main(String[] args) {
         // Track it - simplest possible
@@ -56,12 +59,12 @@ public class Level1_AbsoluteMinimum {
             loader1.load(); // Task is independent - no tight coupling to tracker
 
             // Access status programmatically (no console output without a sink)
-            System.out.println("Tracker status: " + tracker1); // Uses toString()
+            logger.info("Tracker status: " + tracker1); // Uses toString()
             // Output example: "DataLoader [100.0%] SUCCESS (1234ms)"
 
             // Or access individual metrics:
-            System.out.println("Elapsed time: " + tracker1.getElapsedRunningTime() + "ms");
-            System.out.println("Final state: " + tracker1.getStatus().runstate);
+            logger.info("Elapsed time: " + tracker1.getElapsedRunningTime() + "ms");
+            logger.info("Final state: " + tracker1.getStatus().runstate);
         } // Auto-closes everything (tracker, scope, context, monitor thread)
     }
 }

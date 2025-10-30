@@ -85,7 +85,7 @@ class ConsoleProgressTest {
     @Test
     void explicitProgressModeTakesPrecedenceOverSystemProperty() {
         System.setProperty(PROP_KEY, "log");
-        try (StatusContext context = new StatusContext("explicit-off", Optional.of(ConsoleProgressMode.OFF))) {
+        try (StatusContext context = new StatusContext("explicit-off", Optional.of(StatusSinkMode.OFF))) {
             assertTrue(context.getSinks().isEmpty(),
                 "explicit OFF mode should override system property 'log'");
         }
@@ -93,7 +93,7 @@ class ConsoleProgressTest {
 
     @Test
     void explicitLogModeInstallsConsoleLoggerSink() {
-        try (StatusContext context = new StatusContext("explicit-log", Optional.of(ConsoleProgressMode.LOG))) {
+        try (StatusContext context = new StatusContext("explicit-log", Optional.of(StatusSinkMode.LOG))) {
             List<StatusSink> sinks = context.getSinks();
             assertEquals(1, sinks.size(), "explicit LOG mode should install exactly one sink");
             assertTrue(sinks.get(0) instanceof ConsoleLoggerSink,
@@ -103,7 +103,7 @@ class ConsoleProgressTest {
 
     @Test
     void explicitOffModeInstallsNoSinks() {
-        try (StatusContext context = new StatusContext("explicit-off", Optional.of(ConsoleProgressMode.OFF))) {
+        try (StatusContext context = new StatusContext("explicit-off", Optional.of(StatusSinkMode.OFF))) {
             assertTrue(context.getSinks().isEmpty(),
                 "explicit OFF mode should leave context without sinks");
         }
@@ -113,7 +113,7 @@ class ConsoleProgressTest {
     void explicitAutoModeWithNoConsoleInstallsLogger() {
         Assumptions.assumeTrue(System.console() == null,
             "test requires headless environment");
-        try (StatusContext context = new StatusContext("explicit-auto", Optional.of(ConsoleProgressMode.AUTO))) {
+        try (StatusContext context = new StatusContext("explicit-auto", Optional.of(StatusSinkMode.AUTO))) {
             List<StatusSink> sinks = context.getSinks();
             assertEquals(1, sinks.size(), "explicit AUTO mode should install exactly one sink");
             assertTrue(sinks.get(0) instanceof ConsoleLoggerSink,

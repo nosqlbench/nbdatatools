@@ -17,7 +17,7 @@
 
 package io.nosqlbench.command.common;
 
-import io.nosqlbench.status.ConsoleProgressMode;
+import io.nosqlbench.status.StatusSinkMode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine;
@@ -54,7 +54,7 @@ class ConsoleProgressOptionTest {
         DummyCommand command = new DummyCommand();
         new CommandLine(command).parseArgs("--status", "logger");
 
-        assertEquals(ConsoleProgressMode.LOG, command.option.getProgressMode());
+        assertEquals(StatusSinkMode.LOG, command.option.getProgressMode());
 
         try (ConsoleProgressOption.Scope scope = command.option.scopedProperty()) {
             assertEquals("log", System.getProperty(PROP_KEY));

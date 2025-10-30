@@ -75,7 +75,7 @@ public class StatusScopeTest {
             InstrumentedTask task = new InstrumentedTask("root-task");
             try (StatusTracker<InstrumentedTask> tracker = scope.trackTask(task)) {
                 assertEquals("root", context.getName());
-                assertEquals(Duration.ofMillis(100), context.getDefaultPollInterval());
+                assertEquals(Duration.ofMillis(1000), context.getDefaultPollInterval());
                 assertEquals(1, context.getActiveTrackerCount());
                 assertEquals(scope, tracker.getParentScope());
             }

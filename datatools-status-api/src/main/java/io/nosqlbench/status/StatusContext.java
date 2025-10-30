@@ -156,12 +156,12 @@ public final class StatusContext implements AutoCloseable, StatusSink {
 
     /**
      * Creates a new context with the specified name and default configuration
-     * (100ms poll interval, no sinks).
+     * (1000ms poll interval, no sinks).
      *
      * @param name the name of this context for identification purposes
      */
     public StatusContext(String name) {
-        this(name, Duration.ofMillis(100), List.of(), Optional.empty());
+        this(name, Duration.ofMillis(1000), List.of(), Optional.empty());
     }
 
     /**
@@ -176,13 +176,13 @@ public final class StatusContext implements AutoCloseable, StatusSink {
 
     /**
      * Creates a new context with the specified name and initial sinks, using the
-     * default poll interval of 100ms.
+     * default poll interval of 1000ms (1 second).
      *
      * @param name the name of this context for identification purposes
      * @param sinks initial collection of sinks to register
      */
     public StatusContext(String name, List<StatusSink> sinks) {
-        this(name, Duration.ofMillis(100), sinks, Optional.empty());
+        this(name, Duration.ofMillis(1000), sinks, Optional.empty());
     }
 
     /**
@@ -192,8 +192,8 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * @param name the name of this context for identification purposes
      * @param progressMode optional explicit console progress mode
      */
-    public StatusContext(String name, Optional<ConsoleProgressMode> progressMode) {
-        this(name, Duration.ofMillis(100), List.of(), progressMode);
+    public StatusContext(String name, Optional<StatusSinkMode> progressMode) {
+        this(name, Duration.ofMillis(1000), List.of(), progressMode);
     }
 
     /**
@@ -203,7 +203,7 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * @param defaultPollInterval the default interval between status observations
      * @param progressMode optional explicit console progress mode
      */
-    public StatusContext(String name, Duration defaultPollInterval, Optional<ConsoleProgressMode> progressMode) {
+    public StatusContext(String name, Duration defaultPollInterval, Optional<StatusSinkMode> progressMode) {
         this(name, defaultPollInterval, List.of(), progressMode);
     }
 
@@ -214,15 +214,15 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * @param sinks initial collection of sinks to register
      * @param progressMode optional explicit console progress mode
      */
-    public StatusContext(String name, List<StatusSink> sinks, Optional<ConsoleProgressMode> progressMode) {
-        this(name, Duration.ofMillis(100), sinks, progressMode);
+    public StatusContext(String name, List<StatusSink> sinks, Optional<StatusSinkMode> progressMode) {
+        this(name, Duration.ofMillis(1000), sinks, progressMode);
     }
 
     /**
      * Creates a new context with full configuration.
      *
      * @param name the name of this context for identification purposes
-     * @param defaultPollInterval the default interval between status observations (minimum 100ms enforced)
+     * @param defaultPollInterval the default interval between status observations (minimum 1000ms/1s enforced)
      * @param sinks initial collection of sinks to register
      */
     public StatusContext(String name, Duration defaultPollInterval, List<StatusSink> sinks) {
@@ -233,27 +233,28 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * Creates a new context with full configuration including optional explicit console progress mode.
      *
      * @param name the name of this context for identification purposes
-     * @param defaultPollInterval the default interval between status observations (minimum 100ms enforced)
+     * @param defaultPollInterval the default interval between status observations (minimum 1000ms/1s enforced)
      * @param sinks initial collection of sinks to register
      * @param progressMode optional explicit console progress mode that takes precedence over auto-attach
      */
     public StatusContext(String name, Duration defaultPollInterval, List<StatusSink> sinks,
-                         Optional<ConsoleProgressMode> progressMode) {
+                         Optional<StatusSinkMode> progressMode) {
         this.name = Objects.requireNonNull(name, "name");
 
-        Duration requestedInterval = Objects.requireNonNullElse(defaultPollInterval, Duration.ofMillis(100));
+        Duration requestedInterval = Objects.requireNonNullElse(defaultPollInterval, Duration.ofMillis(1000));
         long requestedMillis = requestedInterval.toMillis();
         long effectiveMillis = Math.max(requestedMillis, 10);
-        this.effectivePollInterval = Duration.ofMillis(effectiveMillis);
 
-        if (requestedMillis < 100) {
-            logger.warn("Poll interval of {}ms is below minimum 100ms. Using 100ms for reported default. " +
-                       "For context '{}', requested {}ms, effective {}ms.",
-                    requestedMillis, name, requestedMillis, effectiveMillis);
-            this.defaultPollInterval = Duration.ofMillis(100);
-        } else {
-            this.defaultPollInterval = requestedInterval;
+        // Enforce minimum 1 second interval for output sinks
+        long minimumMillis = 1000;
+        if (requestedMillis < minimumMillis) {
+            logger.warn("Poll interval of {}ms is below minimum {}ms for output sinks. " +
+                       "Capped at maximum rate of 1/s. For context '{}', requested {}ms, using {}ms.",
+                    requestedMillis, minimumMillis, name, requestedMillis, minimumMillis);
         }
+
+        this.effectivePollInterval = Duration.ofMillis(Math.max(effectiveMillis, minimumMillis));
+        this.defaultPollInterval = Duration.ofMillis(Math.max(requestedMillis, minimumMillis));
 
         // Auto-attach sink if no explicit sinks provided
         List<StatusSink> effectiveSinks = Objects.requireNonNullElse(sinks, List.of());
@@ -271,7 +272,7 @@ public final class StatusContext implements AutoCloseable, StatusSink {
     }
 
     /**
-     * Automatically attaches an appropriate sink based on explicit {@link ConsoleProgressMode}
+     * Automatically attaches an appropriate sink based on explicit {@link StatusSinkMode}
      * or system property "nb.status.sink". This method is called during StatusContext construction
      * to determine which sink should be used for status output.
      *
@@ -285,22 +286,25 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * <p>The system property "nb.status.sink" or explicit mode controls the behavior:
      * <ul>
      *   <li><strong>"off"</strong> - No sink is attached (status tracking disabled)</li>
-     *   <li><strong>"log"</strong> - Uses ConsoleLoggerSink (SLF4J logging output)</li>
-     *   <li><strong>"panel" or "console"</strong> - Uses ConsoleLoggerSink (TODO: will use ConsolePanelSink)</li>
+     *   <li><strong>"log"</strong> - Uses ConsoleLoggerSink (simple text logging output)</li>
+     *   <li><strong>"panel" or "console"</strong> - Uses ConsolePanelSink (interactive TUI panel with system stream capture)</li>
      *   <li><strong>"auto" or "default"</strong> or not set - Auto-detects based on System.console() availability</li>
      *   <li>Any other value - Logs a warning and falls back to "default" behavior</li>
      * </ul>
      *
      * <p>Default behavior when neither explicit mode nor property is set:
      * <ul>
-     *   <li>If System.console() is available: ConsoleLoggerSink (future: ConsolePanelSink)</li>
-     *   <li>If running headless (no console): ConsoleLoggerSink</li>
+     *   <li>If System.console() is available: ConsolePanelSink (interactive TUI with captured stdout/stderr)</li>
+     *   <li>If running headless (no console): ConsoleLoggerSink (simple text logging)</li>
      * </ul>
+     *
+     * <p>When ConsolePanelSink is used, it automatically captures System.out and System.err to display
+     * logger output in the integrated log panel.</p>
      *
      * <p>Example usage:
      * <pre>{@code
      * // Explicit mode takes precedence
-     * StatusContext ctx = new StatusContext("example", Optional.of(ConsoleProgressMode.OFF));
+     * StatusContext ctx = new StatusContext("example", Optional.of(StatusSinkMode.OFF));
      *
      * // Or via system property
      * System.setProperty("nb.status.sink", "off");
@@ -313,24 +317,45 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * @param progressMode optional explicit console progress mode that takes precedence
      * @return the StatusSink to use for this context, or null if "off" mode is specified
      */
-    private StatusSink autoAttachSink(Optional<ConsoleProgressMode> progressMode) {
+    private StatusSink autoAttachSink(Optional<StatusSinkMode> progressMode) {
         // If explicit mode is provided, use it with highest priority
-        ConsoleProgressMode effectiveMode;
+        StatusSinkMode effectiveMode;
+        boolean needsPersistence = false;
         if (progressMode != null && progressMode.isPresent()) {
             effectiveMode = progressMode.get();
         } else {
             // Fall back to system property or default
             String modeProp = System.getProperty("nb.status.sink", "default");
             try {
-                effectiveMode = ConsoleProgressMode.fromString(modeProp);
+                effectiveMode = StatusSinkMode.fromString(modeProp);
                 if (effectiveMode == null) {
-                    effectiveMode = ConsoleProgressMode.AUTO;
+                    effectiveMode = StatusSinkMode.AUTO;
                 }
+                // Mark for persistence if this was the "default" sentinel value
+                needsPersistence = "default".equals(modeProp);
             } catch (IllegalArgumentException e) {
                 logger.warn("Invalid status sink mode '{}', falling back to auto", modeProp);
-                effectiveMode = ConsoleProgressMode.AUTO;
+                effectiveMode = StatusSinkMode.AUTO;
+                needsPersistence = true;
             }
         }
+
+        // Resolve AUTO to a concrete mode
+        if (effectiveMode == StatusSinkMode.AUTO) {
+            effectiveMode = (System.console() != null) ? StatusSinkMode.PANEL : StatusSinkMode.LOG;
+            needsPersistence = true;
+        }
+
+        // Persist the resolved mode so it doesn't get re-evaluated
+        if (needsPersistence) {
+            System.setProperty("nb.status.sink", effectiveMode.getPropertyValue());
+            logger.debug("Persisted resolved status sink mode: {}", effectiveMode.getPropertyValue());
+        }
+
+        // NOTE: Logging should already be configured by StatusSinkMode.initializeEarly()
+        // in main() before any classes with static loggers are loaded.
+        // We don't configure it here because it may be too late - loggers may already exist.
+        logger.debug("Using status sink mode: {}", effectiveMode);
 
         // Apply the effective mode
         switch (effectiveMode) {
@@ -339,17 +364,13 @@ public final class StatusContext implements AutoCloseable, StatusSink {
             case LOG:
                 return new io.nosqlbench.status.sinks.ConsoleLoggerSink();
             case PANEL:
-                // TODO: Implement ConsolePanelSink when available
-                return new io.nosqlbench.status.sinks.ConsoleLoggerSink();
+                return io.nosqlbench.status.sinks.ConsolePanelSink.builder()
+                    .withCaptureSystemStreams(true)
+                    .withRefreshRateMs(1000)  // Align with minimum polling interval
+                    .build();
             case AUTO:
             default:
-                // Auto mode: use console if available, otherwise log
-                if (System.console() != null) {
-                    // TODO: Implement ConsolePanelSink when available
-                    return new io.nosqlbench.status.sinks.ConsoleLoggerSink();
-                } else {
-                    return new io.nosqlbench.status.sinks.ConsoleLoggerSink();
-                }
+                throw new IllegalStateException("AUTO mode should have been resolved to a concrete mode");
         }
     }
 

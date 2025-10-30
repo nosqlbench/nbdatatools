@@ -17,6 +17,10 @@ package io.nosqlbench.command.generate.subcommands;
  * under the License.
  */
 
+import io.nosqlbench.command.common.OutputFileOption;
+import io.nosqlbench.command.common.RandomSeedOption;
+import io.nosqlbench.command.common.ValueRangeOption;
+import io.nosqlbench.command.common.VectorSpecOption;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
@@ -43,52 +47,32 @@ public class CMD_generate_vectors implements Callable<Integer> {
     private static final int EXIT_FILE_EXISTS = 1;
     private static final int EXIT_ERROR = 2;
 
-    @CommandLine.Option(names = {"-o", "--output"}, description = "The output file", required = true)
-    private Path outputPath;
+    @CommandLine.Mixin
+    private OutputFileOption outputFileOption = new OutputFileOption();
 
-    @CommandLine.Option(names = {"-t", "--type"}, 
-        description = "Vector type as Java class signature (e.g., \"int[]\", \"float[]\", \"double[]\")", 
+    @CommandLine.Mixin
+    private VectorSpecOption vectorSpecOption = new VectorSpecOption();
+
+    @CommandLine.Mixin
+    private RandomSeedOption randomSeedOption = new RandomSeedOption();
+
+    @CommandLine.Mixin
+    private ValueRangeOption valueRangeOption = new ValueRangeOption();
+
+    @CommandLine.Option(names = {"-t", "--type"},
+        description = "Vector type as Java class signature (e.g., \"int[]\", \"float[]\", \"double[]\")",
         required = true)
     private String vectorType;
 
-    @CommandLine.Option(names = {"-d", "--dimension"}, 
-        description = "Dimensionality of each vector", 
-        required = true)
-    private int dimension;
-
-    @CommandLine.Option(names = {"-n", "--count"}, 
-        description = "Number of vectors to generate", 
-        required = true)
-    private int count;
-
-    @CommandLine.Option(names = {"-f", "--format"}, 
-        description = "Output file format (${COMPLETION-CANDIDATES})", 
+    @CommandLine.Option(names = {"--format"},
+        description = "Output file format (${COMPLETION-CANDIDATES})",
         required = true)
     private FileType format;
 
-    @CommandLine.Option(names = {"-s", "--seed"}, 
-        description = "Random seed for reproducible generation (0 for non-deterministic)", 
-        defaultValue = "0")
-    private long seed;
-
-    @CommandLine.Option(names = {"--force"}, 
-        description = "Force overwrite if output file already exists")
-    private boolean force = false;
-
-    @CommandLine.Option(names = {"-a", "--algorithm"}, 
-        description = "PRNG algorithm to use (${COMPLETION-CANDIDATES})", 
+    @CommandLine.Option(names = {"-a", "--algorithm"},
+        description = "PRNG algorithm to use (${COMPLETION-CANDIDATES})",
         defaultValue = "XO_SHI_RO_256_PP")
     private RandomGenerators.Algorithm algorithm = RandomGenerators.Algorithm.XO_SHI_RO_256_PP;
-
-    @CommandLine.Option(names = {"--min"}, 
-        description = "Minimum value for random numbers (for float/double types)", 
-        defaultValue = "0.0")
-    private double min = 0.0;
-
-    @CommandLine.Option(names = {"--max"}, 
-        description = "Maximum value for random numbers (for float/double types)", 
-        defaultValue = "1.0")
-    private double max = 1.0;
 
     @CommandLine.Option(names = {"--int-min"}, 
         description = "Minimum value for random integers (for int types)", 
@@ -107,13 +91,11 @@ public class CMD_generate_vectors implements Callable<Integer> {
      * Validates the output path before execution.
      */
     private void validateOutputPath() {
+        Path outputPath = outputFileOption.getOutputPath();
         if (outputPath == null) {
             throw new CommandLine.ParameterException(spec.commandLine(),
                 "Error: No output path provided");
         }
-
-        // Normalize the path to resolve any "." or ".." components
-        outputPath = outputPath.normalize();
     }
 
     /**
@@ -159,14 +141,14 @@ public class CMD_generate_vectors implements Callable<Integer> {
             return vector;
         } else if (vectorClass == float[].class) {
             float[] vector = new float[dimension];
-            ContinuousSampler sampler = RandomGenerators.createUniformSampler(rng, min, max);
+            ContinuousSampler sampler = RandomGenerators.createUniformSampler(rng, valueRangeOption.getMin(), valueRangeOption.getMax());
             for (int i = 0; i < dimension; i++) {
                 vector[i] = (float) sampler.sample();
             }
             return vector;
         } else if (vectorClass == double[].class) {
             double[] vector = new double[dimension];
-            ContinuousSampler sampler = RandomGenerators.createUniformSampler(rng, min, max);
+            ContinuousSampler sampler = RandomGenerators.createUniformSampler(rng, valueRangeOption.getMin(), valueRangeOption.getMax());
             for (int i = 0; i < dimension; i++) {
                 vector[i] = sampler.sample();
             }
@@ -210,8 +192,10 @@ public class CMD_generate_vectors implements Callable<Integer> {
             return EXIT_ERROR;
         }
 
+        Path outputPath = outputFileOption.getNormalizedOutputPath();
+
         // Check if file exists and handle force option
-        if (Files.exists(outputPath) && !force) {
+        if (outputFileOption.outputExistsWithoutForce()) {
             System.err.println("Error: Output file already exists. Use --force to overwrite.");
             return EXIT_FILE_EXISTS;
         }
@@ -232,23 +216,17 @@ public class CMD_generate_vectors implements Callable<Integer> {
                 return EXIT_ERROR;
             }
 
-            // Validate dimension
-            if (dimension <= 0) {
-                System.err.println("Error: Dimension must be positive");
+            // Validate dimension and count
+            try {
+                vectorSpecOption.validate();
+            } catch (IllegalArgumentException e) {
+                System.err.println("Error: " + e.getMessage());
                 return EXIT_ERROR;
             }
 
-            // Validate count
-            if (count <= 0) {
-                System.err.println("Error: Count must be positive");
-                return EXIT_ERROR;
-            }
-
-            // Determine effective seed: use provided seed, or generate a new one if seed <= 0
-            long effectiveSeed = seed;
-            if (seed <= 0) {
-                effectiveSeed = System.nanoTime() ^ System.currentTimeMillis();
-            }
+            int dimension = vectorSpecOption.getDimension();
+            int count = vectorSpecOption.getCount();
+            long effectiveSeed = randomSeedOption.getSeed();
             RestorableUniformRandomProvider rng = RandomGenerators.create(algorithm, effectiveSeed);
 
             // Create the vector file store
@@ -270,14 +248,14 @@ public class CMD_generate_vectors implements Callable<Integer> {
 
                     // Print progress every 10% or every 1000 vectors, whichever is more frequent
                     if (i % Math.max(count / 10, 1000) == 0 && i > 0) {
-                        System.out.printf("Generated %,d of %,d vectors (%.1f%%)%n", 
+                        System.out.printf("Generated %,d of %,d vectors (%.1f%%)%n",
                             i, count, (double) i / count * 100);
                     }
                 }
             }
 
             System.out.println("Successfully generated vector file: " + outputPath);
-            System.out.println("Type: " + vectorType + ", Dimension: " + dimension + 
+            System.out.println("Type: " + vectorType + ", Dimension: " + dimension +
                 ", Count: " + count + ", Format: " + format);
             System.out.println("Seed: " + effectiveSeed + ", Algorithm: " + algorithm);
 

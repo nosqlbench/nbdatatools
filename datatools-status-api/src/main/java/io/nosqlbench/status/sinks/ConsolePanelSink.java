@@ -221,10 +221,39 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
         this.quietMode = builder.quietMode;
         this.usingCustomTerminal = builder.terminalOverride != null;
 
+        // CRITICAL: Save original streams FIRST, before any terminal or redirection setup
+        this.originalOut = System.out;
+        this.originalErr = System.err;
+
+        // Initialize time formatter BEFORE creating LogCapturePrintStream (which uses it)
+        this.timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+        // Initialize logging components
+        this.logBuffer = new LinkedList<>();
+        this.logScrollOffset = 0;
+        this.splitOffset = 0;  // Start with default split
+        this.isUserScrollingLogs = false;
+        this.lastLogDisplayTime = 0;
+        this.logLock = new ReentrantReadWriteLock();
+
+        // Create capture streams that will forward to LogBuffer
+        this.capturedOut = new LogCapturePrintStream("OUT");
+        this.capturedErr = new LogCapturePrintStream("ERR");
+
+        // Redirect console output BEFORE creating terminal if requested
+        // This way any logging during terminal setup gets captured
+        if (builder.captureSystemStreams) {
+            System.setOut(capturedOut);
+            System.setErr(capturedErr);
+        }
+
         try {
             if (usingCustomTerminal) {
                 this.terminal = builder.terminalOverride;
             } else {
+                // Create terminal using system streams (even if redirected)
+                // The terminal will use redirected streams but Display will write to terminal.writer()
+                // which bypasses System.out
                 this.terminal = TerminalBuilder.builder()
                         .system(true)
                         .jansi(true)
@@ -267,30 +296,9 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
         this.taskNodes = new ConcurrentHashMap<>();
         this.scopeNodes = new ConcurrentHashMap<>();
         this.rootNode = new RootNode();
-        this.timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
         this.closed = new AtomicBoolean(false);
         this.shouldRender = new AtomicBoolean(true);
         this.introComplete = new AtomicBoolean(true); // Default to true, set to false by showIntroScreen()
-
-        // Initialize logging components
-        this.logBuffer = new LinkedList<>();
-        this.logScrollOffset = 0;
-        this.splitOffset = 0;  // Start with default split
-        this.isUserScrollingLogs = false;
-        this.lastLogDisplayTime = 0;
-        this.logLock = new ReentrantReadWriteLock();
-
-        // Capture System.out and System.err
-        this.originalOut = System.out;
-        this.originalErr = System.err;
-        this.capturedOut = new LogCapturePrintStream("OUT");
-        this.capturedErr = new LogCapturePrintStream("ERR");
-
-        // Redirect console output only if requested
-        if (builder.captureSystemStreams) {
-            System.setOut(capturedOut);
-            System.setErr(capturedErr);
-        }
 
         // Create and start the dedicated render thread
         this.renderThread = new Thread(this::renderLoop, "ConsolePanelSink-Renderer");
@@ -964,12 +972,40 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
 //                System.err.println("[ConsolePanelSink] Refresh #" + refreshCount + " starting");
 //            }
 
-            // Get terminal size
-            Size size = terminal.getSize();
+            // Determine terminal size - use cached size for stability unless we detect an actual resize
+            Size size;
 
-            // If terminal size is invalid, use a reasonable default
-            if (size == null || size.getRows() <= 0 || size.getColumns() <= 0) {
-                if (refreshCount == 1) {  // Only log once on first refresh
+            // On first refresh, detect and cache terminal size
+            if (lastKnownSize == null) {
+                // Try environment variables first (most reliable when running through Maven)
+                String columnsEnv = System.getenv("COLUMNS");
+                String linesEnv = System.getenv("LINES");
+                boolean usedEnvVars = false;
+
+                if (columnsEnv != null && linesEnv != null) {
+                    try {
+                        int cols = Integer.parseInt(columnsEnv);
+                        int rows = Integer.parseInt(linesEnv);
+                        if (cols > 0 && rows > 0) {
+                            logger.info("Using terminal size from environment: {}x{} (COLUMNS={}, LINES={})",
+                                cols, rows, columnsEnv, linesEnv);
+                            size = new Size(cols, rows);
+                            usedEnvVars = true;
+                        } else {
+                            size = terminal.getSize();
+                        }
+                    } catch (NumberFormatException e) {
+                        logger.warn("Invalid COLUMNS/LINES environment variables: COLUMNS={}, LINES={}",
+                            columnsEnv, linesEnv);
+                        size = terminal.getSize();
+                    }
+                } else {
+                    // No env vars, try JLine detection
+                    size = terminal.getSize();
+                }
+
+                // If still invalid, use default
+                if (size == null || size.getRows() <= 0 || size.getColumns() <= 0) {
                     if (size != null) {
                         logger.info("Terminal size detection failed (got {}x{}). Using default size 100x40. " +
                             "This may happen when running in certain IDEs or piped environments.",
@@ -977,39 +1013,87 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
                     } else {
                         logger.info("Terminal size is null. Using default size 100x40.");
                     }
+                    size = new Size(100, 40);
                 }
-                size = new Size(100, 40);  // More reasonable default for modern terminals
-            }
 
-            // Detect terminal resize
-            boolean terminalResized = false;
-            if (lastKnownSize != null &&
-                (lastKnownSize.getRows() != size.getRows() || lastKnownSize.getColumns() != size.getColumns())) {
-                terminalResized = true;
+                // Cache the detected size
+                lastKnownSize = size;
 
-                // Force a complete redraw on resize
-                try {
-                    // Clear the entire screen
-                    terminal.puts(org.jline.utils.InfoCmp.Capability.clear_screen);
-                    terminal.puts(org.jline.utils.InfoCmp.Capability.cursor_home);
-                    terminal.flush();
+                // CRITICAL: Ensure Display knows the actual size we're using
+                // Display was initialized during construction, but the size might have been corrected
+                // via environment variables or fallbacks. We MUST call display.resize() to sync.
+                // IMPORTANT: Resize FIRST, then clear - otherwise Display's internal buffers are inconsistent
+                display.resize(size.getRows(), size.getColumns());
+                display.clear();
+                // Reset Display's internal state to empty screen - forces full redraw on next update
+                display.update(Collections.emptyList(), 0);
+                logger.info("Display resized to {}x{} and cleared to match detected terminal size",
+                    size.getColumns(), size.getRows());
 
-                    // Reset the display to force full redraw
-                    display.clear();
-                    display.resize(size.getRows(), size.getColumns());
-
-                    // Reset display state to force complete refresh
-                    display.update(Collections.emptyList(), 0);
-
-                } catch (Exception e) {
-                    // If clear fails, try alternative approach
-                    try {
-                        terminal.writer().print("\033[2J\033[H"); // ANSI clear screen and home
-                        terminal.flush();
-                    } catch (Exception ignored) {}
+                // IMPORTANT: When NOT using env vars and JLine is unreliable, lock the size permanently
+                // to prevent oscillation between different values from terminal.getSize()
+                if (!usedEnvVars && (size.getRows() == 40 || size.getRows() == 0)) {
+                    logger.info("Terminal size locked at {}x{} - subsequent getSize() calls will be IGNORED to prevent layout instability",
+                        size.getColumns(), size.getRows());
                 }
+            } else {
+                // ALWAYS use cached size - DO NOT query terminal.getSize() unless env vars were used
+                // This prevents JLine's unstable detection from causing layout oscillation
+                size = lastKnownSize;
+
+                // Only check for resize if we have a way to detect it reliably
+                // (i.e., not in Maven where terminal.getSize() returns inconsistent values)
+                // We can detect this by checking if Console is available
+                if (System.console() != null) {
+                    // Real terminal - check for actual resize
+                    Size currentSize = terminal.getSize();
+
+                    // DEBUG: Log what terminal.getSize() returns
+                    if (refreshCount <= 10 || refreshCount % 50 == 0) {
+                        logger.info("[Size Debug] Refresh #{}: terminal.getSize()={}x{}, cached={}x{}",
+                            refreshCount,
+                            currentSize != null ? currentSize.getColumns() : "null",
+                            currentSize != null ? currentSize.getRows() : "null",
+                            lastKnownSize.getColumns(), lastKnownSize.getRows());
+                    }
+
+                    if (currentSize != null && currentSize.getRows() > 0 && currentSize.getColumns() > 0) {
+                        // Valid new size detected - check if it's different from cached
+                        if (currentSize.getRows() != lastKnownSize.getRows() ||
+                            currentSize.getColumns() != lastKnownSize.getColumns()) {
+                            logger.warn("Terminal resize detected: {}x{} -> {}x{} (refresh #{})",
+                                lastKnownSize.getColumns(), lastKnownSize.getRows(),
+                                currentSize.getColumns(), currentSize.getRows(), refreshCount);
+                            size = currentSize;
+                            lastKnownSize = size;
+
+                            // Force a complete redraw on resize
+                            try {
+                                // Clear the entire screen
+                                terminal.puts(org.jline.utils.InfoCmp.Capability.clear_screen);
+                                terminal.puts(org.jline.utils.InfoCmp.Capability.cursor_home);
+                                terminal.flush();
+
+                                // Reset the display to force full redraw
+                                // IMPORTANT: Resize FIRST, then clear
+                                display.resize(size.getRows(), size.getColumns());
+                                display.clear();
+
+                                // Reset display state to force complete refresh
+                                display.update(Collections.emptyList(), 0);
+
+                            } catch (Exception e) {
+                                // If clear fails, try alternative approach
+                                try {
+                                    terminal.writer().print("\033[2J\033[H"); // ANSI clear screen and home
+                                    terminal.flush();
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                    }
+                }
+                // If System.console() is null (Maven), completely ignore terminal.getSize() - use cached only
             }
-            lastKnownSize = size;
 
             // Only enable debug logging if explicitly requested
             boolean debugThisRefresh = false; // (refreshCount % 100 == 1);  // Uncomment for debugging
@@ -1053,29 +1137,120 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
             }
 
             // Ensure we don't exceed terminal height
-            while (lines.size() > size.getRows()) {
-                lines.remove(lines.size() - 1);
-            }
+            // CRITICAL: Never remove the last 2 lines (bottom border + status bar)
+            // If we do exceed, something is wrong with our overhead calculation
+            if (lines.size() > size.getRows()) {
+                logger.warn("Display exceeds terminal height: {} lines > {} rows (overhead={}, taskH={}, logH={})",
+                    lines.size(), size.getRows(), totalOverhead, taskContentHeight, logContentHeight);
 
-            // Pad to fill screen
-            while (lines.size() < size.getRows()) {
-                lines.add(new AttributedString(""));
-            }
+                // Remove excess lines but preserve the last 2 lines (bottom border + status bar)
+                int excessLines = lines.size() - size.getRows();
+                int maxRemovable = lines.size() - 2; // Never remove last 2 lines
 
-            // Debug: Check what we're about to render
-            if (debugThisRefresh) {
-                logger.debug("About to update display with {} lines", lines.size());
-                if (!lines.isEmpty()) {
-                    String firstLine = lines.get(0).toAnsi(terminal);
-                    logger.debug("First line content (len={}): {}", firstLine.length(),
-                        firstLine.length() > 50 ? firstLine.substring(0, 50) + "..." : firstLine);
+                // Find the log content section and remove from there first
+                // Log content is between middle divider and bottom border
+                // We need to find these boundaries and remove from the log section
+                int removeCount = Math.min(excessLines, logContentHeight);
+                if (removeCount > 0) {
+                    // Remove from the end of log content (just before bottom bar)
+                    // Bottom bar is always the last 2 lines, so remove from position (size - 2 - removeCount) to (size - 2)
+                    for (int i = 0; i < removeCount && lines.size() > size.getRows() && lines.size() > 2; i++) {
+                        lines.remove(lines.size() - 3); // Remove 3rd from last (preserves bottom border + status)
+                    }
                 }
             }
 
-            // Update display - Display class handles differential updates
-            // Position cursor at bottom right to hide it
+            // CRITICAL: Ensure ALL lines are EXACTLY size.getColumns() width
+            // Display's differential rendering REQUIRES all lines to be the same width
+            int targetWidth = size.getColumns();
+            int widthMismatchCount = 0;
+            for (int i = 0; i < lines.size(); i++) {
+                AttributedString line = lines.get(i);
+                int actualWidth = line.columnLength();
+
+                if (actualWidth != targetWidth) {
+                    widthMismatchCount++;
+                    // Line width mismatch - fix it
+                    if (actualWidth > targetWidth) {
+                        // Too long - truncate
+                        line = line.columnSubSequence(0, Math.max(0, targetWidth - 1));
+                        AttributedStringBuilder builder = new AttributedStringBuilder();
+                        builder.append(line).append("…");
+                        lines.set(i, builder.toAttributedString());
+                    } else {
+                        // Too short - pad with spaces
+                        AttributedStringBuilder builder = new AttributedStringBuilder();
+                        builder.append(line);
+                        builder.append(" ".repeat(targetWidth - actualWidth));
+                        lines.set(i, builder.toAttributedString());
+                    }
+                }
+            }
+
+            // Pad to fill screen with full-width blank lines
+            String blankLine = " ".repeat(targetWidth);
+            while (lines.size() < size.getRows()) {
+                lines.add(new AttributedString(blankLine));
+            }
+
+            // COMPREHENSIVE DEBUG: Log detailed state before Display.update()
+            // Enable for first few refreshes and periodically to diagnose positioning issues
+            boolean detailedDebug = (refreshCount <= 5 || refreshCount % 25 == 0);
+            if (detailedDebug) {
+                logger.warn("=== Display Update Debug (refresh #{}) ===", refreshCount);
+                logger.warn("Terminal size: {}x{} (from {})",
+                    size.getColumns(), size.getRows(),
+                    lastKnownSize == size ? "cached" : "NEW");
+                logger.warn("Total lines: {} (expected: {})", lines.size(), size.getRows());
+                logger.warn("Width mismatches corrected: {}", widthMismatchCount);
+
+                // Verify first 15 lines all have exact width
+                int samplesToCheck = Math.min(15, lines.size());
+                boolean allWidthsCorrect = true;
+                for (int i = 0; i < samplesToCheck; i++) {
+                    int width = lines.get(i).columnLength();
+                    if (width != targetWidth) {
+                        logger.warn("  Line {}: width={} (expected={}) MISMATCH!", i, width, targetWidth);
+                        allWidthsCorrect = false;
+                    }
+                }
+                if (allWidthsCorrect) {
+                    logger.warn("  First {} lines: ALL have correct width={}", samplesToCheck, targetWidth);
+                } else {
+                    logger.warn("  WIDTH VALIDATION FAILED - some lines still have wrong width!");
+                }
+
+                // Sample a few line contents to see what we're rendering
+                if (lines.size() >= 3) {
+                    logger.warn("  Line 0 (header): '{}'",
+                        lines.get(0).toString().length() > 60 ?
+                        lines.get(0).toString().substring(0, 60) + "..." :
+                        lines.get(0).toString());
+                    logger.warn("  Line 1: '{}'",
+                        lines.get(1).toString().length() > 60 ?
+                        lines.get(1).toString().substring(0, 60) + "..." :
+                        lines.get(1).toString());
+                    logger.warn("  Line {} (last): '{}'",
+                        lines.size() - 1,
+                        lines.get(lines.size() - 1).toString().length() > 60 ?
+                        lines.get(lines.size() - 1).toString().substring(0, 60) + "..." :
+                        lines.get(lines.size() - 1).toString());
+                }
+                logger.warn("  Cursor position: row={}, col={}",
+                    size.getRows() - 1, size.getColumns() - 1);
+            }
+
+            // Disabled synchronized output mode - it may interfere with JLine's Display buffering
+            // terminal.writer().write("\033[?2026h");  // BSU - Begin Synchronized Update
+            // terminal.writer().flush();
+
+            // Update display - JLine will do differential rendering
+            // JLine's Display class handles its own buffering and synchronization
             display.update(lines, size.cursorPos(size.getRows() - 1, size.getColumns() - 1));
-            terminal.flush();
+
+            // Disabled synchronized output mode
+            // terminal.writer().write("\033[?2026l");  // ESU - End Synchronized Update
+            // terminal.flush();
 
             List<String> snapshot = new ArrayList<>(lines.size());
             for (AttributedString line : lines) {
@@ -1176,12 +1351,24 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
     private AttributedString wrapWithSideBorders(AttributedString content, int width) {
         AttributedStringBuilder builder = new AttributedStringBuilder();
         builder.style(STYLE_BORDER).append("║ ");
-        builder.append(content);
 
-        // Calculate padding
+        // Calculate available space for content
+        int availableWidth = width - 4; // 4 for "║ " and " ║"
         int contentLength = content.columnLength();
-        int paddingNeeded = Math.max(0, width - contentLength - 4); // 4 for "║ " and " ║"
-        builder.append(" ".repeat(paddingNeeded));
+
+        // Truncate content if it exceeds available width
+        if (contentLength > availableWidth) {
+            // Truncate and add ellipsis
+            content = content.columnSubSequence(0, Math.max(0, availableWidth - 1));
+            builder.append(content);
+            builder.append("…");
+            // No padding needed - we filled the space
+        } else {
+            builder.append(content);
+            // Add padding to fill remaining space
+            int paddingNeeded = availableWidth - contentLength;
+            builder.append(" ".repeat(paddingNeeded));
+        }
 
         builder.style(STYLE_BORDER).append(" ║");
         return builder.toAttributedString();
@@ -1368,9 +1555,9 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
         int totalBuffered = LogBuffer.getAllLogEntries().size();
         int filtered = logBuffer.size();
 
-        // Build compact status line
+        // Build compact status line with fixed-width numbers to reduce differential rendering artifacts
         statusBar.style(AttributedStyle.DEFAULT.foreground(AttributedStyle.CYAN))
-                .append(" Logs: " + filtered + "/" + totalBuffered)
+                .append(String.format(" Logs: %4d/%-4d", filtered, totalBuffered))
                 .append(" | ")
                 .append("Level: ")
                 .style(AttributedStyle.DEFAULT.bold().foreground(AttributedStyle.YELLOW))
@@ -1395,9 +1582,18 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
                 .append(" | ")
                 .append("?: help");
 
-        // Pad to width
-        int currentLen = statusBar.toAttributedString().columnLength();
-        if (currentLen < width) {
+        // Ensure status bar is exactly width columns
+        AttributedString statusString = statusBar.toAttributedString();
+        int currentLen = statusString.columnLength();
+
+        if (currentLen > width) {
+            // Truncate if too long
+            statusString = statusString.columnSubSequence(0, Math.max(0, width - 1));
+            statusBar = new AttributedStringBuilder();
+            statusBar.append(statusString);
+            statusBar.append("…");
+        } else if (currentLen < width) {
+            // Pad if too short
             statusBar.append(" ".repeat(width - currentLen));
         }
 
@@ -1487,9 +1683,10 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
         builder.append(center("Press any key to close help", width));
         lines.add(builder.toAttributedString());
 
-        // Pad to fill screen
+        // Pad to fill screen with full-width blank lines
+        String blankLine = " ".repeat(width);
         while (lines.size() < height) {
-            lines.add(new AttributedString(""));
+            lines.add(new AttributedString(blankLine));
         }
     }
 
@@ -2015,7 +2212,12 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
     }
 
     private int getLogPanelHeight() {
-        Size size = terminal.getSize();
+        // During initialization, terminal may be null or size not cached yet - return default
+        if (terminal == null || lastKnownSize == null) {
+            return 10; // Default log panel height
+        }
+        // Use cached size for consistency - avoids JLine's unstable detection
+        Size size = lastKnownSize;
         int taskLines = countTaskLines(rootNode);
         int headerFooterLines = 6; // Headers and footers
         int remaining = size.getRows() - taskLines - headerFooterLines;

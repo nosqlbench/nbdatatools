@@ -22,6 +22,8 @@ import io.nosqlbench.status.StatusTracker;
 import io.nosqlbench.status.sinks.ConsoleLoggerSink;
 import io.nosqlbench.status.sinks.MetricsStatusSink;
 import io.nosqlbench.status.userguide.fauxtasks.DataLoader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Level 5: Add Custom Sinks
@@ -62,6 +64,7 @@ import io.nosqlbench.status.userguide.fauxtasks.DataLoader;
  * </ul>
  */
 public class Level5_CustomSinks {
+    private static final Logger logger = LogManager.getLogger(Level5_CustomSinks.class);
 
     public static void main(String[] args) {
         // Use tasks from previous levels
@@ -82,7 +85,7 @@ public class Level5_CustomSinks {
         }
 
         // NEW: Access metrics after tasks complete
-        System.out.println("Total tasks: " + metrics5.getTotalTasksStarted());
-        System.out.println("Avg duration: " + metrics5.getAverageTaskDuration() + "ms");
+        logger.info("Total tasks: " + metrics5.getTotalTasksStarted());
+        logger.info("Avg duration: " + metrics5.getAverageTaskDuration() + "ms");
     }
 }

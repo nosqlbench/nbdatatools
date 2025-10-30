@@ -60,12 +60,29 @@ import java.util.concurrent.TimeUnit;
  * </ol>
  *
  * <h2>Running the Demo</h2>
- * <p>Execute from the command line with Maven:</p>
+ * <p>Execute from the command line with Maven (use -q to avoid output interference):</p>
  * <pre>
- * mvn test-compile exec:java -pl internal-apis \
- *   -Dexec.mainClass="io.nosqlbench.examples.status.ConsolePanelDemo" \
+ * mvn -q test-compile exec:java -pl datatools-status-api \
+ *   -Dexec.mainClass="io.nosqlbench.status.examples.ConsolePanelDemo" \
  *   -Dexec.classpathScope=test
  * </pre>
+ *
+ * <p><strong>Note:</strong> The {@code -q} flag is critical to prevent Maven's build output
+ * from interfering with the TUI's terminal control sequences. Without it, you'll see garbled
+ * output as Maven's INFO messages mix with the panel's display.</p>
+ *
+ * <h3>Remote/SSH Sessions</h3>
+ * <p>If running in a remote session where terminal size detection fails (garbled/overlapping output),
+ * explicitly set the COLUMNS and LINES environment variables:</p>
+ * <pre>
+ * export COLUMNS=$(tput cols)
+ * export LINES=$(tput lines)
+ * mvn -q test-compile exec:java -pl datatools-status-api \
+ *   -Dexec.mainClass="io.nosqlbench.status.examples.ConsolePanelDemo" \
+ *   -Dexec.classpathScope=test
+ * </pre>
+ * <p>This overrides JLine's ioctl-based detection, which can return incorrect values in
+ * remote terminal sessions.</p>
  *
  * <h2>Interactive Controls</h2>
  * <ul>
@@ -113,38 +130,54 @@ public class ConsolePanelDemo {
      * Main entry point for the console panel demonstration. Creates a status context with
      * ConsolePanelSink, launches a diverse workload with multiple task types, and waits for completion.
      *
-     * @param args command line arguments (unused)
+     * <p><strong>Initialization Pattern:</strong> This demo follows the required initialization pattern
+     * for applications using the status API:</p>
+     * <ol>
+     *   <li>Parse command line arguments (if needed) to allow user override of status mode</li>
+     *   <li>Call {@link io.nosqlbench.status.StatusSinkMode#initializeEarly()} immediately</li>
+     *   <li>Continue with rest of application logic</li>
+     * </ol>
+     *
+     * <p>The {@code initializeEarly()} method validates that no Logger fields exist yet,
+     * configures the logging framework, and must be called before any classes with static
+     * Logger fields are loaded.</p>
+     *
+     * @param args command line arguments (unused in this demo)
      * @throws Exception if initialization or execution fails
      */
-    public static void main(String[] args) throws Exception {
-        // Configure logging to capture all log events in LogBuffer
-        ConsolePanelLogIntercept.configure(OutputMode.INTERACTIVE);
+    public static void main(String[] args) {
+        try {
+            mainImpl(args);
+        } catch (Throwable t) {
+            // Write error to file since terminal might be in raw mode
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("/tmp/console_panel_error.log", true))) {
+                pw.println("=== Error at " + java.time.LocalDateTime.now() + " ===");
+                t.printStackTrace(pw);
+                pw.println();
+            } catch (Exception e) {
+                // Last resort - print to stderr
+                System.err.println("Failed to write error log:");
+                t.printStackTrace(System.err);
+            }
+            throw new RuntimeException("ConsolePanelDemo failed - see /tmp/console_panel_error.log", t);
+        }
+    }
+
+    private static void mainImpl(String[] args) throws Exception {
+        // Step 1: Command line parsing (if needed) - users could set -Dnb.status.sink=MODE here
+        // For this demo, explicitly set PANEL mode since System.console() returns null when
+        // running through Maven, which would cause AUTO mode to resolve to LOG instead of PANEL.
+        System.setProperty("nb.status.sink", "panel");
+
+        // Step 2: CRITICAL - Initialize status sink mode immediately after arg parsing
+        // This configures logging before any classes with static Logger fields are loaded.
+        // It also validates that this class (ConsolePanelDemo) has no Logger fields yet.
+        io.nosqlbench.status.StatusSinkMode.initializeEarly();
 
         // Create simulated clock for time control
         SimulatedClock clock = new SimulatedClock();
 
-        // Use array to allow lambda to reference the sink before it's fully initialized
-        ConsolePanelSink[] sinkHolder = new ConsolePanelSink[1];
-
-        // Create the enhanced ConsolePanelSink with time control callbacks
-        ConsolePanelSink consolePanelSink = ConsolePanelSink.builder()
-                .withRefreshRateMs(100)
-                .withCompletedTaskRetention(5, TimeUnit.SECONDS)
-                .withColorOutput(true)
-                .withMaxLogLines(100)
-                .withCaptureSystemStreams(true)
-                .withKeyHandler("shift-right", () -> {
-                    clock.speedUp();
-                    sinkHolder[0].addLogMessage("Time speed: " + clock.getSpeedDescription());
-                })
-                .withKeyHandler("shift-left", () -> {
-                    clock.slowDown();
-                    sinkHolder[0].addLogMessage("Time speed: " + clock.getSpeedDescription());
-                })
-                .build();
-        sinkHolder[0] = consolePanelSink;
-
-        // Print reminder to terminal before entering interactive mode
+        // Print reminder to terminal BEFORE creating ConsolePanelSink (which captures streams)
         System.out.println("\n" +
             "=".repeat(70) + "\n" +
             "  ConsolePanelSink Demo - Interactive Task Monitor\n" +
@@ -161,6 +194,30 @@ public class ConsolePanelDemo {
             "  Press '?' inside the monitor to see all keyboard shortcuts\n" +
             "\n" +
             "=".repeat(70) + "\n");
+
+        // Use array to allow lambda to reference the sink before it's fully initialized
+        ConsolePanelSink[] sinkHolder = new ConsolePanelSink[1];
+
+        // Create the enhanced ConsolePanelSink with time control callbacks
+        // NOTE: We don't capture System.out/err because logs are already captured via Log4j 2's
+        // LogBuffer appender (configured by StatusSinkMode.initializeEarly()).
+        // Capturing System.out would interfere with the terminal display.
+        ConsolePanelSink consolePanelSink = ConsolePanelSink.builder()
+                .withRefreshRateMs(250)  // 4 updates/second - reasonable for terminal rendering
+                .withCompletedTaskRetention(5, TimeUnit.SECONDS)
+                .withColorOutput(true)
+                .withMaxLogLines(100)
+                .withCaptureSystemStreams(false)  // Don't capture - logs come via Log4j 2
+                .withKeyHandler("shift-right", () -> {
+                    clock.speedUp();
+                    sinkHolder[0].addLogMessage("Time speed: " + clock.getSpeedDescription());
+                })
+                .withKeyHandler("shift-left", () -> {
+                    clock.slowDown();
+                    sinkHolder[0].addLogMessage("Time speed: " + clock.getSpeedDescription());
+                })
+                .build();
+        sinkHolder[0] = consolePanelSink;
 
         try (StatusContext context = new StatusContext("console-demo")) {
             context.addSink(consolePanelSink);
