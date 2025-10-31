@@ -49,7 +49,7 @@ public class DistanceMetricOption {
     }
 
     @CommandLine.Option(
-        names = {"-d", "--distance"},
+        names = {"-m", "--metric"},
         description = "Distance metric: L2 (Euclidean), L1 (Manhattan), COSINE (Cosine similarity). Valid values: ${COMPLETION-CANDIDATES}",
         defaultValue = "L2"
     )

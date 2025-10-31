@@ -28,7 +28,9 @@ public enum DistanceFunction {
   /// The euclidean distance function
   EUCLIDEAN,
   /// Same as euclidean here
-  L2;
+  L2,
+  /// The Manhattan (L1) distance function
+  L1;
 
   /// compute the distance between two vectors
   /// @param v1 the first vector
@@ -38,10 +40,13 @@ public enum DistanceFunction {
     switch (this) {
       case COSINE:
         return doubleCosineDistance(v1, v2);
-      case DOT_PRODUCT:
       case EUCLIDEAN:
       case L2:
-        throw new RuntimeException("Not implemented");
+        return doubleEuclideanDistance(v1, v2);
+      case L1:
+        return doubleManhattanDistance(v1, v2);
+      case DOT_PRODUCT:
+        throw new RuntimeException("DOT_PRODUCT distance not implemented");
       default:
         throw new IllegalArgumentException("Unknown distance function: " + this);
     }
@@ -55,10 +60,13 @@ public enum DistanceFunction {
     switch (this) {
       case COSINE:
         return floatCosineDistance(v1, v2);
-      case DOT_PRODUCT:
       case EUCLIDEAN:
       case L2:
-        throw new RuntimeException("Not implemented");
+        return floatEuclideanDistance(v1, v2);
+      case L1:
+        return floatManhattanDistance(v1, v2);
+      case DOT_PRODUCT:
+        throw new RuntimeException("DOT_PRODUCT distance not implemented");
       default:
         throw new IllegalArgumentException("Unknown distance function: " + this);
     }
@@ -123,5 +131,55 @@ public enum DistanceFunction {
 
     // Cosine distance is 1 - cosine similarity
     return 1.0 - cosineSimilarity;
+  }
+
+  private double floatEuclideanDistance(float[] vectorA, float[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    double sum = 0.0;
+    for (int i = 0; i < vectorA.length; i++) {
+      double diff = vectorA[i] - vectorB[i];
+      sum += diff * diff;
+    }
+    return Math.sqrt(sum);
+  }
+
+  private double doubleEuclideanDistance(double[] vectorA, double[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    double sum = 0.0;
+    for (int i = 0; i < vectorA.length; i++) {
+      double diff = vectorA[i] - vectorB[i];
+      sum += diff * diff;
+    }
+    return Math.sqrt(sum);
+  }
+
+  private double floatManhattanDistance(float[] vectorA, float[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    double sum = 0.0;
+    for (int i = 0; i < vectorA.length; i++) {
+      sum += Math.abs(vectorA[i] - vectorB[i]);
+    }
+    return sum;
+  }
+
+  private double doubleManhattanDistance(double[] vectorA, double[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    double sum = 0.0;
+    for (int i = 0; i < vectorA.length; i++) {
+      sum += Math.abs(vectorA[i] - vectorB[i]);
+    }
+    return sum;
   }
 }
