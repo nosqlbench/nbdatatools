@@ -45,6 +45,16 @@
         <module>datatools-vshapes</module>
       </modules>
     </profile>
+    <profile>
+      <id>all</id>
+      <properties>
+        <!-- Enable all performance tests that are disabled by default -->
+        <skipPerformanceTests>false</skipPerformanceTests>
+      </properties>
+      <modules>
+        <module>datatools-vshapes</module>
+      </modules>
+    </profile>
   </profiles>
   <developers>
     <developer>

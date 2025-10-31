@@ -18,6 +18,8 @@
     <maven.deploy.skip>true</maven.deploy.skip>
     <maven.compiler.source>16</maven.compiler.source>
     <maven.compiler.target>16</maven.compiler.target>
+    <!-- Performance tests are disabled by default, enable with -Pall profile -->
+    <skipPerformanceTests>true</skipPerformanceTests>
   </properties>
 
   <dependencies>
@@ -604,5 +606,15 @@
     </plugins>
 
   </build>
+
+  <profiles>
+    <profile>
+      <id>all</id>
+      <properties>
+        <!-- Enable all performance tests that are disabled by default -->
+        <skipPerformanceTests>false</skipPerformanceTests>
+      </properties>
+    </profile>
+  </profiles>
 
 </project>

@@ -18,7 +18,6 @@
 
   <properties>
     <javadoc.name>vshapes</javadoc.name>
-    <skipPerformanceTests>true</skipPerformanceTests>
   </properties>
 
   <dependencies>

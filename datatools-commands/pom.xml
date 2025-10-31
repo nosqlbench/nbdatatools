@@ -217,6 +217,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- Add Vector API module for JDK 25 multi-release JAR support -->
+          <argLine>--add-modules jdk.incubator.vector</argLine>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.sonatype.central</groupId>
