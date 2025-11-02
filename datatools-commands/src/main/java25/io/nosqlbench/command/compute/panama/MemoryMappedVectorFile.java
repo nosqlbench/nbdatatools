@@ -169,13 +169,13 @@ public class MemoryMappedVectorFile implements AutoCloseable {
     }
 
     /**
-     * Create a PanamaVectorBatch from a range of vectors (TRUE zero-copy!).
-     * Uses the memory-mapped segment directly without any copying.
-     * This is the fastest possible path.
+     * Create a PanamaVectorBatch from a range of vectors (single-copy optimization).
+     * Reads directly from memory-mapped file, strips dimension fields in one pass.
+     * This eliminates the double-copy (file→arrays→MemorySegment becomes file→MemorySegment).
      *
      * @param startIndex starting vector index (inclusive)
      * @param endIndex ending vector index (exclusive)
-     * @return Panama-optimized vector batch using memory-mapped segment directly
+     * @return Panama-optimized vector batch with single copy
      */
     public PanamaVectorBatch asPanamaVectorBatch(int startIndex, int endIndex) {
         if (startIndex < 0 || endIndex > vectorCount || startIndex >= endIndex) {
@@ -186,11 +186,12 @@ public class MemoryMappedVectorFile implements AutoCloseable {
         long sliceOffset = startIndex * vectorStride;
         long sliceSize = count * vectorStride;
 
-        // Slice the memory-mapped segment (zero-copy view)
-        MemorySegment batchSegment = mappedFile.asSlice(sliceOffset, sliceSize);
+        // Slice the memory-mapped segment for this range
+        MemorySegment rangeSegment = mappedFile.asSlice(sliceOffset, sliceSize);
 
-        // Create PanamaVectorBatch using the mapped segment directly - NO COPYING!
-        return new PanamaVectorBatch(batchSegment, count, dimension, vectorStride);
+        // Create PanamaVectorBatch using the new single-copy constructor
+        // This strips dimension fields in one pass directly from mapped file
+        return new PanamaVectorBatch(rangeSegment, count, dimension, vectorStride);
     }
 
     /**

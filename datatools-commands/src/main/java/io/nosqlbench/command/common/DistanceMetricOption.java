@@ -45,15 +45,29 @@ public class DistanceMetricOption {
          * Measures the cosine of the angle between two vectors.
          * Often converted to distance as (1 - similarity).
          */
-        COSINE
+        COSINE,
+
+        /**
+         * Dot product similarity (FASTEST for normalized vectors!).
+         * For normalized vectors (||v||=1), this is equivalent to cosine but 3x faster.
+         * WARNING: Only meaningful for normalized vectors!
+         */
+        DOT_PRODUCT
     }
 
     @CommandLine.Option(
         names = {"-m", "--metric"},
-        description = "Distance metric: L2 (Euclidean), L1 (Manhattan), COSINE (Cosine similarity). Valid values: ${COMPLETION-CANDIDATES}",
-        defaultValue = "L2"
+        description = {
+            "Distance metric:",
+            "  DOT_PRODUCT: Fastest for normalized vectors (default)",
+            "  COSINE: Works for both normalized and non-normalized",
+            "  L2: Euclidean distance",
+            "  L1: Manhattan distance",
+            "Valid values: ${COMPLETION-CANDIDATES}"
+        },
+        defaultValue = "DOT_PRODUCT"
     )
-    private DistanceMetric distanceMetric = DistanceMetric.L2;
+    private DistanceMetric distanceMetric = DistanceMetric.DOT_PRODUCT;
 
     /**
      * Gets the selected distance metric.

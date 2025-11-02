@@ -159,15 +159,16 @@ public class TransposedQueryBatch implements AutoCloseable {
         this.segment = arena.allocate(dimensionStride * dimension, 64);
 
         // Transpose: normal[q][d] → transposed[d][q]
-        for (int q = 0; q < batchSize; q++) {
-            float[] query = queries.get(q);
-            if (query.length != dimension) {
-                throw new IllegalArgumentException("Query " + q + " dimension mismatch");
-            }
-
-            for (int d = 0; d < dimension; d++) {
-                long offset = d * dimensionStride + (long) q * Float.BYTES;
-                segment.set(ValueLayout.JAVA_FLOAT, offset, query[d]);
+        // CRITICAL: Outer loop MUST be dimension for cache-friendly writes!
+        // Inner loop writes contiguously within each dimension row
+        for (int d = 0; d < dimension; d++) {
+            long dimOffset = d * dimensionStride;
+            for (int q = 0; q < batchSize; q++) {
+                float[] query = queries.get(q);
+                if (d == 0 && query.length != dimension) {
+                    throw new IllegalArgumentException("Query " + q + " dimension mismatch");
+                }
+                segment.set(ValueLayout.JAVA_FLOAT, dimOffset + (long) q * Float.BYTES, query[d]);
             }
         }
     }
@@ -192,6 +193,7 @@ public class TransposedQueryBatch implements AutoCloseable {
             case 0 -> computeL2ToBase(baseSegment, baseOffset, distances);
             case 1 -> computeL1ToBase(baseSegment, baseOffset, distances);
             case 2 -> computeCosineToBase(baseSegment, baseOffset, distances);
+            case 3 -> throw new UnsupportedOperationException("DOT_PRODUCT should use reusable accumulator version");
             default -> throw new IllegalArgumentException("Unknown metric: " + distanceMetric);
         }
     }
@@ -391,6 +393,67 @@ public class TransposedQueryBatch implements AutoCloseable {
                     }
                     distances[q] = sum;
                 }
+            }
+        }
+    }
+
+    /**
+     * Compute DOT PRODUCT from batch of queries to one base vector (FASTEST for normalized!).
+     * Only computes dot product - no norms needed.
+     */
+    /**
+     * Compute DOT PRODUCT with REUSABLE accumulators (critical optimization!).
+     * The accumulator array is passed in to avoid allocation overhead.
+     */
+    public void computeDotProductToBaseReusable(
+        MemorySegment baseSegment,
+        long baseOffset,
+        double[] distances,
+        FloatVector[] accumulators,
+        float[] tempExtractBuffer
+    ) {
+        int lanes = SPECIES.length();
+        int fullBatches = batchSize / lanes;
+
+        // Reset accumulators (reuse existing array!)
+        for (int b = 0; b < fullBatches; b++) {
+            accumulators[b] = FloatVector.zero(SPECIES);
+        }
+
+        // Accumulate dot products in SIMD - branch-free!
+        for (int d = 0; d < dimension; d++) {
+            float baseVal = baseSegment.get(ValueLayout.JAVA_FLOAT, baseOffset + (long) d * Float.BYTES);
+            var vBase = FloatVector.broadcast(SPECIES, baseVal);
+            long dimOffset = d * dimensionStride;
+
+            // Process full batches - no conditions!
+            for (int b = 0; b < fullBatches; b++) {
+                int qStart = b * lanes;
+                var vQueries = FloatVector.fromMemorySegment(SPECIES, segment, dimOffset + (long) qStart * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+                accumulators[b] = vQueries.fma(vBase, accumulators[b]);
+            }
+        }
+
+        // Extract results using pre-allocated buffer (NO allocation!)
+        for (int b = 0; b < fullBatches; b++) {
+            accumulators[b].intoArray(tempExtractBuffer, 0);
+            for (int i = 0; i < lanes; i++) {
+                distances[b * lanes + i] = -tempExtractBuffer[i];
+            }
+        }
+
+        // Handle tail queries
+        int tailStart = fullBatches * lanes;
+        if (tailStart < batchSize) {
+            double dotProd = 0.0;
+            for (int q = tailStart; q < batchSize; q++) {
+                dotProd = 0.0;
+                for (int d = 0; d < dimension; d++) {
+                    float qVal = segment.get(ValueLayout.JAVA_FLOAT, d * dimensionStride + (long) q * Float.BYTES);
+                    float bVal = baseSegment.get(ValueLayout.JAVA_FLOAT, baseOffset + (long) d * Float.BYTES);
+                    dotProd += qVal * bVal;
+                }
+                distances[q] = -dotProd;  // Negate for min-heap
             }
         }
     }

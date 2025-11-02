@@ -183,31 +183,94 @@ public class PanamaVectorBatch implements AutoCloseable {
             case 0 -> computeSingleL2Distance(queryVector, vectorOffset);
             case 1 -> computeSingleL1Distance(queryVector, vectorOffset);
             case 2 -> computeSingleCosineDistance(queryVector, vectorOffset);
+            case 3 -> -computeDotProductInternal(queryVector, vectorOffset);  // Negate for min-heap (higher dot = closer)
             default -> throw new IllegalArgumentException("Unknown distance function: " + distanceFunction);
         };
     }
 
+    /**
+     * Compute distance with PRE-COMPUTED query norm (cosine only - MASSIVE optimization!).
+     * For cosine distance, the query norm is constant across all base vectors.
+     * Pre-computing it eliminates 33% of the work.
+     *
+     * @param queryVector the query vector
+     * @param precomputedQueryNorm ||queryVector|| (pre-computed once)
+     * @param vectorIndex index of base vector
+     * @return cosine distance
+     */
+    public double computeSingleCosineDistanceWithPrecomputedNorm(
+        float[] queryVector,
+        double precomputedQueryNorm,
+        int vectorIndex
+    ) {
+        if (vectorIndex < 0 || vectorIndex >= vectorCount) {
+            throw new IndexOutOfBoundsException("Vector index: " + vectorIndex);
+        }
+
+        long vectorOffset = vectorIndex * vectorStride;
+
+        // Compute ONLY dot product and base norm (query norm already known!)
+        return computeCosineWithPrecomputedQueryNorm(queryVector, precomputedQueryNorm, vectorOffset);
+    }
+
+    /**
+     * Pre-compute the L2 norm of a query vector.
+     * Call this ONCE per query, then reuse for all base vectors.
+     */
+    public static double precomputeQueryNorm(float[] queryVector) {
+        VectorSpecies<Float> species = FloatVector.SPECIES_PREFERRED;
+        int dimension = queryVector.length;
+        int lanes = species.length();
+
+        var accSq = FloatVector.zero(species);
+        int d = 0;
+        int upperBound = species.loopBound(dimension);
+
+        // 8-way unroll
+        int unrollBound = upperBound - (7 * lanes);
+        for (; d <= unrollBound; d += 8 * lanes) {
+            for (int i = 0; i < 8; i++) {
+                int offset = d + i * lanes;
+                var vq = FloatVector.fromArray(species, queryVector, offset);
+                accSq = vq.fma(vq, accSq);
+            }
+        }
+
+        double normSq = accSq.reduceLanes(VectorOperators.ADD);
+
+        // Handle tail
+        for (; d < dimension; d++) {
+            normSq += queryVector[d] * queryVector[d];
+        }
+
+        return Math.sqrt(normSq);
+    }
+
     private double computeSingleL2Distance(float[] queryVector, long vectorOffset) {
-        // Use dimension-specific optimized kernel if available
-        return switch (dimension) {
-            case 128 -> DimensionSpecificKernels.euclidean128(queryVector, segment, vectorOffset);
-            case 1024 -> DimensionSpecificKernels.euclidean1024(queryVector, segment, vectorOffset);
-            default -> computeSingleL2DistanceGeneric(queryVector, vectorOffset);
-        };
+        // Use optimized kernel if dimension is a multiple of 8*lanes
+        if (DimensionSpecificKernels.hasOptimizedKernel(dimension)) {
+            // Covers 128, 256, 512, 768, 1024, 1536, 2048, 2560, 3072, 4096, etc.
+            return switch (dimension) {
+                case 128 -> DimensionSpecificKernels.euclidean128(queryVector, segment, vectorOffset);
+                case 1024 -> DimensionSpecificKernels.euclidean1024(queryVector, segment, vectorOffset);
+                default -> DimensionSpecificKernels.euclideanGenericOptimized(queryVector, segment, vectorOffset, dimension);
+            };
+        }
+        return computeSingleL2DistanceGeneric(queryVector, vectorOffset);
     }
 
     private double computeSingleL2DistanceGeneric(float[] queryVector, long vectorOffset) {
         int upperBound = SPECIES.loopBound(dimension);
         int lanes = SPECIES.length();
 
-        // Accumulate 4 iterations before reducing (4x fewer reduceLanes calls)
+        // Accumulate 8 iterations before reducing (8x fewer reduceLanes calls!)
         var accSq = FloatVector.zero(SPECIES);
 
         int d = 0;
-        int unrollBound = upperBound - (3 * lanes);
+        int unrollBound = upperBound - (7 * lanes);
 
-        // 4-way unrolled loop with FMA
-        for (; d <= unrollBound; d += 4 * lanes) {
+        // 8-way unrolled loop with FMA
+        for (; d <= unrollBound; d += 8 * lanes) {
             var vq0 = FloatVector.fromArray(SPECIES, queryVector, d);
             var vb0 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d * Float.BYTES, java.nio.ByteOrder.nativeOrder());
             var diff0 = vq0.sub(vb0);
@@ -230,12 +293,36 @@ public class PanamaVectorBatch implements AutoCloseable {
             var vb3 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d3 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
             var diff3 = vq3.sub(vb3);
             accSq = diff3.fma(diff3, accSq);
+
+            int d4 = d + 4 * lanes;
+            var vq4 = FloatVector.fromArray(SPECIES, queryVector, d4);
+            var vb4 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d4 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            var diff4 = vq4.sub(vb4);
+            accSq = diff4.fma(diff4, accSq);
+
+            int d5 = d + 5 * lanes;
+            var vq5 = FloatVector.fromArray(SPECIES, queryVector, d5);
+            var vb5 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d5 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            var diff5 = vq5.sub(vb5);
+            accSq = diff5.fma(diff5, accSq);
+
+            int d6 = d + 6 * lanes;
+            var vq6 = FloatVector.fromArray(SPECIES, queryVector, d6);
+            var vb6 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d6 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            var diff6 = vq6.sub(vb6);
+            accSq = diff6.fma(diff6, accSq);
+
+            int d7 = d + 7 * lanes;
+            var vq7 = FloatVector.fromArray(SPECIES, queryVector, d7);
+            var vb7 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d7 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            var diff7 = vq7.sub(vb7);
+            accSq = diff7.fma(diff7, accSq);
         }
 
-        // Reduce once
+        // Reduce once (only once per 8 iterations!)
         double sumSquares = accSq.reduceLanes(VectorOperators.ADD);
 
-        // Handle remaining vectors
+        // Handle remaining vectors (0-7 iterations)
         for (; d < upperBound; d += lanes) {
             var vq = FloatVector.fromArray(SPECIES, queryVector, d);
             var vb = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d * Float.BYTES, java.nio.ByteOrder.nativeOrder());
@@ -277,28 +364,187 @@ public class PanamaVectorBatch implements AutoCloseable {
     }
 
     private double computeSingleCosineDistance(float[] queryVector, long vectorOffset) {
-        // Use dimension-specific optimized kernel if available
-        return switch (dimension) {
-            case 1024 -> DimensionSpecificKernels.cosine1024(queryVector, segment, vectorOffset);
-            default -> computeSingleCosineDistanceGeneric(queryVector, vectorOffset);
-        };
+        // Use optimized kernel if dimension is a multiple of 8*lanes
+        if (DimensionSpecificKernels.hasOptimizedKernel(dimension)) {
+            // Covers ALL common dimensions: 128, 256, 512, 768, 1024, 1536, 2048, 2560, 3072, 4096
+            return switch (dimension) {
+                case 1024 -> DimensionSpecificKernels.cosine1024(queryVector, segment, vectorOffset);
+                default -> DimensionSpecificKernels.cosineGenericOptimized(queryVector, segment, vectorOffset, dimension);
+            };
+        }
+        return computeSingleCosineDistanceGeneric(queryVector, vectorOffset);
+    }
+
+    /**
+     * Compute cosine distance with pre-computed query norm (33% less work!).
+     */
+    private double computeCosineWithPrecomputedQueryNorm(
+        float[] queryVector,
+        double queryNorm,
+        long vectorOffset
+    ) {
+        int upperBound = SPECIES.loopBound(dimension);
+        int lanes = SPECIES.length();
+
+        // Only compute dot product and base norm (query norm already known!)
+        var accProd = FloatVector.zero(SPECIES);
+        var accNormB = FloatVector.zero(SPECIES);
+
+        int d = 0;
+        int unrollBound = upperBound - (7 * lanes);
+
+        // 8-way unrolled loop - but ONLY 2/3 of the work (no query norm!)
+        for (; d <= unrollBound; d += 8 * lanes) {
+            for (int i = 0; i < 8; i++) {
+                int offset = d + i * lanes;
+                var vq = FloatVector.fromArray(SPECIES, queryVector, offset);
+                var vb = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) offset * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+                accProd = vq.fma(vb, accProd);
+                accNormB = vb.fma(vb, accNormB);
+            }
+        }
+
+        double dotProduct = accProd.reduceLanes(VectorOperators.ADD);
+        double normB = accNormB.reduceLanes(VectorOperators.ADD);
+
+        // Tail
+        for (; d < upperBound; d += lanes) {
+            var vq = FloatVector.fromArray(SPECIES, queryVector, d);
+            var vb = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            dotProduct += vq.mul(vb).reduceLanes(VectorOperators.ADD);
+            normB += vb.mul(vb).reduceLanes(VectorOperators.ADD);
+        }
+
+        for (; d < dimension; d++) {
+            float qVal = queryVector[d];
+            float bVal = segment.get(ValueLayout.JAVA_FLOAT, vectorOffset + (long) d * Float.BYTES);
+            dotProduct += qVal * bVal;
+            normB += bVal * bVal;
+        }
+
+        double magnitudeB = Math.sqrt(normB);
+        if (queryNorm == 0 || magnitudeB == 0) {
+            return 1.0;
+        }
+        return 1.0 - (dotProduct / (queryNorm * magnitudeB));
+    }
+
+    /**
+     * Compute DOT PRODUCT similarity for normalized vectors (66% less work than cosine!).
+     * For normalized vectors, this is equivalent to cosine similarity but faster.
+     * Returns similarity (higher = more similar), not distance.
+     */
+    public double computeDotProduct(float[] queryVector, int vectorIndex) {
+        if (vectorIndex < 0 || vectorIndex >= vectorCount) {
+            throw new IndexOutOfBoundsException("Vector index: " + vectorIndex);
+        }
+        long vectorOffset = vectorIndex * vectorStride;
+        return computeDotProductInternal(queryVector, vectorOffset);
+    }
+
+    private double computeDotProductInternal(float[] queryVector, long vectorOffset) {
+        // Use optimized kernel for all common dimensions
+        if (DimensionSpecificKernels.hasOptimizedKernel(dimension)) {
+            // Covers ALL common dimensions: 128, 256, 512, 768, 1024, 1536, 2048, 2560, 3072, 4096
+            return switch (dimension) {
+                case 128 -> DimensionSpecificKernels.dotProduct128(queryVector, segment, vectorOffset);
+                case 1024 -> DimensionSpecificKernels.dotProduct1024(queryVector, segment, vectorOffset);
+                default -> DimensionSpecificKernels.dotProductGenericOptimized(queryVector, segment, vectorOffset, dimension);
+            };
+        }
+        return computeDotProductGeneric(queryVector, vectorOffset);
+    }
+
+    private double computeDotProductGeneric(float[] queryVector, long vectorOffset) {
+        int upperBound = SPECIES.loopBound(dimension);
+        int lanes = SPECIES.length();
+
+        var accProd = FloatVector.zero(SPECIES);
+        int d = 0;
+        int unrollBound = upperBound - (7 * lanes);
+
+        // 8-way unrolled - ONLY dot product!
+        for (; d <= unrollBound; d += 8 * lanes) {
+            for (int i = 0; i < 8; i++) {
+                int offset = d + i * lanes;
+                var vq = FloatVector.fromArray(SPECIES, queryVector, offset);
+                var vb = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) offset * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+                accProd = vq.fma(vb, accProd);
+            }
+        }
+
+        double dotProduct = accProd.reduceLanes(VectorOperators.ADD);
+
+        // Tail
+        for (; d < upperBound; d += lanes) {
+            var vq = FloatVector.fromArray(SPECIES, queryVector, d);
+            var vb = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            dotProduct += vq.mul(vb).reduceLanes(VectorOperators.ADD);
+        }
+
+        for (; d < dimension; d++) {
+            dotProduct += queryVector[d] * segment.get(ValueLayout.JAVA_FLOAT, vectorOffset + (long) d * Float.BYTES);
+        }
+
+        return dotProduct;  // Return similarity (not distance!)
+    }
+
+    /**
+     * Compute cosine distance for NORMALIZED vectors (66% less work!).
+     * When ||query||=1 and ||base||=1, cosine = 1 - dot_product.
+     * No need to compute norms at all!
+     */
+    private double computeCosineNormalized(float[] queryVector, long vectorOffset) {
+        int upperBound = SPECIES.loopBound(dimension);
+        int lanes = SPECIES.length();
+
+        // ONLY compute dot product (norms are 1.0 by definition!)
+        var accProd = FloatVector.zero(SPECIES);
+
+        int d = 0;
+        int unrollBound = upperBound - (7 * lanes);
+
+        // 8-way unrolled - ONLY dot product, no norms!
+        for (; d <= unrollBound; d += 8 * lanes) {
+            for (int i = 0; i < 8; i++) {
+                int offset = d + i * lanes;
+                var vq = FloatVector.fromArray(SPECIES, queryVector, offset);
+                var vb = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) offset * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+                accProd = vq.fma(vb, accProd);
+            }
+        }
+
+        double dotProduct = accProd.reduceLanes(VectorOperators.ADD);
+
+        // Tail
+        for (; d < upperBound; d += lanes) {
+            var vq = FloatVector.fromArray(SPECIES, queryVector, d);
+            var vb = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            dotProduct += vq.mul(vb).reduceLanes(VectorOperators.ADD);
+        }
+
+        for (; d < dimension; d++) {
+            dotProduct += queryVector[d] * segment.get(ValueLayout.JAVA_FLOAT, vectorOffset + (long) d * Float.BYTES);
+        }
+
+        return 1.0 - dotProduct;  // For normalized vectors, ||q||=1, ||b||=1
     }
 
     private double computeSingleCosineDistanceGeneric(float[] queryVector, long vectorOffset) {
         int upperBound = SPECIES.loopBound(dimension);
         int lanes = SPECIES.length();
 
-        // Accumulate across 4 iterations before reducing (reduceLanes is expensive!)
-        // This reduces the number of reduceLanes calls by 4x
+        // Accumulate across 8 iterations before reducing (further reduce reduceLanes calls!)
+        // This reduces reduceLanes calls by 8x compared to naive
         var accProd = FloatVector.zero(SPECIES);
         var accNormA = FloatVector.zero(SPECIES);
         var accNormB = FloatVector.zero(SPECIES);
 
         int d = 0;
-        int unrollBound = upperBound - (3 * lanes);  // Leave room for 4-way unroll
+        int unrollBound = upperBound - (7 * lanes);  // Leave room for 8-way unroll
 
-        // 4-way unrolled loop: accumulate 4 vectors before reducing
-        for (; d <= unrollBound; d += 4 * lanes) {
+        // 8-way unrolled loop with FMA
+        for (; d <= unrollBound; d += 8 * lanes) {
             // Iteration 1
             var vq0 = FloatVector.fromArray(SPECIES, queryVector, d);
             var vb0 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d * Float.BYTES, java.nio.ByteOrder.nativeOrder());
@@ -329,14 +575,46 @@ public class PanamaVectorBatch implements AutoCloseable {
             accProd = vq3.fma(vb3, accProd);
             accNormA = vq3.fma(vq3, accNormA);
             accNormB = vb3.fma(vb3, accNormB);
+
+            // Iteration 5
+            int d4 = d + 4 * lanes;
+            var vq4 = FloatVector.fromArray(SPECIES, queryVector, d4);
+            var vb4 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d4 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            accProd = vq4.fma(vb4, accProd);
+            accNormA = vq4.fma(vq4, accNormA);
+            accNormB = vb4.fma(vb4, accNormB);
+
+            // Iteration 6
+            int d5 = d + 5 * lanes;
+            var vq5 = FloatVector.fromArray(SPECIES, queryVector, d5);
+            var vb5 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d5 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            accProd = vq5.fma(vb5, accProd);
+            accNormA = vq5.fma(vq5, accNormA);
+            accNormB = vb5.fma(vb5, accNormB);
+
+            // Iteration 7
+            int d6 = d + 6 * lanes;
+            var vq6 = FloatVector.fromArray(SPECIES, queryVector, d6);
+            var vb6 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d6 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            accProd = vq6.fma(vb6, accProd);
+            accNormA = vq6.fma(vq6, accNormA);
+            accNormB = vb6.fma(vb6, accNormB);
+
+            // Iteration 8
+            int d7 = d + 7 * lanes;
+            var vq7 = FloatVector.fromArray(SPECIES, queryVector, d7);
+            var vb7 = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d7 * Float.BYTES, java.nio.ByteOrder.nativeOrder());
+            accProd = vq7.fma(vb7, accProd);
+            accNormA = vq7.fma(vq7, accNormA);
+            accNormB = vb7.fma(vb7, accNormB);
         }
 
-        // Reduce accumulated vectors (only once per 4 iterations!)
+        // Reduce accumulated vectors (only once per 8 iterations!)
         double dotProduct = accProd.reduceLanes(VectorOperators.ADD);
         double normA = accNormA.reduceLanes(VectorOperators.ADD);
         double normB = accNormB.reduceLanes(VectorOperators.ADD);
 
-        // Handle remaining vectors (0-3 iterations)
+        // Handle remaining vectors (0-7 iterations)
         for (; d < upperBound; d += lanes) {
             var vq = FloatVector.fromArray(SPECIES, queryVector, d);
             var vb = FloatVector.fromMemorySegment(SPECIES, segment, vectorOffset + (long) d * Float.BYTES, java.nio.ByteOrder.nativeOrder());

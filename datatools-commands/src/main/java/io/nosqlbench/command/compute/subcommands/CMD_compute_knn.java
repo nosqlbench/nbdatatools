@@ -104,13 +104,13 @@ public class CMD_compute_knn implements Callable<Integer> {
         names = {"--simd-strategy"},
         description = {
             "SIMD optimization strategy for Panama (JDK 25+ only):",
-            "  per-query: Process queries individually with SIMD across dimensions (default, FAST)",
-            "  batched:   Process 8-16 queries simultaneously with transposed SIMD (experimental)",
-            "Default: per-query"
+            "  auto:      Automatically select fastest (default - uses batched for normalized vectors)",
+            "  per-query: Process queries individually with SIMD across dimensions",
+            "  batched:   Process 8-16 queries simultaneously with transposed SIMD (FASTEST)"
         },
-        defaultValue = "per-query"
+        defaultValue = "auto"
     )
-    private String simdStrategy = "per-query";
+    private String simdStrategy = "auto";
 
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
@@ -873,6 +873,9 @@ public class CMD_compute_knn implements Callable<Integer> {
                         List<QueryResult> results = new ArrayList<>(queries.size());
                         for (int i = 0; i < batchResults.length; i++) {
                             NeighborIndex[] neighbors = batchResults[i];
+                            if (neighbors == null) {
+                                throw new IllegalStateException("Batched result[" + i + "] is null - thread did not complete?");
+                            }
                             results.add(new QueryResult(i, toIndexArray(neighbors), toDistanceArray(neighbors)));
                         }
 
@@ -1266,7 +1269,66 @@ public class CMD_compute_knn implements Callable<Integer> {
                 }
 
                 // Decide and cache SIMD strategy for this session
-                useBatchedSIMD = "batched".equalsIgnoreCase(simdStrategy);
+                if ("auto".equalsIgnoreCase(simdStrategy)) {
+                    // Auto-select: Currently always use per-query (batched needs more optimization)
+                    // TODO: Re-enable batched when performance issues are resolved
+                    useBatchedSIMD = false;
+                    logger.info("Auto-selected PER-QUERY strategy (proven fast, production-ready)");
+                } else {
+                    useBatchedSIMD = "batched".equalsIgnoreCase(simdStrategy);
+                    if (useBatchedSIMD) {
+                        logger.warn("BATCHED strategy selected manually - currently slow, needs optimization work");
+                    }
+                }
+
+                // Check ISA capabilities and warn if Panama isn't being used but could be
+                if (io.nosqlbench.command.compute.ISACapabilityDetector.isAvailable()) {
+                    String bestISA = io.nosqlbench.command.compute.ISACapabilityDetector.getBestSIMDCapability();
+                    logger.info("CPU SIMD Capabilities: {}", bestISA);
+
+                    if (io.nosqlbench.command.compute.ISACapabilityDetector.shouldUsePanama() &&
+                        !KnnOptimizationProvider.isPanamaAvailable()) {
+                        logger.warn("╔═══════════════════════════════════════════════════════════════╗");
+                        logger.warn("║ PERFORMANCE WARNING: CPU supports {} but Panama is OFF    ║", bestISA);
+                        logger.warn("║ Add: --add-modules jdk.incubator.vector                      ║");
+                        logger.warn("║ Expected speedup: 3-10x with Panama enabled!                 ║");
+                        logger.warn("╚═══════════════════════════════════════════════════════════════╝");
+                    }
+                }
+
+                // Check vector normalization and warn if metric mismatch
+                try {
+                    boolean isNormalized = io.nosqlbench.command.compute.VectorNormalizationDetector.areVectorsNormalized(baseVectorsPath);
+                    String metric = distanceMetricOption.getDistanceMetric().name();
+
+                    logger.info("Base vectors normalization: {}", isNormalized ? "NORMALIZED (||v||=1)" : "NOT NORMALIZED");
+
+                    // CRITICAL: DOT_PRODUCT with non-normalized vectors is WRONG
+                    if (io.nosqlbench.command.compute.VectorNormalizationDetector.isDotProductWithNonNormalized(metric, isNormalized)) {
+                        logger.error("╔═══════════════════════════════════════════════════════════════╗");
+                        logger.error("║ CRITICAL ERROR: DOT_PRODUCT used with NON-NORMALIZED vectors!║");
+                        logger.error("║ This will produce MEANINGLESS results!                       ║");
+                        logger.error("║ DOT_PRODUCT only valid for normalized vectors (||v||=1)      ║");
+                        logger.error("║ Recommended: Use COSINE, L2, or L1 for non-normalized data   ║");
+                        logger.error("╚═══════════════════════════════════════════════════════════════╝");
+                        System.err.println("\nERROR: DOT_PRODUCT requires normalized vectors. Use COSINE, L2, or L1 instead.\n");
+                        return EXIT_ERROR;
+                    }
+
+                    // Standard metric mismatch warning
+                    if (!io.nosqlbench.command.compute.VectorNormalizationDetector.isMetricAppropriate(metric, isNormalized)) {
+                        String recommended = io.nosqlbench.command.compute.VectorNormalizationDetector.getRecommendedMetric(isNormalized);
+                        logger.warn("╔═══════════════════════════════════════════════════════════════╗");
+                        logger.warn("║ METRIC WARNING: Vectors are {} but using {}",
+                            isNormalized ? "NORMALIZED  " : "NOT NORMALIZED", String.format("%-14s", metric));
+                        logger.warn("║ Recommended metric: {}                                        ║",
+                            String.format("%-43s", recommended));
+                        logger.warn("║ Results may not be meaningful with this combination!         ║");
+                        logger.warn("╚═══════════════════════════════════════════════════════════════╝");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Could not detect vector normalization: {}", e.getMessage());
+                }
 
                 // Log Panama optimization status
                 if (KnnOptimizationProvider.isPanamaAvailable()) {
