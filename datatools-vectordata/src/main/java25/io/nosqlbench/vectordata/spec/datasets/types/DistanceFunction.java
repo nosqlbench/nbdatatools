@@ -19,6 +19,26 @@ package io.nosqlbench.vectordata.spec.datasets.types;
 
 import jdk.incubator.vector.*;
 
+/// Primitive distance function for float arrays - eliminates enum switching overhead
+@FunctionalInterface
+interface FloatDistanceFunc {
+  /// Compute distance between two float vectors (primitive types only)
+  /// @param v1 first vector
+  /// @param v2 second vector
+  /// @return distance (primitive double)
+  double distance(float[] v1, float[] v2);
+}
+
+/// Primitive distance function for double arrays - eliminates enum switching overhead
+@FunctionalInterface
+interface DoubleDistanceFunc {
+  /// Compute distance between two double vectors (primitive types only)
+  /// @param v1 first vector
+  /// @param v2 second vector
+  /// @return distance (primitive double)
+  double distance(double[] v1, double[] v2);
+}
+
 /// The distance function to use for computing distances between vectors
 public enum DistanceFunction {
 
@@ -32,6 +52,38 @@ public enum DistanceFunction {
   L2,
   /// The Manhattan (L1) distance function
   L1;
+
+  /**
+   * Get a primitive distance function for float arrays.
+   * Returns a cached function reference - NO enum switching overhead per call.
+   * Use this for hot loops where distance is computed millions of times.
+   *
+   * @return primitive distance function (float[], float[]) -> double
+   */
+  public FloatDistanceFunc asFloatFunction() {
+    return switch (this) {
+      case COSINE -> this::floatCosineDistance;
+      case EUCLIDEAN, L2 -> this::floatEuclideanDistance;
+      case L1 -> this::floatManhattanDistance;
+      case DOT_PRODUCT -> throw new UnsupportedOperationException("DOT_PRODUCT not implemented");
+    };
+  }
+
+  /**
+   * Get a primitive distance function for double arrays.
+   * Returns a cached function reference - NO enum switching overhead per call.
+   * Use this for hot loops where distance is computed millions of times.
+   *
+   * @return primitive distance function (double[], double[]) -> double
+   */
+  public DoubleDistanceFunc asDoubleFunction() {
+    return switch (this) {
+      case COSINE -> this::doubleCosineDistance;
+      case EUCLIDEAN, L2 -> this::doubleEuclideanDistance;
+      case L1 -> this::doubleManhattanDistance;
+      case DOT_PRODUCT -> throw new UnsupportedOperationException("DOT_PRODUCT not implemented");
+    };
+  }
 
   /// compute the distance between two vectors
   /// @param v1 the first vector

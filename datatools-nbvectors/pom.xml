@@ -96,6 +96,10 @@
               <addClasspath>true</addClasspath>
               <mainClass>${mainClass}</mainClass>
             </manifest>
+            <manifestEntries>
+              <!-- Enable Multi-Release JAR for Panama optimizations from dependencies -->
+              <Multi-Release>true</Multi-Release>
+            </manifestEntries>
           </archive>
         </configuration>
       </plugin>
@@ -117,6 +121,10 @@
               <addClasspath>true</addClasspath>
               <mainClass>${mainClass}</mainClass>
             </manifest>
+            <manifestEntries>
+              <!-- Enable Multi-Release JAR for Panama optimizations -->
+              <Multi-Release>true</Multi-Release>
+            </manifestEntries>
           </archive>
           <descriptors>
             <descriptor>assembly.xml</descriptor>

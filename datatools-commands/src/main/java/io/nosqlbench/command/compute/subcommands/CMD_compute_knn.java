@@ -25,6 +25,7 @@ import io.nosqlbench.command.common.DistancesFileOption;
 import io.nosqlbench.command.common.DistanceMetricOption;
 import io.nosqlbench.command.common.DistanceMetricOption.DistanceMetric;
 import io.nosqlbench.command.common.RangeOption;
+import io.nosqlbench.command.compute.KnnOptimizationProvider;
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
@@ -99,11 +100,26 @@ public class CMD_compute_knn implements Callable<Integer> {
     @CommandLine.Mixin
     private RangeOption rangeOption = new RangeOption();
 
+    @CommandLine.Option(
+        names = {"--simd-strategy"},
+        description = {
+            "SIMD optimization strategy for Panama (JDK 25+ only):",
+            "  per-query: Process queries individually with SIMD across dimensions (default, FAST)",
+            "  batched:   Process 8-16 queries simultaneously with transposed SIMD (experimental)",
+            "Default: per-query"
+        },
+        defaultValue = "per-query"
+    )
+    private String simdStrategy = "per-query";
+
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
     // Track if range came from path
     private boolean rangeFromPath = false;
+
+    // Cached SIMD strategy (decided once at startup)
+    private boolean useBatchedSIMD = false;
 
     /**
      * Validates the input and output paths before execution.
@@ -222,7 +238,54 @@ public class CMD_compute_knn implements Callable<Integer> {
         return (long) ((dimension * (long) Float.BYTES + arrayHeaderBytes) * safetyFactor);
     }
 
+    /**
+     * Select top-K neighbors using the best available method.
+     * When called from PartitionComputation with panamaVectorBatch, uses that directly.
+     * Otherwise tries Panama with the provided baseBatch, or falls back to standard.
+     */
     private NeighborIndex[] selectTopNeighbors(float[] queryVector, List<float[]> baseBatch, int globalStartIndex, int topK) {
+        // If baseBatch is null, this must be called from Panama path - not supported here
+        if (baseBatch == null) {
+            throw new IllegalStateException("baseBatch is null - caller should use Panama batch directly");
+        }
+
+        // Try Panama-optimized implementation first (JDK 22+ with Vector API)
+        // Falls back automatically if not available
+        try {
+            return KnnOptimizationProvider.findTopKNeighbors(
+                queryVector,
+                baseBatch,
+                globalStartIndex,
+                topK,
+                distanceMetricOption.getDistanceMetric()
+            );
+        } catch (UnsupportedOperationException e) {
+            // Fallback to standard implementation
+            return selectTopNeighborsStandard(queryVector, baseBatch, globalStartIndex, topK);
+        }
+    }
+
+    /**
+     * Select top-K neighbors using Panama batch directly (for PartitionComputation).
+     * This is the zero-copy path when memory-mapped I/O is used.
+     * Uses cached MethodHandle from KnnOptimizationProvider (no reflection overhead).
+     */
+    private NeighborIndex[] selectTopNeighborsPanama(float[] queryVector, Object panamaBatch, int globalStartIndex, int topK) throws Throwable {
+        // Use KnnOptimizationProvider with cached MethodHandle
+        return KnnOptimizationProvider.findTopKNeighborsDirect(
+            queryVector,
+            panamaBatch,
+            globalStartIndex,
+            topK,
+            distanceMetricOption.getDistanceMetric()
+        );
+    }
+
+    /**
+     * Standard (non-optimized) implementation for compatibility.
+     * Used as fallback when Panama optimizations are not available.
+     */
+    private NeighborIndex[] selectTopNeighborsStandard(float[] queryVector, List<float[]> baseBatch, int globalStartIndex, int topK) {
         if (topK <= 0 || baseBatch.isEmpty()) {
             return new NeighborIndex[0];
         }
@@ -290,30 +353,45 @@ public class CMD_compute_knn implements Callable<Integer> {
                 final int chunkIndex = chunkIdx;
 
                 Future<ChunkResult> future = chunkPool.submit(() -> {
-                    // Find top-K within this chunk
-                    PriorityQueue<NeighborIndex> heap = new PriorityQueue<>(
-                        topK,
-                        Comparator.comparingDouble(NeighborIndex::distance).reversed()
-                    );
+                    // Create a sublist for this chunk
+                    List<float[]> chunkVectors = baseBatch.subList(chunkStart, chunkEnd);
 
-                    for (int i = chunkStart; i < chunkEnd; i++) {
-                        float[] baseVector = baseBatch.get(i);
-                        double distance = calculateDistance(queryVector, baseVector);
-                        NeighborIndex candidate = new NeighborIndex(globalStartIndex + i, distance);
+                    // Use Panama-optimized batch processing for this chunk
+                    // This processes the entire chunk with SIMD operations
+                    NeighborIndex[] chunkTopK;
+                    try {
+                        chunkTopK = KnnOptimizationProvider.findTopKNeighbors(
+                            queryVector,
+                            chunkVectors,
+                            globalStartIndex + chunkStart,
+                            topK,
+                            distanceMetricOption.getDistanceMetric()
+                        );
+                    } catch (UnsupportedOperationException e) {
+                        // Fallback: manual calculation
+                        PriorityQueue<NeighborIndex> heap = new PriorityQueue<>(
+                            topK,
+                            Comparator.comparingDouble(NeighborIndex::distance).reversed()
+                        );
 
-                        if (heap.size() < topK) {
-                            heap.offer(candidate);
-                        } else if (distance < heap.peek().distance()) {
-                            heap.poll();
-                            heap.offer(candidate);
+                        for (int i = chunkStart; i < chunkEnd; i++) {
+                            float[] baseVector = baseBatch.get(i);
+                            double distance = calculateDistance(queryVector, baseVector);
+                            NeighborIndex candidate = new NeighborIndex(globalStartIndex + i, distance);
+
+                            if (heap.size() < topK) {
+                                heap.offer(candidate);
+                            } else if (distance < heap.peek().distance()) {
+                                heap.poll();
+                                heap.offer(candidate);
+                            }
                         }
-                    }
 
-                    // Extract top-K from heap (sorted by distance, closest first)
-                    int resultSize = heap.size();
-                    NeighborIndex[] chunkTopK = new NeighborIndex[resultSize];
-                    for (int i = resultSize - 1; i >= 0; i--) {
-                        chunkTopK[i] = heap.poll();
+                        int resultSize = heap.size();
+                        chunkTopK = new NeighborIndex[resultSize];
+                        for (int i = resultSize - 1; i >= 0; i--) {
+                            chunkTopK[i] = heap.poll();
+                        }
                     }
 
                     return new ChunkResult(chunkIndex, chunkTopK);
@@ -399,13 +477,18 @@ public class CMD_compute_knn implements Callable<Integer> {
     /**
      * Creates a PartitionComputation task for computing k-NN on a partition of base vectors.
      * Loads the base vectors for the partition and constructs the computation task.
+     * Uses Panama memory-mapped I/O when available for 2-4x faster loading.
      *
      * @return a PartitionComputation ready to be executed
      * @throws IOException if loading base vectors fails
      */
+    /**
+     * Creates a PartitionComputation task (lightweight - NO data loading yet).
+     * Data loading happens INSIDE compute() to ensure only one partition in memory at a time.
+     */
     private PartitionComputation createPartitionComputation(
-        StatusScope loadScope,
         VectorFileArray<float[]> baseReader,
+        Path baseVectorsPath,
         int partitionIndex,
         int startIndex,
         int endIndex,
@@ -413,52 +496,29 @@ public class CMD_compute_knn implements Callable<Integer> {
         Path neighborsPath,
         Path distancesPath,
         int effectiveK,
-        Path queryVectorsPath
-    ) throws IOException {
-
+        Path queryVectorsPath,
+        boolean useBatchedSIMD
+    ) {
         int partitionSize = endIndex - startIndex;
         if (partitionSize <= 0) {
             throw new IllegalArgumentException("Partition size must be positive");
         }
 
         int partitionK = Math.min(effectiveK, partitionSize);
-        List<float[]> baseBatch = new ArrayList<>(partitionSize);
 
-        // Create progress tracker for loading base vectors
-        LoadOperation loadOp = new LoadOperation(partitionIndex, partitionSize);
-        loadOp.setState(RunState.RUNNING);
-        StatusTracker<LoadOperation> tracker = loadScope.trackTask(loadOp);
-
-        try {
-            // Load vectors in batches of up to 1000 for better I/O efficiency
-            final int readBatchSize = 1000;
-            for (int batchStart = startIndex; batchStart < endIndex; batchStart += readBatchSize) {
-                int batchEnd = Math.min(batchStart + readBatchSize, endIndex);
-                List<float[]> batch = baseReader.subList(batchStart, batchEnd);
-                baseBatch.addAll(batch);
-                loadOp.addLoaded(batch.size());
-            }
-
-            loadOp.setState(RunState.SUCCESS);
-            logger.info("Partition {}: loaded {} base vectors (indices [{}..{}))", partitionIndex, partitionSize, startIndex, endIndex);
-        } catch (Exception e) {
-            loadOp.setState(RunState.FAILED);
-            throw e;
-        } finally {
-            tracker.close();
-        }
-
-        // Create and return the computation task
+        // Create and return lightweight task (data loading deferred to compute())
         return new PartitionComputation(
             partitionIndex,
+            baseReader,
+            baseVectorsPath,
             startIndex,
             endIndex,
-            baseBatch,
             partitionK,
             baseDimension,
             neighborsPath,
             distancesPath,
-            queryVectorsPath
+            queryVectorsPath,
+            useBatchedSIMD  // Pass cached strategy
         );
     }
 
@@ -594,44 +654,74 @@ public class CMD_compute_knn implements Callable<Integer> {
 
     /**
      * Encapsulates the computation of k-nearest neighbors for a single partition of base vectors.
-     * This class implements StatusSource to directly provide progress updates during computation,
-     * and Callable to enable parallel execution via ExecutorService.
+     * IMPORTANT: Data loading is deferred until compute() to ensure only ONE partition in memory at a time.
+     * This enables larger-than-memory datasets by processing partitions sequentially.
      */
-    private class PartitionComputation implements StatusSource<PartitionComputation>, Callable<PartitionMetadata> {
+    private class PartitionComputation implements StatusSource<PartitionComputation>, Callable<PartitionMetadata>, AutoCloseable {
         private final int partitionIndex;
+        private final VectorFileArray<float[]> baseReader;
+        private final Path baseVectorsPath;
         private final int startIndex;
         private final int endIndex;
-        private final List<float[]> baseBatch;
         private final int partitionK;
         private final int baseDimension;
         private final Path neighborsPath;
         private final Path distancesPath;
         private final Path queryVectorsPath;
 
+        // Runtime state (populated during compute())
+        private List<float[]> baseBatch;
+        private Object panamaVectorBatch;
+
+        private final boolean useBatchedSIMD;
         private final AtomicInteger processedQueries = new AtomicInteger(0);
         private final AtomicInteger totalQueries = new AtomicInteger(0);
+        private final AtomicInteger loadedVectors = new AtomicInteger(0);
+        private final int partitionSize;
         private volatile RunState state = RunState.PENDING;
+        private volatile String phase = "pending";
 
         PartitionComputation(
             int partitionIndex,
+            VectorFileArray<float[]> baseReader,
+            Path baseVectorsPath,
             int startIndex,
             int endIndex,
-            List<float[]> baseBatch,
             int partitionK,
             int baseDimension,
             Path neighborsPath,
             Path distancesPath,
-            Path queryVectorsPath
+            Path queryVectorsPath,
+            boolean useBatchedSIMD
         ) {
             this.partitionIndex = partitionIndex;
+            this.baseReader = baseReader;
+            this.baseVectorsPath = baseVectorsPath;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
-            this.baseBatch = baseBatch;
+            this.partitionSize = endIndex - startIndex;
             this.partitionK = partitionK;
             this.baseDimension = baseDimension;
             this.neighborsPath = neighborsPath;
             this.distancesPath = distancesPath;
             this.queryVectorsPath = queryVectorsPath;
+            this.useBatchedSIMD = useBatchedSIMD;
+        }
+
+        @Override
+        public void close() {
+            // Close Panama resources if present
+            if (panamaVectorBatch != null) {
+                try {
+                    java.lang.reflect.Method closeMethod = panamaVectorBatch.getClass().getMethod("close");
+                    closeMethod.invoke(panamaVectorBatch);
+                } catch (Exception e) {
+                    logger.warn("Failed to close Panama vector batch for partition {}: {}", partitionIndex, e.getMessage());
+                }
+            }
+            // Clear references to allow GC
+            baseBatch = null;
+            panamaVectorBatch = null;
         }
 
         /**
@@ -653,8 +743,49 @@ public class CMD_compute_knn implements Callable<Integer> {
          */
         PartitionMetadata compute() throws IOException {
             state = RunState.RUNNING;
+            phase = "loading";
 
-            // Step 1: Load all queries into memory first
+            logger.info("Partition {}: loading {} base vectors (indices [{}..{}))", partitionIndex, partitionSize, startIndex, endIndex);
+
+            boolean usedPanama = false;
+            try {
+                if (KnnOptimizationProvider.isPanamaAvailable()) {
+                    try {
+                        // Zero-copy memory-mapped loading
+                        panamaVectorBatch = KnnOptimizationProvider.loadAsPanamaVectorBatch(baseVectorsPath, startIndex, endIndex);
+                        usedPanama = true;
+                        loadedVectors.set(partitionSize);
+                        logger.info("Partition {}: loaded {} base vectors using zero-copy memory-mapped I/O",
+                            partitionIndex, partitionSize);
+                    } catch (Throwable e) {
+                        logger.warn("Memory-mapped I/O failed for partition {}, falling back to standard loading: {}",
+                            partitionIndex, e.getMessage());
+                        usedPanama = false;
+                    }
+                }
+
+                // Fallback: Standard I/O loading
+                if (!usedPanama) {
+                    baseBatch = new ArrayList<>(partitionSize);
+                    final int readBatchSize = 1000;
+                    for (int batchStart = startIndex; batchStart < endIndex; batchStart += readBatchSize) {
+                        int batchEnd = Math.min(batchStart + readBatchSize, endIndex);
+                        List<float[]> batch = baseReader.subList(batchStart, batchEnd);
+                        baseBatch.addAll(batch);
+                        loadedVectors.addAndGet(batch.size());
+                    }
+                    logger.info("Partition {}: loaded {} base vectors using standard I/O",
+                        partitionIndex, partitionSize);
+                }
+
+                phase = "loaded";
+            } catch (Exception e) {
+                state = RunState.FAILED;
+                phase = "failed loading";
+                throw e;
+            }
+
+            // Step 1: Load all queries into memory
             List<float[]> queries = new ArrayList<>();
             try (VectorFileArray<float[]> queryReader = VectorFileIO.randomAccess(FileType.xvec, float[].class, queryVectorsPath)) {
                 totalQueries.set(queryReader.getSize());
@@ -681,6 +812,7 @@ public class CMD_compute_knn implements Callable<Integer> {
 
             try {
                 // Step 2: Process queries in parallel
+                phase = "processing";
                 logger.info("Partition {}: processing {} query vectors for base range [{}, {})",
                     partitionIndex, queries.size(), startIndex, endIndex);
 
@@ -710,23 +842,93 @@ public class CMD_compute_knn implements Callable<Integer> {
 
         /**
          * Processes all queries in parallel using a thread pool.
-         * Each query uses map-reduce to further parallelize across base vector chunks.
-         *
-         * This provides 2-level parallelism:
-         * - Level 1: Multiple queries processed concurrently
-         * - Level 2: Each query's base vectors split into chunks processed in parallel
+         * Uses Panama-optimized direct processing when available (no map-reduce overhead),
+         * or falls back to map-reduce for standard implementation.
          *
          * @param queries the list of query vectors to process
          * @return list of results in the same order as input queries
          */
         private List<QueryResult> processQueriesParallel(List<float[]> queries) throws Exception {
-            // Determine chunk size for map-reduce within each query
-            // Goal: 2-4 chunks per processor for good load balancing
             int availableProcessors = Runtime.getRuntime().availableProcessors();
+
+            // PANAMA PATH: Check which strategy was selected at session start
+            if (panamaVectorBatch != null) {
+                if (useBatchedSIMD) {
+                    // BATCHED strategy: Transposed SIMD (experimental)
+                    logger.info("Partition {}: using Panama BATCHED SIMD optimization for {} queries",
+                        partitionIndex, queries.size());
+                    logger.info("  → Each base vector loaded ONCE per query batch (massive memory bandwidth savings)");
+                    logger.info("  → Transposed SIMD: processing 8-16 queries simultaneously per base vector");
+
+                    try {
+                        NeighborIndex[][] batchResults = KnnOptimizationProvider.findTopKBatched(
+                            queries,
+                            panamaVectorBatch,
+                            startIndex,
+                            partitionK,
+                            distanceMetricOption.getDistanceMetric(),
+                            processedQueries
+                        );
+
+                        List<QueryResult> results = new ArrayList<>(queries.size());
+                        for (int i = 0; i < batchResults.length; i++) {
+                            NeighborIndex[] neighbors = batchResults[i];
+                            results.add(new QueryResult(i, toIndexArray(neighbors), toDistanceArray(neighbors)));
+                        }
+
+                        logger.info("Partition {}: completed all {} queries using batched SIMD", partitionIndex, queries.size());
+                        return results;
+
+                    } catch (Throwable e) {
+                        logger.warn("Batched Panama optimization failed, falling back to per-query: {}", e.getMessage());
+                        logger.debug("Error details:", e);
+                        // Fall through to per-query path below
+                    }
+                }
+
+                // PER-QUERY strategy: Parallel query processing (default, FAST)
+                logger.info("Partition {}: using Panama PER-QUERY SIMD optimization for {} queries",
+                    partitionIndex, queries.size());
+
+                int threadCount = Math.min(availableProcessors, queries.size());
+                ExecutorService queryPool = Executors.newFixedThreadPool(threadCount);
+
+                try {
+                    List<Future<QueryResult>> futures = new ArrayList<>();
+
+                    for (int queryIndex = 0; queryIndex < queries.size(); queryIndex++) {
+                        final int idx = queryIndex;
+                        final float[] queryVector = queries.get(idx);
+
+                        Future<QueryResult> future = queryPool.submit(() -> {
+                            try {
+                                NeighborIndex[] neighbors = selectTopNeighborsPanama(queryVector, panamaVectorBatch, startIndex, partitionK);
+                                processedQueries.incrementAndGet();
+                                return new QueryResult(idx, toIndexArray(neighbors), toDistanceArray(neighbors));
+                            } catch (Throwable e) {
+                                logger.error("Failed to process query {} with Panama: {}", idx, e.getMessage());
+                                throw new RuntimeException("Failed to process query " + idx, e);
+                            }
+                        });
+
+                        futures.add(future);
+                    }
+
+                    List<QueryResult> results = new ArrayList<>();
+                    for (Future<QueryResult> future : futures) {
+                        results.add(future.get());
+                    }
+                    return results;
+                } finally {
+                    queryPool.shutdown();
+                }
+            }
+
+            // STANDARD PATH: Map-reduce with chunking
             int targetChunksPerQuery = Math.max(2, availableProcessors);
             int chunkSize = Math.max(1000, baseBatch.size() / targetChunksPerQuery);
 
-            logger.info("Partition {}: using map-reduce with chunkSize={} ({} chunks per query)",
+            logger.info("Partition {}: using standard map-reduce with chunkSize={} ({} chunks per query)",
                 partitionIndex, chunkSize, (baseBatch.size() + chunkSize - 1) / chunkSize);
 
             // Create thread pool - use available processors
@@ -772,16 +974,28 @@ public class CMD_compute_knn implements Callable<Integer> {
 
         @Override
         public StatusUpdate<PartitionComputation> getTaskStatus() {
-            int total = totalQueries.get();
-            int processed = processedQueries.get();
-            double progress = total > 0 ? (double) processed / total : 0.0;
+            double progress;
+            if ("loading".equals(phase)) {
+                // Show loading progress
+                progress = partitionSize > 0 ? (double) loadedVectors.get() / partitionSize : 0.0;
+            } else {
+                // Show query processing progress
+                int total = totalQueries.get();
+                int processed = processedQueries.get();
+                progress = total > 0 ? (double) processed / total : 0.0;
+            }
             return new StatusUpdate<>(progress, state, this);
         }
 
         @Override
         public String toString() {
-            return String.format("Partition %d [base vectors %d..%d]: %d/%d queries",
-                partitionIndex, startIndex, endIndex, processedQueries.get(), totalQueries.get());
+            if ("loading".equals(phase)) {
+                return String.format("Partition %d: loading %d/%d base vectors [%d..%d]",
+                    partitionIndex, loadedVectors.get(), partitionSize, startIndex, endIndex);
+            } else {
+                return String.format("Partition %d [base vectors %d..%d]: %d/%d queries",
+                    partitionIndex, startIndex, endIndex, processedQueries.get(), totalQueries.get());
+            }
         }
     }
 
@@ -1051,6 +1265,17 @@ public class CMD_compute_knn implements Callable<Integer> {
                         rangeStr, baseCount, totalBaseCount);
                 }
 
+                // Decide and cache SIMD strategy for this session
+                useBatchedSIMD = "batched".equalsIgnoreCase(simdStrategy);
+
+                // Log Panama optimization status
+                if (KnnOptimizationProvider.isPanamaAvailable()) {
+                    String strategyName = useBatchedSIMD ? "BATCHED (experimental)" : "PER-QUERY (default)";
+                    logger.info("Panama KNN optimizations ENABLED - using {} strategy with Vector API + FFM", strategyName);
+                } else {
+                    logger.info("Panama KNN optimizations NOT AVAILABLE - using standard implementation");
+                }
+
                 // Create parent scope for all partition processing
                 List<PartitionMetadata> partitions = new ArrayList<>();
                 int expectedQueryCount = -1;
@@ -1061,57 +1286,49 @@ public class CMD_compute_knn implements Callable<Integer> {
                     int threadCount = Math.min(partitionCount, Runtime.getRuntime().availableProcessors());
                     ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
-                    // Load all partition data with progress tracking
+                    // Create partition tasks (lightweight - no data loading yet)
+                    // Data loading is deferred until each task executes
                     List<PartitionComputation> computations = new ArrayList<>();
-                    try (StatusScope loadScope = partitionsScope.createChildScope("Load Base Vectors")) {
-                        int partitionIndex = 0;
-                        for (int start = 0; start < baseCount; start += batchSize) {
-                            int end = Math.min(baseCount, start + batchSize);
-                            // Compute actual indices into the file (accounting for range offset)
-                            int actualStart = (int)effectiveStart + start;
-                            int actualEnd = (int)effectiveStart + end;
+                    int partitionIndex = 0;
+                    for (int start = 0; start < baseCount; start += batchSize) {
+                        int end = Math.min(baseCount, start + batchSize);
+                        // Compute actual indices into the file (accounting for range offset)
+                        int actualStart = (int)effectiveStart + start;
+                        int actualEnd = (int)effectiveStart + end;
 
-                            Path intermediateNeighbors = buildIntermediatePath(neighborsOutput, actualStart, actualEnd, "neighbors", "ivec");
-                            Path intermediateDistances = buildIntermediatePath(neighborsOutput, actualStart, actualEnd, "distances", "fvec");
+                        Path intermediateNeighbors = buildIntermediatePath(neighborsOutput, actualStart, actualEnd, "neighbors", "ivec");
+                        Path intermediateDistances = buildIntermediatePath(neighborsOutput, actualStart, actualEnd, "distances", "fvec");
 
-                            // Create partition computation task (loads base vectors with tracking)
-                            PartitionComputation computation = createPartitionComputation(
-                                loadScope,
-                                baseReader,
-                                partitionIndex,
-                                actualStart,
-                                actualEnd,
-                                baseDimension,
-                                intermediateNeighbors,
-                                intermediateDistances,
-                                effectiveK,
-                                queryVectorsPath
-                            );
+                        // Create lightweight partition task (data loads during execution)
+                        PartitionComputation computation = createPartitionComputation(
+                            baseReader,
+                            baseVectorsPath,
+                            partitionIndex,
+                            actualStart,
+                            actualEnd,
+                            baseDimension,
+                            intermediateNeighbors,
+                            intermediateDistances,
+                            effectiveK,
+                            queryVectorsPath,
+                            useBatchedSIMD  // Pass cached strategy decision
+                        );
 
-                            computations.add(computation);
-                            partitionIndex++;
-                        }
+                        computations.add(computation);
+                        partitionIndex++;
                     }
 
-                    // Use AGGREGATE mode for multiple partitions, INDIVIDUAL for single partition
-                    TrackingMode trackingMode = partitionCount > 1 ? TrackingMode.AGGREGATE : TrackingMode.INDIVIDUAL;
+                    // IMPORTANT: For multiple partitions, process SEQUENTIALLY to keep memory bounded
+                    // For single partition, use all threads for query parallelism
+                    if (partitionCount > 1) {
+                        // Sequential partition processing (one at a time) with tracking
+                        logger.info("Processing {} partitions SEQUENTIALLY to keep memory bounded", partitionCount);
 
-                    try (TrackedExecutorService trackedExecutor = TrackedExecutors.wrap(executor, partitionsScope)
-                            .withMode(trackingMode)
-                            .withTaskGroupName("Partition Computation")
-                            .build()) {
-
-                        // Submit all partition computation tasks for parallel execution
-                        List<Future<PartitionMetadata>> futures = new ArrayList<>();
                         for (PartitionComputation computation : computations) {
-                            futures.add(trackedExecutor.submit(computation));
-                        }
-
-                        // Collect results from all partitions
-
-                        for (Future<PartitionMetadata> future : futures) {
+                            // Track this partition's progress
+                            StatusTracker<PartitionComputation> tracker = partitionsScope.trackTask(computation);
                             try {
-                                PartitionMetadata metadata = future.get();
+                                PartitionMetadata metadata = computation.call();
 
                                 if (expectedQueryCount < 0) {
                                     expectedQueryCount = metadata.queryCount;
@@ -1122,20 +1339,75 @@ public class CMD_compute_knn implements Callable<Integer> {
 
                                 partitions.add(metadata);
                             } catch (Exception e) {
-                                throw new IOException("Failed to compute partition", e);
+                                throw new IOException("Failed to compute partition " + computation.partitionIndex, e);
+                            } finally {
+                                // Free partition memory before loading next
+                                computation.close();
+                                tracker.close();
                             }
                         }
+                    } else {
+                        // Single partition: can use thread pool for query parallelism
+                        TrackingMode trackingMode = TrackingMode.INDIVIDUAL;
 
-                        if (expectedQueryCount < 0) {
-                            System.err.println("Error: No query vectors found in file");
-                            return EXIT_ERROR;
-                        }
+                        try (TrackedExecutorService trackedExecutor = TrackedExecutors.wrap(executor, partitionsScope)
+                                .withMode(trackingMode)
+                                .withTaskGroupName("Partition Computation")
+                                .build()) {
 
-                        // Merge partitions with progress tracking
-                        try (StatusScope mergeScope = partitionsScope.createChildScope("Merge Results")) {
-                            mergePartitions(mergeScope, partitions, neighborsOutput, distancesOutput, effectiveK, expectedQueryCount);
-                        }
-                    } // close tracked executor
+                            // Submit single partition
+                            List<Future<PartitionMetadata>> futures = new ArrayList<>();
+                            for (PartitionComputation computation : computations) {
+                                futures.add(trackedExecutor.submit(computation));
+                            }
+
+                            // Collect results from single partition
+                            try {
+                                for (int i = 0; i < futures.size(); i++) {
+                                    Future<PartitionMetadata> future = futures.get(i);
+                                    PartitionComputation computation = computations.get(i);
+
+                                    try {
+                                        PartitionMetadata metadata = future.get();
+
+                                        if (expectedQueryCount < 0) {
+                                            expectedQueryCount = metadata.queryCount;
+                                        } else if (metadata.queryCount != expectedQueryCount) {
+                                            throw new IllegalStateException("Mismatch in query counts across partitions: expected "
+                                                + expectedQueryCount + " but partition produced " + metadata.queryCount);
+                                        }
+
+                                        partitions.add(metadata);
+                                    } catch (Exception e) {
+                                        throw new IOException("Failed to compute partition", e);
+                                    } finally {
+                                        // Close Panama resources (MemorySegment, Arena)
+                                        computation.close();
+                                    }
+                                }
+                            } finally {
+                                // Ensure all computations are closed even on error
+                                for (PartitionComputation computation : computations) {
+                                    try {
+                                        computation.close();
+                                    } catch (Exception e) {
+                                        logger.warn("Error closing computation resources: {}", e.getMessage());
+                                    }
+                                }
+                            }
+                        } // close tracked executor
+                    }
+
+                    // Check results (common to both branches)
+                    if (expectedQueryCount < 0) {
+                        System.err.println("Error: No query vectors found in file");
+                        return EXIT_ERROR;
+                    }
+
+                    // Merge partitions with progress tracking
+                    try (StatusScope mergeScope = partitionsScope.createChildScope("Merge Results")) {
+                        mergePartitions(mergeScope, partitions, neighborsOutput, distancesOutput, effectiveK, expectedQueryCount);
+                    }
                 } // close partitions scope
 
                 System.out.println("Successfully computed KNN ground truth for " + expectedQueryCount + " query vectors");

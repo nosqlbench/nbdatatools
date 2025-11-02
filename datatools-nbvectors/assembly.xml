@@ -16,6 +16,12 @@
       <scope>runtime</scope>
       <useTransitiveDependencies>true</useTransitiveDependencies>
       <useTransitiveFiltering>false</useTransitiveFiltering>
+      <unpackOptions>
+        <!-- Preserve multi-release JAR structure for Panama optimizations -->
+        <includes>
+          <include>**/*</include>
+        </includes>
+      </unpackOptions>
     </dependencySet>
   </dependencySets>
   <fileSets>

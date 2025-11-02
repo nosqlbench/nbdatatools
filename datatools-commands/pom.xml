@@ -210,9 +210,57 @@
     <!-- Plugin management for commands modules to ensure consistent compiler setup -->
     <!-- Plugin versions and default configuration are inherited -->
     <plugins>
+      <!-- Multi-Release JAR: Java 11 base + Java 25 Panama optimizations -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.14.0</version>
+        <executions>
+          <!-- Base Java 16 compilation -->
+          <!-- IMPORTANT: Inherits Java 16 from parent (uses records, sealed classes) -->
+          <!-- For Java 11 compatibility, downstream projects would need the pre-Java-16 version -->
+          <!-- Panama optimizations are ONLY in src/main/java25 directory -->
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <release>16</release>
+            </configuration>
+          </execution>
+
+          <!-- Java 25 Panama optimizations -->
+          <execution>
+            <id>java25-compile</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <release>25</release>
+              <compileSourceRoots>
+                <compileSourceRoot>${project.basedir}/src/main/java25</compileSourceRoot>
+              </compileSourceRoots>
+              <outputDirectory>${project.build.outputDirectory}/META-INF/versions/25</outputDirectory>
+              <compilerArgs>
+                <arg>--add-modules</arg>
+                <arg>jdk.incubator.vector</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Enable Multi-Release JAR -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Multi-Release>true</Multi-Release>
+            </manifestEntries>
+          </archive>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
