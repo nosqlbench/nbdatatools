@@ -267,20 +267,22 @@ public class PanamaKnnOptimizer {
         try {
             java.util.List<java.util.concurrent.Future<Void>> futures = new java.util.ArrayList<>();
 
-            for (int t = 0; t < threads; t++) {
-                int start = t * queriesPerThread;
+            // Assign ALL queries to threads (not just threadCount groups!)
+            for (int start = 0; start < totalQueries; start += queriesPerThread) {
                 int end = Math.min(start + queriesPerThread, totalQueries);
-                if (start >= totalQueries) break;
 
                 final int fStart = start, fEnd = end;
                 futures.add(pool.submit(() -> {
                     try {
+                        org.apache.logging.log4j.LogManager.getLogger(PanamaKnnOptimizer.class)
+                            .debug("Thread starting: queries {}-{}", fStart, fEnd);
+
                         List<float[]> group = queries.subList(fStart, fEnd);
                         NeighborIndex[][] results = MultiQueryProcessor.processQueryGroup(
                             group, panamaBatch, globalStartIndex, topK, distanceMetric
                         );
 
-                        // Ensure all results are non-null before storing
+                        // Ensure all results are non-null
                         for (int i = 0; i < results.length; i++) {
                             if (results[i] == null) {
                                 throw new IllegalStateException("processQueryGroup returned null for query " + i);
@@ -292,9 +294,14 @@ public class PanamaKnnOptimizer {
                         }
 
                         if (progressCounter != null) progressCounter.addAndGet(results.length);
+
+                        org.apache.logging.log4j.LogManager.getLogger(PanamaKnnOptimizer.class)
+                            .debug("Thread completed: queries {}-{}", fStart, fEnd);
                         return null;
                     } catch (Exception e) {
-                        throw new RuntimeException("Thread processing queries " + fStart + "-" + fEnd + " failed", e);
+                        org.apache.logging.log4j.LogManager.getLogger(PanamaKnnOptimizer.class)
+                            .error("Thread FAILED processing queries {}-{}: {}", fStart, fEnd, e.getMessage(), e);
+                        throw new RuntimeException("Thread queries " + fStart + "-" + fEnd + " failed", e);
                     }
                 }));
             }
