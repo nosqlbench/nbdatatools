@@ -100,17 +100,34 @@ public class CMD_compute_knn implements Callable<Integer> {
     @CommandLine.Mixin
     private RangeOption rangeOption = new RangeOption();
 
+    /// SIMD optimization strategy options
+    public enum SimdStrategy {
+        AUTO("Automatically select fastest strategy (defaults to BATCH)"),
+        PER_QUERY("Process queries individually with SIMD across dimensions"),
+        BATCH("Process 8-16 queries simultaneously with transposed SIMD (DEFAULT, FASTEST)"),
+        BATCHED("Alias for BATCH");
+
+        private final String description;
+
+        SimdStrategy(String description) {
+            this.description = description;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public boolean isBatched() {
+            return this == BATCH || this == BATCHED;
+        }
+    }
+
     @CommandLine.Option(
         names = {"--simd-strategy"},
-        description = {
-            "SIMD optimization strategy for Panama (JDK 25+ only):",
-            "  auto:      Automatically select fastest (default - uses batched for normalized vectors)",
-            "  per-query: Process queries individually with SIMD across dimensions",
-            "  batched:   Process 8-16 queries simultaneously with transposed SIMD (FASTEST)"
-        },
-        defaultValue = "auto"
+        description = "SIMD optimization strategy for Panama (JDK 25+ only). Default: AUTO (batched). Valid values: ${COMPLETION-CANDIDATES}",
+        defaultValue = "AUTO"
     )
-    private String simdStrategy = "auto";
+    private SimdStrategy simdStrategy = SimdStrategy.AUTO;
 
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
@@ -211,6 +228,11 @@ public class CMD_compute_knn implements Callable<Integer> {
     }
 
     private int determineBatchSize(int baseCount, int dimension) {
+        // Cap at 500K base vectors for optimal balance of cache performance and partition overhead
+        // 100K was too small (too many partitions), 3M+ is too large (cache misses)
+        // 500K provides good cache locality while minimizing merge overhead
+        final int OPTIMAL_BATCH_SIZE = 500_000;
+
         Runtime runtime = Runtime.getRuntime();
         long maxHeapBytes = runtime.maxMemory();
         long totalMemory = runtime.totalMemory();
@@ -225,7 +247,11 @@ public class CMD_compute_knn implements Callable<Integer> {
         }
 
         long estimated = Math.max(1L, usable / bytesPerVector);
-        long capped = Math.min(estimated, baseCount);
+        long memoryBased = Math.min(estimated, baseCount);
+
+        // Apply cache-optimal size cap
+        long capped = Math.min(memoryBased, OPTIMAL_BATCH_SIZE);
+
         if (capped > Integer.MAX_VALUE) {
             capped = Integer.MAX_VALUE;
         }
@@ -725,6 +751,51 @@ public class CMD_compute_knn implements Callable<Integer> {
         }
 
         /**
+         * Pre-load base vectors in background thread (for double-buffered I/O pipeline).
+         */
+        void preload() throws IOException {
+            if (panamaVectorBatch != null || baseBatch != null) {
+                return;  // Already loaded
+            }
+
+            phase = "loading";
+            logger.debug("Partition {}: pre-loading {} base vectors in background", partitionIndex, partitionSize);
+
+            boolean usedPanama = false;
+            try {
+                if (KnnOptimizationProvider.isPanamaAvailable()) {
+                    try {
+                        panamaVectorBatch = KnnOptimizationProvider.loadAsPanamaVectorBatch(baseVectorsPath, startIndex, endIndex);
+                        usedPanama = true;
+                        loadedVectors.set(partitionSize);
+                        logger.debug("Partition {}: pre-loaded {} base vectors using zero-copy I/O", partitionIndex, partitionSize);
+                    } catch (Throwable e) {
+                        logger.warn("Panama pre-load failed for partition {}, using standard: {}", partitionIndex, e.getMessage());
+                        usedPanama = false;
+                    }
+                }
+
+                if (!usedPanama) {
+                    baseBatch = new ArrayList<>(partitionSize);
+                    final int readBatchSize = 1000;
+                    for (int batchStart = startIndex; batchStart < endIndex; batchStart += readBatchSize) {
+                        int batchEnd = Math.min(batchStart + readBatchSize, endIndex);
+                        List<float[]> batch = baseReader.subList(batchStart, batchEnd);
+                        baseBatch.addAll(batch);
+                        loadedVectors.addAndGet(batch.size());
+                    }
+                    logger.debug("Partition {}: pre-loaded {} base vectors using standard I/O", partitionIndex, partitionSize);
+                }
+
+                phase = "loaded";
+            } catch (Exception e) {
+                state = RunState.FAILED;
+                phase = "failed loading";
+                throw new IOException("Failed to pre-load partition " + partitionIndex, e);
+            }
+        }
+
+        /**
          * Callable interface implementation - delegates to compute().
          *
          * @return metadata about the computed partition
@@ -737,52 +808,58 @@ public class CMD_compute_knn implements Callable<Integer> {
 
         /**
          * Executes the k-NN computation for this partition with parallel query processing.
+         * If preload() was called, base vectors are already loaded.
          *
          * @return metadata about the computed partition
          * @throws IOException if I/O errors occur
          */
         PartitionMetadata compute() throws IOException {
             state = RunState.RUNNING;
-            phase = "loading";
 
-            logger.info("Partition {}: loading {} base vectors (indices [{}..{}))", partitionIndex, partitionSize, startIndex, endIndex);
+            // Load base vectors if not already pre-loaded
+            if (panamaVectorBatch == null && baseBatch == null) {
+                phase = "loading";
+                logger.info("Partition {}: loading {} base vectors (indices [{}..{}))", partitionIndex, partitionSize, startIndex, endIndex);
 
-            boolean usedPanama = false;
-            try {
-                if (KnnOptimizationProvider.isPanamaAvailable()) {
-                    try {
-                        // Zero-copy memory-mapped loading
-                        panamaVectorBatch = KnnOptimizationProvider.loadAsPanamaVectorBatch(baseVectorsPath, startIndex, endIndex);
-                        usedPanama = true;
-                        loadedVectors.set(partitionSize);
-                        logger.info("Partition {}: loaded {} base vectors using zero-copy memory-mapped I/O",
+                boolean usedPanama = false;
+                try {
+                    if (KnnOptimizationProvider.isPanamaAvailable()) {
+                        try {
+                            // Zero-copy memory-mapped loading
+                            panamaVectorBatch = KnnOptimizationProvider.loadAsPanamaVectorBatch(baseVectorsPath, startIndex, endIndex);
+                            usedPanama = true;
+                            loadedVectors.set(partitionSize);
+                            logger.info("Partition {}: loaded {} base vectors using zero-copy memory-mapped I/O",
+                                partitionIndex, partitionSize);
+                        } catch (Throwable e) {
+                            logger.warn("Memory-mapped I/O failed for partition {}, falling back to standard loading: {}",
+                                partitionIndex, e.getMessage());
+                            usedPanama = false;
+                        }
+                    }
+
+                    // Fallback: Standard I/O loading
+                    if (!usedPanama) {
+                        baseBatch = new ArrayList<>(partitionSize);
+                        final int readBatchSize = 1000;
+                        for (int batchStart = startIndex; batchStart < endIndex; batchStart += readBatchSize) {
+                            int batchEnd = Math.min(batchStart + readBatchSize, endIndex);
+                            List<float[]> batch = baseReader.subList(batchStart, batchEnd);
+                            baseBatch.addAll(batch);
+                            loadedVectors.addAndGet(batch.size());
+                        }
+                        logger.info("Partition {}: loaded {} base vectors using standard I/O",
                             partitionIndex, partitionSize);
-                    } catch (Throwable e) {
-                        logger.warn("Memory-mapped I/O failed for partition {}, falling back to standard loading: {}",
-                            partitionIndex, e.getMessage());
-                        usedPanama = false;
                     }
-                }
 
-                // Fallback: Standard I/O loading
-                if (!usedPanama) {
-                    baseBatch = new ArrayList<>(partitionSize);
-                    final int readBatchSize = 1000;
-                    for (int batchStart = startIndex; batchStart < endIndex; batchStart += readBatchSize) {
-                        int batchEnd = Math.min(batchStart + readBatchSize, endIndex);
-                        List<float[]> batch = baseReader.subList(batchStart, batchEnd);
-                        baseBatch.addAll(batch);
-                        loadedVectors.addAndGet(batch.size());
-                    }
-                    logger.info("Partition {}: loaded {} base vectors using standard I/O",
-                        partitionIndex, partitionSize);
+                    phase = "loaded";
+                } catch (Exception e) {
+                    state = RunState.FAILED;
+                    phase = "failed loading";
+                    throw e;
                 }
-
-                phase = "loaded";
-            } catch (Exception e) {
-                state = RunState.FAILED;
-                phase = "failed loading";
-                throw e;
+            } else {
+                logger.info("Partition {}: using pre-loaded {} base vectors (double-buffered)", partitionIndex, partitionSize);
             }
 
             // Step 1: Load all queries into memory
@@ -854,11 +931,8 @@ public class CMD_compute_knn implements Callable<Integer> {
             // PANAMA PATH: Check which strategy was selected at session start
             if (panamaVectorBatch != null) {
                 if (useBatchedSIMD) {
-                    // BATCHED strategy: Transposed SIMD (experimental)
-                    logger.info("Partition {}: using Panama BATCHED SIMD optimization for {} queries",
+                    logger.info("Partition {}: processing {} queries (batched SIMD)",
                         partitionIndex, queries.size());
-                    logger.info("  → Each base vector loaded ONCE per query batch (massive memory bandwidth savings)");
-                    logger.info("  → Transposed SIMD: processing 8-16 queries simultaneously per base vector");
 
                     try {
                         NeighborIndex[][] batchResults = KnnOptimizationProvider.findTopKBatched(
@@ -1156,6 +1230,127 @@ public class CMD_compute_knn implements Callable<Integer> {
         }
     }
 
+    /**
+     * Load query vectors from file (helper for incremental merge).
+     */
+    private List<float[]> loadQueryVectors(Path queryVectorsPath, VectorFileArray<float[]> baseReader) throws IOException {
+        try (VectorFileArray<float[]> queryReader = VectorFileIO.randomAccess(FileType.xvec, float[].class, queryVectorsPath)) {
+            int queryCount = queryReader.getSize();
+            List<float[]> queries = new ArrayList<>(queryCount);
+            for (int i = 0; i < queryCount; i++) {
+                queries.add(queryReader.get(i));
+            }
+            return queries;
+        }
+    }
+
+    /**
+     * Incrementally merge partition results into accumulator.
+     * Reads partition output files, merges with existing best results, keeps top-K.
+     */
+    private void mergePartitionIncremental(
+        PartitionMetadata partition,
+        io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[][] accumulator,
+        int k
+    ) throws IOException {
+        // Read partition results from disk
+        try (BoundedVectorFileStream<int[]> neighborStream = VectorFileIO.streamIn(FileType.xvec, int[].class, partition.neighborsPath)
+                .orElseThrow(() -> new IOException("Could not read partition neighbors: " + partition.neighborsPath));
+             BoundedVectorFileStream<float[]> distanceStream = VectorFileIO.streamIn(FileType.xvec, float[].class, partition.distancesPath)
+                .orElseThrow(() -> new IOException("Could not read partition distances: " + partition.distancesPath))) {
+
+            java.util.Iterator<int[]> neighborIter = neighborStream.iterator();
+            java.util.Iterator<float[]> distanceIter = distanceStream.iterator();
+
+            for (int queryIdx = 0; queryIdx < partition.queryCount; queryIdx++) {
+                int[] partitionNeighbors = neighborIter.next();
+                float[] partitionDistances = distanceIter.next();
+
+                // Convert to NeighborIndex array
+                io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[] partitionResults =
+                    new io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[partitionNeighbors.length];
+                for (int i = 0; i < partitionNeighbors.length; i++) {
+                    partitionResults[i] = new io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex(
+                        partitionNeighbors[i], partitionDistances[i]);
+                }
+
+                // Merge with existing results
+                if (accumulator[queryIdx] == null) {
+                    accumulator[queryIdx] = partitionResults;
+                } else {
+                    accumulator[queryIdx] = mergeTopK(accumulator[queryIdx], partitionResults, k);
+                }
+            }
+        }
+
+        // Clean up partition files immediately after merging
+        Files.deleteIfExists(partition.neighborsPath);
+        Files.deleteIfExists(partition.distancesPath);
+    }
+
+    /**
+     * Merge two result sets and keep top-K.
+     */
+    private io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[] mergeTopK(
+        io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[] existing,
+        io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[] newResults,
+        int k
+    ) {
+        // Combine both arrays
+        java.util.List<io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex> combined =
+            new java.util.ArrayList<>(existing.length + newResults.length);
+        java.util.Collections.addAll(combined, existing);
+        java.util.Collections.addAll(combined, newResults);
+
+        // Sort by distance (ascending)
+        combined.sort(java.util.Comparator.comparingDouble(
+            io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex::distance));
+
+        // Take top-K
+        int size = Math.min(k, combined.size());
+        io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[] result =
+            new io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[size];
+        for (int i = 0; i < size; i++) {
+            result[i] = combined.get(i);
+        }
+        return result;
+    }
+
+    /**
+     * Write final results directly from accumulator (no merge needed).
+     */
+    private void writeFinalResults(
+        io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[][] results,
+        Path neighborsOutput,
+        Path distancesOutput
+    ) throws IOException {
+        if (neighborsOutput.getParent() != null) {
+            Files.createDirectories(neighborsOutput.getParent());
+        }
+        if (distancesOutput.getParent() != null) {
+            Files.createDirectories(distancesOutput.getParent());
+        }
+
+        try (VectorFileStreamStore<int[]> neighborsStore = VectorFileIO.streamOut(FileType.xvec, int[].class, neighborsOutput)
+                .orElseThrow(() -> new IOException("Could not create neighbors file: " + neighborsOutput));
+             VectorFileStreamStore<float[]> distancesStore = VectorFileIO.streamOut(FileType.xvec, float[].class, distancesOutput)
+                .orElseThrow(() -> new IOException("Could not create distances file: " + distancesOutput))) {
+
+            for (io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[] queryResults : results) {
+                int[] neighbors = new int[queryResults.length];
+                float[] distances = new float[queryResults.length];
+
+                for (int i = 0; i < queryResults.length; i++) {
+                    neighbors[i] = (int) queryResults[i].index();
+                    distances[i] = (float) queryResults[i].distance();
+                }
+
+                neighborsStore.write(neighbors);
+                distancesStore.write(distances);
+            }
+        }
+    }
+
     public static void main(String[] args) {
         CMD_compute_knn cmd = new CMD_compute_knn();
         int exitCode = new CommandLine(cmd).execute(args);
@@ -1269,15 +1464,16 @@ public class CMD_compute_knn implements Callable<Integer> {
                 }
 
                 // Decide and cache SIMD strategy for this session
-                if ("auto".equalsIgnoreCase(simdStrategy)) {
-                    // Auto-select: Currently always use per-query (batched needs more optimization)
-                    // TODO: Re-enable batched when performance issues are resolved
-                    useBatchedSIMD = false;
-                    logger.info("Auto-selected PER-QUERY strategy (proven fast, production-ready)");
+                if (simdStrategy == SimdStrategy.AUTO) {
+                    // Auto-select: Use batched mode as default (proven fast with optimizations)
+                    useBatchedSIMD = true;
+                    logger.info("Auto-selected BATCHED strategy (default - optimized multi-query SIMD processing)");
                 } else {
-                    useBatchedSIMD = "batched".equalsIgnoreCase(simdStrategy);
+                    useBatchedSIMD = simdStrategy.isBatched();
                     if (useBatchedSIMD) {
-                        logger.warn("BATCHED strategy selected manually - currently slow, needs optimization work");
+                        logger.info("BATCHED strategy selected - using optimized multi-query SIMD processing");
+                    } else {
+                        logger.info("PER-QUERY strategy selected");
                     }
                 }
 
@@ -1383,31 +1579,81 @@ public class CMD_compute_knn implements Callable<Integer> {
                     // IMPORTANT: For multiple partitions, process SEQUENTIALLY to keep memory bounded
                     // For single partition, use all threads for query parallelism
                     if (partitionCount > 1) {
-                        // Sequential partition processing (one at a time) with tracking
-                        logger.info("Processing {} partitions SEQUENTIALLY to keep memory bounded", partitionCount);
+                        // PARALLEL partition processing with memory-bounded concurrency
+                        // Process 2-3 partitions simultaneously (limited by RAM, not CPU)
+                        int maxConcurrentPartitions = Math.min(3, partitionCount);  // 500K×3 = 1.5M vectors in RAM max
+                        logger.info("Processing {} partitions with {}x PARALLELISM and INCREMENTAL MERGING",
+                            partitionCount, maxConcurrentPartitions);
 
-                        for (PartitionComputation computation : computations) {
-                            // Track this partition's progress
-                            StatusTracker<PartitionComputation> tracker = partitionsScope.trackTask(computation);
-                            try {
-                                PartitionMetadata metadata = computation.call();
+                        // Load query count from first query batch
+                        List<float[]> sampleQueries = loadQueryVectors(queryVectorsPath, baseReader);
+                        expectedQueryCount = sampleQueries.size();
 
-                                if (expectedQueryCount < 0) {
-                                    expectedQueryCount = metadata.queryCount;
-                                } else if (metadata.queryCount != expectedQueryCount) {
-                                    throw new IllegalStateException("Mismatch in query counts across partitions: expected "
-                                        + expectedQueryCount + " but partition produced " + metadata.queryCount);
-                                }
+                        // Create final result array to accumulate best neighbors across all partitions
+                        io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[][] accumulator =
+                            new io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[expectedQueryCount][];
 
-                                partitions.add(metadata);
-                            } catch (Exception e) {
-                                throw new IOException("Failed to compute partition " + computation.partitionIndex, e);
-                            } finally {
-                                // Free partition memory before loading next
-                                computation.close();
-                                tracker.close();
+                        // Semaphore to limit concurrent partitions (memory-bounded)
+                        java.util.concurrent.Semaphore memoryPermits = new java.util.concurrent.Semaphore(maxConcurrentPartitions);
+                        ExecutorService partitionExecutor = Executors.newFixedThreadPool(maxConcurrentPartitions);
+                        List<Future<PartitionMetadata>> futures = new ArrayList<>();
+
+                        try {
+                            // Track all partitions immediately (for parallel progress display)
+                            List<StatusTracker<PartitionComputation>> trackers = new ArrayList<>();
+                            for (PartitionComputation computation : computations) {
+                                trackers.add(partitionsScope.trackTask(computation));
                             }
+
+                            // Submit all partitions (semaphore controls concurrency)
+                            for (PartitionComputation computation : computations) {
+                                futures.add(partitionExecutor.submit(() -> {
+                                    // Acquire memory permit before loading partition
+                                    memoryPermits.acquire();
+                                    try {
+                                        return computation.call();
+                                    } finally {
+                                        // Release permit after freeing partition memory
+                                        computation.close();
+                                        memoryPermits.release();
+                                    }
+                                }));
+                            }
+
+                            // Collect and merge results as they complete
+                            for (int i = 0; i < futures.size(); i++) {
+                                try {
+                                    PartitionMetadata metadata = futures.get(i).get();
+
+                                    if (metadata.queryCount != expectedQueryCount) {
+                                        throw new IllegalStateException("Mismatch in query counts across partitions: expected "
+                                            + expectedQueryCount + " but partition produced " + metadata.queryCount);
+                                    }
+
+                                    // Incrementally merge (synchronized for thread safety)
+                                    synchronized (accumulator) {
+                                        mergePartitionIncremental(metadata, accumulator, effectiveK);
+                                    }
+
+                                    partitions.add(metadata);
+                                } catch (Exception e) {
+                                    throw new IOException("Failed to compute partition " + i, e);
+                                } finally {
+                                    trackers.get(i).close();
+                                }
+                            }
+                        } finally {
+                            partitionExecutor.shutdown();
                         }
+
+                        // Write final accumulated results (already merged!)
+                        writeFinalResults(accumulator, neighborsOutput, distancesOutput);
+
+                        System.out.println("Successfully computed KNN ground truth for " + expectedQueryCount + " query vectors");
+                        System.out.println("Base vectors: " + baseCount + ", k: " + effectiveK + ", distance metric: " + distanceMetricOption.getDistanceMetric());
+                        System.out.println("Neighbors file: " + neighborsOutput);
+                        System.out.println("Distances file: " + distancesOutput);
+                        return EXIT_SUCCESS;
                     } else {
                         // Single partition: can use thread pool for query parallelism
                         TrackingMode trackingMode = TrackingMode.INDIVIDUAL;

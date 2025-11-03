@@ -164,6 +164,21 @@ public class CMD_analyze_describe implements Callable<Integer> {
             // Calculate record size in bytes
             int recordSizeBytes = calculateRecordSizeBytes(dataTypeStr, dimensions, fileType);
 
+            // Check if vectors are normalized (for dot product compatibility)
+            boolean isNormalized = false;
+            String normalizationStatus = "Unknown";
+            if (dataTypeStr.equals("float") && vectorCount > 0) {
+                try {
+                    isNormalized = io.nosqlbench.command.compute.VectorNormalizationDetector.areVectorsNormalized(file);
+                    normalizationStatus = isNormalized ? "NORMALIZED (||v||=1.0)" : "NOT NORMALIZED";
+                } catch (Exception e) {
+                    logger.debug("Could not detect vector normalization: {}", e.getMessage());
+                    normalizationStatus = "Unknown (check failed)";
+                }
+            } else if (!dataTypeStr.equals("float")) {
+                normalizationStatus = "N/A (not float vectors)";
+            }
+
             // Print the description
             System.out.println("File Description:");
             System.out.printf("- File: %s%n", file);
@@ -172,6 +187,17 @@ public class CMD_analyze_describe implements Callable<Integer> {
             System.out.printf("- Dimensions: %d%n", dimensions);
             System.out.printf("- Vector Count: %d%n", vectorCount);
             System.out.printf("- Record Size: %d bytes%n", recordSizeBytes);
+            System.out.printf("- Normalization: %s%n", normalizationStatus);
+
+            // Add helpful note about dot product compatibility
+            if (dataTypeStr.equals("float")) {
+                if (isNormalized) {
+                    System.out.println("- Dot Product: ✓ Safe to use DOT_PRODUCT metric (vectors are normalized)");
+                } else if (normalizationStatus.startsWith("NOT")) {
+                    System.out.println("- Dot Product: ✗ DO NOT use DOT_PRODUCT metric (vectors not normalized)");
+                    System.out.println("               Use EUCLIDEAN or COSINE instead");
+                }
+            }
 
             // Close the vector array
             vectorArray.close();

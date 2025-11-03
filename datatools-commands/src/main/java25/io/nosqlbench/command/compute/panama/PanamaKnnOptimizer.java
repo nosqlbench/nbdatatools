@@ -255,65 +255,50 @@ public class PanamaKnnOptimizer {
         DistanceMetric distanceMetric,
         java.util.concurrent.atomic.AtomicInteger progressCounter
     ) {
-        // Use multi-query-per-thread (simple, effective)
+        // Multi-query-per-thread: SIMPLE and FAST (NO base splitting - that was too complex)
         int totalQueries = queries.size();
-        int queriesPerThread = 4;  // L1 cache sweet spot
+        int queriesPerThread = 8;
         int cores = Runtime.getRuntime().availableProcessors();
-        int threads = Math.min(cores, (totalQueries + queriesPerThread - 1) / queriesPerThread);
 
         NeighborIndex[][] allResults = new NeighborIndex[totalQueries][];
-        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(cores);
 
         try {
             java.util.List<java.util.concurrent.Future<Void>> futures = new java.util.ArrayList<>();
 
-            // Assign ALL queries to threads (not just threadCount groups!)
+            // Simple: Each thread processes 8 queries against ALL base vectors
             for (int start = 0; start < totalQueries; start += queriesPerThread) {
                 int end = Math.min(start + queriesPerThread, totalQueries);
-
                 final int fStart = start, fEnd = end;
+
                 futures.add(pool.submit(() -> {
                     try {
-                        org.apache.logging.log4j.LogManager.getLogger(PanamaKnnOptimizer.class)
-                            .debug("Thread starting: queries {}-{}", fStart, fEnd);
-
                         List<float[]> group = queries.subList(fStart, fEnd);
                         NeighborIndex[][] results = MultiQueryProcessor.processQueryGroup(
                             group, panamaBatch, globalStartIndex, topK, distanceMetric
                         );
-
-                        // Ensure all results are non-null
-                        for (int i = 0; i < results.length; i++) {
-                            if (results[i] == null) {
-                                throw new IllegalStateException("processQueryGroup returned null for query " + i);
-                            }
-                        }
 
                         synchronized (allResults) {
                             System.arraycopy(results, 0, allResults, fStart, results.length);
                         }
 
                         if (progressCounter != null) progressCounter.addAndGet(results.length);
-
-                        org.apache.logging.log4j.LogManager.getLogger(PanamaKnnOptimizer.class)
-                            .debug("Thread completed: queries {}-{}", fStart, fEnd);
                         return null;
                     } catch (Exception e) {
                         org.apache.logging.log4j.LogManager.getLogger(PanamaKnnOptimizer.class)
-                            .error("Thread FAILED processing queries {}-{}: {}", fStart, fEnd, e.getMessage(), e);
-                        throw new RuntimeException("Thread queries " + fStart + "-" + fEnd + " failed", e);
+                            .error("Thread FAILED q{}-{}: {}", fStart, fEnd, e.getMessage(), e);
+                        throw new RuntimeException("Failed q" + fStart + "-" + fEnd, e);
                     }
                 }));
             }
 
             for (var f : futures) f.get();
+            return allResults;
         } catch (Exception e) {
             throw new RuntimeException("Multi-query batched failed", e);
         } finally {
             pool.shutdown();
         }
-
-        return allResults;
     }
 
     /**

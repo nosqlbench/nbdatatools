@@ -39,15 +39,17 @@ import java.util.List;
 public class MultiQueryProcessor {
 
     /**
-     * Process a group of queries assigned to one thread.
-     * Each base vector is loaded ONCE and used for ALL queries in the group.
+     * Process a group of queries with BASE VECTOR SPLITTING for 2D parallelism.
+     * Processes only a slice of base vectors, allowing multiple threads to work simultaneously.
      *
-     * @param queryGroup 2-4 queries assigned to this thread
-     * @param panamaBatch persistent base vectors
+     * @param queryGroup 8 queries assigned to this thread
+     * @param panamaBatch persistent base vectors (shared)
      * @param globalStartIndex starting base vector index
+     * @param baseStartIdx starting base vector for THIS thread
+     * @param baseEndIdx ending base vector for THIS thread
      * @param topK neighbors per query
      * @param metric distance metric
-     * @return results for each query in group
+     * @return partial results for merge
      */
     public static NeighborIndex[][] processQueryGroup(
         List<float[]> queryGroup,
@@ -58,6 +60,8 @@ public class MultiQueryProcessor {
     ) {
         int groupSize = queryGroup.size();
         int baseCount = panamaBatch.size();
+        int baseStartIdx = 0;
+        int baseEndIdx = baseCount;
 
         // Pre-compute query norms if needed (COSINE optimization)
         double[] queryNorms = null;
@@ -74,24 +78,14 @@ public class MultiQueryProcessor {
             heaps[i] = new PrimitiveMinHeap(topK);
         }
 
-        // THE KEY LOOP: For each base vector, process ALL queries in group
-        for (int baseIdx = 0; baseIdx < baseCount; baseIdx++) {
-
-            // Process each query in this group against the SAME base vector
-            for (int qIdx = 0; qIdx < groupSize; qIdx++) {
-                float[] query = queryGroup.get(qIdx);
-
-                double distance;
-                int metricCode = encodeMetric(metric);
-
-                if (metric == DistanceMetric.COSINE && queryNorms != null) {
-                    distance = panamaBatch.computeSingleCosineDistanceWithPrecomputedNorm(query, queryNorms[qIdx], baseIdx);
-                } else {
-                    distance = panamaBatch.computeSingleDistance(query, baseIdx, metricCode);
-                }
-
-                heaps[qIdx].offer(globalStartIndex + baseIdx, distance);
-            }
+        // MONOMORPHIZATION: Separate code paths per metric (eliminates branches!)
+        if (metric == DistanceMetric.COSINE && queryNorms != null) {
+            // COSINE with precomputed norms (branch-free hot path)
+            processWithPrecomputedNorms(queryGroup, queryNorms, panamaBatch, heaps, globalStartIndex, baseStartIdx, baseEndIdx);
+        } else {
+            // All other metrics (branch-free hot path)
+            int metricCode = encodeMetric(metric);
+            processWithMetricCode(queryGroup, panamaBatch, heaps, globalStartIndex, baseStartIdx, baseEndIdx, metricCode);
         }
 
         // Extract results
@@ -101,6 +95,86 @@ public class MultiQueryProcessor {
         }
 
         return results;
+    }
+
+    /**
+     * MONOMORPHIC: COSINE with precomputed norms (ZERO branches in hot loop!).
+     */
+    private static void processWithPrecomputedNorms(
+        List<float[]> queryGroup,
+        double[] queryNorms,
+        PanamaVectorBatch panamaBatch,
+        PrimitiveMinHeap[] heaps,
+        int globalStartIndex,
+        int baseStartIdx,
+        int baseEndIdx
+    ) {
+        int groupSize = queryGroup.size();
+        int baseIdx = baseStartIdx;
+        int unrollBound = baseEndIdx - 1;
+
+        for (; baseIdx < unrollBound; baseIdx += 2) {
+            for (int qIdx = 0; qIdx < groupSize; qIdx++) {
+                float[] query = queryGroup.get(qIdx);
+                double d0 = panamaBatch.computeSingleCosineDistanceWithPrecomputedNorm(query, queryNorms[qIdx], baseIdx);
+                heaps[qIdx].offer(globalStartIndex + baseIdx, d0);
+            }
+
+            int baseIdx1 = baseIdx + 1;
+            for (int qIdx = 0; qIdx < groupSize; qIdx++) {
+                float[] query = queryGroup.get(qIdx);
+                double d1 = panamaBatch.computeSingleCosineDistanceWithPrecomputedNorm(query, queryNorms[qIdx], baseIdx1);
+                heaps[qIdx].offer(globalStartIndex + baseIdx1, d1);
+            }
+        }
+
+        if (baseIdx < baseEndIdx) {
+            for (int qIdx = 0; qIdx < groupSize; qIdx++) {
+                float[] query = queryGroup.get(qIdx);
+                double d = panamaBatch.computeSingleCosineDistanceWithPrecomputedNorm(query, queryNorms[qIdx], baseIdx);
+                heaps[qIdx].offer(globalStartIndex + baseIdx, d);
+            }
+        }
+    }
+
+    /**
+     * MONOMORPHIC: Generic metric (DOT_PRODUCT/L2/L1 - ZERO branches in hot loop!).
+     */
+    private static void processWithMetricCode(
+        List<float[]> queryGroup,
+        PanamaVectorBatch panamaBatch,
+        PrimitiveMinHeap[] heaps,
+        int globalStartIndex,
+        int baseStartIdx,
+        int baseEndIdx,
+        int metricCode
+    ) {
+        int groupSize = queryGroup.size();
+        int baseIdx = baseStartIdx;
+        int unrollBound = baseEndIdx - 1;
+
+        for (; baseIdx < unrollBound; baseIdx += 2) {
+            for (int qIdx = 0; qIdx < groupSize; qIdx++) {
+                float[] query = queryGroup.get(qIdx);
+                double d0 = panamaBatch.computeSingleDistance(query, baseIdx, metricCode);
+                heaps[qIdx].offer(globalStartIndex + baseIdx, d0);
+            }
+
+            int baseIdx1 = baseIdx + 1;
+            for (int qIdx = 0; qIdx < groupSize; qIdx++) {
+                float[] query = queryGroup.get(qIdx);
+                double d1 = panamaBatch.computeSingleDistance(query, baseIdx1, metricCode);
+                heaps[qIdx].offer(globalStartIndex + baseIdx1, d1);
+            }
+        }
+
+        if (baseIdx < baseEndIdx) {
+            for (int qIdx = 0; qIdx < groupSize; qIdx++) {
+                float[] query = queryGroup.get(qIdx);
+                double d = panamaBatch.computeSingleDistance(query, baseIdx, metricCode);
+                heaps[qIdx].offer(globalStartIndex + baseIdx, d);
+            }
+        }
     }
 
     private static int encodeMetric(DistanceMetric metric) {

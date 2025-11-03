@@ -74,7 +74,8 @@ public class CMD_datasets_plan implements Callable<Integer> {
         Path absolutePath,
         boolean remote,
         boolean exists,
-        FView view
+        FView view,
+        FProfiles profileConfig
     ) {
         String key() {
             if (absolutePath != null) {
@@ -184,6 +185,8 @@ public class CMD_datasets_plan implements Callable<Integer> {
                 boolean exists = remote;
                 if (!remote && absolutePath != null) {
                     exists = Files.exists(absolutePath);
+                    logger.debug("Checking existence of {} for profile '{}' view '{}': {}",
+                        absolutePath, profileName, viewName, exists ? "EXISTS" : "MISSING");
                 }
 
                 FacetRecord record = new FacetRecord(
@@ -194,7 +197,8 @@ public class CMD_datasets_plan implements Callable<Integer> {
                     absolutePath,
                     remote,
                     exists,
-                    fView
+                    fView,
+                    fProfiles
                 );
                 summary.addFacet(record);
                 allFacets.add(record);
@@ -264,17 +268,62 @@ public class CMD_datasets_plan implements Callable<Integer> {
 
         List<Suggestion> suggestions = new ArrayList<>(suggestionByCommand.values());
         spec.commandLine().getOut().println("Suggested commands:");
+        spec.commandLine().getOut().println();
+
         for (int i = 0; i < suggestions.size(); i++) {
             Suggestion suggestion = suggestions.get(i);
-            spec.commandLine().getOut().printf(
-                " %d. %s%n    %s%n",
-                i + 1,
-                suggestion.rationaleSummary(),
-                suggestion.command()
-            );
+            spec.commandLine().getOut().printf("# %d. %s%n", i + 1, suggestion.rationaleSummary());
+
+            // Format command for easy terminal copy-paste with line wrapping at 100 chars
+            String formattedCommand = formatCommandForTerminal(suggestion.command());
+            spec.commandLine().getOut().println(formattedCommand);
+            spec.commandLine().getOut().println();
         }
 
         return 0;
+    }
+
+    /// Format a command for terminal copy-paste with proper line wrapping
+    /// @param command the command to format
+    /// @return formatted command with backslash line continuations
+    private static String formatCommandForTerminal(String command) {
+        final int maxLineLength = 100;
+
+        // If command is short enough, return as-is
+        if (command.length() <= maxLineLength) {
+            return command;
+        }
+
+        // Split command into parts at option boundaries (--option)
+        String[] parts = command.split("(?= --)");
+        StringBuilder formatted = new StringBuilder();
+        StringBuilder currentLine = new StringBuilder();
+
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+
+            // First part is the command itself (e.g., "compute knn")
+            if (i == 0) {
+                currentLine.append(part);
+                continue;
+            }
+
+            // Check if adding this part would exceed line length
+            if (currentLine.length() + part.length() + 2 > maxLineLength) {
+                // Finish current line with backslash
+                formatted.append(currentLine).append(" \\").append(System.lineSeparator());
+                currentLine = new StringBuilder("  ").append(part.trim());
+            } else {
+                currentLine.append(" ").append(part.trim());
+            }
+        }
+
+        // Append final line
+        if (currentLine.length() > 0) {
+            formatted.append(currentLine);
+        }
+
+        return formatted.toString();
     }
 
     private static String facetLabel(FacetRecord record) {
@@ -301,6 +350,16 @@ public class CMD_datasets_plan implements Callable<Integer> {
             }
         });
 
+        // Filter out groups where ANY record shows the file exists
+        // This handles cases where multiple profiles reference the same file with different windows
+        missingByPath.entrySet().removeIf(entry -> {
+            boolean anyExists = entry.getValue().stream().anyMatch(rec -> rec.exists);
+            if (anyExists) {
+                logger.debug("Skipping suggestion for {} because file exists", entry.getKey());
+            }
+            return anyExists;
+        });
+
         missingByPath.values().forEach(group -> {
             FacetRecord reference = group.get(0);
             String displayPath = displayPath(datasetRoot, reference);
@@ -314,25 +373,69 @@ public class CMD_datasets_plan implements Callable<Integer> {
                 ? extension.getFileType().name().toLowerCase(Locale.ROOT)
                 : "<format>";
 
-            OptionalLong countGuess = estimateCount(reference.view().window());
-            String count = countGuess.isPresent() ? Long.toString(countGuess.getAsLong()) : "<count>";
+            // Find the MAXIMUM count needed across all profiles that reference this file
+            // This ensures we generate enough vectors to satisfy all profiles
+            OptionalLong maxCount = group.stream()
+                .map(rec -> estimateCount(rec.view().window()))
+                .filter(OptionalLong::isPresent)
+                .mapToLong(OptionalLong::getAsLong)
+                .max();
+            String count = maxCount.isPresent() ? Long.toString(maxCount.getAsLong()) : "<count>";
+
+            // Try to extract dimension from existing files in the profile
+            ProfileSummary summary = summaries.get(reference.profile);
+            OptionalLong dimension = summary != null ? findDimensionInProfile(summary) : OptionalLong.empty();
+
+            // Use 128 as default dimension (common for embeddings) with a note
+            String dimensionStr;
+            boolean usedDefaultDimension = false;
+            if (dimension.isPresent()) {
+                dimensionStr = Long.toString(dimension.getAsLong());
+            } else {
+                dimensionStr = "128";
+                usedDefaultDimension = true;
+            }
+
+            // Build command notes
+            List<String> notes = new ArrayList<>();
+            if (usedDefaultDimension) {
+                notes.add("dimension defaulted to 128, adjust as needed");
+            }
+
+            // Check if multiple profiles share this file with different windows
+            if (group.size() > 1) {
+                long distinctWindows = group.stream()
+                    .map(rec -> estimateCount(rec.view().window()))
+                    .filter(OptionalLong::isPresent)
+                    .mapToLong(OptionalLong::getAsLong)
+                    .distinct()
+                    .count();
+
+                if (distinctWindows > 1) {
+                    notes.add("generates maximum size needed; profiles use different subsets via windows");
+                }
+            }
+
+            String notesSuffix = notes.isEmpty() ? "" : "  # " + String.join("; ", notes);
 
             String command = String.format(
-                "generate vectors --output %s --type %s --format %s --dimension <dimension> --count %s",
+                "generate vectors --output %s --type %s --format %s --dimension %s --count %s%s",
                 shellPath(displayPath),
                 vectorType,
                 format,
-                count
+                dimensionStr,
+                count,
+                notesSuffix
             );
 
-            String rationale = String.format(
-                rationaleTemplate,
-                group.stream()
-                    .map(f -> "'" + f.profile + "'")
-                    .distinct()
-                    .sorted(String::compareToIgnoreCase)
-                    .collect(Collectors.joining(", "))
-            );
+            // Build rationale explaining which profiles need this file
+            String profiles = group.stream()
+                .map(f -> "'" + f.profile + "'")
+                .distinct()
+                .sorted(String::compareToIgnoreCase)
+                .collect(Collectors.joining(", "));
+
+            String rationale = String.format(rationaleTemplate, profiles);
 
             suggestionByCommand
                 .computeIfAbsent(command, Suggestion::new)
@@ -353,7 +456,13 @@ public class CMD_datasets_plan implements Callable<Integer> {
             boolean indicesMissing = indices.isPresent() && !indices.get().exists;
             boolean distancesMissing = distances.isPresent() && !distances.get().exists;
 
-            if (!indicesMissing && !distancesMissing) {
+            // Only suggest KNN computation if BOTH indices and distances are missing
+            // If only one is missing, that's a broken/inconsistent state - don't suggest automatic repair
+            if (!indicesMissing || !distancesMissing) {
+                if (indicesMissing || distancesMissing) {
+                    logger.debug("Skipping KNN suggestion for profile '{}' - only one output is missing (indices missing={}, distances missing={})",
+                        summary.name, indicesMissing, distancesMissing);
+                }
                 return;
             }
 
@@ -368,27 +477,108 @@ public class CMD_datasets_plan implements Callable<Integer> {
                 .map(f -> displayPath(datasetRoot, f))
                 .orElseGet(() -> deriveDistancesPath(indicesPath));
 
-            boolean needForce = indices.isPresent() && indices.get().exists
-                || distances.isPresent() && distances.get().exists;
+            // Extract range/window from base vectors for --range option
+            String rangeOption = "";
+            if (base.isPresent() && base.get().view != null && base.get().view.window() != null) {
+                FWindow window = base.get().view.window();
+                if (window != FWindow.ALL && !window.intervals().isEmpty()) {
+                    OptionalLong count = estimateCount(window);
+                    if (count.isPresent()) {
+                        rangeOption = " --range " + count.getAsLong();
+                    }
+                }
+            }
 
-            String metric = attributes != null && attributes.distance_function() != null
-                ? attributes.distance_function().name()
-                : "<metric>";
+            // Check if base vectors are normalized (for optimal metric selection)
+            boolean baseIsNormalized = false;
+            if (base.isPresent() && base.get().exists && base.get().absolutePath != null) {
+                try {
+                    baseIsNormalized = io.nosqlbench.command.compute.VectorNormalizationDetector.areVectorsNormalized(base.get().absolutePath);
+                } catch (Exception e) {
+                    logger.debug("Could not detect normalization for {}: {}", base.get().absolutePath, e.getMessage());
+                }
+            }
+
+            // Try to extract k value from multiple sources
+            OptionalLong kValue = OptionalLong.empty();
+            String kSource = null;
+
+            // First, try to get maxk from profile configuration
+            if (indices.isPresent() && indices.get().profileConfig != null && indices.get().profileConfig.maxk() != null) {
+                kValue = OptionalLong.of(indices.get().profileConfig.maxk());
+                kSource = "profile maxk";
+            }
+
+            // Second, try to extract k from existing indices file
+            if (!kValue.isPresent()) {
+                kValue = findKInProfile(summary);
+                if (kValue.isPresent()) {
+                    kSource = "existing indices file";
+                }
+            }
+
+            // Use 100 as default k value (common for ANN benchmarks)
+            boolean usedDefaultK = false;
+            String kStr;
+            if (kValue.isPresent()) {
+                kStr = Long.toString(kValue.getAsLong());
+            } else {
+                kStr = "100";
+                usedDefaultK = true;
+                kSource = "default";
+            }
+
+            // Extract metric from attributes or use optimal default based on normalization
+            String metric;
+            boolean usedDefaultMetric = false;
+            boolean usedOptimizedMetric = false;
+            if (attributes != null && attributes.distance_function() != null) {
+                String specifiedMetric = attributes.distance_function().name();
+                // If COSINE specified but vectors are normalized, recommend DOT_PRODUCT instead
+                if ("COSINE".equals(specifiedMetric) && baseIsNormalized) {
+                    metric = "DOT_PRODUCT";
+                    usedOptimizedMetric = true;
+                } else {
+                    metric = specifiedMetric;
+                }
+            } else {
+                // No metric specified - choose optimal default
+                metric = baseIsNormalized ? "DOT_PRODUCT" : "EUCLIDEAN";
+                usedDefaultMetric = true;
+            }
+
+            String notes = "";
+            List<String> noteList = new ArrayList<>();
+            if (usedDefaultK) {
+                noteList.add("neighbors defaulted to 100");
+            } else if ("profile maxk".equals(kSource)) {
+                noteList.add("neighbors from profile maxk=" + kStr);
+            }
+            if (usedDefaultMetric) {
+                noteList.add("metric defaulted to " + metric + (baseIsNormalized ? " (normalized vectors)" : ""));
+            }
+            if (usedOptimizedMetric) {
+                noteList.add("using DOT_PRODUCT instead of COSINE (vectors are normalized, 2-3x faster)");
+            }
+            if (!noteList.isEmpty()) {
+                notes = "  # " + String.join("; ", noteList);
+            }
 
             String command = String.format(
-                "compute knn --base %s --query %s --indices %s --distances %s --neighbors <k> --metric %s%s",
+                "compute knn --base %s --query %s%s --indices %s --distances %s --neighbors %s --metric %s%s",
                 shellPath(basePath),
                 shellPath(queryPath),
+                rangeOption,
                 shellPath(indicesPath),
                 shellPath(distancesPath),
+                kStr,
                 metric,
-                needForce ? " --force" : ""
+                notes
             );
 
             String rationale = String.format(
-                "Recompute ground-truth neighbors for profile '%s'%s",
-                summary.name,
-                needForce ? " (overwrites existing outputs)" : ""
+                "Compute ground-truth neighbors for profile '%s'",
+                summary.name
             );
 
             suggestionByCommand
@@ -478,5 +668,103 @@ public class CMD_datasets_plan implements Callable<Integer> {
             return "\"" + path.replace("\"", "\\\"") + "\"";
         }
         return path;
+    }
+
+    /// Extract the dimension from an existing vector file if it exists
+    /// @param record the facet record that might have an existing file
+    /// @return the dimension if available, empty otherwise
+    private static OptionalLong extractDimension(FacetRecord record) {
+        if (!record.exists || record.absolutePath == null) {
+            return OptionalLong.empty();
+        }
+        try {
+            io.nosqlbench.vectordata.discovery.TestDataGroup group =
+                new io.nosqlbench.vectordata.discovery.TestDataGroup(record.absolutePath);
+            try {
+                io.nosqlbench.vectordata.discovery.TestDataView view =
+                    group.profile("default");
+
+                // Try to get dimension from base or query vectors
+                if (record.kind == ViewKind.base || record.kind == ViewKind.query) {
+                    io.nosqlbench.vectordata.spec.datasets.types.DatasetView<?> dataView =
+                        record.kind == ViewKind.base ? view.getBaseVectors().orElse(null) : view.getQueryVectors().orElse(null);
+                    if (dataView != null) {
+                        return OptionalLong.of(dataView.getVectorDimensions());
+                    }
+                }
+            } finally {
+                group.close();
+            }
+        } catch (Exception e) {
+            logger.debug("Could not extract dimension from {}: {}", record.absolutePath, e.getMessage());
+        }
+        return OptionalLong.empty();
+    }
+
+    /// Extract the k (neighbors) value from an existing indices file if it exists
+    /// @param record the facet record that might have an existing indices file
+    /// @return the k value if available, empty otherwise
+    private static OptionalLong extractNeighborsK(FacetRecord record) {
+        if (!record.exists || record.absolutePath == null) {
+            return OptionalLong.empty();
+        }
+        try {
+            io.nosqlbench.vectordata.discovery.TestDataGroup group =
+                new io.nosqlbench.vectordata.discovery.TestDataGroup(record.absolutePath);
+            try {
+                io.nosqlbench.vectordata.discovery.TestDataView view =
+                    group.profile("default");
+
+                // Get k from indices
+                if (record.kind == ViewKind.indices) {
+                    io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices indices =
+                        view.getNeighborIndices().orElse(null);
+                    if (indices != null) {
+                        return OptionalLong.of(indices.getVectorDimensions());
+                    }
+                }
+            } finally {
+                group.close();
+            }
+        } catch (Exception e) {
+            logger.debug("Could not extract k from {}: {}", record.absolutePath, e.getMessage());
+        }
+        return OptionalLong.empty();
+    }
+
+    /// Try to find dimension from any existing vector file in the profile
+    /// @param summary the profile summary
+    /// @return the dimension if found in any existing file
+    private static OptionalLong findDimensionInProfile(ProfileSummary summary) {
+        // Try base vectors first
+        Optional<FacetRecord> base = summary.first(ViewKind.base);
+        if (base.isPresent() && base.get().exists) {
+            OptionalLong dim = extractDimension(base.get());
+            if (dim.isPresent()) {
+                return dim;
+            }
+        }
+
+        // Try query vectors
+        Optional<FacetRecord> query = summary.first(ViewKind.query);
+        if (query.isPresent() && query.get().exists) {
+            OptionalLong dim = extractDimension(query.get());
+            if (dim.isPresent()) {
+                return dim;
+            }
+        }
+
+        return OptionalLong.empty();
+    }
+
+    /// Try to find k value from any existing indices file in the profile
+    /// @param summary the profile summary
+    /// @return the k value if found in any existing file
+    private static OptionalLong findKInProfile(ProfileSummary summary) {
+        Optional<FacetRecord> indices = summary.first(ViewKind.indices);
+        if (indices.isPresent() && indices.get().exists) {
+            return extractNeighborsK(indices.get());
+        }
+        return OptionalLong.empty();
     }
 }

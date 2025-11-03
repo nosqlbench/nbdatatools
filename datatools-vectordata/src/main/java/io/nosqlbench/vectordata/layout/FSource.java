@@ -53,7 +53,10 @@ public class FSource {
   }
 
   /// The pattern for parsing a source spec
-  public static Pattern PATTERN = Pattern.compile("(?<source>.+?)(?<window>([\\[(]).+)?$");
+  /// Supports window notation with:
+  ///   - Brackets: file.ext[window] or file.ext(window)
+  ///   - Colon: file.ext:window
+  public static Pattern PATTERN = Pattern.compile("(?<source>.+?)(?<window>([\\[(:]).+)?$");
 
   private static URL parseUrl(String origin) {
     try {
@@ -75,10 +78,18 @@ public class FSource {
   public static FSource parse(String spec) {
     Matcher matcher = PATTERN.matcher(spec);
     if (matcher.matches()) {
+      String windowSpec = matcher.group("window");
+      // Strip leading delimiter from window spec (e.g., ":1m" -> "1m", "(0..100)" -> "0..100)")
+      if (windowSpec != null && !windowSpec.isEmpty()) {
+        char firstChar = windowSpec.charAt(0);
+        if (firstChar == ':' || firstChar == '[' || firstChar == '(') {
+          windowSpec = windowSpec.substring(1);
+        }
+      }
 
       return new FSource(
           matcher.group("source"),
-          FWindow.parse(matcher.group("window") != null ? matcher.group("window") : null)
+          FWindow.parse(windowSpec)
       );
     } else {
       throw new RuntimeException("Invalid data source spec: " + spec);

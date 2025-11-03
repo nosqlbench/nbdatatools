@@ -48,7 +48,9 @@ public class FView {
   public static FView fromObject(Object pv) {
     if (pv instanceof CharSequence) {
       CharSequence cs = (CharSequence) pv;
-      return new FView(new FSource(cs.toString(), FWindow.ALL), FWindow.ALL);
+      // Parse to extract source and window (supports file.ext:window or file.ext(window) notation)
+      FSource source = FSource.parse(cs.toString());
+      return new FView(source, source.window());
     } else if (pv instanceof Map<?, ?>) {
       Map<?, ?> m = (Map<?, ?>) pv;
       FSource source = FSource.fromObject(m.get("source"));

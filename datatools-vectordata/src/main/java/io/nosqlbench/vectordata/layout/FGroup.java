@@ -60,11 +60,32 @@ public class FGroup {
     if (facetsObject instanceof Map<?,?>) {
       Map<?,?> m = (Map<?,?>) facetsObject;
       Map<String, FProfiles> facets = new LinkedHashMap<>();
+
+      // First pass: Look for "default" profile to use as the base for other profiles
+      FProfiles effectiveDefault = defaultProfile;
+      Object defaultProfileObject = m.get("default");
+      if (defaultProfileObject != null) {
+        try {
+          // Parse default profile (with no inheritance, or inherit from profile_defaults if provided)
+          effectiveDefault = FProfiles.fromObject(defaultProfileObject, defaultProfile);
+        } catch (Exception e) {
+          throw new RuntimeException("invalid 'default' profile format:" + defaultProfileObject, e);
+        }
+      }
+
+      // Second pass: Load all profiles with inheritance from effective default
+      final FProfiles finalDefault = effectiveDefault;
       m.forEach((k,v) -> {
         String profileName = k.toString();
         try {
-          FProfiles fprofile = FProfiles.fromObject(v,defaultProfile);
-          facets.put(profileName,fprofile);
+          // If this is "default", use already parsed version; otherwise inherit from default
+          FProfiles fprofile;
+          if ("default".equals(profileName)) {
+            fprofile = finalDefault;
+          } else {
+            fprofile = FProfiles.fromObject(v, finalDefault);
+          }
+          facets.put(profileName, fprofile);
         } catch (Exception e) {
           throw new RuntimeException("invalid profile format for key[" + k + "]:" + v, e);
         }

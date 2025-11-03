@@ -19,7 +19,7 @@
 
   <Appenders>
     <Console name="STDOUT" target="SYSTEM_OUT">
-      <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+      <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %c{1} - %msg%n"/>
       <Filters>
         <MarkerFilter marker="FLOW" onMatch="DENY" onMismatch="NEUTRAL"/>
         <MarkerFilter marker="EXCEPTION" onMatch="DENY" onMismatch="ACCEPT"/>
