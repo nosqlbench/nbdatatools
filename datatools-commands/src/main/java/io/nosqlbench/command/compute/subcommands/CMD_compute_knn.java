@@ -1580,8 +1580,9 @@ public class CMD_compute_knn implements Callable<Integer> {
                     // For single partition, use all threads for query parallelism
                     if (partitionCount > 1) {
                         // PARALLEL partition processing with memory-bounded concurrency
-                        // Process 2-3 partitions simultaneously (limited by RAM, not CPU)
-                        int maxConcurrentPartitions = Math.min(3, partitionCount);  // 500K×3 = 1.5M vectors in RAM max
+                        // Process 2 partitions simultaneously (limited by RAM, not CPU)
+                        // Keep only 1 set pre-buffered at a time
+                        int maxConcurrentPartitions = Math.min(2, partitionCount);  // 500K×2 = 1M vectors in RAM max
                         logger.info("Processing {} partitions with {}x PARALLELISM and INCREMENTAL MERGING",
                             partitionCount, maxConcurrentPartitions);
 
