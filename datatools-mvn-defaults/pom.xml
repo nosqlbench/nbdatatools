@@ -13,7 +13,7 @@
   <name>${project.artifactId}</name>
 
   <properties>
-    <revision>0.1.10-SNAPSHOT</revision>
+    <revision>0.1.11-SNAPSHOT</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.deploy.skip>true</maven.deploy.skip>
     <maven.compiler.source>16</maven.compiler.source>
