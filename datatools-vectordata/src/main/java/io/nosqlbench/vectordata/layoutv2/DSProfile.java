@@ -27,6 +27,8 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
 
   /// The name of the profile
   private String name;
+  /// The maximum k value for this profile
+  private Integer maxk;
 
   /// Creates an empty profile with no views.
   public DSProfile() {
@@ -43,6 +45,16 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
   public DSProfile(String name, Map<String, DSView> views) {
     super(views);
     this.name = name;
+  }
+
+  /// Create a new DSProfile
+  /// @param name The profile name
+  /// @param views The map of views to include in this profile
+  /// @param maxk The maximum k value for this profile
+  public DSProfile(String name, Map<String, DSView> views, Integer maxk) {
+    super(views);
+    this.name = name;
+    this.maxk = maxk;
   }
 
   /// Adds a new view with the specified name to this profile.
@@ -74,10 +86,31 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
     } else {
       throw new RuntimeException("invalid profile format:" + views);
     }
+
+    // Extract maxk if present
+    Integer maxk = null;
+    Object maxkObj = vmap.get("maxk");
+    if (maxkObj instanceof Number) {
+      maxk = ((Number) maxkObj).intValue();
+    } else if (maxkObj instanceof String) {
+      try {
+        maxk = Integer.parseInt((String) maxkObj);
+      } catch (NumberFormatException e) {
+        throw new RuntimeException("invalid maxk value: " + maxkObj, e);
+      }
+    }
+
     vmap.forEach((k, v) -> {
-      viewMap.put(k.toString(),DSView.fromData(v));
+      String key = k.toString();
+      // Skip metadata fields
+      if ("maxk".equals(key)) {
+        return;
+      }
+      viewMap.put(key, DSView.fromData(v));
     });
-    return new DSProfile(viewMap);
+    DSProfile profile = new DSProfile(viewMap);
+    profile.maxk = maxk;
+    return profile;
   }
 
   /// Get the name of the profile
@@ -91,6 +124,20 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
   /// @param name The name of the dataset profile
   public DSProfile setName(String name) {
     this.name = name;
+    return this;
+  }
+
+  /// Get the maximum k value for this profile
+  /// @return The maxk value, or null if not specified
+  public Integer getMaxk() {
+    return this.maxk;
+  }
+
+  /// Set the maximum k value for this profile
+  /// @param maxk The maximum k value
+  /// @return This DSProfile for method chaining
+  public DSProfile setMaxk(Integer maxk) {
+    this.maxk = maxk;
     return this;
   }
 }

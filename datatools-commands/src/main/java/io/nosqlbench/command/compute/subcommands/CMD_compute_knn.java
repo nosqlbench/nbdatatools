@@ -1600,14 +1600,16 @@ public class CMD_compute_knn implements Callable<Integer> {
                         List<Future<PartitionMetadata>> futures = new ArrayList<>();
 
                         try {
-                            // Track all partitions immediately (for parallel progress display)
+                            // Track and submit batches incrementally as slots become available
+                            // Keep prebuffer of maxConcurrentPartitions + 1 to ensure pipeline stays full
+                            int prebufferSize = maxConcurrentPartitions + 1;
                             List<StatusTracker<PartitionComputation>> trackers = new ArrayList<>();
-                            for (PartitionComputation computation : computations) {
-                                trackers.add(partitionsScope.trackTask(computation));
-                            }
+                            int nextToSubmit = 0;
 
-                            // Submit all partitions (semaphore controls concurrency)
-                            for (PartitionComputation computation : computations) {
+                            // Submit initial prebuffer
+                            while (nextToSubmit < Math.min(prebufferSize, computations.size())) {
+                                PartitionComputation computation = computations.get(nextToSubmit);
+                                trackers.add(partitionsScope.trackTask(computation));
                                 futures.add(partitionExecutor.submit(() -> {
                                     // Acquire memory permit before loading partition
                                     memoryPermits.acquire();
@@ -1619,10 +1621,11 @@ public class CMD_compute_knn implements Callable<Integer> {
                                         memoryPermits.release();
                                     }
                                 }));
+                                nextToSubmit++;
                             }
 
-                            // Collect and merge results as they complete
-                            for (int i = 0; i < futures.size(); i++) {
+                            // Collect results and submit new batches as slots become available
+                            for (int i = 0; i < computations.size(); i++) {
                                 try {
                                     PartitionMetadata metadata = futures.get(i).get();
 
@@ -1641,6 +1644,24 @@ public class CMD_compute_knn implements Callable<Integer> {
                                     throw new IOException("Failed to compute partition " + i, e);
                                 } finally {
                                     trackers.get(i).close();
+
+                                    // Submit next batch if available
+                                    if (nextToSubmit < computations.size()) {
+                                        PartitionComputation computation = computations.get(nextToSubmit);
+                                        trackers.add(partitionsScope.trackTask(computation));
+                                        futures.add(partitionExecutor.submit(() -> {
+                                            // Acquire memory permit before loading partition
+                                            memoryPermits.acquire();
+                                            try {
+                                                return computation.call();
+                                            } finally {
+                                                // Release permit after freeing partition memory
+                                                computation.close();
+                                                memoryPermits.release();
+                                            }
+                                        }));
+                                        nextToSubmit++;
+                                    }
                                 }
                             }
                         } finally {

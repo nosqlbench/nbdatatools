@@ -291,4 +291,77 @@ public class DSRootSerDesTest {
     System.out.println(reified);
     assertThat(reified).isEqualTo(root);
   }
+
+  @Test
+  public void testProfileWithMaxkAsNumber() {
+    // Test that maxk as a number (e.g., 10.0) is properly handled and doesn't cause "invalid view format" error
+    String json = """
+        {
+          "maxk": 10.0,
+          "base": {
+            "source": "test.bin"
+          }
+        }
+        """;
+    DSProfile profile = DSProfile.fromData(SHARED.mapFromJson(json));
+    assertThat(profile.getMaxk()).isEqualTo(10);
+    assertThat(profile).containsKey("base");
+    assertThat(profile.get("base").getSource().path).isEqualTo("test.bin");
+  }
+
+  @Test
+  public void testProfileWithMaxkAsString() {
+    // Test that maxk as a string is properly parsed
+    String json = """
+        {
+          "maxk": "20",
+          "base": {
+            "source": "test.bin"
+          }
+        }
+        """;
+    DSProfile profile = DSProfile.fromData(SHARED.mapFromJson(json));
+    assertThat(profile.getMaxk()).isEqualTo(20);
+    assertThat(profile).containsKey("base");
+  }
+
+  @Test
+  public void testProfileWithoutMaxk() {
+    // Test that profiles without maxk still work
+    String json = """
+        {
+          "base": {
+            "source": "test.bin"
+          }
+        }
+        """;
+    DSProfile profile = DSProfile.fromData(SHARED.mapFromJson(json));
+    assertThat(profile.getMaxk()).isNull();
+    assertThat(profile).containsKey("base");
+  }
+
+  @Test
+  public void testProfileGroupWithMaxk() {
+    // Test the full stack with a profile group containing maxk
+    String json = """
+        {
+          "default": {
+            "maxk": 10,
+            "base": {
+              "source": "base.bin"
+            },
+            "indices": {
+              "source": "indices.bin"
+            }
+          }
+        }
+        """;
+    DSProfileGroup profileGroup = DSProfileGroup.fromData(json);
+    assertThat(profileGroup).containsKey("default");
+    DSProfile defaultProfile = profileGroup.get("default");
+    assertThat(defaultProfile.getMaxk()).isEqualTo(10);
+    assertThat(defaultProfile).containsKey("base");
+    assertThat(defaultProfile).containsKey("indices");
+    assertThat(defaultProfile).doesNotContainKey("maxk"); // maxk should not be treated as a view
+  }
 }
