@@ -67,7 +67,9 @@ public class NeighborhoodComparison {
         expectedNeighborhood
     );
 
-    sb.append(partitions[Computations.SET_A].length==0? "PASS " : "FAIL ");
+    // PASS only if no extra AND no missing neighbors
+    boolean pass = partitions[Computations.SET_A].length == 0 && partitions[Computations.SET_B].length == 0;
+    sb.append(pass ? "PASS " : "FAIL ");
 
     sb.append("[");
     sb.append(braille(Computations.matchingImage(

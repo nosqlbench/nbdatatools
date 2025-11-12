@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -62,6 +63,19 @@ public class MemoryMappedVectorFile implements AutoCloseable {
      * @throws IOException if file cannot be mapped
      */
     public MemoryMappedVectorFile(Path path) throws IOException {
+        this(path, 0, -1);  // Map entire file
+    }
+
+    /**
+     * Memory-map a specific range of a vector file for zero-copy access.
+     * This is more efficient for partitioned processing as it only maps the needed region.
+     *
+     * @param path path to .fvec or .ivec file
+     * @param startVectorIndex starting vector index (inclusive)
+     * @param endVectorIndex ending vector index (exclusive), or -1 for entire file
+     * @throws IOException if file cannot be mapped
+     */
+    public MemoryMappedVectorFile(Path path, int startVectorIndex, int endVectorIndex) throws IOException {
         // Create SHARED arena for multi-threaded access
         // Memory-mapped files will be accessed from multiple query processing threads
         this.arena = Arena.ofShared();
@@ -70,19 +84,36 @@ public class MemoryMappedVectorFile implements AutoCloseable {
         try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ)) {
             long fileSize = channel.size();
 
-            // Memory-map the entire file (OS handles paging)
-            this.mappedFile = channel.map(FileChannel.MapMode.READ_ONLY, 0, fileSize, arena);
-
-            // Read dimension from first vector
-            this.dimension = mappedFile.get(ValueLayout.JAVA_INT, 0);
+            // Read dimension from first vector (absolute position 0)
+            ByteBuffer dimBuffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+            channel.read(dimBuffer, 0);
+            dimBuffer.flip();
+            this.dimension = dimBuffer.getInt();
             this.vectorStride = (long) (1 + dimension) * Integer.BYTES;
 
-            // Calculate vector count
-            this.vectorCount = (int) (fileSize / vectorStride);
+            // Calculate total vectors in file
+            int totalVectorCount = (int) (fileSize / vectorStride);
 
-            if (fileSize != vectorCount * vectorStride) {
-                throw new IOException("File size " + fileSize + " is not a multiple of vector stride " + vectorStride);
+            // Determine range to map
+            long mapStart;
+            long mapSize;
+            if (endVectorIndex == -1) {
+                // Map entire file
+                mapStart = 0;
+                mapSize = fileSize;
+                this.vectorCount = totalVectorCount;
+            } else {
+                // Map only the specified range
+                if (endVectorIndex > totalVectorCount) {
+                    endVectorIndex = totalVectorCount;
+                }
+                mapStart = startVectorIndex * vectorStride;
+                mapSize = (endVectorIndex - startVectorIndex) * vectorStride;
+                this.vectorCount = endVectorIndex - startVectorIndex;
             }
+
+            // Memory-map only the needed region
+            this.mappedFile = channel.map(FileChannel.MapMode.READ_ONLY, mapStart, mapSize, arena);
         }
     }
 

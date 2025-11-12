@@ -44,9 +44,9 @@ import java.util.function.Function;
 /// It supports different vector formats based on file extensions.
 ///
 /// @param <T> The type of vector returned by this view (e.g., float[], int[], byte[])
-public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
+public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebufferable<T> {
 
-  private final MAFileChannel channel;
+  private final AsynchronousFileChannel channel;
   private final DSWindow window;
   private Class<?> type;
   private Class<?> aryType;
@@ -62,7 +62,7 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
   public CoreXVecDatasetViewMethods(
-      MAFileChannel channel,
+      AsynchronousFileChannel channel,
       long sourceSize,
       DSWindow window,
       String extension
@@ -101,31 +101,40 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
 
   @Override
   public CompletableFuture<Void> prebuffer(long startIncl, long endExcl) {
-    return channel.prebuffer(startIncl, endExcl);
+    if (channel instanceof Prebufferable<?>) {
+      return ((Prebufferable<?>)channel).prebuffer(startIncl, endExcl);
+    } else {
+      return CompletableFuture.completedFuture(null);
+    }
   }
 
   @Override
   public CompletableFuture<Void> prebuffer() {
     try {
-      // If window is empty, prebuffer entire file
-      if (this.window.isEmpty()) {
-        return channel.prebuffer(0, channel.size());
-      }
-
-      // Calculate the full range across all windows
       long minStart = Long.MAX_VALUE;
       long maxEnd = Long.MIN_VALUE;
-      long recordSize = 4 + (dimensions * componentBytes);
 
-      for (DSInterval interval : this.window) {
-        long start = interval.getMinIncl() * recordSize;
-        long end = interval.getMaxExcl() * recordSize;
-        minStart = Math.min(minStart, start);
-        maxEnd = Math.max(maxEnd, end);
+      // If window is empty, prebuffer entire file
+      if (this.window.isEmpty()) {
+        minStart=0;
+        maxEnd=channel.size();
+      } else {
+        // Calculate the full range across all windows
+        long recordSize = 4 + (dimensions * componentBytes);
+
+        for (DSInterval interval : this.window) {
+          long start = interval.getMinIncl() * recordSize;
+          long end = interval.getMaxExcl() * recordSize;
+          minStart = Math.min(minStart, start);
+          maxEnd = Math.max(maxEnd, end);
+        }
       }
 
-      // Prebuffer the entire range from min to max
-      return channel.prebuffer(minStart, maxEnd);
+      if (this.channel instanceof Prebufferable<?>) {
+        return ((Prebufferable<?>)channel).prebuffer(minStart, maxEnd);
+      } else {
+        return CompletableFuture.completedFuture(null);
+      }
     } catch (IOException e) {
       CompletableFuture<Void> failed = new CompletableFuture<>();
       failed.completeExceptionally(e);
@@ -392,25 +401,76 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T> {
   ///
   /// This method returns an array of vectors from the specified range of indices.
   /// The range is inclusive of the start index and exclusive of the end index.
+  /// Uses chunked bulk reads for efficiency when ranges are large.
   ///
-  /// @param startInclusive 
+  /// @param startInclusive
   ///     The starting index (inclusive)
-  /// @param endExclusive 
+  /// @param endExclusive
   ///     The ending index (exclusive)
   /// @return An array containing the vectors in the specified range
   @Override
   public T[] getRange(long startInclusive, long endExclusive) {
-    int count = (int)(endExclusive - startInclusive);
-    List<T> results = new ArrayList<>(count);
+    try {
+      int count = (int)(endExclusive - startInclusive);
+      if (count <= 0) {
+        @SuppressWarnings("unchecked")
+        T[] empty = (T[]) java.lang.reflect.Array.newInstance(type, 0);
+        return empty;
+      }
 
-    for (long i = startInclusive; i < endExclusive; i++) {
-      results.add(get(i));
+      // Create result array
+      @SuppressWarnings("unchecked")
+      T[] array = (T[]) java.lang.reflect.Array.newInstance(type, count);
+
+      long recordSize = 4 + (dimensions * componentBytes);
+
+      // ByteBuffer has a 2GB limit (Integer.MAX_VALUE bytes)
+      // Calculate max vectors per chunk to stay under limit
+      long maxBytesPerChunk = Integer.MAX_VALUE - 1000000;  // Leave some headroom
+      int maxVectorsPerChunk = (int)(maxBytesPerChunk / recordSize);
+
+      // Read in chunks if needed
+      int processed = 0;
+      while (processed < count) {
+        int chunkSize = Math.min(maxVectorsPerChunk, count - processed);
+        long chunkStart = startInclusive + processed;
+        long startPosition = chunkStart * recordSize;
+        long chunkBytes = chunkSize * recordSize;
+
+        // Read this chunk
+        ByteBuffer buffer = ByteBuffer.allocate((int)chunkBytes);
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+
+        int bytesRead = channel.read(buffer, startPosition).get();
+        if (bytesRead != chunkBytes) {
+          throw new RuntimeException("Failed to read vector chunk: expected " + chunkBytes + " bytes, got " + bytesRead);
+        }
+
+        buffer.flip();
+
+        // Parse vectors from this chunk
+        for (int i = 0; i < chunkSize; i++) {
+          // Read and validate dimension
+          int vectorDim = buffer.getInt();
+          if (vectorDim != dimensions) {
+            throw new RuntimeException("Invalid dimension in vector " + (chunkStart + i) + ": " + vectorDim);
+          }
+
+          // Read vector data
+          byte[] vectorBytes = new byte[dimensions * componentBytes];
+          buffer.get(vectorBytes);
+
+          // Convert to appropriate type
+          array[processed + i] = (T) convertBytesToVector(vectorBytes, dimensions);
+        }
+
+        processed += chunkSize;
+      }
+
+      return array;
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException("Error reading vector range [" + startInclusive + ", " + endExclusive + ")", e);
     }
-
-    // Create an array of the appropriate type and size
-    @SuppressWarnings("unchecked")
-    T[] array = (T[]) java.lang.reflect.Array.newInstance(type, count);
-    return results.toArray(array);
   }
 
   /// Retrieves a range of vectors from the dataset asynchronously.

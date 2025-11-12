@@ -17,6 +17,7 @@ package io.nosqlbench.command.datasets.subcommands;
  * under the License.
  */
 
+import io.nosqlbench.command.common.CommandLineFormatter;
 import io.nosqlbench.command.common.DistancesFileOption;
 import io.nosqlbench.common.types.VectorFileExtension;
 import io.nosqlbench.vectordata.layout.FInterval;
@@ -137,6 +138,10 @@ public class CMD_datasets_plan implements Callable<Integer> {
 
     @Override
     public Integer call() {
+        // Print the command line being executed
+        CommandLineFormatter.printCommandLine(spec);
+        spec.commandLine().getOut().println();
+
         Path resolved = target.toAbsolutePath().normalize();
         Path datasetYaml = Files.isDirectory(resolved) ? resolved.resolve("dataset.yaml") : resolved;
         if (!Files.exists(datasetYaml)) {
@@ -396,36 +401,13 @@ public class CMD_datasets_plan implements Callable<Integer> {
                 usedDefaultDimension = true;
             }
 
-            // Build command notes
-            List<String> notes = new ArrayList<>();
-            if (usedDefaultDimension) {
-                notes.add("dimension defaulted to 128, adjust as needed");
-            }
-
-            // Check if multiple profiles share this file with different windows
-            if (group.size() > 1) {
-                long distinctWindows = group.stream()
-                    .map(rec -> estimateCount(rec.view().window()))
-                    .filter(OptionalLong::isPresent)
-                    .mapToLong(OptionalLong::getAsLong)
-                    .distinct()
-                    .count();
-
-                if (distinctWindows > 1) {
-                    notes.add("generates maximum size needed; profiles use different subsets via windows");
-                }
-            }
-
-            String notesSuffix = notes.isEmpty() ? "" : "  # " + String.join("; ", notes);
-
             String command = String.format(
-                "generate vectors --output %s --type %s --format %s --dimension %s --count %s%s",
+                "nbvectors generate vectors --output %s --type %s --format %s --dimension %s --count %s",
                 shellPath(displayPath),
                 vectorType,
                 format,
                 dimensionStr,
-                count,
-                notesSuffix
+                count
             );
 
             // Build rationale explaining which profiles need this file
@@ -547,33 +529,15 @@ public class CMD_datasets_plan implements Callable<Integer> {
                 usedDefaultMetric = true;
             }
 
-            String notes = "";
-            List<String> noteList = new ArrayList<>();
-            if (usedDefaultK) {
-                noteList.add("neighbors defaulted to 100");
-            } else if ("profile maxk".equals(kSource)) {
-                noteList.add("neighbors from profile maxk=" + kStr);
-            }
-            if (usedDefaultMetric) {
-                noteList.add("metric defaulted to " + metric + (baseIsNormalized ? " (normalized vectors)" : ""));
-            }
-            if (usedOptimizedMetric) {
-                noteList.add("using DOT_PRODUCT instead of COSINE (vectors are normalized, 2-3x faster)");
-            }
-            if (!noteList.isEmpty()) {
-                notes = "  # " + String.join("; ", noteList);
-            }
-
             String command = String.format(
-                "compute knn --base %s --query %s%s --indices %s --distances %s --neighbors %s --metric %s%s",
+                "nbvectors compute knn --base %s --query %s%s --indices %s --distances %s --neighbors %s --metric %s",
                 shellPath(basePath),
                 shellPath(queryPath),
                 rangeOption,
                 shellPath(indicesPath),
                 shellPath(distancesPath),
                 kStr,
-                metric,
-                notes
+                metric
             );
 
             String rationale = String.format(

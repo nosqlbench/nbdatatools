@@ -87,14 +87,12 @@ public class OptimizedVectorLoader {
         int endIndex
     ) throws IOException {
 
-        try (MemoryMappedVectorFile mappedFile = new MemoryMappedVectorFile(vectorFilePath)) {
-            // Validate range
-            if (endIndex > mappedFile.getVectorCount()) {
-                endIndex = mappedFile.getVectorCount();
-            }
-
-            // Load directly into PanamaVectorBatch for SIMD operations
-            return mappedFile.asPanamaVectorBatch(startIndex, endIndex);
+        // Map only the specific range needed for this partition
+        // This avoids mapping huge address spaces for large files
+        try (MemoryMappedVectorFile mappedFile = new MemoryMappedVectorFile(vectorFilePath, startIndex, endIndex)) {
+            // The mapped file now contains exactly [startIndex, endIndex)
+            // Convert to PanamaVectorBatch with indices relative to the mapped region
+            return mappedFile.asPanamaVectorBatch(0, mappedFile.getVectorCount());
         }
     }
 

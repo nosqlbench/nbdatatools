@@ -18,9 +18,9 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
-import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.IntVectors;
 
+import java.nio.channels.AsynchronousFileChannel;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -30,11 +30,11 @@ import java.util.Set;
 public class IntVectorsXvecImpl extends CoreXVecDatasetViewMethods<int[]> implements IntVectors {
 
   /// Create a new IntVectors view for xvec data.
-  /// @param channel The Merkle-aware file channel providing access to the dataset
+  /// @param channel The AsynchronousFileChannel providing access to the dataset
   /// @param sourceSize The size of the source file in bytes
   /// @param window The configured window describing the slice of data to expose
   /// @param extension The file extension (used to derive the vector format)
-  public IntVectorsXvecImpl(MAFileChannel channel, long sourceSize, DSWindow window, String extension) {
+  public IntVectorsXvecImpl(AsynchronousFileChannel channel, long sourceSize, DSWindow window, String extension) {
     super(channel, sourceSize, window, extension);
   }
 

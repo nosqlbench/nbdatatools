@@ -40,4 +40,12 @@ public class Indexed<T> {
     public T value() {
         return value;
     }
+
+  @Override
+  public String toString() {
+      return "Indexed{" +
+           "index=" + index +
+           ", value=" + String.valueOf(value) +
+           '}';
+  }
 }

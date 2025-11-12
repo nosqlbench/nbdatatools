@@ -32,6 +32,7 @@ import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
+import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
 import io.nosqlbench.status.StatusContext;
 import io.nosqlbench.status.StatusScope;
 import io.nosqlbench.status.StatusSinkMode;
@@ -99,6 +100,20 @@ public class CMD_compute_knn implements Callable<Integer> {
 
     @CommandLine.Mixin
     private RangeOption rangeOption = new RangeOption();
+
+    @CommandLine.Option(
+        names = {"--cache-dir"},
+        description = "Directory for partition cache files (default: .knn-cache in current directory)",
+        defaultValue = ".knn-cache"
+    )
+    private Path cacheDir = Paths.get(".knn-cache");
+
+    @CommandLine.Option(
+        names = {"--partition-size"},
+        description = "Number of base vectors per partition (default: 1000000, auto-scaled if insufficient memory)",
+        defaultValue = "1000000"
+    )
+    private int partitionSize = 1_000_000;
 
     /// SIMD optimization strategy options
     public enum SimdStrategy {
@@ -227,12 +242,15 @@ public class CMD_compute_knn implements Callable<Integer> {
         }
     }
 
+    /**
+     * Determine batch/partition size for processing base vectors.
+     * Starts with user-specified partitionSize (default 1M), scales down by half if insufficient memory.
+     *
+     * @param baseCount Total number of base vectors
+     * @param dimension Vector dimensionality
+     * @return Partition size that fits in available memory
+     */
     private int determineBatchSize(int baseCount, int dimension) {
-        // Cap at 500K base vectors for optimal balance of cache performance and partition overhead
-        // 100K was too small (too many partitions), 3M+ is too large (cache misses)
-        // 500K provides good cache locality while minimizing merge overhead
-        final int OPTIMAL_BATCH_SIZE = 500_000;
-
         Runtime runtime = Runtime.getRuntime();
         long maxHeapBytes = runtime.maxMemory();
         long totalMemory = runtime.totalMemory();
@@ -246,16 +264,28 @@ public class CMD_compute_knn implements Callable<Integer> {
             bytesPerVector = Math.max(16L, (long) dimension * Float.BYTES);
         }
 
-        long estimated = Math.max(1L, usable / bytesPerVector);
-        long memoryBased = Math.min(estimated, baseCount);
+        // Start with user-specified partition size (default 1M)
+        int targetSize = partitionSize;
 
-        // Apply cache-optimal size cap
-        long capped = Math.min(memoryBased, OPTIMAL_BATCH_SIZE);
+        // Scale down by half until it fits in memory
+        while (targetSize > 0) {
+            long requiredMemory = targetSize * bytesPerVector;
+            if (requiredMemory <= usable) {
+                logger.info("Selected partition size: {} vectors (requires ~{}MB, have ~{}MB available)",
+                    targetSize, requiredMemory / (1024*1024), usable / (1024*1024));
+                return Math.min(targetSize, baseCount);
+            }
 
-        if (capped > Integer.MAX_VALUE) {
-            capped = Integer.MAX_VALUE;
+            // Scale down by half
+            int previousSize = targetSize;
+            targetSize = targetSize / 2;
+            logger.warn("Partition size {} vectors requires {}MB but only {}MB available - scaling down to {}",
+                previousSize, requiredMemory / (1024*1024), usable / (1024*1024), targetSize);
         }
-        return (int) Math.max(1L, capped);
+
+        // Fallback to minimum viable size
+        logger.warn("Unable to fit even small partition in memory, using minimal size");
+        return Math.max(1, Math.min(1000, baseCount));
     }
 
     private long estimateVectorBytes(int dimension) {
@@ -513,7 +543,7 @@ public class CMD_compute_knn implements Callable<Integer> {
      * Data loading happens INSIDE compute() to ensure only one partition in memory at a time.
      */
     private PartitionComputation createPartitionComputation(
-        VectorFileArray<float[]> baseReader,
+        FloatVectors baseVectors,
         Path baseVectorsPath,
         int partitionIndex,
         int startIndex,
@@ -535,7 +565,7 @@ public class CMD_compute_knn implements Callable<Integer> {
         // Create and return lightweight task (data loading deferred to compute())
         return new PartitionComputation(
             partitionIndex,
-            baseReader,
+            baseVectors,
             baseVectorsPath,
             startIndex,
             endIndex,
@@ -558,7 +588,7 @@ public class CMD_compute_knn implements Callable<Integer> {
     ) throws IOException {
 
         // Create progress tracker for merge operation
-        MergeOperation mergeOp = new MergeOperation(queryCount, partitions.size());
+        MergeOperation mergeOp = new MergeOperation(queryCount, partitions.size(), effectiveK);
         mergeOp.setState(RunState.RUNNING);
         StatusTracker<MergeOperation> tracker = mergeScope.trackTask(mergeOp);
 
@@ -665,6 +695,340 @@ public class CMD_compute_knn implements Callable<Integer> {
         }
     }
 
+    /**
+     * Build path for partition cache file in the cache directory.
+     * Cache files are named based on: base file, partition range, k value, distance metric, and data type (neighbors/distances)
+     *
+     * @param baseVectorsPath Path to base vectors file (for stable cache key)
+     * @param startIndex Starting index of partition
+     * @param endIndex Ending index of partition
+     * @param k Number of neighbors
+     * @param distanceMetric Distance metric used
+     * @param suffix Type of data ("neighbors" or "distances")
+     * @param extension File extension ("ivec" or "fvec")
+     * @return Path to cache file
+     */
+    private Path buildCachePath(Path baseVectorsPath, int startIndex, int endIndex, int k,
+                                DistanceMetric distanceMetric, String suffix, String extension) {
+        String baseName = removeLastExtension(baseVectorsPath.getFileName().toString());
+        String metricName = distanceMetric.name().toLowerCase();
+        String fileName = String.format("%s.range_%06d_%06d.k%d.%s.%s.%s",
+            baseName, startIndex, endIndex, k, metricName, suffix, extension);
+        return cacheDir.resolve(fileName);
+    }
+
+    /**
+     * Build path for final result cache file (represents complete computation for a range).
+     *
+     * @param baseVectorsPath Path to base vectors file
+     * @param startIndex Starting index of range
+     * @param endIndex Ending index of range
+     * @param k Number of neighbors
+     * @param distanceMetric Distance metric used
+     * @param suffix Type of data ("neighbors" or "distances")
+     * @param extension File extension ("ivec" or "fvec")
+     * @return Path to final cache file
+     */
+    private Path buildFinalCachePath(Path baseVectorsPath, int startIndex, int endIndex, int k,
+                                     DistanceMetric distanceMetric, String suffix, String extension) {
+        String baseName = removeLastExtension(baseVectorsPath.getFileName().toString());
+        String metricName = distanceMetric.name().toLowerCase();
+        String fileName = String.format("%s.final_%06d_%06d.k%d.%s.%s.%s",
+            baseName, startIndex, endIndex, k, metricName, suffix, extension);
+        return cacheDir.resolve(fileName);
+    }
+
+    /**
+     * Check if cache files exist for a partition
+     * @return true if both neighbors and distances cache files exist
+     */
+    private boolean cacheFilesExist(Path neighborsPath, Path distancesPath) {
+        return Files.exists(neighborsPath) && Files.exists(distancesPath);
+    }
+
+    /**
+     * Scan cache directory for all available cache files matching this computation.
+     * Finds both partition caches and final result caches.
+     *
+     * @param baseVectorsPath Base vectors file path
+     * @param k Number of neighbors
+     * @param distanceMetric Distance metric
+     * @param effectiveStart Start of requested range
+     * @param effectiveEnd End of requested range
+     * @return List of all matching cache entries
+     */
+    private List<PartitionMetadata> scanCacheDirectory(
+        Path baseVectorsPath,
+        int k,
+        DistanceMetric distanceMetric,
+        int effectiveStart,
+        int effectiveEnd
+    ) throws IOException {
+        List<PartitionMetadata> caches = new ArrayList<>();
+
+        if (!Files.exists(cacheDir)) {
+            return caches;
+        }
+
+        String baseName = removeLastExtension(baseVectorsPath.getFileName().toString());
+        String metricName = distanceMetric.name().toLowerCase();
+
+        // Pattern to match cache files: baseName.(range_|final_)XXXXXX_YYYYYY.kN.metric.neighbors.ivec
+        String pattern = baseName + "\\.(range_|final_)(\\d+)_(\\d+)\\.k" + k + "\\." + metricName + "\\.neighbors\\.ivec";
+        java.util.regex.Pattern cachePattern = java.util.regex.Pattern.compile(pattern);
+
+        try (java.util.stream.Stream<Path> paths = Files.list(cacheDir)) {
+            paths.forEach(path -> {
+                java.util.regex.Matcher matcher = cachePattern.matcher(path.getFileName().toString());
+                if (matcher.matches()) {
+                    boolean isFinal = "final_".equals(matcher.group(1));
+                    int start = Integer.parseInt(matcher.group(2));
+                    int end = Integer.parseInt(matcher.group(3));
+
+                    // Build corresponding distances path
+                    Path distPath = buildCachePath(baseVectorsPath, start, end, k, distanceMetric, "distances", "fvec");
+                    if (isFinal) {
+                        distPath = buildFinalCachePath(baseVectorsPath, start, end, k, distanceMetric, "distances", "fvec");
+                    }
+
+                    if (Files.exists(distPath)) {
+                        try {
+                            // Get query count from file
+                            int queryCount = VectorFileIO.randomAccess(FileType.xvec, int[].class, path).size();
+                            caches.add(new PartitionMetadata(path, distPath, start, end, queryCount, k, isFinal));
+                        } catch (Exception e) {
+                            logger.debug("Failed to load cache metadata from {}: {}", path, e.getMessage());
+                        }
+                    }
+                }
+            });
+        }
+
+        return caches;
+    }
+
+    /**
+     * Find the optimal combination of cache entries that covers the requested range
+     * with the fewest merge operations.
+     *
+     * @param allCaches All available cache entries
+     * @param targetStart Start of target range
+     * @param targetEnd End of target range
+     * @return Optimal set of caches to use (null if no valid coverage)
+     */
+    private List<PartitionMetadata> findOptimalCacheCombination(
+        List<PartitionMetadata> allCaches,
+        int targetStart,
+        int targetEnd
+    ) {
+        // First, check if any single final cache covers the entire range
+        for (PartitionMetadata cache : allCaches) {
+            if (cache.isFinal && cache.covers(targetStart, targetEnd)) {
+                logger.info("Found complete final cache covering [{}, {})", targetStart, targetEnd);
+                return List.of(cache);
+            }
+        }
+
+        // Next, try to find minimal set using dynamic programming approach
+        // This finds the combination requiring fewest merges
+        List<PartitionMetadata> best = findMinimalCoverageSet(allCaches, targetStart, targetEnd);
+
+        if (best != null && !best.isEmpty()) {
+            logger.info("Found optimal cache combination: {} entries covering [{}, {}) (requires {} merges)",
+                best.size(), targetStart, targetEnd, best.size() - 1);
+        }
+
+        return best;
+    }
+
+    /**
+     * Represents a range that needs to be computed (not covered by cache).
+     */
+    private static class UncoveredRange {
+        final int start;
+        final int end;
+
+        UncoveredRange(int start, int end) {
+            this.start = start;
+            this.end = end;
+        }
+
+        int size() {
+            return end - start;
+        }
+    }
+
+    /**
+     * Find which parts of the target range are NOT covered by existing caches.
+     * Returns list of ranges that need to be computed.
+     *
+     * @param allCaches All available cache entries
+     * @param targetStart Start of target range
+     * @param targetEnd End of target range
+     * @return List of uncovered ranges that need computation
+     */
+    private List<UncoveredRange> findUncoveredRanges(
+        List<PartitionMetadata> allCaches,
+        int targetStart,
+        int targetEnd
+    ) {
+        // Sort caches by start index
+        List<PartitionMetadata> sorted = new ArrayList<>(allCaches);
+        sorted.sort(Comparator.comparingInt(c -> c.startIndex));
+
+        List<UncoveredRange> uncovered = new ArrayList<>();
+        int position = targetStart;
+
+        for (PartitionMetadata cache : sorted) {
+            // Skip caches that are completely before or after our range
+            if (cache.endIndex <= targetStart || cache.startIndex >= targetEnd) {
+                continue;
+            }
+
+            // Clip cache to our target range
+            int cacheStart = Math.max(cache.startIndex, targetStart);
+            int cacheEnd = Math.min(cache.endIndex, targetEnd);
+
+            // If there's a gap before this cache, add it as uncovered
+            if (position < cacheStart) {
+                uncovered.add(new UncoveredRange(position, cacheStart));
+            }
+
+            // Move position forward
+            position = Math.max(position, cacheEnd);
+        }
+
+        // If there's a gap at the end, add it
+        if (position < targetEnd) {
+            uncovered.add(new UncoveredRange(position, targetEnd));
+        }
+
+        return uncovered;
+    }
+
+    /**
+     * Find minimal set of non-overlapping caches that cover the target range.
+     * Uses greedy algorithm: prefer larger caches to minimize merge count.
+     */
+    private List<PartitionMetadata> findMinimalCoverageSet(
+        List<PartitionMetadata> allCaches,
+        int targetStart,
+        int targetEnd
+    ) {
+        // Sort by size descending (prefer larger chunks)
+        List<PartitionMetadata> sorted = new ArrayList<>(allCaches);
+        sorted.sort((a, b) -> Integer.compare(b.size(), a.size()));
+
+        List<PartitionMetadata> selected = new ArrayList<>();
+        int covered = targetStart;
+
+        while (covered < targetEnd) {
+            PartitionMetadata best = null;
+            int bestEnd = covered;
+
+            // Find cache that starts at/before 'covered' and extends furthest
+            for (PartitionMetadata cache : sorted) {
+                if (cache.startIndex <= covered && cache.endIndex > covered && cache.endIndex > bestEnd) {
+                    best = cache;
+                    bestEnd = cache.endIndex;
+                }
+            }
+
+            if (best == null) {
+                // No cache covers this gap - incomplete coverage
+                return null;
+            }
+
+            selected.add(best);
+            covered = bestEnd;
+        }
+
+        return selected;
+    }
+
+    /**
+     * Find all caches (including newly computed partitions) that overlap the target range.
+     * Returns them sorted by start index for efficient merging.
+     */
+    private List<PartitionMetadata> findAllRelevantCaches(
+        List<PartitionMetadata> allCaches,
+        int targetStart,
+        int targetEnd
+    ) {
+        List<PartitionMetadata> relevant = new ArrayList<>();
+
+        for (PartitionMetadata cache : allCaches) {
+            // Include if cache overlaps with target range
+            if (cache.endIndex > targetStart && cache.startIndex < targetEnd) {
+                relevant.add(cache);
+            }
+        }
+
+        // Sort by start index for efficient merging
+        relevant.sort(Comparator.comparingInt(c -> c.startIndex));
+        return relevant;
+    }
+
+    /**
+     * Validate that a partition cache file contains only indices from its partition range.
+     * This ensures each partition cache stores ground truth for ONLY its base vectors.
+     *
+     * @param neighborsPath Path to partition neighbors cache file
+     * @param startIndex Expected minimum index (inclusive)
+     * @param endIndex Expected maximum index (exclusive)
+     * @throws IOException if validation fails
+     */
+    private void validatePartitionCacheIndices(Path neighborsPath, int startIndex, int endIndex) throws IOException {
+        try (VectorFileArray<int[]> neighborsArray = VectorFileIO.randomAccess(FileType.xvec, int[].class, neighborsPath)) {
+            for (int queryIdx = 0; queryIdx < neighborsArray.size(); queryIdx++) {
+                int[] neighbors = neighborsArray.get(queryIdx);
+                for (int neighborIdx : neighbors) {
+                    if (neighborIdx < startIndex || neighborIdx >= endIndex) {
+                        throw new IOException(String.format(
+                            "Partition cache validation FAILED: Query %d has neighbor index %d outside partition range [%d..%d). " +
+                            "This indicates partition contamination!",
+                            queryIdx, neighborIdx, startIndex, endIndex));
+                    }
+                }
+            }
+            logger.debug("Partition cache validated: all {} queries have neighbors within range [{}..{})",
+                neighborsArray.size(), startIndex, endIndex);
+        }
+    }
+
+    /**
+     * Validate that cached partition files are compatible (same query count, same K)
+     * @return true if cache files are valid and compatible
+     */
+    private boolean validateCacheFiles(Path neighborsPath, Path distancesPath, int expectedK) {
+        try {
+            // Open files and check dimensions
+            try (VectorFileArray<int[]> neighborsArray = VectorFileIO.randomAccess(FileType.xvec, int[].class, neighborsPath);
+                 VectorFileArray<float[]> distancesArray = VectorFileIO.randomAccess(FileType.xvec, float[].class, distancesPath)) {
+
+                if (neighborsArray.size() != distancesArray.size()) {
+                    logger.warn("Cache validation failed: neighbors count ({}) != distances count ({})",
+                        neighborsArray.size(), distancesArray.size());
+                    return false;
+                }
+
+                if (neighborsArray.size() > 0) {
+                    int cachedK = neighborsArray.get(0).length;
+                    if (cachedK != expectedK) {
+                        logger.warn("Cache validation failed: cached K ({}) != expected K ({})",
+                            cachedK, expectedK);
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        } catch (Exception e) {
+            logger.warn("Cache validation failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
     private Path buildIntermediatePath(Path baseOutputPath, int startIndex, int endIndex, String suffix, String extension) {
         String baseName = removeLastExtension(baseOutputPath.getFileName().toString());
         String fileName = String.format("%s.part_%06d_%06d.%s.%s", baseName, startIndex, endIndex, suffix, extension);
@@ -685,7 +1049,7 @@ public class CMD_compute_knn implements Callable<Integer> {
      */
     private class PartitionComputation implements StatusSource<PartitionComputation>, Callable<PartitionMetadata>, AutoCloseable {
         private final int partitionIndex;
-        private final VectorFileArray<float[]> baseReader;
+        private final FloatVectors baseVectors;
         private final Path baseVectorsPath;
         private final int startIndex;
         private final int endIndex;
@@ -709,7 +1073,7 @@ public class CMD_compute_knn implements Callable<Integer> {
 
         PartitionComputation(
             int partitionIndex,
-            VectorFileArray<float[]> baseReader,
+            FloatVectors baseVectors,
             Path baseVectorsPath,
             int startIndex,
             int endIndex,
@@ -721,7 +1085,7 @@ public class CMD_compute_knn implements Callable<Integer> {
             boolean useBatchedSIMD
         ) {
             this.partitionIndex = partitionIndex;
-            this.baseReader = baseReader;
+            this.baseVectors = baseVectors;
             this.baseVectorsPath = baseVectorsPath;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
@@ -761,30 +1125,27 @@ public class CMD_compute_knn implements Callable<Integer> {
             phase = "loading";
             logger.debug("Partition {}: pre-loading {} base vectors in background", partitionIndex, partitionSize);
 
-            boolean usedPanama = false;
             try {
+                // Always use getRange() for fast bulk read (single I/O, works at any offset)
+                float[][] vectors = baseVectors.getRange(startIndex, endIndex);
+                baseBatch = new ArrayList<>(vectors.length);
+                for (float[] vector : vectors) {
+                    baseBatch.add(vector);
+                }
+                loadedVectors.addAndGet(vectors.length);
+
+                // If Panama available, create PanamaVectorBatch from loaded vectors
                 if (KnnOptimizationProvider.isPanamaAvailable()) {
                     try {
-                        panamaVectorBatch = KnnOptimizationProvider.loadAsPanamaVectorBatch(baseVectorsPath, startIndex, endIndex);
-                        usedPanama = true;
-                        loadedVectors.set(partitionSize);
-                        logger.debug("Partition {}: pre-loaded {} base vectors using zero-copy I/O", partitionIndex, partitionSize);
+                        Class<?> batchClass = Class.forName("io.nosqlbench.command.compute.panama.PanamaVectorBatch");
+                        java.lang.reflect.Constructor<?> constructor = batchClass.getConstructor(List.class, int.class);
+                        panamaVectorBatch = constructor.newInstance(baseBatch, baseDimension);
+                        logger.debug("Partition {}: created Panama batch from loaded vectors", partitionIndex);
                     } catch (Throwable e) {
-                        logger.warn("Panama pre-load failed for partition {}, using standard: {}", partitionIndex, e.getMessage());
-                        usedPanama = false;
+                        logger.debug("Panama batch creation failed: {}", e.getMessage());
                     }
-                }
-
-                if (!usedPanama) {
-                    baseBatch = new ArrayList<>(partitionSize);
-                    final int readBatchSize = 1000;
-                    for (int batchStart = startIndex; batchStart < endIndex; batchStart += readBatchSize) {
-                        int batchEnd = Math.min(batchStart + readBatchSize, endIndex);
-                        List<float[]> batch = baseReader.subList(batchStart, batchEnd);
-                        baseBatch.addAll(batch);
-                        loadedVectors.addAndGet(batch.size());
-                    }
-                    logger.debug("Partition {}: pre-loaded {} base vectors using standard I/O", partitionIndex, partitionSize);
+                } else {
+                    logger.debug("Partition {}: pre-loaded {} base vectors using chunked random access", partitionIndex, partitionSize);
                 }
 
                 phase = "loaded";
@@ -821,34 +1182,27 @@ public class CMD_compute_knn implements Callable<Integer> {
                 phase = "loading";
                 logger.info("Partition {}: loading {} base vectors (indices [{}..{}))", partitionIndex, partitionSize, startIndex, endIndex);
 
-                boolean usedPanama = false;
                 try {
+                    // Always use getRange() for fast bulk read (single I/O, works at any offset)
+                    float[][] vectors = baseVectors.getRange(startIndex, endIndex);
+                    baseBatch = new ArrayList<>(vectors.length);
+                    for (float[] vector : vectors) {
+                        baseBatch.add(vector);
+                    }
+                    loadedVectors.addAndGet(vectors.length);
+
+                    // If Panama available, create PanamaVectorBatch from loaded vectors
                     if (KnnOptimizationProvider.isPanamaAvailable()) {
                         try {
-                            // Zero-copy memory-mapped loading
-                            panamaVectorBatch = KnnOptimizationProvider.loadAsPanamaVectorBatch(baseVectorsPath, startIndex, endIndex);
-                            usedPanama = true;
-                            loadedVectors.set(partitionSize);
-                            logger.info("Partition {}: loaded {} base vectors using zero-copy memory-mapped I/O",
-                                partitionIndex, partitionSize);
+                            Class<?> batchClass = Class.forName("io.nosqlbench.command.compute.panama.PanamaVectorBatch");
+                            java.lang.reflect.Constructor<?> constructor = batchClass.getConstructor(List.class, int.class);
+                            panamaVectorBatch = constructor.newInstance(baseBatch, baseDimension);
+                            logger.info("Partition {}: loaded {} base vectors with Panama batch", partitionIndex, partitionSize);
                         } catch (Throwable e) {
-                            logger.warn("Memory-mapped I/O failed for partition {}, falling back to standard loading: {}",
-                                partitionIndex, e.getMessage());
-                            usedPanama = false;
+                            logger.info("Partition {}: loaded {} base vectors (Panama unavailable)", partitionIndex, partitionSize);
                         }
-                    }
-
-                    // Fallback: Standard I/O loading
-                    if (!usedPanama) {
-                        baseBatch = new ArrayList<>(partitionSize);
-                        final int readBatchSize = 1000;
-                        for (int batchStart = startIndex; batchStart < endIndex; batchStart += readBatchSize) {
-                            int batchEnd = Math.min(batchStart + readBatchSize, endIndex);
-                            List<float[]> batch = baseReader.subList(batchStart, batchEnd);
-                            baseBatch.addAll(batch);
-                            loadedVectors.addAndGet(batch.size());
-                        }
-                        logger.info("Partition {}: loaded {} base vectors using standard I/O",
+                    } else {
+                        logger.info("Partition {}: loaded {} base vectors using chunked random access",
                             partitionIndex, partitionSize);
                     }
 
@@ -909,7 +1263,11 @@ public class CMD_compute_knn implements Callable<Integer> {
 
                 state = RunState.SUCCESS;
                 int processed = queries.size();
-                logger.info("Partition {} complete: wrote {} query results (k={})", partitionIndex, processed, partitionK);
+                logger.info("Partition {} complete: wrote {} query results (k={}) to cache", partitionIndex, processed, partitionK);
+
+                // Validate that cached results contain only partition-local indices
+                validatePartitionCacheIndices(neighborsPath, startIndex, endIndex);
+
                 return new PartitionMetadata(neighborsPath, distancesPath, startIndex, endIndex, processed, partitionK);
             } catch (Exception e) {
                 state = RunState.FAILED;
@@ -1067,11 +1425,11 @@ public class CMD_compute_knn implements Callable<Integer> {
         @Override
         public String toString() {
             if ("loading".equals(phase)) {
-                return String.format("Partition %d: loading %d/%d base vectors [%d..%d]",
-                    partitionIndex, loadedVectors.get(), partitionSize, startIndex, endIndex);
+                return String.format("Partition %d: loading %d/%d base vectors [%d..%d] k=%d",
+                    partitionIndex, loadedVectors.get(), partitionSize, startIndex, endIndex, partitionK);
             } else {
-                return String.format("Partition %d [base vectors %d..%d]: %d/%d queries",
-                    partitionIndex, startIndex, endIndex, processedQueries.get(), totalQueries.get());
+                return String.format("Partition %d [base %d..%d, k=%d]: %d/%d queries",
+                    partitionIndex, startIndex, endIndex, partitionK, processedQueries.get(), totalQueries.get());
             }
         }
     }
@@ -1183,12 +1541,14 @@ public class CMD_compute_knn implements Callable<Integer> {
     private static class MergeOperation implements StatusSource<MergeOperation> {
         private final int totalQueries;
         private final int partitionCount;
+        private final int k;
         private final AtomicInteger mergedQueries = new AtomicInteger(0);
         private volatile RunState state = RunState.PENDING;
 
-        MergeOperation(int totalQueries, int partitionCount) {
+        MergeOperation(int totalQueries, int partitionCount, int k) {
             this.totalQueries = totalQueries;
             this.partitionCount = partitionCount;
+            this.k = k;
         }
 
         void incrementMerged() {
@@ -1207,8 +1567,8 @@ public class CMD_compute_knn implements Callable<Integer> {
 
         @Override
         public String toString() {
-            return String.format("Merging %d partitions: %d/%d queries",
-                partitionCount, mergedQueries.get(), totalQueries);
+            return String.format("Merging %d partitions (k=%d): %d/%d queries",
+                partitionCount, k, mergedQueries.get(), totalQueries);
         }
     }
 
@@ -1219,28 +1579,57 @@ public class CMD_compute_knn implements Callable<Integer> {
         final int endIndex;
         final int queryCount;
         final int partitionK;
+        final boolean isFinal;  // True if this is a final result cache, false if partition cache
 
         PartitionMetadata(Path neighborsPath, Path distancesPath, int startIndex, int endIndex, int queryCount, int partitionK) {
+            this(neighborsPath, distancesPath, startIndex, endIndex, queryCount, partitionK, false);
+        }
+
+        PartitionMetadata(Path neighborsPath, Path distancesPath, int startIndex, int endIndex, int queryCount, int partitionK, boolean isFinal) {
             this.neighborsPath = neighborsPath;
             this.distancesPath = distancesPath;
             this.startIndex = startIndex;
             this.endIndex = endIndex;
             this.queryCount = queryCount;
             this.partitionK = partitionK;
+            this.isFinal = isFinal;
+        }
+
+        int size() {
+            return endIndex - startIndex;
+        }
+
+        boolean covers(int start, int end) {
+            return startIndex <= start && endIndex >= end;
+        }
+
+        boolean overlaps(PartitionMetadata other) {
+            return !(endIndex <= other.startIndex || startIndex >= other.endIndex);
         }
     }
 
     /**
      * Load query vectors from file (helper for incremental merge).
      */
-    private List<float[]> loadQueryVectors(Path queryVectorsPath, VectorFileArray<float[]> baseReader) throws IOException {
-        try (VectorFileArray<float[]> queryReader = VectorFileIO.randomAccess(FileType.xvec, float[].class, queryVectorsPath)) {
-            int queryCount = queryReader.getSize();
+    private List<float[]> loadQueryVectors(Path queryVectorsPath, FloatVectors baseVectors) throws IOException {
+        String queryFileName = queryVectorsPath.getFileName().toString();
+        String queryExtension = queryFileName.substring(queryFileName.lastIndexOf('.') + 1);
+        java.nio.channels.AsynchronousFileChannel queryChannel =
+            java.nio.channels.AsynchronousFileChannel.open(queryVectorsPath, java.nio.file.StandardOpenOption.READ);
+        long queryFileSize = java.nio.file.Files.size(queryVectorsPath);
+
+        try {
+            FloatVectors queryVectors = new io.nosqlbench.vectordata.spec.datasets.impl.xvec.FloatVectorsXvecImpl(
+                queryChannel, queryFileSize, null, queryExtension);
+            int queryCount = queryVectors.getCount();
+            float[][] queryArray = queryVectors.getRange(0, queryCount);
             List<float[]> queries = new ArrayList<>(queryCount);
-            for (int i = 0; i < queryCount; i++) {
-                queries.add(queryReader.get(i));
+            for (float[] query : queryArray) {
+                queries.add(query);
             }
             return queries;
+        } finally {
+            queryChannel.close();
         }
     }
 
@@ -1283,9 +1672,7 @@ public class CMD_compute_knn implements Callable<Integer> {
             }
         }
 
-        // Clean up partition files immediately after merging
-        Files.deleteIfExists(partition.neighborsPath);
-        Files.deleteIfExists(partition.distancesPath);
+        // Cache files are kept for reuse - do NOT delete them
     }
 
     /**
@@ -1349,6 +1736,33 @@ public class CMD_compute_knn implements Callable<Integer> {
                 distancesStore.write(distances);
             }
         }
+    }
+
+    /**
+     * Save final results as cache files for reuse.
+     *
+     * @param neighborsInput Path to read neighbors from
+     * @param distancesInput Path to read distances from
+     * @param cacheNeighbors Path to save cached neighbors
+     * @param cacheDistances Path to save cached distances
+     */
+    private void saveFinalCache(
+        Path neighborsInput,
+        Path distancesInput,
+        Path cacheNeighbors,
+        Path cacheDistances
+    ) throws IOException {
+        logger.info("Saving final result cache for range");
+
+        if (cacheNeighbors.getParent() != null) {
+            Files.createDirectories(cacheNeighbors.getParent());
+        }
+
+        // Copy files to cache
+        Files.copy(neighborsInput, cacheNeighbors, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(distancesInput, cacheDistances, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+        logger.info("Saved final cache: {} and {}", cacheNeighbors.getFileName(), cacheDistances.getFileName());
     }
 
     public static void main(String[] args) {
@@ -1417,10 +1831,22 @@ public class CMD_compute_knn implements Callable<Integer> {
                 Files.createDirectories(distancesOutput.getParent());
             }
 
+            // Load base vectors using FloatVectorsXvecImpl for efficient random access
+            String baseFileName = baseVectorsPath.getFileName().toString();
+            String baseExtension = baseFileName.substring(baseFileName.lastIndexOf('.') + 1);
+            java.nio.channels.AsynchronousFileChannel baseChannel =
+                java.nio.channels.AsynchronousFileChannel.open(baseVectorsPath, java.nio.file.StandardOpenOption.READ);
+            long baseFileSize = java.nio.file.Files.size(baseVectorsPath);
+
+            FloatVectors baseVectors = new io.nosqlbench.vectordata.spec.datasets.impl.xvec.FloatVectorsXvecImpl(
+                baseChannel, baseFileSize, null, baseExtension);
+
             // Create StatusContext with LOG mode for simple text logging output
-            try (StatusContext ctx = new StatusContext("compute-knn", Optional.of(StatusSinkMode.LOG));
-                 VectorFileArray<float[]> baseReader = VectorFileIO.randomAccess(FileType.xvec, float[].class, baseVectorsPath)) {
-                int totalBaseCount = baseReader.getSize();
+            try (StatusContext ctx = new StatusContext("compute-knn", Optional.of(StatusSinkMode.LOG))) {
+
+                logger.info("Using FloatVectorsXvecImpl for efficient chunked random access");
+
+                int totalBaseCount = baseVectors.getCount();
                 if (totalBaseCount <= 0) {
                     System.err.println("Error: No base vectors found in file");
                     return EXIT_ERROR;
@@ -1444,7 +1870,8 @@ public class CMD_compute_knn implements Callable<Integer> {
                     return EXIT_ERROR;
                 }
 
-                int baseDimension = baseReader.get((int)effectiveStart).length;
+                // Get dimension from the FloatVectors interface (no vector read needed)
+                int baseDimension = baseVectors.getVectorDimensions();
                 if (baseDimension <= 0) {
                     System.err.println("Error: Base vectors have zero dimension");
                     return EXIT_ERROR;
@@ -1455,8 +1882,20 @@ public class CMD_compute_knn implements Callable<Integer> {
                 int partitionCount = (int) Math.ceil((double) baseCount / batchSize);
 
                 String rangeStr = effectiveRange != null ? effectiveRange.toString() : "all";
-                logger.info("compute knn: baseCount={}, baseDimension={}, effectiveK={}, batchSize={}, partitions={}, range={}",
-                    baseCount, baseDimension, effectiveK, batchSize, partitionCount, rangeStr);
+                logger.info("compute knn: baseCount={}, baseDimension={}, k={}, effectiveK={}, batchSize={}, partitions={}, range={}",
+                    baseCount, baseDimension, k, effectiveK, batchSize, partitionCount, rangeStr);
+
+                // Print configuration to stdout for user visibility
+                System.out.println("Configuration:");
+                System.out.println("  Base vectors: " + baseCount + " (dimension: " + baseDimension + ")");
+                System.out.println("  K (neighbors): " + k + " (effective: " + effectiveK + ")");
+                System.out.println("  Distance metric: " + distanceMetricOption.getDistanceMetric());
+                System.out.println("  Partition size: " + batchSize + " vectors");
+                System.out.println("  Total partitions: " + partitionCount);
+                System.out.println("  Cache directory: " + cacheDir.toAbsolutePath());
+                if (effectiveRange != null) {
+                    System.out.println("  Range: " + rangeStr + " (processing " + baseCount + " out of " + totalBaseCount + " total vectors)");
+                }
 
                 if (effectiveRange != null) {
                     logger.info("Using range {} - processing {} out of {} total base vectors",
@@ -1476,6 +1915,10 @@ public class CMD_compute_knn implements Callable<Integer> {
                         logger.info("PER-QUERY strategy selected");
                     }
                 }
+
+                // Create cache directory if it doesn't exist
+                Files.createDirectories(cacheDir);
+                logger.info("Using cache directory: {}", cacheDir.toAbsolutePath());
 
                 // Check ISA capabilities and warn if Panama isn't being used but could be
                 if (io.nosqlbench.command.compute.ISACapabilityDetector.isAvailable()) {
@@ -1534,217 +1977,234 @@ public class CMD_compute_knn implements Callable<Integer> {
                     logger.info("Panama KNN optimizations NOT AVAILABLE - using standard implementation");
                 }
 
-                // Create parent scope for all partition processing
-                List<PartitionMetadata> partitions = new ArrayList<>();
+                // === PHASE 1: PLANNING ===
+                // Scan cache directory for all available cache files (partition + final)
+                logger.info("=== PHASE 1: CACHE ANALYSIS ===");
+                List<PartitionMetadata> allCaches = scanCacheDirectory(
+                    baseVectorsPath, effectiveK, distanceMetricOption.getDistanceMetric(),
+                    (int)effectiveStart, (int)effectiveEnd);
+
+                logger.info("Found {} cache entries", allCaches.size());
+                for (PartitionMetadata cache : allCaches) {
+                    logger.debug("Cache: [{}, {}) size={} type={}",
+                        cache.startIndex, cache.endIndex, cache.size(),
+                        cache.isFinal ? "FINAL" : "partition");
+                }
+
+                // Find optimal cache combination (fewest merges)
+                List<PartitionMetadata> optimalCaches = findOptimalCacheCombination(
+                    allCaches, (int)effectiveStart, (int)effectiveEnd);
+
+                // Check if we have complete cache coverage
+                if (optimalCaches != null && !optimalCaches.isEmpty()) {
+                    // Verify all caches have same query count
+                    int queryCount = optimalCaches.get(0).queryCount;
+                    boolean consistent = optimalCaches.stream().allMatch(c -> c.queryCount == queryCount);
+
+                    if (consistent) {
+                        if (optimalCaches.size() == 1 && optimalCaches.get(0).isFinal) {
+                            // Single final cache - just copy it
+                            logger.info("Using complete final cache - no computation or merging needed");
+                            Files.copy(optimalCaches.get(0).neighborsPath, neighborsOutput,
+                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            Files.copy(optimalCaches.get(0).distancesPath, distancesOutput,
+                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+                            System.out.println("Successfully retrieved KNN from final cache for " + queryCount + " query vectors");
+                            System.out.println("Base vectors: " + baseCount + ", k: " + effectiveK + ", distance metric: " + distanceMetricOption.getDistanceMetric());
+                            System.out.println("Neighbors file: " + neighborsOutput);
+                            System.out.println("Distances file: " + distancesOutput);
+                            return EXIT_SUCCESS;
+                        } else {
+                            // Multiple caches provide complete coverage - merge them
+                            logger.info("Complete cache coverage with {} entries (requires {} merge operations)",
+                                optimalCaches.size(), optimalCaches.size() - 1);
+
+                            try (StatusScope partitionsScope = ctx.createScope("KNN Partitions");
+                                 StatusScope mergeScope = partitionsScope.createChildScope("Merge Caches")) {
+                                mergePartitions(mergeScope, optimalCaches, neighborsOutput, distancesOutput, effectiveK, queryCount);
+                            }
+
+                            // Save merged result as final cache
+                            Path finalCacheNeighbors = buildFinalCachePath(baseVectorsPath, (int)effectiveStart, (int)effectiveEnd,
+                                effectiveK, distanceMetricOption.getDistanceMetric(), "neighbors", "ivec");
+                            Path finalCacheDistances = buildFinalCachePath(baseVectorsPath, (int)effectiveStart, (int)effectiveEnd,
+                                effectiveK, distanceMetricOption.getDistanceMetric(), "distances", "fvec");
+
+                            if (!neighborsOutput.equals(finalCacheNeighbors)) {
+                                saveFinalCache(neighborsOutput, distancesOutput, finalCacheNeighbors, finalCacheDistances);
+                            }
+
+                            System.out.println("Successfully merged KNN from cache for " + queryCount + " query vectors");
+                            System.out.println("Base vectors: " + baseCount + ", k: " + effectiveK + ", distance metric: " + distanceMetricOption.getDistanceMetric());
+                            System.out.println("Neighbors file: " + neighborsOutput);
+                            System.out.println("Distances file: " + distancesOutput);
+                            return EXIT_SUCCESS;
+                        }
+                    }
+                }
+
+                // === PHASE 2: PLAN COMPUTATION ===
+                // Find which ranges are NOT covered by cache
+                List<UncoveredRange> uncoveredRanges = findUncoveredRanges(allCaches, (int)effectiveStart, (int)effectiveEnd);
+
+                if (uncoveredRanges.isEmpty()) {
+                    logger.error("Logic error: no uncovered ranges but cache combination failed - this should not happen");
+                    System.err.println("Error: Internal inconsistency in cache logic");
+                    return EXIT_ERROR;
+                }
+
+                logger.info("=== PHASE 2: COMPUTATION PLAN ===");
+                logger.info("Need to compute {} uncovered ranges:", uncoveredRanges.size());
+                int totalUncovered = 0;
+                for (UncoveredRange range : uncoveredRanges) {
+                    logger.info("  Uncovered: [{}, {}) size={}", range.start, range.end, range.size());
+                    totalUncovered += range.size();
+                }
+                logger.info("Total uncovered vectors: {} ({} of total {})",
+                    totalUncovered, String.format("%.1f%%", 100.0 * totalUncovered / baseCount), baseCount);
+
+                // Create partition tasks for uncovered ranges only
+                // IMPORTANT: Use standard batchSize for partitioning so caches are reusable
+                // This creates partition caches that can be combined in different ways for future requests
+                List<PartitionComputation> computations = new ArrayList<>();
+                int partitionIndex = 0;
+                int totalPartitions = 0;
+
+                for (UncoveredRange range : uncoveredRanges) {
+                    // Partition this uncovered range using standard batch size
+                    // This ensures caches are created at standard partition boundaries for maximum reusability
+                    int partitionsInRange = (int) Math.ceil((double)(range.end - range.start) / batchSize);
+                    logger.info("  Will compute {} partitions of size {} for range [{}, {})",
+                        partitionsInRange, batchSize, range.start, range.end);
+                    totalPartitions += partitionsInRange;
+
+                    for (int start = range.start; start < range.end; start += batchSize) {
+                        int end = Math.min(start + batchSize, range.end);
+
+                        Path cacheNeighbors = buildCachePath(baseVectorsPath, start, end,
+                            effectiveK, distanceMetricOption.getDistanceMetric(), "neighbors", "ivec");
+                        Path cacheDistances = buildCachePath(baseVectorsPath, start, end,
+                            effectiveK, distanceMetricOption.getDistanceMetric(), "distances", "fvec");
+
+                        PartitionComputation computation = createPartitionComputation(
+                            baseVectors,
+                            baseVectorsPath,
+                            partitionIndex++,
+                            start,
+                            end,
+                            baseDimension,
+                            cacheNeighbors,
+                            cacheDistances,
+                            effectiveK,
+                            queryVectorsPath,
+                            useBatchedSIMD
+                        );
+
+                        computations.add(computation);
+                    }
+                }
+
+                logger.info("Created {} standard-sized partition tasks (size={}) for maximum cache reusability",
+                    totalPartitions, batchSize);
+
+                // === PHASE 3: COMPUTE MISSING PARTITIONS ===
+                logger.info("=== PHASE 3: COMPUTING {} PARTITIONS ===", computations.size());
+
+                List<PartitionMetadata> newlyComputed = new ArrayList<>();
                 int expectedQueryCount = -1;
 
                 try (StatusScope partitionsScope = ctx.createScope("KNN Partitions")) {
 
-                    // Create thread pool for parallel partition processing
-                    int threadCount = Math.min(partitionCount, Runtime.getRuntime().availableProcessors());
+                    int threadCount = Math.min(Runtime.getRuntime().availableProcessors(), 2);
                     ExecutorService executor = Executors.newFixedThreadPool(threadCount);
 
-                    // Create partition tasks (lightweight - no data loading yet)
-                    // Data loading is deferred until each task executes
-                    List<PartitionComputation> computations = new ArrayList<>();
-                    int partitionIndex = 0;
-                    for (int start = 0; start < baseCount; start += batchSize) {
-                        int end = Math.min(baseCount, start + batchSize);
-                        // Compute actual indices into the file (accounting for range offset)
-                        int actualStart = (int)effectiveStart + start;
-                        int actualEnd = (int)effectiveStart + end;
-
-                        Path intermediateNeighbors = buildIntermediatePath(neighborsOutput, actualStart, actualEnd, "neighbors", "ivec");
-                        Path intermediateDistances = buildIntermediatePath(neighborsOutput, actualStart, actualEnd, "distances", "fvec");
-
-                        // Create lightweight partition task (data loads during execution)
-                        PartitionComputation computation = createPartitionComputation(
-                            baseReader,
-                            baseVectorsPath,
-                            partitionIndex,
-                            actualStart,
-                            actualEnd,
-                            baseDimension,
-                            intermediateNeighbors,
-                            intermediateDistances,
-                            effectiveK,
-                            queryVectorsPath,
-                            useBatchedSIMD  // Pass cached strategy decision
-                        );
-
-                        computations.add(computation);
-                        partitionIndex++;
+                    // Determine expected query count
+                    if (!allCaches.isEmpty()) {
+                        expectedQueryCount = allCaches.get(0).queryCount;
+                    } else {
+                        List<float[]> sampleQueries = loadQueryVectors(queryVectorsPath, baseVectors);
+                        expectedQueryCount = sampleQueries.size();
                     }
 
-                    // IMPORTANT: For multiple partitions, process SEQUENTIALLY to keep memory bounded
-                    // For single partition, use all threads for query parallelism
-                    if (partitionCount > 1) {
-                        // PARALLEL partition processing with memory-bounded concurrency
-                        // Process 2 partitions simultaneously (limited by RAM, not CPU)
-                        // Keep only 1 set pre-buffered at a time
-                        int maxConcurrentPartitions = Math.min(2, partitionCount);  // 500K×2 = 1M vectors in RAM max
-                        logger.info("Processing {} partitions with {}x PARALLELISM and INCREMENTAL MERGING",
-                            partitionCount, maxConcurrentPartitions);
+                    // Execute computation tasks (memory-bounded parallelism)
+                    int maxConcurrentPartitions = Math.min(2, computations.size());
+                    java.util.concurrent.Semaphore memoryPermits = new java.util.concurrent.Semaphore(maxConcurrentPartitions);
+                    ExecutorService partitionExecutor = Executors.newFixedThreadPool(maxConcurrentPartitions);
+                    List<StatusTracker<PartitionComputation>> trackers = new ArrayList<>();
 
-                        // Load query count from first query batch
-                        List<float[]> sampleQueries = loadQueryVectors(queryVectorsPath, baseReader);
-                        expectedQueryCount = sampleQueries.size();
-
-                        // Create final result array to accumulate best neighbors across all partitions
-                        io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[][] accumulator =
-                            new io.nosqlbench.command.analyze.subcommands.verify_knn.datatypes.NeighborIndex[expectedQueryCount][];
-
-                        // Semaphore to limit concurrent partitions (memory-bounded)
-                        java.util.concurrent.Semaphore memoryPermits = new java.util.concurrent.Semaphore(maxConcurrentPartitions);
-                        ExecutorService partitionExecutor = Executors.newFixedThreadPool(maxConcurrentPartitions);
+                    try {
                         List<Future<PartitionMetadata>> futures = new ArrayList<>();
 
-                        try {
-                            // Track and submit batches incrementally as slots become available
-                            // Keep prebuffer of maxConcurrentPartitions + 1 to ensure pipeline stays full
-                            int prebufferSize = maxConcurrentPartitions + 1;
-                            List<StatusTracker<PartitionComputation>> trackers = new ArrayList<>();
-                            int nextToSubmit = 0;
-
-                            // Submit initial prebuffer
-                            while (nextToSubmit < Math.min(prebufferSize, computations.size())) {
-                                PartitionComputation computation = computations.get(nextToSubmit);
-                                trackers.add(partitionsScope.trackTask(computation));
-                                futures.add(partitionExecutor.submit(() -> {
-                                    // Acquire memory permit before loading partition
-                                    memoryPermits.acquire();
-                                    try {
-                                        return computation.call();
-                                    } finally {
-                                        // Release permit after freeing partition memory
-                                        computation.close();
-                                        memoryPermits.release();
-                                    }
-                                }));
-                                nextToSubmit++;
-                            }
-
-                            // Collect results and submit new batches as slots become available
-                            for (int i = 0; i < computations.size(); i++) {
+                        for (PartitionComputation computation : computations) {
+                            trackers.add(partitionsScope.trackTask(computation));
+                            futures.add(partitionExecutor.submit(() -> {
+                                memoryPermits.acquire();
                                 try {
-                                    PartitionMetadata metadata = futures.get(i).get();
-
-                                    if (metadata.queryCount != expectedQueryCount) {
-                                        throw new IllegalStateException("Mismatch in query counts across partitions: expected "
-                                            + expectedQueryCount + " but partition produced " + metadata.queryCount);
-                                    }
-
-                                    // Incrementally merge (synchronized for thread safety)
-                                    synchronized (accumulator) {
-                                        mergePartitionIncremental(metadata, accumulator, effectiveK);
-                                    }
-
-                                    partitions.add(metadata);
-                                } catch (Exception e) {
-                                    throw new IOException("Failed to compute partition " + i, e);
+                                    return computation.call();
                                 } finally {
-                                    trackers.get(i).close();
-
-                                    // Submit next batch if available
-                                    if (nextToSubmit < computations.size()) {
-                                        PartitionComputation computation = computations.get(nextToSubmit);
-                                        trackers.add(partitionsScope.trackTask(computation));
-                                        futures.add(partitionExecutor.submit(() -> {
-                                            // Acquire memory permit before loading partition
-                                            memoryPermits.acquire();
-                                            try {
-                                                return computation.call();
-                                            } finally {
-                                                // Release permit after freeing partition memory
-                                                computation.close();
-                                                memoryPermits.release();
-                                            }
-                                        }));
-                                        nextToSubmit++;
-                                    }
+                                    computation.close();
+                                    memoryPermits.release();
                                 }
-                            }
-                        } finally {
-                            partitionExecutor.shutdown();
+                            }));
                         }
 
-                        // Write final accumulated results (already merged!)
-                        writeFinalResults(accumulator, neighborsOutput, distancesOutput);
-
-                        System.out.println("Successfully computed KNN ground truth for " + expectedQueryCount + " query vectors");
-                        System.out.println("Base vectors: " + baseCount + ", k: " + effectiveK + ", distance metric: " + distanceMetricOption.getDistanceMetric());
-                        System.out.println("Neighbors file: " + neighborsOutput);
-                        System.out.println("Distances file: " + distancesOutput);
-                        return EXIT_SUCCESS;
-                    } else {
-                        // Single partition: can use thread pool for query parallelism
-                        TrackingMode trackingMode = TrackingMode.INDIVIDUAL;
-
-                        try (TrackedExecutorService trackedExecutor = TrackedExecutors.wrap(executor, partitionsScope)
-                                .withMode(trackingMode)
-                                .withTaskGroupName("Partition Computation")
-                                .build()) {
-
-                            // Submit single partition
-                            List<Future<PartitionMetadata>> futures = new ArrayList<>();
-                            for (PartitionComputation computation : computations) {
-                                futures.add(trackedExecutor.submit(computation));
-                            }
-
-                            // Collect results from single partition
+                        // Collect newly computed partitions
+                        for (int i = 0; i < futures.size(); i++) {
                             try {
-                                for (int i = 0; i < futures.size(); i++) {
-                                    Future<PartitionMetadata> future = futures.get(i);
-                                    PartitionComputation computation = computations.get(i);
-
-                                    try {
-                                        PartitionMetadata metadata = future.get();
-
-                                        if (expectedQueryCount < 0) {
-                                            expectedQueryCount = metadata.queryCount;
-                                        } else if (metadata.queryCount != expectedQueryCount) {
-                                            throw new IllegalStateException("Mismatch in query counts across partitions: expected "
-                                                + expectedQueryCount + " but partition produced " + metadata.queryCount);
-                                        }
-
-                                        partitions.add(metadata);
-                                    } catch (Exception e) {
-                                        throw new IOException("Failed to compute partition", e);
-                                    } finally {
-                                        // Close Panama resources (MemorySegment, Arena)
-                                        computation.close();
-                                    }
+                                PartitionMetadata metadata = futures.get(i).get();
+                                if (metadata.queryCount != expectedQueryCount) {
+                                    throw new IllegalStateException("Query count mismatch: expected "
+                                        + expectedQueryCount + " but got " + metadata.queryCount);
                                 }
+                                newlyComputed.add(metadata);
+                            } catch (Exception e) {
+                                throw new IOException("Failed to compute partition " + i, e);
                             } finally {
-                                // Ensure all computations are closed even on error
-                                for (PartitionComputation computation : computations) {
-                                    try {
-                                        computation.close();
-                                    } catch (Exception e) {
-                                        logger.warn("Error closing computation resources: {}", e.getMessage());
-                                    }
-                                }
+                                trackers.get(i).close();
                             }
-                        } // close tracked executor
+                        }
+                    } finally {
+                        partitionExecutor.shutdown();
                     }
 
-                    // Check results (common to both branches)
-                    if (expectedQueryCount < 0) {
-                        System.err.println("Error: No query vectors found in file");
-                        return EXIT_ERROR;
-                    }
+                    logger.info("Completed {} new partition computations", newlyComputed.size());
 
-                    // Merge partitions with progress tracking
-                    try (StatusScope mergeScope = partitionsScope.createChildScope("Merge Results")) {
-                        mergePartitions(mergeScope, partitions, neighborsOutput, distancesOutput, effectiveK, expectedQueryCount);
-                    }
                 } // close partitions scope
+
+                // === PHASE 4: COMBINE ALL CACHES ===
+                logger.info("=== PHASE 4: COMBINING RESULTS ===");
+
+                // Add newly computed partitions to available caches
+                allCaches.addAll(newlyComputed);
+
+                // Find all caches that overlap with target range
+                List<PartitionMetadata> relevantCaches = findAllRelevantCaches(allCaches, (int)effectiveStart, (int)effectiveEnd);
+                logger.info("Combining {} cache entries (existing + newly computed)", relevantCaches.size());
+
+                // Merge all relevant caches to produce final result
+                try (StatusScope mergeScope = ctx.createScope("Merge All Caches")) {
+                    mergePartitions(mergeScope, relevantCaches, neighborsOutput, distancesOutput, effectiveK, expectedQueryCount);
+                }
+
+                // Save final result as cache for future reuse
+                Path finalCacheNeighbors = buildFinalCachePath(baseVectorsPath, (int)effectiveStart, (int)effectiveEnd,
+                    effectiveK, distanceMetricOption.getDistanceMetric(), "neighbors", "ivec");
+                Path finalCacheDistances = buildFinalCachePath(baseVectorsPath, (int)effectiveStart, (int)effectiveEnd,
+                    effectiveK, distanceMetricOption.getDistanceMetric(), "distances", "fvec");
+
+                if (!neighborsOutput.equals(finalCacheNeighbors)) {
+                    saveFinalCache(neighborsOutput, distancesOutput, finalCacheNeighbors, finalCacheDistances);
+                }
 
                 System.out.println("Successfully computed KNN ground truth for " + expectedQueryCount + " query vectors");
                 System.out.println("Base vectors: " + baseCount + ", k: " + effectiveK + ", distance metric: " + distanceMetricOption.getDistanceMetric());
                 System.out.println("Neighbors file: " + neighborsOutput);
                 System.out.println("Distances file: " + distancesOutput);
+                System.out.println("Cache directory: " + cacheDir.toAbsolutePath() + " (results saved for reuse)");
                 return EXIT_SUCCESS;
+            } finally {
+                baseChannel.close();
             }
         } catch (IOException e) {
             System.err.println("Error: I/O problem - " + e.getMessage());
