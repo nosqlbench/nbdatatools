@@ -48,6 +48,13 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
     return datasetEntry.profiles().keySet();
   }
 
+  /// Gets the set of available profile names (alias for profiles()).
+  ///
+  /// @return A set of strings containing all available profile names
+  public Set<String> getProfileNames() {
+    return profiles();
+  }
+
   /// Selects a specific profile by name.
   ///
   /// @param profileName The name of the profile to select
@@ -89,5 +96,14 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
   public ProfileSelector setCacheDir(String cacheDir) {
     this.cacheDir = Path.of(cacheDir.replace("~", System.getProperty("user.home")));
     return this;
+  }
+
+  /// Closes this profile selector.
+  /// VirtualProfileSelector doesn't hold resources that need explicit cleanup.
+  ///
+  /// @throws Exception If an error occurs while closing
+  @Override
+  public void close() throws Exception {
+    // No resources to clean up for virtual profile selector
   }
 }

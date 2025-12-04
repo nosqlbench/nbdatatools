@@ -18,18 +18,23 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
-import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
 
+import java.nio.channels.AsynchronousFileChannel;
+
 /// Neighbor indices view backed by xvec formatted data.
+///
+/// This class extends IntVectorsXvecImpl to provide neighbor indices functionality.
+/// It accepts any AsynchronousFileChannel implementation, including MAFileChannel,
+/// following the decorator pattern for orthogonal channel implementation support.
 public class NeighborIndicesXvecImpl extends IntVectorsXvecImpl implements NeighborIndices {
 
   /// Create a new NeighborIndices view for xvec data.
-  /// @param channel The Merkle-aware file channel providing access to the dataset
+  /// @param channel The AsynchronousFileChannel providing access to the dataset (includes MAFileChannel)
   /// @param sourceSize The size of the source file in bytes
   /// @param window The configured window describing the slice of data to expose
   /// @param extension The file extension (used to derive the vector format)
-  public NeighborIndicesXvecImpl(MAFileChannel channel, long sourceSize, DSWindow window, String extension) {
+  public NeighborIndicesXvecImpl(AsynchronousFileChannel channel, long sourceSize, DSWindow window, String extension) {
     super(channel, sourceSize, window, extension);
   }
 

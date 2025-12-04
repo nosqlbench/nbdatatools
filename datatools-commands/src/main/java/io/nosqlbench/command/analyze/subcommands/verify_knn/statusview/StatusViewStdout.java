@@ -54,8 +54,37 @@ public class StatusViewStdout implements StatusView {
   @Override
   public void onQueryVector(Indexed<float[]> vector, long index, long end) {
     sb.append(++currentQueryVector).append("/").append(totalQueryVectors).append(": ");
-    sb.append(vector);
+    sb.append("Indexed{index=").append(vector.index()).append(", value=");
+    sb.append(formatVector(vector.value()));
+    sb.append("}");
     flushIf();
+  }
+
+  /// Format a float vector showing first and last components with ellipses in middle
+  /// @param vector The vector to format
+  /// @return Formatted string like "[0.123, 0.456, ..., 0.789]" (dim=1024)
+  private String formatVector(float[] vector) {
+    if (vector == null) {
+      return "null";
+    }
+    if (vector.length == 0) {
+      return "[]";
+    }
+    if (vector.length <= 6) {
+      // Show all components for short vectors
+      StringBuilder sb = new StringBuilder("[");
+      for (int i = 0; i < vector.length; i++) {
+        if (i > 0) sb.append(", ");
+        sb.append(String.format("%.3f", vector[i]));
+      }
+      sb.append("]");
+      return sb.toString();
+    }
+    // Show first 3 and last 3 components with ellipses
+    return String.format("[%.3f, %.3f, %.3f, ..., %.3f, %.3f, %.3f] (dim=%d)",
+        vector[0], vector[1], vector[2],
+        vector[vector.length-3], vector[vector.length-2], vector[vector.length-1],
+        vector.length);
   }
 
 

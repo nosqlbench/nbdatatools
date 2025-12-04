@@ -34,7 +34,8 @@ import io.nosqlbench.command.common.BaseVectorsInputFileOption;
 import io.nosqlbench.command.common.QueryVectorsInputFileOption;
 import io.nosqlbench.command.common.IndicesInputFileOption;
 import io.nosqlbench.command.common.DistancesInputFileOption;
-import io.nosqlbench.vectordata.discovery.TestDataGroup;
+import io.nosqlbench.vectordata.discovery.DatasetLoader;
+import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
@@ -70,8 +71,8 @@ import java.util.concurrent.Callable;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "self-check KNN test data answer-keys",
-    description = "Reads query vectors from dataset files (HDF5, FVecs, IVecs, etc.), computes\n" +
-        "KNN neighborhoods, and compares them against the answer-key data given.\n" +
+    description = "Reads query vectors from dataset files (HDF5, dataset.yaml with xvec files, or remote URLs),\n" +
+        "computes KNN neighborhoods, and compares them against the answer-key data given.\n" +
         "This is a pure Java implementation which requires no other vector processing\n" +
         "libraries or hardware, so it has two key trade-offs with other methods:\n" +
         "1. It is not as fast as a GPU or TPU. It is not expected to be.\n" +
@@ -83,6 +84,11 @@ import java.util.concurrent.Callable;
         "this tool to double check it with some sparse sampling.\n\n" +
         "The currently supported distance functions and file formats are indicated\n" +
         "by the available command line options.\n\n" +
+        "Supports loading datasets from:\n" +
+        "- Local HDF5 files\n" +
+        "- Local directories with dataset.yaml (xvec format)\n" +
+        "- Remote URLs (with automatic caching)\n" +
+        "- Explicit individual files (--base, --query, --indices)\n\n" +
         "The pseudo-standard HDF5 KNN answer-key file format is documented here:\n" +
         "https://github.com/nosqlbench/nbdatatools/blob/main/nbvectors/src/docs/hdf5_vectors.md",
     exitCodeListHeading = "Exit Codes:%n",
@@ -108,7 +114,7 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
   @CommandLine.Mixin
   private DistancesInputFileOption distancesOption = new DistancesInputFileOption();
 
-  @Parameters(description = "The dataset file(s) or directory to load (defaults to current directory if no explicit files specified)", arity = "0..*")
+  @Parameters(description = "The dataset file(s), directory, or URL to load (supports HDF5, dataset.yaml, and remote URLs; defaults to current directory if no explicit files specified)", arity = "0..*")
   private List<Path> hdfpaths = new ArrayList<>();
 
   @Option(names = {"-d", "--distance_function"},
@@ -314,20 +320,20 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
 
     for (Path hdfpath : pathsToProcess) {
 
-      TestDataGroup datag;
+      ProfileSelector datag;
       TestDataView data;
 
       try {
-        datag = new TestDataGroup(hdfpath);
+        datag = DatasetLoader.load(hdfpath);
         data = datag.profile("default");
       } catch (Exception e) {
         logger.error("Failed to load dataset from {}: {}", hdfpath, e.getMessage());
-        logger.error("Auto-discovery requires a dataset.yaml file or compatible data files in the directory");
+        logger.error("Auto-discovery requires HDF5 file, directory with dataset.yaml, or compatible data files");
         logger.error("For explicit file mode, use: --base <file> --query <file> --indices <file>");
         return 1;
       }
 
-      try (TestDataGroup ignored = datag) {
+      try (ProfileSelector ignored = datag) {
 
           List<String> configs = new ArrayList<>();
           configs.add(this.dataconfig);

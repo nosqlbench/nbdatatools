@@ -23,7 +23,7 @@ import java.util.Optional;
 ///
 /// This interface provides methods for selecting specific profiles from a dataset
 /// and configuring how they are accessed.
-public interface ProfileSelector {
+public interface ProfileSelector extends AutoCloseable {
   /// Selects a specific profile by name. If a string is provided that has colons in it, then
   /// implementors should take only the last word after the last colon as the effective profile
   /// name. Otherwise if a single word is provided, and it matches the name of the current
@@ -54,5 +54,14 @@ public interface ProfileSelector {
     return presetProfile()
         .map(this::profile)
         .orElseThrow(() -> new IllegalStateException("No preset profile specified"));
+  }
+
+  /// Closes this profile selector and releases any associated resources.
+  /// Default implementation does nothing - subclasses should override if they need cleanup.
+  ///
+  /// @throws Exception If an error occurs while closing
+  @Override
+  default void close() throws Exception {
+    // Default no-op implementation
   }
 }

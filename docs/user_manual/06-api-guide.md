@@ -97,6 +97,285 @@ TestDataView remoteData = TestDataView.open(
 // The data is downloaded and cached automatically
 ```
 
+## Unified Dataset Loading with DatasetLoader
+
+The `DatasetLoader` class provides a single, unified API for loading datasets from any source without needing to know the underlying format or location. It automatically detects the dataset type and selects the appropriate implementation.
+
+### Supported Dataset Sources
+
+`DatasetLoader` supports three types of dataset sources:
+
+1. **Remote URLs** - HTTP/HTTPS URLs to remote datasets
+2. **Local HDF5 files** - Local .hdf5 or .h5 files
+3. **Local filesystem datasets** - Directories containing dataset.yaml
+
+### Basic Usage
+
+```java
+import io.nosqlbench.vectordata.discovery.DatasetLoader;
+import io.nosqlbench.vectordata.discovery.ProfileSelector;
+import io.nosqlbench.vectordata.discovery.TestDataView;
+
+// Load from any source - automatic detection
+try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset")) {
+    TestDataView profile = dataset.profile("default");
+
+    FloatVectors baseVectors = profile.getBaseVectors().orElseThrow();
+    System.out.printf("Loaded %d vectors%n", baseVectors.getCount());
+}
+```
+
+### Loading from Different Sources
+
+#### Remote URLs
+
+For remote datasets, `DatasetLoader` uses the `VirtualProfileSelector` infrastructure with on-demand downloading, Merkle tree verification, and local caching:
+
+```java
+// Load from remote URL - downloads on-demand with caching
+try (ProfileSelector dataset = DatasetLoader.load("https://example.com/datasets/my-vectors/")) {
+    TestDataView profile = dataset.profile("default");
+
+    // Data is downloaded and verified automatically as needed
+    FloatVectors baseVectors = profile.getBaseVectors().orElseThrow();
+}
+
+// With custom cache directory
+try (ProfileSelector dataset = DatasetLoader.load(
+        "https://example.com/datasets/my-vectors/",
+        "/custom/cache/dir")) {
+    TestDataView profile = dataset.profile("default");
+}
+```
+
+**Remote Implementation:** Uses `VirtualProfileSelector` → `VirtualTestDataView` → `MAFileChannel`
+- On-demand chunk downloading
+- Merkle tree integrity verification
+- Automatic local caching
+- Efficient for large datasets (only downloads chunks as accessed)
+
+#### Local HDF5 Files
+
+For local HDF5 files, `DatasetLoader` uses the `TestDataGroup` implementation for direct file access:
+
+```java
+// Load from HDF5 file
+try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset.hdf5")) {
+    TestDataView profile = dataset.profile("default");
+
+    // Direct access to HDF5 file
+    FloatVectors baseVectors = profile.getBaseVectors().orElseThrow();
+}
+
+// Also works with .h5 extension
+ProfileSelector dataset = DatasetLoader.load("/path/to/dataset.h5");
+
+// Tilde expansion supported
+ProfileSelector dataset = DatasetLoader.load("~/datasets/my-vectors.hdf5");
+```
+
+**HDF5 Implementation:** Uses `TestDataGroup` → `HDF5ProfileDataView`
+- Direct HDF5 dataset access
+- Supports all HDF5 dataset features
+- Profile-based configuration from HDF5 attributes
+
+#### Local Filesystem Datasets
+
+For local directories containing `dataset.yaml`, `DatasetLoader` uses the `FilesystemTestDataGroup` implementation:
+
+```java
+// Load from directory with dataset.yaml
+try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset/")) {
+    TestDataView profile = dataset.profile("default");
+
+    // Accesses individual vector files (fvec, ivec, etc.)
+    FloatVectors baseVectors = profile.getBaseVectors().orElseThrow();
+}
+
+// Can also point directly to dataset.yaml
+ProfileSelector dataset = DatasetLoader.load("/path/to/dataset/dataset.yaml");
+```
+
+**Filesystem Implementation:** Uses `FilesystemTestDataGroup` → `FilesystemTestDataView`
+- Direct AsyncFileChannel access to vector files
+- Supports xvec formats (fvec, ivec, bvec)
+- Profile and windowing configuration via dataset.yaml
+
+### Example dataset.yaml Structure
+
+```yaml
+attributes:
+  distance_function: COSINE
+  license: Apache-2.0
+  url: https://github.com/nosqlbench/nbdatatools
+  model: text-embedding-3-large
+  vendor: OpenAI
+
+profiles:
+  default:
+    base_vectors: base.fvec
+    query_vectors: query.fvec
+    neighbor_distances: distances.fvec
+    neighbor_indices: indices.ivec
+
+  small:
+    base_vectors:
+      source: base.fvec
+      window: 0..10000
+    query_vectors: query.fvec
+    neighbor_indices: indices.ivec
+
+  medium:
+    base_vectors:
+      source: base.fvec
+      window: 0..100000
+    query_vectors: query.fvec
+    neighbor_indices: indices.ivec
+```
+
+### Automatic Format Detection
+
+`DatasetLoader` automatically detects the dataset format using this logic:
+
+```
+Input is URL (starts with http:// or https://)?
+  → Use VirtualProfileSelector (remote access with caching)
+
+Input is directory?
+  → Check for dataset.yaml → Use FilesystemTestDataGroup
+  → Check for single .hdf5 file → Use TestDataGroup
+  → Multiple HDF5 files → Error (ambiguous)
+  → No recognizable format → Error
+
+Input is file?
+  → Named dataset.yaml → Use FilesystemTestDataGroup (parent dir)
+  → Extension .hdf5 or .h5 → Use TestDataGroup
+  → Try opening as HDF5 → Use TestDataGroup or Error
+```
+
+### Working with Multiple Profiles
+
+All three implementations support multiple profiles:
+
+```java
+try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset")) {
+    // Get available profiles
+    Set<String> profileNames = dataset.getProfileNames();
+    System.out.println("Available profiles: " + profileNames);
+
+    // Load different profiles
+    TestDataView smallProfile = dataset.profile("small");
+    TestDataView mediumProfile = dataset.profile("medium");
+    TestDataView largeProfile = dataset.profile("large");
+
+    // Each profile can have different data ranges
+    System.out.printf("Small: %d vectors%n",
+        smallProfile.getBaseVectors().orElseThrow().getCount());
+    System.out.printf("Medium: %d vectors%n",
+        mediumProfile.getBaseVectors().orElseThrow().getCount());
+}
+```
+
+### Advanced Usage
+
+#### Custom Cache Directory for Remote Datasets
+
+```java
+// Specify custom cache directory for remote downloads
+try (ProfileSelector dataset = DatasetLoader.load(
+        "https://example.com/large-dataset/",
+        "/mnt/fast-storage/cache")) {
+    TestDataView profile = dataset.profile("default");
+}
+```
+
+#### Loading from Different Input Types
+
+```java
+// From String path
+ProfileSelector ds1 = DatasetLoader.load("/path/to/dataset");
+
+// From Path object
+Path datasetPath = Path.of("/path/to/dataset");
+ProfileSelector ds2 = DatasetLoader.load(datasetPath);
+
+// From URL object
+URL datasetUrl = new URL("https://example.com/dataset/");
+ProfileSelector ds3 = DatasetLoader.load(datasetUrl);
+```
+
+### Implementation Selection Table
+
+| Source Type | Detection | Implementation | Access Method |
+|-------------|-----------|----------------|---------------|
+| Remote URL | Starts with http:// or https:// | VirtualProfileSelector | MAFileChannel with on-demand download |
+| Local HDF5 file | Extension .hdf5/.h5 or HDF5 header | TestDataGroup | Direct HDF5 access |
+| Filesystem dataset | dataset.yaml present | FilesystemTestDataGroup | AsyncFileChannel to xvec files |
+
+### Performance Considerations
+
+**Remote URLs (VirtualProfileSelector):**
+- Downloads data chunks on-demand
+- Best for: Large datasets where you only need portions
+- Merkle verification ensures data integrity
+- Caching improves subsequent access
+
+**Local HDF5 (TestDataGroup):**
+- Direct file access, no download overhead
+- Best for: Complete datasets stored locally
+- Fast random access to any vector
+
+**Filesystem (FilesystemTestDataGroup):**
+- Direct AsyncFileChannel to individual files
+- Best for: Datasets with separate vector files
+- Flexible windowing and range support
+
+### Complete Example
+
+```java
+import io.nosqlbench.vectordata.discovery.DatasetLoader;
+import io.nosqlbench.vectordata.discovery.ProfileSelector;
+import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
+
+public class DatasetLoaderExample {
+    public static void main(String[] args) {
+        // Works with any dataset source
+        String datasetSource = args.length > 0 ? args[0] : "~/datasets/my-vectors";
+
+        try (ProfileSelector dataset = DatasetLoader.load(datasetSource)) {
+            // List available profiles
+            System.out.println("Available profiles: " + dataset.getProfileNames());
+
+            // Load the default profile
+            TestDataView profile = dataset.profile("default");
+
+            // Access vectors
+            FloatVectors baseVectors = (FloatVectors) profile.getBaseVectors().orElseThrow();
+            FloatVectors queryVectors = (FloatVectors) profile.getQueryVectors().orElseThrow();
+
+            System.out.printf("Dataset loaded: %d base vectors, %d query vectors%n",
+                baseVectors.getCount(), queryVectors.getCount());
+
+            // Process vectors
+            for (int i = 0; i < Math.min(10, queryVectors.getCount()); i++) {
+                float[] query = queryVectors.get(i);
+                System.out.printf("Query %d: %d dimensions%n", i, query.length);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Failed to load dataset: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+This example works identically whether `datasetSource` is:
+- A remote URL: `https://example.com/datasets/my-vectors/`
+- A local HDF5 file: `/path/to/dataset.hdf5`
+- A local filesystem dataset: `/path/to/dataset/`
+
 ## Basic Vector Operations
 
 ### Synchronous Access

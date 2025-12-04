@@ -96,9 +96,9 @@ public class FProfiles {
           return;
         }
         try {
-          TestDataKind.fromString(kindSpec); // assert known type
+          TestDataKind kind = TestDataKind.fromString(kindSpec); // convert to canonical
           FView fview = FView.fromObject(pv);
-          views.put(kindSpec, fview);
+          views.put(kind.name(), fview); // use canonical name for consistent lookup
         } catch (Exception e) {
           throw new RuntimeException("invalid profile format for FView key[" + pk + "]:" + v, e);
         }

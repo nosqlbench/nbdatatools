@@ -24,6 +24,7 @@ import io.nosqlbench.command.analyze.subcommands.CMD_analyze_flamegraph;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_select;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_slice;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_verifyknn;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_verifyprofiles;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_zeros;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
 import org.apache.logging.log4j.LogManager;
@@ -41,6 +42,7 @@ import java.util.concurrent.Callable;
     subcommands = {
         CMD_analyze_zeros.class,
         CMD_analyze_verifyknn.class,
+        CMD_analyze_verifyprofiles.class,
         CMD_analyze_describe.class,
         CMD_analyze_select.class,
         CMD_analyze_check_endian.class,

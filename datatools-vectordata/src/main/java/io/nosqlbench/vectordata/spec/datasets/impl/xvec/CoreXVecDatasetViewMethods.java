@@ -74,12 +74,8 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
     this.aryType = type.getComponentType();
     this.componentBytes = componentBytesFromType(this.aryType);
     this.dimensions = readDimensions();
-    if (window == null || window.isEmpty()) {
-      this.window = new DSWindow(List.of(new DSInterval(0, getCount()),
-          new DSInterval(0, getVectorDimensions())));
-    } else {
-      this.window = window;
-    }
+    // Store the window (null/empty means use all vectors)
+    this.window = (window == null || window.isEmpty()) ? null : window;
   }
 
   private Class<?> deriveTypeFromExtension(String extension) {
@@ -114,10 +110,10 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
       long minStart = Long.MAX_VALUE;
       long maxEnd = Long.MIN_VALUE;
 
-      // If window is empty, prebuffer entire file
-      if (this.window.isEmpty()) {
-        minStart=0;
-        maxEnd=channel.size();
+      // If window is null or empty, prebuffer entire file
+      if (this.window == null || this.window.isEmpty()) {
+        minStart = 0;
+        maxEnd = channel.size();
       } else {
         // Calculate the full range across all windows
         long recordSize = 4 + (dimensions * componentBytes);
@@ -208,12 +204,13 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
     }
   }
 
-  /// Returns the total number of vectors in this dataset.
+  /// Returns the total number of vectors in this dataset view, respecting the configured window.
   ///
-  /// This method calculates the count based on the file size, dimensions, and component bytes.
-  /// Each vector consists of a 4-byte dimension count followed by the actual vector data.
+  /// This method calculates the count based on the window configuration if present,
+  /// otherwise it uses the full file size. Each vector consists of a 4-byte dimension
+  /// count followed by the actual vector data.
   ///
-  /// @return The total number of vectors
+  /// @return The total number of vectors accessible through this view
   @Override
   public int getCount() {
       try {
@@ -231,14 +228,26 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
           long recordSize = 4 + (dimensions * componentBytes);
 
           // Calculate how many complete records fit in the file
-          long vectorCount = fileSize / recordSize;
-          
-          // Check for integer overflow before casting
-          if (vectorCount > Integer.MAX_VALUE) {
-              throw new RuntimeException("Vector count " + vectorCount + " exceeds maximum int value. File size: " + fileSize + ", record size: " + recordSize);
+          long totalVectorCount = fileSize / recordSize;
+
+          // If we have a window, use its bounds to determine the count
+          if (window != null && !window.isEmpty()) {
+              // For now, assume single-interval windows (most common case)
+              // Sum up the intervals in the window
+              long windowedCount = 0;
+              for (DSInterval interval : window) {
+                  long intervalSize = interval.getMaxExcl() - interval.getMinIncl();
+                  windowedCount += intervalSize;
+              }
+              return (int) Math.min(windowedCount, totalVectorCount);
           }
-          
-          return (int) vectorCount;
+
+          // Check for integer overflow before casting
+          if (totalVectorCount > Integer.MAX_VALUE) {
+              throw new RuntimeException("Vector count " + totalVectorCount + " exceeds maximum int value. File size: " + fileSize + ", record size: " + recordSize);
+          }
+
+          return (int) totalVectorCount;
       } catch (Exception e) {
           // If we can't calculate the count, return 0
           return 0;
