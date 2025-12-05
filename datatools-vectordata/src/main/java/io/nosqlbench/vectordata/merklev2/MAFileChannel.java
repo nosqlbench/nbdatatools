@@ -103,6 +103,8 @@ public class MAFileChannel extends AsynchronousFileChannel {
     private final AsynchronousFileChannel localContentCache;
     private final ChunkedTransportClient transport;
     private final MerkleShape merkleShape;
+    /// Optional override for how many bytes to use in disk-space checks; defaults to full content size
+    private final long spaceCheckBytes;
     private volatile ChunkScheduler chunkScheduler;
     private final OptimizedChunkQueue chunkQueue;
     private final TaskExecutor taskExecutor;
@@ -122,7 +124,7 @@ public class MAFileChannel extends AsynchronousFileChannel {
      * @throws IOException If initialization fails or invalid state combination is encountered
      */
     public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource) throws IOException {
-        this(localCachePath, merkleStatePath, remoteSource, new DefaultChunkScheduler());
+        this(localCachePath, merkleStatePath, remoteSource, new DefaultChunkScheduler(), false, -1);
     }
     
     /**
@@ -135,7 +137,7 @@ public class MAFileChannel extends AsynchronousFileChannel {
      * @throws IOException If initialization fails or invalid state combination is encountered
      */
     public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource, ChunkScheduler chunkScheduler) throws IOException {
-        this(localCachePath, merkleStatePath, remoteSource, chunkScheduler, false);
+        this(localCachePath, merkleStatePath, remoteSource, chunkScheduler, false, -1);
     }
 
     /**
@@ -146,9 +148,11 @@ public class MAFileChannel extends AsynchronousFileChannel {
      * @param remoteSource Remote source URL
      * @param chunkScheduler Custom chunk scheduler implementation
      * @param validationMode If true, checks existing file chunks for potential validity
+     * @param spaceCheckBytes Override for bytes used in disk space checks ({@code <=}0 means full content)
      * @throws IOException If initialization fails or invalid state combination is encountered
      */
-    public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource, ChunkScheduler chunkScheduler, boolean validationMode) throws IOException {
+    public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource, ChunkScheduler chunkScheduler, boolean validationMode, long spaceCheckBytes) throws IOException {
+        this.spaceCheckBytes = spaceCheckBytes;
         // Ensure merkleStatePath ends with .mrkl (state file, not reference file)
         String statePathStr = merkleStatePath.toString();
         Path mrklStatePath;
@@ -220,8 +224,11 @@ public class MAFileChannel extends AsynchronousFileChannel {
         
         // Check filesystem space availability for the cached content
         long totalContentSize = merkleShape.getTotalContentSize();
+        long bytesToCheck = (this.spaceCheckBytes > 0)
+            ? Math.min(this.spaceCheckBytes, totalContentSize)
+            : totalContentSize;
         try {
-            FilesystemSpaceChecker.checkSpaceAvailable(localCachePath, totalContentSize);
+            FilesystemSpaceChecker.checkSpaceAvailable(localCachePath, bytesToCheck);
         } catch (FilesystemSpaceChecker.InsufficientSpaceException e) {
             // Close resources before rethrowing
             try {
@@ -250,6 +257,33 @@ public class MAFileChannel extends AsynchronousFileChannel {
         
         // Initialize metrics
         initializeMetrics();
+    }
+
+    /**
+     * Creates a new MAFileChannel with a custom scheduler and space check override.
+     *
+     * @param localCachePath Path to local cache file
+     * @param merkleStatePath Path to merkle state file
+     * @param remoteSource Remote source URL
+     * @param chunkScheduler Custom chunk scheduler implementation
+     * @param spaceCheckBytes Override for bytes used in disk space checks ({@code <=}0 means full content)
+     * @throws IOException If initialization fails or invalid state combination is encountered
+     */
+    public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource, ChunkScheduler chunkScheduler, long spaceCheckBytes) throws IOException {
+        this(localCachePath, merkleStatePath, remoteSource, chunkScheduler, false, spaceCheckBytes);
+    }
+
+    /**
+     * Creates a new MAFileChannel with space check override using default scheduler.
+     *
+     * @param localCachePath Path to local cache file
+     * @param merkleStatePath Path to merkle state file
+     * @param remoteSource Remote source URL
+     * @param spaceCheckBytes Override for bytes used in disk space checks ({@code <=}0 means full content)
+     * @throws IOException If initialization fails or invalid state combination is encountered
+     */
+    public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource, long spaceCheckBytes) throws IOException {
+        this(localCachePath, merkleStatePath, remoteSource, new DefaultChunkScheduler(), false, spaceCheckBytes);
     }
     
     /// Initializes Micrometer metrics for MAFileChannel performance monitoring.

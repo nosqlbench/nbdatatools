@@ -21,6 +21,7 @@ import io.nosqlbench.command.datasets.subcommands.CMD_datasets_download;
 import io.nosqlbench.command.datasets.subcommands.CMD_datasets_list;
 import io.nosqlbench.command.datasets.subcommands.CMD_datasets_prebuffer;
 import io.nosqlbench.command.datasets.subcommands.CMD_datasets_plan;
+import io.nosqlbench.command.datasets.subcommands.CMD_datasets_curlify;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,6 +37,7 @@ import java.util.concurrent.Callable;
         CMD_datasets_list.class,
         CMD_datasets_download.class,
         CMD_datasets_prebuffer.class,
+        CMD_datasets_curlify.class,
         CMD_datasets_plan.class,
         CommandLine.HelpCommand.class
     })

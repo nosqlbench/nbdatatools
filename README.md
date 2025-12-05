@@ -31,79 +31,71 @@ are graciously hosted by [javadoc.io](https://javadoc.io/).
 
 ### nbvectors
 
-This is a collection of utilities for working with vector test data, hosted under a single 
-command line tool. It is packaged as an executable jar with several sub-commands.
+This is the executable CLI that ships the vector test data tools. Run `java -jar nbvectors.jar --help` (or append `--help` to any command) for full option details.
 
-Here is a preview of the available commands:
+Current commands and subcommands (run `--help` on any of these for options):
 
-    # see all the options
-    # additional notes added to this view
-    java -jar nbvectors.jar --help
+```
+analyze     Inspect vector datasets
+  count_zeros    Count zero vectors
+  describe       Summarize dataset structure
+  select         Extract vectors by index/range
+  slice          Window data by range
+  find           Locate vectors matching criteria
+  check-endian   Endianness sanity check
+  verify_knn     Verify KNN answer-keys for one profile
+  verify_profiles Efficient multi-profile KNN verification
+  flamegraph     Profile hotspots during analysis
 
-    help            Display help information about the specified command.
+convert     Convert between vector formats
+  file          fvec/ivec/bvec/csv/json ↔ other formats
+  hdf52dataset  HDF5 → dataset.yaml layout
 
-    analyze         Analyze test data files
-                    # Contains subcommands to help understand the contents of test data files
-                    # Subcommands include:
-                    #   count_zeros - Count zero vectors in vector files
-                    #   verify_knn  - self-check KNN test data answer-keys
-                    #                 not suggested for a full verification, but good for sparse
-                    #                 sampling or basic smoke testing of the test data itself
-                    #                 requires ranked gt metrics (of a known distance function)
+compute     CPU helpers
+  knn           Generate ground-truth neighbors
+  sort          External merge sort for vectors
 
-    tag_hdf5        read or write hdf attributes
-                    # this will likely be removed, as it will be obviated 
-                    # by others as they become more type-safe on the hdf5
-                    # rendering side, and more adaptive on the reader side
+generate    Produce or slice data
+  dataset       Create sample dataset with dataset.yaml
+  vectors       Generate random vectors
+  mktestdata    Build base/query/ground-truth trio
+  fvec-extract  Slice float vectors
+  ivec-extract  Slice index files
+  ivec-shuffle  Reshuffle integer vectors
 
-    jjq             run jjq commands with extended functions
-                    # runs jq-like expressions against streams of JSON data
-                    # with added streaming analysis tools - useful for preparing
-                    # external data for import into the standard test data format
+datasets    Work with catalogs and downloads
+  list          Browse catalogs
+  download      Pull datasets/profiles
+  prebuffer     Warm caches
+  plan          Emit nbvectors commands to build missing artifacts
+  curlify       Emit curl commands for remote dataset.yaml with ranged reads
 
-    build_hdf5      build HDF5 KNN test data answer-keys from JSON
-                    # takes hdf5 data from loosely structured JSON sources
-                    # and builds a standard test data format
-                    # !! This will likely be absorbed into export_hdf5 !!
+hdf5        HDF5 utilities
+  tag           Read/write attributes
+  show          Inspect structure/paths
+  build         Build from JSON specs
+  export        Convert from fvec/ivec/bvec/parquet/etc.
 
-    show_hdf5       show details of HDF5 KNN test data files
-                    # This is useful to verify details of direct hdf5 structure
-                    # or to see the logical model used for normalizing views
-                    # of different data profiles or file contents
+catalog     Emit catalog.json/yaml for dataset roots and .hdf5 files
 
-    export_hdf5     export HDF5 KNN answer-keys from other formats
-                    # create a new hdf5 KNN test data file, from other formats,
-                    # including ivec, fvec, bvec, and parquet
+fetch       Download datasets from Hugging Face
+  dlhf          API download with parquet support
 
-    export_json     export HDF5 KNN answer-keys to JSON summary files
-                    # create a JSON summary file from an hdf5 KNN test data file
+merkle      Manage Merkle trees for remote integrity
+  create        Build Merkle reference
+  verify        Verify against reference
+  summary       Summarize tree
+  diff          Compare trees
+  path          Show paths to leaves
+  treeview      Render tree view
+  spoilbits     Corrupt specific bits
+  spoilchunks   Corrupt specific chunks
 
-    catalog_hdf5    Create catalog views of HDF5 files
-                    # This is useful for creating a catalog of hdf5 files
-                    # that can be used to find and download specific files from
-                    # a remote location
+cleanup     Clean fvec files
+  cleanfvec      Drop zero/duplicate vectors
 
-    huggingface      Hugging Face operations for NoSQLBench
-                    # This provides a set of utilities for working with Hugging Face
-                    # Subcommands include:
-                    #   dl - Download Hugging Face datasets via API
-                    #        This is useful for downloading datasets from Hugging Face
-                    #        any huggingface dataset which has a parquet format can be 
-                    #        downloaded and used as a data source
-
-    datasets        Browse and download hdf5 datasets from accessible catalogs
-                    # This is useful for browsing and downloading datasets from 
-                    # accessible catalogs
-
-    export_hdf5new  export HDF5 KNN answer-keys from other formats
-                    # create a new hdf5 KNN test data file, from other formats
-                    # this version supports layouts and embedded metadata which 
-                    # allow the vectordata API to work with the data in a
-                    # logically consitent way
-                    # !! This will likely be absorbed into export_hdf5 !!
-
-Generally speaking, these utilities fall into a few broad categories, like import, export, 
-summarization, and query. They will likely be consolidated down to a smaller number of tools over time.
+version     Print version/build information
+```
 
 #### nbvectors Javadoc
 

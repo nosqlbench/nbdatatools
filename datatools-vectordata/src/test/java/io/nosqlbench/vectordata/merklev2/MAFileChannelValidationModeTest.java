@@ -77,7 +77,7 @@ class MAFileChannelValidationModeTest {
         
         // Now test the validation mode constructor
         try (MAFileChannel channel = new MAFileChannel(cacheFile, stateFile, 
-                "http://example.com/test", new DefaultChunkScheduler(), true)) {
+                "http://example.com/test", new DefaultChunkScheduler(), true, -1)) {
             
             // The constructor should have run validation mode checks
             assertNotNull(channel);
@@ -107,7 +107,7 @@ class MAFileChannelValidationModeTest {
         
         // Test without validation mode (should work normally)
         try (MAFileChannel channel = new MAFileChannel(cacheFile, stateFile, 
-                "http://example.com/test", new DefaultChunkScheduler(), false)) {
+                "http://example.com/test", new DefaultChunkScheduler(), false, -1)) {
             
             assertNotNull(channel);
             assertTrue(channel.isOpen());
