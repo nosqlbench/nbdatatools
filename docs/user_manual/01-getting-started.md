@@ -6,23 +6,21 @@ This guide will help you get NBDataTools up and running on your system.
 
 ### System Requirements
 
-- **Java**: Version 17 or higher (built with Java 23)
-- **Memory**: At least 4GB RAM recommended for large datasets
 - **Disk Space**: Varies by dataset size
-- **OS**: Linux, macOS, or Windows
+- **OS**: Linux, macOS, or Windows (Only Linux is a tested build)
 
-### Verify Java Installation
+#### For building from source:
 
-```bash
-java --version
-```
+- **Java**: Version 25 or higher. This project supports Java 11 clients but requires Java 25 to build some command line features which are separate.
 
-You should see output indicating Java 17 or higher:
-```
-openjdk 23 2024-09-17
-OpenJDK Runtime Environment (build 23+37)
-OpenJDK 64-Bit Server VM (build 23+37, mixed mode, sharing)
-```
+#### For using the command line nbvectors tool:
+
+- Java 25 is recommended, especially if you need to use SIMD to speed up vector computations.
+- Java 11 is supported without the optimizations.
+
+#### For using the vectordata access library:
+
+- Java 11 or any newer version is supported.
 
 ## Installation
 
