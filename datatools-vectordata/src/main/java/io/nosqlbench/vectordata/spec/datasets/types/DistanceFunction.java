@@ -18,19 +18,19 @@ package io.nosqlbench.vectordata.spec.datasets.types;
  */
 
 
-/// The distance function to use for computing distances between vectors
-public enum DistanceFunction {
+  /// The distance function to use for computing distances between vectors
+  public enum DistanceFunction {
 
-  /// The cosine distance function
-  COSINE,
-  /// The dot product distance function
-  DOT_PRODUCT,
-  /// The euclidean distance function
-  EUCLIDEAN,
-  /// Same as euclidean here
-  L2,
-  /// The Manhattan (L1) distance function
-  L1;
+    /// The cosine distance function
+    COSINE,
+    /// The dot product similarity as a distance (lower is better). Implemented as -dot(a,b).
+    DOT_PRODUCT,
+    /// The dot product distance function
+    EUCLIDEAN,
+    /// Same as euclidean here
+    L2,
+    /// The Manhattan (L1) distance function
+    L1;
 
   /// compute the distance between two vectors
   /// @param v1 the first vector
@@ -46,7 +46,7 @@ public enum DistanceFunction {
       case L1:
         return doubleManhattanDistance(v1, v2);
       case DOT_PRODUCT:
-        throw new RuntimeException("DOT_PRODUCT distance not implemented");
+        return -doubleDotProduct(v1, v2);
       default:
         throw new IllegalArgumentException("Unknown distance function: " + this);
     }
@@ -66,10 +66,33 @@ public enum DistanceFunction {
       case L1:
         return floatManhattanDistance(v1, v2);
       case DOT_PRODUCT:
-        throw new RuntimeException("DOT_PRODUCT distance not implemented");
+        return -floatDotProduct(v1, v2);
       default:
         throw new IllegalArgumentException("Unknown distance function: " + this);
     }
+  }
+
+  private double floatDotProduct(float[] a, float[] b) {
+    if (a == null || b == null || a.length != b.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+    double dot = 0.0d;
+    for (int i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+    }
+    // distance-style: lower is better, so return negative similarity
+    return -dot;
+  }
+
+  private double doubleDotProduct(double[] a, double[] b) {
+    if (a == null || b == null || a.length != b.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+    double dot = 0.0d;
+    for (int i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+    }
+    return -dot;
   }
 
   private double floatCosineDistance(float[] vectorA, float[] vectorB) {

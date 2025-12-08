@@ -29,6 +29,8 @@ import io.nosqlbench.command.analyze.subcommands.verify_knn.statusview.StatusVie
 import io.nosqlbench.command.analyze.subcommands.verify_knn.statusview.StatusViewRouter;
 import io.nosqlbench.command.analyze.subcommands.verify_knn.statusview.StatusViewStdout;
 import io.nosqlbench.command.common.CommandLineFormatter;
+import io.nosqlbench.command.common.DistanceMetricOption;
+import io.nosqlbench.command.common.DistanceMetricOption.DistanceMetric;
 import io.nosqlbench.command.common.RangeOption;
 import io.nosqlbench.command.common.BaseVectorsInputFileOption;
 import io.nosqlbench.command.common.QueryVectorsInputFileOption;
@@ -118,8 +120,7 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
   private List<Path> hdfpaths = new ArrayList<>();
 
   @Option(names = {"-d", "--distance_function"},
-      defaultValue = "COSINE",
-      description = "Valid values: ${COMPLETION-CANDIDATES}")
+      description = "Valid values: ${COMPLETION-CANDIDATES} (overrides dataset/metric)")
   private DistanceFunction distanceFunction;
 
   @Option(names = {"-max_k", "--neighborhood_size"},
@@ -134,10 +135,10 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
                     + "each query")
   private int buffer_limit;
 
-  @Option(names = {"-s", "--status"},
-      defaultValue = "all",
-      description = "Valid values: ${COMPLETION-CANDIDATES}")
-  private StatusMode output;
+    @Option(names = {"-s", "--status"},
+        defaultValue = "Stdout",
+        description = "Valid values: ${COMPLETION-CANDIDATES}")
+    private StatusMode output;
 
   @Option(names = {"-e", "--error_mode"},
       defaultValue = "fail",
@@ -156,6 +157,9 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
 
   @Option(names = {"--_diaglevel", "-_d"}, hidden = true, description = "Internal diagnostic level, sends content directly to the console.", defaultValue = "ERROR")
   ConsoleDiagnostics diaglevel;
+
+  @CommandLine.Mixin
+  private DistanceMetricOption distanceMetricOption = new DistanceMetricOption();
 
   @CommandLine.Spec
   private CommandLine.Model.CommandSpec spec;
@@ -248,6 +252,7 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
     FloatVectorsWithOffset baseVectorsWithOffset = loadFloatVectors(basePath, baseRange);
     FloatVectors baseVectors = baseVectorsWithOffset.vectors;
     long globalOffset = baseVectorsWithOffset.globalOffset;
+    this.distanceFunction = resolveDistanceFunction(null);
 
     logger.info("Loading query vectors from: {}{}", queryPath,
         queryRange != null ? ":" + queryRange : "");
@@ -357,6 +362,8 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
             FloatVectors queryVectors =
                 data.getQueryVectors().orElseThrow(() -> new RuntimeException("Query vectors are not available in the provided data, so distance-based verification is not possible."));
 
+            this.distanceFunction = resolveDistanceFunction(data.getDistanceFunction());
+
             if (baseVectors instanceof FloatVectors) {
               logger.info("loaded base vectors: {}", baseVectors.toString());
             } else {
@@ -413,7 +420,12 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
     switch (output) {
       case All:
       case Progress:
-        view.add(new StatusViewLanterna(Math.min(3, (int)range.size())));
+        try {
+          view.add(new StatusViewLanterna(Math.min(3, (int)range.size())));
+        } catch (Exception e) {
+          // If Lanterna can't initialize (no TTY, etc.), fall back to stdout only
+          output = StatusMode.Stdout;
+        }
         break;
       default:
         break;
@@ -518,6 +530,31 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
       // User specified K matches detected K
       logger.info("Using neighborhood size K={} (matches indices file)", K);
       return K;
+    }
+  }
+
+  private DistanceFunction resolveDistanceFunction(DistanceFunction datasetDistance) {
+    if (this.distanceFunction != null) {
+      return this.distanceFunction;
+    }
+    if (datasetDistance != null) {
+      return datasetDistance;
+    }
+    return toDistanceFunction(distanceMetricOption.getDistanceMetric());
+  }
+
+  private DistanceFunction toDistanceFunction(DistanceMetric metric) {
+    switch (metric) {
+      case L2:
+        return DistanceFunction.L2;
+      case L1:
+        return DistanceFunction.L1;
+      case COSINE:
+        return DistanceFunction.COSINE;
+      case DOT_PRODUCT:
+        return DistanceFunction.DOT_PRODUCT;
+      default:
+        throw new IllegalArgumentException("Unsupported distance metric: " + metric);
     }
   }
 

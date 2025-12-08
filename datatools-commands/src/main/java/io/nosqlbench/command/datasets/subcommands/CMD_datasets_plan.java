@@ -513,18 +513,11 @@ public class CMD_datasets_plan implements Callable<Integer> {
             // Extract metric from attributes or use optimal default based on normalization
             String metric;
             boolean usedDefaultMetric = false;
-            boolean usedOptimizedMetric = false;
             if (attributes != null && attributes.distance_function() != null) {
-                String specifiedMetric = attributes.distance_function().name();
-                // If COSINE specified but vectors are normalized, recommend DOT_PRODUCT instead
-                if ("COSINE".equals(specifiedMetric) && baseIsNormalized) {
-                    metric = "DOT_PRODUCT";
-                    usedOptimizedMetric = true;
-                } else {
-                    metric = specifiedMetric;
-                }
+                // Honor the dataset.yaml distance function verbatim
+                metric = attributes.distance_function().name();
             } else {
-                // No metric specified - choose optimal default
+                // No metric specified - choose a sensible default based on normalization
                 metric = baseIsNormalized ? "DOT_PRODUCT" : "EUCLIDEAN";
                 usedDefaultMetric = true;
             }

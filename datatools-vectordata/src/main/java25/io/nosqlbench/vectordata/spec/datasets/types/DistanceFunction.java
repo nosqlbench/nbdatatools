@@ -65,7 +65,7 @@ public enum DistanceFunction {
       case COSINE -> this::floatCosineDistance;
       case EUCLIDEAN, L2 -> this::floatEuclideanDistance;
       case L1 -> this::floatManhattanDistance;
-      case DOT_PRODUCT -> throw new UnsupportedOperationException("DOT_PRODUCT not implemented");
+      case DOT_PRODUCT -> this::floatDotProduct;
     };
   }
 
@@ -81,7 +81,7 @@ public enum DistanceFunction {
       case COSINE -> this::doubleCosineDistance;
       case EUCLIDEAN, L2 -> this::doubleEuclideanDistance;
       case L1 -> this::doubleManhattanDistance;
-      case DOT_PRODUCT -> throw new UnsupportedOperationException("DOT_PRODUCT not implemented");
+      case DOT_PRODUCT -> this::doubleDotProduct;
     };
   }
 
@@ -99,7 +99,7 @@ public enum DistanceFunction {
       case L1:
         return doubleManhattanDistance(v1, v2);
       case DOT_PRODUCT:
-        throw new RuntimeException("DOT_PRODUCT distance not implemented");
+        return doubleDotProduct(v1, v2);
       default:
         throw new IllegalArgumentException("Unknown distance function: " + this);
     }
@@ -119,10 +119,56 @@ public enum DistanceFunction {
       case L1:
         return floatManhattanDistance(v1, v2);
       case DOT_PRODUCT:
-        throw new RuntimeException("DOT_PRODUCT distance not implemented");
+        return floatDotProduct(v1, v2);
       default:
         throw new IllegalArgumentException("Unknown distance function: " + this);
     }
+  }
+
+  private double floatDotProduct(float[] vectorA, float[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    var SPECIES = FloatVector.SPECIES_PREFERRED;
+    double dot = 0.0d;
+    int i = 0;
+    int upperBound = SPECIES.loopBound(vectorA.length);
+
+    for (; i < upperBound; i += SPECIES.length()) {
+      var va = FloatVector.fromArray(SPECIES, vectorA, i);
+      var vb = FloatVector.fromArray(SPECIES, vectorB, i);
+      dot += va.mul(vb).reduceLanes(VectorOperators.ADD);
+    }
+
+    for (; i < vectorA.length; i++) {
+      dot += vectorA[i] * vectorB[i];
+    }
+
+    return -dot;
+  }
+
+  private double doubleDotProduct(double[] vectorA, double[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    var SPECIES = DoubleVector.SPECIES_PREFERRED;
+    double dot = 0.0d;
+    int i = 0;
+    int upperBound = SPECIES.loopBound(vectorA.length);
+
+    for (; i < upperBound; i += SPECIES.length()) {
+      var va = DoubleVector.fromArray(SPECIES, vectorA, i);
+      var vb = DoubleVector.fromArray(SPECIES, vectorB, i);
+      dot += va.mul(vb).reduceLanes(VectorOperators.ADD);
+    }
+
+    for (; i < vectorA.length; i++) {
+      dot += vectorA[i] * vectorB[i];
+    }
+
+    return -dot;
   }
 
   private double floatCosineDistance(float[] vectorA, float[] vectorB) {

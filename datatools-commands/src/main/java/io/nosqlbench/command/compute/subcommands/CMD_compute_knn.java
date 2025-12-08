@@ -55,8 +55,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.concurrent.Callable;
@@ -237,6 +239,8 @@ public class CMD_compute_knn implements Callable<Integer> {
                 return DistanceFunction.L1;
             case COSINE:
                 return DistanceFunction.COSINE;
+            case DOT_PRODUCT:
+                return DistanceFunction.DOT_PRODUCT;
             default:
                 throw new IllegalArgumentException("Unsupported distance metric: " + metric);
         }
@@ -646,23 +650,36 @@ public class CMD_compute_knn implements Callable<Integer> {
                                     + partitions.get(partitionIndex).neighborsPath);
                             }
 
-                            for (int i = 0; i < neighborIndices.length; i++) {
-                                combined.add(new NeighborIndex(neighborIndices[i], distanceValues[i]));
-                            }
+                        for (int i = 0; i < neighborIndices.length; i++) {
+                            combined.add(new NeighborIndex(neighborIndices[i], distanceValues[i]));
                         }
+                    }
 
-                        Collections.sort(combined);
-                        int resultSize = Math.min(effectiveK, combined.size());
-                        int[] finalIndices = new int[resultSize];
-                        float[] finalDistances = new float[resultSize];
-
-                        for (int i = 0; i < resultSize; i++) {
-                            NeighborIndex neighbor = combined.get(i);
-                            finalIndices[i] = (int) neighbor.index();
-                            finalDistances[i] = (float) neighbor.distance();
+                    // Deduplicate by index (keep the best/closest distance for any duplicate that may
+                    // show up due to overlapping ranges or cache reuse) before taking the global top-K.
+                    Map<Long, NeighborIndex> unique = new HashMap<>(combined.size());
+                    for (NeighborIndex ni : combined) {
+                        NeighborIndex existing = unique.get(ni.index());
+                        if (existing == null || ni.distance() < existing.distance()) {
+                            unique.put(ni.index(), ni);
                         }
+                    }
 
-                        finalNeighborsStore.write(finalIndices);
+                    List<NeighborIndex> deduped = new ArrayList<>(unique.values());
+                    deduped.sort(Comparator
+                        .comparingDouble(NeighborIndex::distance)
+                        .thenComparingLong(NeighborIndex::index));
+                    int resultSize = Math.min(effectiveK, deduped.size());
+                    int[] finalIndices = new int[resultSize];
+                    float[] finalDistances = new float[resultSize];
+
+                    for (int i = 0; i < resultSize; i++) {
+                        NeighborIndex neighbor = deduped.get(i);
+                        finalIndices[i] = (int) neighbor.index();
+                        finalDistances[i] = (float) neighbor.distance();
+                    }
+
+                    finalNeighborsStore.write(finalIndices);
                         finalDistancesStore.write(finalDistances);
 
                         // Update progress

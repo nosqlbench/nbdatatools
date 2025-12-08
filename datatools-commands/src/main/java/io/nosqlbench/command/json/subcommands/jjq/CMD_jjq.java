@@ -23,6 +23,7 @@ import io.nosqlbench.command.json.subcommands.jjq.evaluator.JJQInvoker;
 import io.nosqlbench.command.json.subcommands.jjq.outputs.JsonlFileOutput;
 import io.nosqlbench.command.json.subcommands.jjq.outputs.NullOutput;
 import io.nosqlbench.command.json.subcommands.jjq.outputs.PrettyConsoleOutput;
+import io.nosqlbench.nbdatatools.api.services.Selector;
 import net.thisptr.jackson.jq.Output;
 import picocli.CommandLine;
 
@@ -36,6 +37,7 @@ import static picocli.CommandLine.Option;
 /// Run jjq commands
 @Command(name = "jjq", description = "run jjq commands with extended functions",
     subcommands = {CommandLine.HelpCommand.class})
+@Selector("jjq")
 public class CMD_jjq implements Callable<Integer> {
 
   @Option(names = {"-i", "--in"}, required = true)

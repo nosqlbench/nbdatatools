@@ -70,6 +70,17 @@ datasets    Work with catalogs and downloads
   plan          Emit nbvectors commands to build missing artifacts
   curlify       Emit curl commands for remote dataset.yaml with ranged reads
 
+vectordata  Explore vectordata layouts
+  info          Summarize dataset and profiles
+  views         List views per profile
+  profiles      List profile names
+  size          Show counts/dimensions for a view
+  sample        Print sample vectors from a view
+  prebuffer     Prebuffer a view or profile
+  cat           Stream vectors from a view
+  verify        Prebuffer as a verification pass
+  repl          Interactive explorer
+
 hdf5        HDF5 utilities
   tag           Read/write attributes
   show          Inspect structure/paths

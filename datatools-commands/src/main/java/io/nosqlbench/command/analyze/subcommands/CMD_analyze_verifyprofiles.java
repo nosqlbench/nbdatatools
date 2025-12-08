@@ -113,7 +113,7 @@ public class CMD_analyze_verifyprofiles implements Callable<Integer> {
     private int buffer_limit;
 
     @Option(names = {"-s", "--status"},
-        defaultValue = "all",
+        defaultValue = "Stdout",
         description = "Valid values: ${COMPLETION-CANDIDATES}")
     private StatusMode output;
 
@@ -647,7 +647,12 @@ public class CMD_analyze_verifyprofiles implements Callable<Integer> {
         switch (output) {
             case All:
             case Progress:
-                view.add(new StatusViewLanterna(Math.min(3, (int)range.size())));
+                try {
+                    view.add(new StatusViewLanterna(Math.min(3, (int)range.size())));
+                } catch (Exception e) {
+                    // If Lanterna cannot initialize (no TTY, headless), fall back to stdout only
+                    output = StatusMode.Stdout;
+                }
                 break;
             default:
                 break;
