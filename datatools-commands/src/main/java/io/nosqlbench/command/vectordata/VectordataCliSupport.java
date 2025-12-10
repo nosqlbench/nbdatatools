@@ -19,6 +19,7 @@ package io.nosqlbench.command.vectordata;
 
 import io.nosqlbench.vectordata.discovery.DatasetLoader;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
+import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;

@@ -184,9 +184,10 @@ public class CMD_datasets_plan implements Callable<Integer> {
         TestDataGroup datasetGroup = null;
         try {
             datasetGroup = new TestDataGroup(datasetRoot);
+            TestDataGroup finalDatasetGroup = datasetGroup;
             layout.profiles().profiles().forEach((profileName, fProfiles) -> {
                 ProfileSummary summary = summaries.computeIfAbsent(profileName, ProfileSummary::new);
-                datasetGroup.getProfileOptionally(profileName).ifPresent(summary::setDataView);
+                finalDatasetGroup.getProfileOptionally(profileName).ifPresent(summary::setDataView);
             Map<String, FView> views = fProfiles.views();
             views.forEach((viewName, fView) -> {
                 ViewKind viewKind = ViewKind.fromName(viewName).orElse(null);

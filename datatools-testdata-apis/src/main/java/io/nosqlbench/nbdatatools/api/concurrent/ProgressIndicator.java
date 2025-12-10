@@ -414,6 +414,24 @@ public interface ProgressIndicator<T>  {
 
                     // Only show "Interrupted by user" if we were actually interrupted
                     // and not just shutting down normally
+                    boolean futureCompletedExceptionally = false;
+                    Throwable completionError = null;
+                    if (this instanceof CompletableFuture<?>) {
+                        CompletableFuture<?> future = (CompletableFuture<?>) this;
+                        try {
+                            future.join(); // Will rethrow if completed exceptionally
+                        } catch (Exception completionEx) {
+                            completionError = completionEx.getCause() != null ? completionEx.getCause() : completionEx;
+                            futureCompletedExceptionally = true;
+                        }
+                    }
+
+                    if (futureCompletedExceptionally) {
+                        String message = completionError != null ? completionError.getMessage() : "Unknown failure";
+                        outputStream.println("Error monitoring progress: " + message);
+                        throw new RuntimeException(completionError);
+                    }
+
                     if (interrupted.get() && !isWorkComplete()) {
                         outputStream.println("Interrupted by user (Ctrl-C)");
                     } else {
