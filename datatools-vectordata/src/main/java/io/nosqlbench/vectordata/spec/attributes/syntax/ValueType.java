@@ -18,8 +18,8 @@ package io.nosqlbench.vectordata.spec.attributes.syntax;
  */
 
 
-/// This enum represents the different types of values that can be stored in an HDF5 attribute.
-/// (At least which are supported by nbvectors for now)
+/// This enum represents the different types of values that can be stored in dataset attributes
+/// regardless of the backing file format. (At least those supported by nbvectors for now.)
 /// These literal forms are supported for automatic type detection:
 ///
 /// - 999999999 - int (any value up to 999999999)

@@ -13,7 +13,7 @@
 
   <artifactId>datatools-vectordata</artifactId>
   <name>${project.artifactId}</name>
-  <description>semi-formal spec for vector test data in hdf5 with API</description>
+  <description>semi-formal spec for vector test data APIs</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
   <properties>
@@ -38,18 +38,6 @@
       <groupId>io.nosqlbench</groupId>
       <artifactId>datatools-io-transport</artifactId>
       <version>${revision}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>io.jhdf</groupId>
-      <artifactId>jhdf</artifactId>
-      <version>0.9.2</version>
-      <exclusions>
-        <exclusion>
-          <groupId>log4j</groupId>
-          <artifactId>log4j</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -199,7 +187,7 @@
           <execution>
             <id>default-compile</id>
             <configuration>
-              <release>11</release>
+              <release>11</release> <!-- All other modules and sources in this project are set for Java 25 -->
             </configuration>
           </execution>
 
@@ -288,30 +276,6 @@
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.0.1</version>
-        <executions>
-          <execution>
-            <id>sign-artifacts</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>sign</goal>
-            </goals>
-            <configuration>
-              <keyname>nosqlbenchdroid@gmail.com</keyname>
-              <passphraseServerId>gpg.passphrase</passphraseServerId>
-              <!--              <useAgent>true</useAgent>-->
-              <gpgArguments>
-                <cmdParam>--pinentry-mode</cmdParam>
-                <cmdParam>loopback</cmdParam>
-              </gpgArguments>
             </configuration>
           </execution>
         </executions>

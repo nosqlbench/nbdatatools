@@ -58,7 +58,7 @@ import java.util.concurrent.CompletableFuture;
 public class FilesystemTestDataView implements TestDataView, AutoCloseable {
     private static final Logger logger = LogManager.getLogger(FilesystemTestDataView.class);
 
-    private final FilesystemTestDataGroup dataGroup;
+    private final TestDataGroup dataGroup;
     private final FProfiles profile;
     private final String profileName;
 
@@ -76,7 +76,7 @@ public class FilesystemTestDataView implements TestDataView, AutoCloseable {
     /// @param dataGroup The data group containing dataset metadata
     /// @param profile The profile configuration
     /// @param profileName The name of this profile
-    public FilesystemTestDataView(FilesystemTestDataGroup dataGroup, FProfiles profile, String profileName) {
+    public FilesystemTestDataView(TestDataGroup dataGroup, FProfiles profile, String profileName) {
         this.dataGroup = dataGroup;
         this.profile = profile;
         this.profileName = profileName;

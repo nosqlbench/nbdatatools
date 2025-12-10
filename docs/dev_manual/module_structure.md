@@ -80,11 +80,11 @@ The nbdatatools project consists of 10 modules organized into logical layers. Th
 
 #### commands
 - **Purpose**: Command-line interface and primary user entry point
-- **Dependencies**: vectordata, io-xvec, io-transport, HDF5, Jackson
+- **Dependencies**: vectordata, io-xvec, io-transport, Jackson
 - **Dependents**: nbvectors
 - **Key Features**:
   - Complete CLI command set
-  - HDF5 dataset processing
+  - Dataset.yaml/xvec processing
   - Data conversion utilities
   - Analysis and verification tools
   - Catalog management

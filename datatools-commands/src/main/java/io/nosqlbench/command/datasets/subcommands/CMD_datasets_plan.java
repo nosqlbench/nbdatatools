@@ -20,17 +20,21 @@ package io.nosqlbench.command.datasets.subcommands;
 import io.nosqlbench.command.common.CommandLineFormatter;
 import io.nosqlbench.command.common.DistancesFileOption;
 import io.nosqlbench.common.types.VectorFileExtension;
+import io.nosqlbench.vectordata.discovery.TestDataGroup;
+import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.layout.FInterval;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FView;
 import io.nosqlbench.vectordata.layout.FWindow;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.ViewKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -111,6 +115,7 @@ public class CMD_datasets_plan implements Callable<Integer> {
         private final String name;
         private final Map<ViewKind, List<FacetRecord>> byKind = new LinkedHashMap<>();
         private final Map<String, FacetRecord> byViewName = new LinkedHashMap<>();
+        private TestDataView dataView;
 
         ProfileSummary(String name) {
             this.name = name;
@@ -133,6 +138,14 @@ public class CMD_datasets_plan implements Callable<Integer> {
 
         Collection<FacetRecord> allFacets() {
             return byViewName.values();
+        }
+
+        void setDataView(TestDataView view) {
+            this.dataView = view;
+        }
+
+        Optional<TestDataView> dataView() {
+            return Optional.ofNullable(dataView);
         }
     }
 
@@ -168,9 +181,12 @@ public class CMD_datasets_plan implements Callable<Integer> {
 
         Map<String, ProfileSummary> summaries = new LinkedHashMap<>();
         List<FacetRecord> allFacets = new ArrayList<>();
-
-        layout.profiles().profiles().forEach((profileName, fProfiles) -> {
-            ProfileSummary summary = summaries.computeIfAbsent(profileName, ProfileSummary::new);
+        TestDataGroup datasetGroup = null;
+        try {
+            datasetGroup = new TestDataGroup(datasetRoot);
+            layout.profiles().profiles().forEach((profileName, fProfiles) -> {
+                ProfileSummary summary = summaries.computeIfAbsent(profileName, ProfileSummary::new);
+                datasetGroup.getProfileOptionally(profileName).ifPresent(summary::setDataView);
             Map<String, FView> views = fProfiles.views();
             views.forEach((viewName, fView) -> {
                 ViewKind viewKind = ViewKind.fromName(viewName).orElse(null);
@@ -208,7 +224,20 @@ public class CMD_datasets_plan implements Callable<Integer> {
                 summary.addFacet(record);
                 allFacets.add(record);
             });
-        });
+            });
+        } catch (IOException ioe) {
+            spec.commandLine().getErr().printf("Unable to load dataset via vectordata API: %s%n", ioe.getMessage());
+            logger.debug("dataset load failure", ioe);
+            return 1;
+        } finally {
+            if (datasetGroup != null) {
+                try {
+                    datasetGroup.close();
+                } catch (Exception e) {
+                    logger.debug("Error closing dataset view", e);
+                }
+            }
+        }
 
         List<FacetRecord> missing = allFacets.stream()
             .filter(f -> !f.exists)
@@ -627,100 +656,39 @@ public class CMD_datasets_plan implements Callable<Integer> {
         return path;
     }
 
-    /// Extract the dimension from an existing vector file if it exists
-    /// @param record the facet record that might have an existing file
-    /// @return the dimension if available, empty otherwise
-    private static OptionalLong extractDimension(FacetRecord record) {
-        if (!record.exists || record.absolutePath == null) {
-            return OptionalLong.empty();
-        }
-        try {
-            io.nosqlbench.vectordata.discovery.TestDataGroup group =
-                new io.nosqlbench.vectordata.discovery.TestDataGroup(record.absolutePath);
-            try {
-                io.nosqlbench.vectordata.discovery.TestDataView view =
-                    group.profile("default");
-
-                // Try to get dimension from base or query vectors
-                if (record.kind == ViewKind.base || record.kind == ViewKind.query) {
-                    io.nosqlbench.vectordata.spec.datasets.types.DatasetView<?> dataView =
-                        record.kind == ViewKind.base ? view.getBaseVectors().orElse(null) : view.getQueryVectors().orElse(null);
-                    if (dataView != null) {
-                        return OptionalLong.of(dataView.getVectorDimensions());
-                    }
-                }
-            } finally {
-                group.close();
-            }
-        } catch (Exception e) {
-            logger.debug("Could not extract dimension from {}: {}", record.absolutePath, e.getMessage());
-        }
-        return OptionalLong.empty();
-    }
-
-    /// Extract the k (neighbors) value from an existing indices file if it exists
-    /// @param record the facet record that might have an existing indices file
-    /// @return the k value if available, empty otherwise
-    private static OptionalLong extractNeighborsK(FacetRecord record) {
-        if (!record.exists || record.absolutePath == null) {
-            return OptionalLong.empty();
-        }
-        try {
-            io.nosqlbench.vectordata.discovery.TestDataGroup group =
-                new io.nosqlbench.vectordata.discovery.TestDataGroup(record.absolutePath);
-            try {
-                io.nosqlbench.vectordata.discovery.TestDataView view =
-                    group.profile("default");
-
-                // Get k from indices
-                if (record.kind == ViewKind.indices) {
-                    io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices indices =
-                        view.getNeighborIndices().orElse(null);
-                    if (indices != null) {
-                        return OptionalLong.of(indices.getVectorDimensions());
-                    }
-                }
-            } finally {
-                group.close();
-            }
-        } catch (Exception e) {
-            logger.debug("Could not extract k from {}: {}", record.absolutePath, e.getMessage());
-        }
-        return OptionalLong.empty();
-    }
-
     /// Try to find dimension from any existing vector file in the profile
     /// @param summary the profile summary
     /// @return the dimension if found in any existing file
     private static OptionalLong findDimensionInProfile(ProfileSummary summary) {
-        // Try base vectors first
-        Optional<FacetRecord> base = summary.first(ViewKind.base);
-        if (base.isPresent() && base.get().exists) {
-            OptionalLong dim = extractDimension(base.get());
-            if (dim.isPresent()) {
-                return dim;
-            }
+        Optional<TestDataView> view = summary.dataView();
+        if (view.isEmpty()) {
+            return OptionalLong.empty();
         }
-
-        // Try query vectors
-        Optional<FacetRecord> query = summary.first(ViewKind.query);
-        if (query.isPresent() && query.get().exists) {
-            OptionalLong dim = extractDimension(query.get());
-            if (dim.isPresent()) {
-                return dim;
-            }
+        OptionalLong baseDim = vectorDimensions(view.get().getBaseVectors());
+        if (baseDim.isPresent()) {
+            return baseDim;
         }
-
-        return OptionalLong.empty();
+        return vectorDimensions(view.get().getQueryVectors());
     }
 
     /// Try to find k value from any existing indices file in the profile
     /// @param summary the profile summary
     /// @return the k value if found in any existing file
     private static OptionalLong findKInProfile(ProfileSummary summary) {
-        Optional<FacetRecord> indices = summary.first(ViewKind.indices);
-        if (indices.isPresent() && indices.get().exists) {
-            return extractNeighborsK(indices.get());
+        Optional<TestDataView> view = summary.dataView();
+        if (view.isEmpty()) {
+            return OptionalLong.empty();
+        }
+        OptionalLong neighborK = vectorDimensions(view.get().getNeighborIndices());
+        if (neighborK.isPresent()) {
+            return neighborK;
+        }
+        return vectorDimensions(view.get().getNeighborDistances());
+    }
+
+    private static OptionalLong vectorDimensions(Optional<? extends DatasetView<?>> dataset) {
+        if (dataset.isPresent()) {
+            return OptionalLong.of(dataset.get().getVectorDimensions());
         }
         return OptionalLong.empty();
     }

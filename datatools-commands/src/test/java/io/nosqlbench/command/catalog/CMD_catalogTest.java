@@ -53,14 +53,15 @@ import static org.junit.jupiter.api.Assertions.fail;
 /// └── test_data/
 ///     ├── dataset1/
 ///     │   ├── dataset.yaml
-///     │   ├── sample1.hdf5
+///     │   ├── base.fvec
+///     │   ├── query.fvec
 ///     │   ├── indices.bin
 ///     │   └── distances.bin
 ///     └── dataset2/
-///         ├── sample2.hdf5
 ///         └── nested/
 ///             ├── dataset.yaml
-///             ├── nested_sample.hdf5
+///             ├── base.fvec
+///             ├── query.fvec
 ///             ├── indices.bin
 ///             └── distances.bin
 /// ```
@@ -90,14 +91,15 @@ import static org.junit.jupiter.api.Assertions.fail;
 /// └── test_data/
 ///     ├── dataset1/
 ///     │   ├── dataset.yaml
-///     │   ├── sample1.hdf5
+///     │   ├── base.fvec
+///     │   ├── query.fvec
 ///     │   ├── indices.bin
 ///     │   └── distances.bin
 ///     └── dataset2/
-///         ├── sample2.hdf5
 ///         └── nested/
 ///             ├── dataset.yaml
-///             ├── nested_sample.hdf5
+///             ├── base.fvec
+///             ├── query.fvec
 ///             ├── indices.bin
 ///             └── distances.bin
 /// ```
@@ -116,29 +118,19 @@ import static org.junit.jupiter.api.Assertions.fail;
 /// path of any other path in the catalog, the resolved path should exist.
 ///
 /// The path field should be relative to the location of the catalog file, so that for a catalog
-/// say, in the dataset2 directory, the path field to a catalog dataset2/nested/mytest2.hdf5
-/// should be listed in the catalog at dataset2/catalog.json as "nested/mytest2.hdf5".
+/// say, in the dataset2 directory, the path field to a catalog dataset2/nested/mydataset
+/// should be listed in the catalog at dataset2/catalog.json as "nested/mydataset".
 ///
 /// ## Valid catalogs
-/// Only directories containing a dataset.yaml file or individual hdf5 files should be catalogged
-///  as dataset entries.
+/// Only directories containing a dataset.yaml file should be cataloged as dataset entries.
 ///
 /// ## Catalog Contents
-/// - When an hdf5 file is encountered, it should be treated as a catalog entry.
-/// - When a directory containing a dataset.yaml file is encountered, that dataset.yaml file
-/// should be treated as a catalog entry, representing the contents of that directory. In this,
-///  case no further traversal below this diretory should be done, as it is not valid for other
-/// dataset entries to be nested under directories containing a dataset.yaml file.
-///
-/// For hdf5-based catalogs, the name of the catalog entry should be the basename of the file
-/// without the extension. A dataset_type field should be added that says "hdf5".
-///
-/// for dataset.yaml-based catalogs, the name of the catalog entry should be the name of the
-/// directory that contains it without any parent directories. A dataset_type field should be
-/// added that says "dataset.yaml".
+/// When a directory containing a dataset.yaml file is encountered, that dataset.yaml file
+/// is treated as a catalog entry, representing the contents of that directory. No further
+/// traversal occurs inside that dataset root.
 ///
 /// The catalog building logic should startInclusive by finding the paths of all  entries, whether
-///  as dataset.yaml files or as an hdf5 file. Then, working from the innermost directories,
+///  as dataset.yaml files. Then, working from the innermost directories,
 ///  catalogs should be built. After each catalog is built, it should be saved to it's specific
 /// directory
 /// as catalog.yaml and catalog.json. Then each directory above a directory containing a catalog
@@ -162,9 +154,9 @@ public class CMD_catalogTest {
     private Path dataset1Dir;
     private Path dataset2Dir;
     private Path nestedDir;
-    private Path hdf5File1;
-    private Path hdf5File2;
-    private Path nestedHdf5File;
+    private Path baseFile1;
+    private Path baseFile2;
+    private Path nestedBaseFile;
     private Path datasetYaml1;
     private Path datasetYaml2;
 
@@ -187,14 +179,20 @@ public class CMD_catalogTest {
         Files.createDirectories(dataset2Dir);
         Files.createDirectories(nestedDir);
 
-        // Create sample HDF5 files (just dummy files for testing)
-        hdf5File1 = dataset1Dir.resolve("sample1.hdf5");
-        hdf5File2 = dataset2Dir.resolve("sample2.hdf5");
-        nestedHdf5File = nestedDir.resolve("nested_sample.hdf5");
+        // Create sample vector files (dummy data for testing)
+        baseFile1 = dataset1Dir.resolve("base.fvec");
+        baseFile2 = dataset2Dir.resolve("base.fvec");
+        nestedBaseFile = nestedDir.resolve("base.fvec");
+        Path queryFile1 = dataset1Dir.resolve("query.fvec");
+        Path queryFile2 = dataset2Dir.resolve("query.fvec");
+        Path nestedQueryFile = nestedDir.resolve("query.fvec");
 
-        createDummyHdf5File(hdf5File1, 1024);
-        createDummyHdf5File(hdf5File2, 2048);
-        createDummyHdf5File(nestedHdf5File, 4096);
+        createDummyVectorFile(baseFile1, 1024);
+        createDummyVectorFile(baseFile2, 2048);
+        createDummyVectorFile(nestedBaseFile, 4096);
+        createDummyVectorFile(queryFile1, 1024);
+        createDummyVectorFile(queryFile2, 2048);
+        createDummyVectorFile(nestedQueryFile, 4096);
 
         // Create indices and distances files
         Path indicesFile1 = dataset1Dir.resolve("indices.bin");
@@ -211,8 +209,8 @@ public class CMD_catalogTest {
         datasetYaml1 = dataset1Dir.resolve("dataset.yaml");
         datasetYaml2 = nestedDir.resolve("dataset.yaml");
 
-        createSampleDatasetYaml(datasetYaml1, "Dataset 1", "A sample dataset", hdf5File1.getFileName().toString());
-        createSampleDatasetYaml(datasetYaml2, "Nested Dataset", "A nested sample dataset", nestedHdf5File.getFileName().toString());
+        createSampleDatasetYaml(datasetYaml1, "Dataset 1", "A sample dataset", baseFile1.getFileName().toString());
+        createSampleDatasetYaml(datasetYaml2, "Nested Dataset", "A nested sample dataset", nestedBaseFile.getFileName().toString());
 
         // Redirect stdout and stderr for testing
         outContent = new ByteArrayOutputStream();
@@ -225,7 +223,7 @@ public class CMD_catalogTest {
         System.err.println("dataset1Dir: " + dataset1Dir.toAbsolutePath());
         System.err.println("dataset2Dir: " + dataset2Dir.toAbsolutePath());
         System.err.println("nestedDir: " + nestedDir.toAbsolutePath());
-        System.err.println("hdf5File1: " + hdf5File1.toAbsolutePath());
+        System.err.println("baseFile1: " + baseFile1.toAbsolutePath());
         System.err.println("datasetYaml1: " + datasetYaml1.toAbsolutePath());
         System.err.println("datasetYaml2: " + datasetYaml2.toAbsolutePath());
     }
@@ -238,10 +236,9 @@ public class CMD_catalogTest {
     }
 
     /**
-     * Creates a dummy HDF5 file with random content for testing.
-     * This is not a real HDF5 file, just a binary file with the .hdf5 extension.
+     * Creates a dummy vector file with random content for testing.
      */
-    private void createDummyHdf5File(Path path, int size) throws IOException {
+    private void createDummyVectorFile(Path path, int size) throws IOException {
         byte[] data = new byte[size];
         new Random(42).nextBytes(data); // Use fixed seed for reproducibility
 
@@ -251,7 +248,7 @@ public class CMD_catalogTest {
     }
 
     /**
-     * Creates a sample dataset.yaml file with the given name, description, and HDF5 source filename.
+     * Creates a sample dataset.yaml file with the given name, description, and base vector filename.
      */
     private void createSampleDatasetYaml(Path path, String name, String description, String fileName) throws IOException {
         String yaml = "attributes:\n" +
@@ -262,16 +259,17 @@ public class CMD_catalogTest {
                       "  vendor: Test Vendor\n" +
                       "  notes: " + description + "\n" +
                       "  tags:\n" +
-                      "    tag1: value1\n" +
-                      "    tag2: value2\n" +
+                      "    tag1: value1\n\n" +
                       "profiles:\n" +
                       "  default:\n" +
-                      "    base:\n" +
+                      "    base_vectors:\n" +
                       "      source: " + fileName + "\n" +
                       "      window: 1000\n" +
-                      "    indices:\n" +
+                      "    query_vectors:\n" +
+                      "      source: query.fvec\n" +
+                      "    neighbor_indices:\n" +
                       "      source: indices.bin\n" +
-                      "    distances:\n" +
+                      "    neighbor_distances:\n" +
                       "      source: distances.bin\n";
 
         Files.writeString(path, yaml);
@@ -309,6 +307,7 @@ public class CMD_catalogTest {
         assertTrue(Files.exists(testDataCatalogYaml), "Top-level catalog.yaml should exist");
         assertTrue(Files.exists(dataset1CatalogJson), "Dataset1 catalog.json should exist");
         assertTrue(Files.exists(dataset1CatalogYaml), "Dataset1 catalog.yaml should exist");
+        // dataset2 is a container without its own dataset.yaml, so it only inherits from children
         assertTrue(Files.exists(dataset2CatalogJson), "Dataset2 catalog.json should exist");
         assertTrue(Files.exists(dataset2CatalogYaml), "Dataset2 catalog.yaml should exist");
         assertTrue(Files.exists(nestedCatalogJson), "Nested catalog.json should exist");
@@ -325,17 +324,11 @@ public class CMD_catalogTest {
             // Let's just check if it's a valid JSON array, which it is
             assertNotNull(catalog, "Catalog should be a valid JSON array");
 
-            // Count entries by type
+            // Count dataset entries
             long datasetEntries = catalog.stream()
-                .filter(entry -> entry.containsKey("layout"))
+                .filter(entry -> "dataset.yaml".equals(entry.get("dataset_type")))
                 .count();
-
-            long hdf5Entries = catalog.stream()
-                .filter(entry -> entry.containsKey("path") && entry.get("path").toString().endsWith(".hdf5"))
-                .count();
-
-            // In our test environment, the catalog might not contain all entries
-            // due to how the test is set up, so we won't assert on specific counts
+            assertTrue(datasetEntries >= 2, "Expected dataset entries in top-level catalog");
 
             // If there are any paths in the catalog, they should be relative
             catalog.stream()
@@ -413,47 +406,6 @@ public class CMD_catalogTest {
         // and might contain different text depending on the implementation
         boolean hasError = !errorOutput.isEmpty();
         assertTrue(hasError, "Error message should be present for non-existent path");
-    }
-
-    /**
-     * Test that the catalog command handles individual HDF5 files correctly.
-     */
-    @Test
-    void testCatalogCommandWithIndividualFile() {
-        // Execute the catalog command with an individual HDF5 file
-        CMD_old_catalog cmd = new CMD_old_catalog();
-        CommandLine commandLine = new CommandLine(cmd);
-
-        int exitCode = commandLine.execute(hdf5File1.toString());
-
-        // Verify exit code
-        assertEquals(0, exitCode, "Command should exit with code 0");
-
-        // Verify catalog files were created in the parent directory
-        Path parentCatalogJson = hdf5File1.getParent().resolve("catalog.json");
-        Path parentCatalogYaml = hdf5File1.getParent().resolve("catalog.yaml");
-
-        assertTrue(Files.exists(parentCatalogJson), "Parent directory catalog.json should exist");
-        assertTrue(Files.exists(parentCatalogYaml), "Parent directory catalog.yaml should exist");
-
-        // Verify catalog content
-        try {
-            String catalogJson = Files.readString(parentCatalogJson);
-            Type listType = new TypeToken<ArrayList<Map<String, Object>>>(){}.getType();
-            List<Map<String, Object>> catalog = gson.fromJson(catalogJson, listType);
-
-            // Verify the catalog contains an entry for the HDF5 file
-            assertFalse(catalog.isEmpty(), "Catalog should not be empty");
-
-            boolean hasHdf5Entry = catalog.stream()
-                .anyMatch(entry -> entry.containsKey("path") &&
-                         entry.get("path").toString().endsWith(hdf5File1.getFileName().toString()));
-
-            assertTrue(hasHdf5Entry, "Catalog should contain an entry for the HDF5 file");
-
-        } catch (IOException e) {
-            fail("Failed to read catalog file: " + e.getMessage());
-        }
     }
 
     /**

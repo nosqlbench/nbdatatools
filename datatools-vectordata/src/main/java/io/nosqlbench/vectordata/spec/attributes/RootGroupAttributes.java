@@ -21,8 +21,6 @@ package io.nosqlbench.vectordata.spec.attributes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import io.jhdf.api.Attribute;
-import io.jhdf.api.Group;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 
 import java.lang.reflect.Type;
@@ -93,30 +91,6 @@ public class RootGroupAttributes {
     public Map<String, String> tags() {
         return tags;
     }
-
-  /// create a metadata object from a group
-  /// @param dataset
-  ///     the dataset to read from
-  /// @return the metadata for this file
-  public static RootGroupAttributes fromGroup(Group dataset) {
-    return new RootGroupAttributes(
-        Optional.ofNullable(dataset.getAttribute("model")).map(Attribute::getData)
-            .map(String::valueOf).map(String::valueOf).orElse("unknown"),
-        Optional.ofNullable(dataset.getAttribute("url")).map(Attribute::getData)
-            .map(String::valueOf).map(String::valueOf).orElse("unknown"),
-        Optional.ofNullable(dataset.getAttribute("distance_function")).map(Attribute::getData)
-            .map(String::valueOf).map(String::toUpperCase)
-            .map(DistanceFunction::valueOf).orElse(DistanceFunction.COSINE),
-        Optional.ofNullable(dataset.getAttribute("notes")).map(Attribute::getData)
-            .map(String::valueOf),
-        Optional.ofNullable(dataset.getAttribute("license")).map(Attribute::getData)
-            .map(String::valueOf).map(String::valueOf).orElse("unknown"),
-        Optional.ofNullable(dataset.getAttribute("vendor")).map(Attribute::getData)
-            .map(String::valueOf).map(String::valueOf).orElse("unknown"),
-        Optional.ofNullable(dataset.getAttribute("tags")).map(Attribute::getData)
-            .map(String::valueOf).map(t -> new Gson().fromJson(t, Map.class)).orElse(Map.of())
-    );
-  }
 
   /// read the metadata from a map
   /// @param data

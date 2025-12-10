@@ -30,9 +30,7 @@ import io.nosqlbench.command.analyze.subcommands.verify_knn.statusview.StatusVie
 import io.nosqlbench.command.common.CommandLineFormatter;
 import io.nosqlbench.command.common.RangeOption;
 import io.nosqlbench.vectordata.discovery.DatasetLoader;
-import io.nosqlbench.vectordata.discovery.FilesystemTestDataGroup;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.layout.FInterval;
 import io.nosqlbench.vectordata.layout.FWindow;
@@ -61,7 +59,7 @@ import java.util.stream.Collectors;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "efficiently verify KNN answer-keys across multiple profiles",
-    description = "Reads a dataset through the vectordata API (supports HDF5, dataset.yaml with xvec files,\n" +
+    description = "Reads a dataset through the vectordata API (supports dataset.yaml with xvec files,\n" +
         "and remote URLs), discovers all profiles (or uses specified profiles), and efficiently\n" +
         "verifies the KNN neighborhoods for each profile.\n\n" +
         "Unlike verify_knn which processes one profile at a time, this command processes all\n" +
@@ -74,7 +72,6 @@ import java.util.stream.Collectors;
         "This is particularly useful for datasets with multiple size profiles (e.g., 1M, 10M,\n" +
         "100M vectors) that share the same base vector file but use different ranges.\n\n" +
         "Supports loading datasets from:\n" +
-        "- Local HDF5 files\n" +
         "- Local directories with dataset.yaml (xvec format)\n" +
         "- Remote URLs (with automatic caching)",
     exitCodeListHeading = "Exit Codes:%n",
@@ -220,18 +217,14 @@ public class CMD_analyze_verifyprofiles implements Callable<Integer> {
     }
 
     /**
-     * Get profile names from a ProfileSelector (handles TestDataGroup, FilesystemTestDataGroup, and VirtualProfileSelector)
+     * Get profile names from a ProfileSelector
      */
     private Set<String> getProfileNames(ProfileSelector dataGroup) {
-        if (dataGroup instanceof TestDataGroup) {
-            return ((TestDataGroup) dataGroup).getProfileNames();
-        } else if (dataGroup instanceof FilesystemTestDataGroup) {
-            return ((FilesystemTestDataGroup) dataGroup).getProfileNames();
-        } else if (dataGroup instanceof io.nosqlbench.vectordata.downloader.VirtualProfileSelector) {
-            return ((io.nosqlbench.vectordata.downloader.VirtualProfileSelector) dataGroup).getProfileNames();
-        } else {
-            throw new IllegalArgumentException("Unsupported ProfileSelector type: " + dataGroup.getClass());
+        Set<String> names = dataGroup.profileNames();
+        if (names.isEmpty()) {
+            return Set.of("default");
         }
+        return names;
     }
 
     /**

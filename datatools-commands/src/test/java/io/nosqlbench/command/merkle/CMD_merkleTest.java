@@ -176,7 +176,7 @@ public class CMD_merkleTest {
     Path fvecsFile = tempDir.resolve("CMD_merkleTest_test.fvecs");
     Path bvecFile = tempDir.resolve("CMD_merkleTest_test.bvec");
     Path bvecsFile = tempDir.resolve("CMD_merkleTest_test.bvecs");
-    Path hdf5File = tempDir.resolve("CMD_merkleTest_test.hdf5");
+    Path legacyFile = tempDir.resolve("CMD_merkleTest_test.legacy");
     Path txtFile = tempDir.resolve("CMD_merkleTest_test.txt"); // Not in default extensions
 
     // Create all the files
@@ -186,7 +186,7 @@ public class CMD_merkleTest {
     Files.createFile(fvecsFile);
     Files.createFile(bvecFile);
     Files.createFile(bvecsFile);
-    Files.createFile(hdf5File);
+    Files.createFile(legacyFile);
     Files.createFile(txtFile);
 
     // Test with a single directory and no extensions
@@ -196,7 +196,7 @@ public class CMD_merkleTest {
     List<Path> expandedFiles = MerkleUtils.expandDirectoriesWithExtensions(paths);
 
     // Should find 7 files with default extensions
-    assertEquals(7, expandedFiles.size(), "Should find 7 files with default extensions");
+    assertEquals(6, expandedFiles.size(), "Should find 6 files with default extensions");
 
     // Verify all default extension files are included
     assertTrue(expandedFiles.contains(ivecFile), ".ivec file should be included");
@@ -205,7 +205,7 @@ public class CMD_merkleTest {
     assertTrue(expandedFiles.contains(fvecsFile), ".fvecs file should be included");
     assertTrue(expandedFiles.contains(bvecFile), ".bvec file should be included");
     assertTrue(expandedFiles.contains(bvecsFile), ".bvecs file should be included");
-    assertTrue(expandedFiles.contains(hdf5File), ".hdf5 file should be included");
+    assertFalse(expandedFiles.contains(legacyFile), ".legacy file should be ignored");
 
     // Verify non-default extension file is not included
     assertFalse(expandedFiles.contains(txtFile), ".txt file should not be included");

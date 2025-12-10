@@ -18,9 +18,9 @@ package io.nosqlbench.common.adapters;
  */
 
 
-import io.nosqlbench.command.hdf5.subcommands.export_hdf5.datasource.ivecfvec.BvecToByteArray;
-import io.nosqlbench.command.hdf5.subcommands.export_hdf5.datasource.ivecfvec.FvecToIndexedFloatVector;
-import io.nosqlbench.command.hdf5.subcommands.export_hdf5.datasource.ivecfvec.IvecToIntArray;
+import io.nosqlbench.common.vectorio.BvecToByteArray;
+import io.nosqlbench.common.vectorio.FvecToIndexedFloatVector;
+import io.nosqlbench.common.vectorio.IvecToIntArray;
 import io.nosqlbench.nbdatatools.api.fileio.LongIndexedFloatVector;
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
 

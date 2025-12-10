@@ -11,7 +11,7 @@ attributes:
 profiles:
   default:
     base:
-      source: data.hdf5
+      source: base.fvec
       window: 2000
     indices:
       source: indices.bin

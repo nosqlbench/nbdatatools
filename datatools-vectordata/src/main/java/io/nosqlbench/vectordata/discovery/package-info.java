@@ -1,16 +1,15 @@
 /// Discovery and access APIs for vector test datasets.
 ///
 /// This package provides the primary interfaces for discovering and accessing vector test data,
-/// including profile selection, test data views, and data group organization. This is the main
-/// entry point for consuming vector test data from various sources (HDF5, xvec, etc.).
+/// including profile selection, test data views, and data group organization. It focuses on
+/// dataset.yaml-driven vector collections and remote catalogs.
 ///
 /// ## Key Components
 ///
 /// - {@link io.nosqlbench.vectordata.discovery.TestDataView}: Primary interface for accessing datasets
-/// - {@link io.nosqlbench.vectordata.discovery.TestDataGroup}: Organized collection of related datasets
+/// - {@link io.nosqlbench.vectordata.discovery.TestDataGroup}: Organized collection of filesystem datasets
 /// - {@link io.nosqlbench.vectordata.discovery.TestDataSources}: Factory for creating data sources
 /// - {@link io.nosqlbench.vectordata.discovery.ProfileSelector}: Selector for specific dataset profiles
-/// - {@link io.nosqlbench.vectordata.discovery.HDF5ProfileDataView}: HDF5-based dataset view implementation
 ///
 /// ## Usage Example
 ///

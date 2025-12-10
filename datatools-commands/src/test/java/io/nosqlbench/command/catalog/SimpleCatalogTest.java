@@ -39,31 +39,31 @@ public class SimpleCatalogTest {
         
         // Create a simple dataset.yaml file
         Path datasetYaml = testDir.resolve("dataset.yaml");
-        String yaml = "---\n" +
-                      "name: Test Dataset\n" +
-                      "description: A test dataset\n" +
-                      "version: 1.0\n" +
-                      "profiles:\n" +
-                      "  default:\n" +
-                      "    dimensions: 128\n" +
-                      "attributes:\n" +
+        String yaml = "attributes:\n" +
                       "  model: test-model\n" +
                       "  url: http://example.com\n" +
                       "  distance_function: COSINE\n" +
                       "  license: Apache-2.0\n" +
-                      "  vendor: nosqlbench\n";
+                      "  vendor: nosqlbench\n" +
+                      "profiles:\n" +
+                      "  default:\n" +
+                      "    base_vectors:\n" +
+                      "      source: base.fvec\n" +
+                      "    query_vectors:\n" +
+                      "      source: query.fvec\n";
         Files.writeString(datasetYaml, yaml);
         
-        // Create a dummy HDF5 file
-        Path hdf5File = testDir.resolve("test.hdf5");
-        byte[] data = new byte[1024];
-        Files.write(hdf5File, data);
+        // Create dummy vector files referenced by the dataset
+        Path baseFile = testDir.resolve("base.fvec");
+        Path queryFile = testDir.resolve("query.fvec");
+        Files.write(baseFile, new byte[256]);
+        Files.write(queryFile, new byte[256]);
         
         // Print debug info
         System.out.println("Test directory structure created at: " + tempDir.toAbsolutePath());
         System.out.println("testDir: " + testDir.toAbsolutePath());
         System.out.println("datasetYaml: " + datasetYaml.toAbsolutePath());
-        System.out.println("hdf5File: " + hdf5File.toAbsolutePath());
+        System.out.println("baseFile: " + baseFile.toAbsolutePath());
         
         // Execute the catalog command
         CMD_old_catalog cmd = new CMD_old_catalog();

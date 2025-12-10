@@ -12,8 +12,8 @@ other testing systems.
 
 ### specs
 
-This documents the hdf5 layout standard used by this repo. The conventions described here are 
-directly supported by the other modules.
+This documents the vectordata layout standard (dataset.yaml + file facets) used by this repo. The conventions described here
+are directly supported by the other modules.
 
 The format used was initially inspired by
 that of [ann-benchmark](https://github.com/erikbern/ann-benchmarks), but has since been extended
@@ -49,7 +49,6 @@ analyze     Inspect vector datasets
 
 convert     Convert between vector formats
   file          fvec/ivec/bvec/csv/json ↔ other formats
-  hdf52dataset  HDF5 → dataset.yaml layout
 
 compute     CPU helpers
   knn           Generate ground-truth neighbors
@@ -81,13 +80,7 @@ vectordata  Explore vectordata layouts
   verify        Prebuffer as a verification pass
   repl          Interactive explorer
 
-hdf5        HDF5 utilities
-  tag           Read/write attributes
-  show          Inspect structure/paths
-  build         Build from JSON specs
-  export        Convert from fvec/ivec/bvec/parquet/etc.
-
-catalog     Emit catalog.json/yaml for dataset roots and .hdf5 files
+catalog     Emit catalog.json/yaml for dataset roots
 
 fetch       Download datasets from Hugging Face
   dlhf          API download with parquet support

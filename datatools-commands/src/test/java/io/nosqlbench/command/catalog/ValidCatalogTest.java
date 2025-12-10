@@ -51,19 +51,22 @@ public class ValidCatalogTest {
                       "    tag2: value2\n" +
                       "profiles:\n" +
                       "  default:\n" +
-                      "    base:\n" +
-                      "      source: test.hdf5\n" +
+                      "    base_vectors:\n" +
+                      "      source: base.fvec\n" +
                       "      window: 1000\n" +
-                      "    indices:\n" +
+                      "    query_vectors:\n" +
+                      "      source: query.fvec\n" +
+                      "    neighbor_indices:\n" +
                       "      source: indices.bin\n" +
-                      "    distances:\n" +
+                      "    neighbor_distances:\n" +
                       "      source: distances.bin\n";
         Files.writeString(datasetYaml, yaml);
         
-        // Create a dummy HDF5 file
-        Path hdf5File = testDir.resolve("test.hdf5");
-        byte[] data = new byte[1024];
-        Files.write(hdf5File, data);
+        // Create dummy vector files
+        Path baseFile = testDir.resolve("base.fvec");
+        Path queryFile = testDir.resolve("query.fvec");
+        Files.write(baseFile, new byte[1024]);
+        Files.write(queryFile, new byte[1024]);
         
         // Create dummy indices and distances files
         Path indicesFile = testDir.resolve("indices.bin");
@@ -75,7 +78,7 @@ public class ValidCatalogTest {
         System.out.println("Test directory structure created at: " + tempDir.toAbsolutePath());
         System.out.println("testDir: " + testDir.toAbsolutePath());
         System.out.println("datasetYaml: " + datasetYaml.toAbsolutePath());
-        System.out.println("hdf5File: " + hdf5File.toAbsolutePath());
+        System.out.println("baseFile: " + baseFile.toAbsolutePath());
         
         // Execute the catalog command
         CMD_old_catalog cmd = new CMD_old_catalog();

@@ -21,7 +21,9 @@ package io.nosqlbench.vectordata.spec.attributes.syntax;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/// This class captures a basic string specification for assigning an attribute to an hdf5 parent.
+/// This class captures a basic string specification for assigning an attribute to a dataset
+/// element (group, view, file, etc.). The syntax is format-agnostic and works anywhere
+/// attribute-style metadata is supported.
 /// The format can support any of these variants:
 /// ```
 /// varname=(String)value
@@ -66,7 +68,7 @@ public class AttrSet {
   public static AttrSet parse(String spec) {
     Matcher m = SPEC_PATTERN.matcher(spec);
     if (!m.matches()) {
-      throw new IllegalArgumentException("Invalid HDF5 attribute spec format: " + spec);
+      throw new IllegalArgumentException("Invalid attribute spec format: " + spec);
     }
     AttrSpec attrname = AttrSpec.parse(m.group("attrname"));
     AttrValue<?> attrvalue = AttrValue.parse(m.group("attrvalue"));

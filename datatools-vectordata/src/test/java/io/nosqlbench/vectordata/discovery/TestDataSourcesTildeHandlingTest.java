@@ -66,7 +66,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = testCatalogDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"tilde-test-dataset\",\n" +
-            "  \"url\": \"http://example.com/dataset.hdf5\",\n" +
+            "  \"url\": \"http://example.com/dataset.nbdset\",\n" +
             "  \"attributes\": {\"test\": \"tilde-expansion\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -95,7 +95,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = testCatalogDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"optional-tilde-dataset\",\n" +
-            "  \"url\": \"http://example.com/optional.hdf5\",\n" +
+            "  \"url\": \"http://example.com/optional.nbdset\",\n" +
             "  \"attributes\": {\"type\": \"optional-tilde\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -130,7 +130,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = catalogDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"config-tilde-dataset\",\n" +
-            "  \"url\": \"http://example.com/config.hdf5\",\n" +
+            "  \"url\": \"http://example.com/config.nbdset\",\n" +
             "  \"attributes\": {\"source\": \"config-tilde\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -179,7 +179,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = catalogDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"test-dataset\",\n" +
-            "  \"url\": \"http://example.com/test.hdf5\",\n" +
+            "  \"url\": \"http://example.com/test.nbdset\",\n" +
             "  \"attributes\": {},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -202,7 +202,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = nestedDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"nested-dataset\",\n" +
-            "  \"url\": \"http://example.com/nested.hdf5\",\n" +
+            "  \"url\": \"http://example.com/nested.nbdset\",\n" +
             "  \"attributes\": {},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -226,7 +226,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = catalogDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"no-tilde-dataset\",\n" +
-            "  \"url\": \"http://example.com/notilde.hdf5\",\n" +
+            "  \"url\": \"http://example.com/notilde.nbdset\",\n" +
             "  \"attributes\": {\"tilde\": \"none\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -251,7 +251,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path requiredCatalog = requiredDir.resolve("catalog.json");
         Files.writeString(requiredCatalog, "[{\n" +
             "  \"name\": \"required-dataset\",\n" +
-            "  \"url\": \"http://example.com/required.hdf5\",\n" +
+            "  \"url\": \"http://example.com/required.nbdset\",\n" +
             "  \"attributes\": {},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -284,7 +284,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = homeCatalogDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"yaml-tilde-dataset\",\n" +
-            "  \"url\": \"http://example.com/yaml.hdf5\",\n" +
+            "  \"url\": \"http://example.com/yaml.nbdset\",\n" +
             "  \"attributes\": {\"from\": \"yaml\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -319,7 +319,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = configPath.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"testapp-dataset\",\n" +
-            "  \"url\": \"http://example.com/testapp.hdf5\",\n" +
+            "  \"url\": \"http://example.com/testapp.nbdset\",\n" +
             "  \"attributes\": {\"path\": \"correct\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -351,7 +351,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path catalogFile = catalogDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"deep-dataset\",\n" +
-            "  \"url\": \"http://example.com/deep.hdf5\",\n" +
+            "  \"url\": \"http://example.com/deep.nbdset\",\n" +
             "  \"attributes\": {},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -382,7 +382,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path dataFile = dataCatalogDir.resolve("catalog.json");
         Files.writeString(dataFile, "[{\n" +
             "  \"name\": \"directory-test-dataset\",\n" +
-            "  \"url\": \"http://example.com/directory.hdf5\",\n" +
+            "  \"url\": \"http://example.com/directory.nbdset\",\n" +
             "  \"attributes\": {\"source\": \"directory\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -411,7 +411,7 @@ public class TestDataSourcesTildeHandlingTest {
         Path dataFile = dataCatalogDir.resolve("catalog.json");
         Files.writeString(dataFile, "[{\n" +
             "  \"name\": \"yaml-file-dataset\",\n" +
-            "  \"url\": \"http://example.com/yamlfile.hdf5\",\n" +
+            "  \"url\": \"http://example.com/yamlfile.nbdset\",\n" +
             "  \"attributes\": {\"source\": \"yaml-file\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +

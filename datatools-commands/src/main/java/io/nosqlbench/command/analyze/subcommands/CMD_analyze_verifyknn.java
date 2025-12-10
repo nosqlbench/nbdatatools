@@ -60,9 +60,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
-/// This app will read data from vector dataset files (HDF5, FVecs, IVecs, etc.) in the
-/// standard vector KNN answer key format, computing correct neighborhoods and comparing
-/// them to the provided ones.
+/// This app reads vector datasets defined via dataset.yaml (xvec-backed) inputs
+/// and verifies that the stored neighbor indices match freshly computed values.
 ///
 /// Internally, values may be promoted from int to long and from float to double as needed.
 /// For now, floats are used by default, since that is the precision in current test files.
@@ -73,7 +72,7 @@ import java.util.concurrent.Callable;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header = "self-check KNN test data answer-keys",
-    description = "Reads query vectors from dataset files (HDF5, dataset.yaml with xvec files, or remote URLs),\n" +
+    description = "Reads query vectors from dataset directories (dataset.yaml with xvec files) or remote URLs,\n" +
         "computes KNN neighborhoods, and compares them against the answer-key data given.\n" +
         "This is a pure Java implementation which requires no other vector processing\n" +
         "libraries or hardware, so it has two key trade-offs with other methods:\n" +
@@ -87,12 +86,10 @@ import java.util.concurrent.Callable;
         "The currently supported distance functions and file formats are indicated\n" +
         "by the available command line options.\n\n" +
         "Supports loading datasets from:\n" +
-        "- Local HDF5 files\n" +
         "- Local directories with dataset.yaml (xvec format)\n" +
         "- Remote URLs (with automatic caching)\n" +
         "- Explicit individual files (--base, --query, --indices)\n\n" +
-        "The pseudo-standard HDF5 KNN answer-key file format is documented here:\n" +
-        "https://github.com/nosqlbench/nbdatatools/blob/main/nbvectors/src/docs/hdf5_vectors.md",
+        "The vectordata dataset format is documented in the repository docs.",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {
         "0: all tested neighborhoods were correct",
@@ -116,8 +113,8 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
   @CommandLine.Mixin
   private DistancesInputFileOption distancesOption = new DistancesInputFileOption();
 
-  @Parameters(description = "The dataset file(s), directory, or URL to load (supports HDF5, dataset.yaml, and remote URLs; defaults to current directory if no explicit files specified)", arity = "0..*")
-  private List<Path> hdfpaths = new ArrayList<>();
+  @Parameters(description = "The dataset directory or URL to load (supports dataset.yaml and remote URLs; defaults to current directory if no explicit path specified)", arity = "0..*")
+  private List<Path> datasetPaths = new ArrayList<>();
 
   @Option(names = {"-d", "--distance_function"},
       description = "Valid values: ${COMPLETION-CANDIDATES} (overrides dataset/metric)")
@@ -321,19 +318,19 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
     int errors = 0;
 
     // If no paths provided, default to current directory
-    List<Path> pathsToProcess = hdfpaths.isEmpty() ? List.of(Path.of(".")) : hdfpaths;
+    List<Path> pathsToProcess = datasetPaths.isEmpty() ? List.of(Path.of(".")) : datasetPaths;
 
-    for (Path hdfpath : pathsToProcess) {
+    for (Path datasetPath : pathsToProcess) {
 
       ProfileSelector datag;
       TestDataView data;
 
       try {
-        datag = DatasetLoader.load(hdfpath);
+        datag = DatasetLoader.load(datasetPath);
         data = datag.profile("default");
       } catch (Exception e) {
-        logger.error("Failed to load dataset from {}: {}", hdfpath, e.getMessage());
-        logger.error("Auto-discovery requires HDF5 file, directory with dataset.yaml, or compatible data files");
+        logger.error("Failed to load dataset from {}: {}", datasetPath, e.getMessage());
+        logger.error("Auto-discovery requires a directory with dataset.yaml or compatible data files");
         logger.error("For explicit file mode, use: --base <file> --query <file> --indices <file>");
         return 1;
       }

@@ -18,6 +18,7 @@ package io.nosqlbench.vectordata.discovery;
  */
 
 import java.util.Optional;
+import java.util.Set;
 
 /// Interface for selecting and configuring dataset profiles.
 ///
@@ -54,6 +55,12 @@ public interface ProfileSelector extends AutoCloseable {
     return presetProfile()
         .map(this::profile)
         .orElseThrow(() -> new IllegalStateException("No preset profile specified"));
+  }
+
+  /// Provides the set of known profile names for this selector.
+  /// Implementations should preserve natural ordering when possible.
+  default Set<String> profileNames() {
+    return Set.of();
   }
 
   /// Closes this profile selector and releases any associated resources.

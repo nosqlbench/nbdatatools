@@ -43,7 +43,7 @@ public class TestDataSourcesOptionalPathsTest {
         String catalogContent = "[\n" +
             "  {\n" +
             "    \"name\": \"test-dataset-1\",\n" +
-            "    \"url\": \"http://example.com/dataset1.hdf5\",\n" +
+            "    \"url\": \"http://example.com/dataset1.nbdset\",\n" +
             "    \"attributes\": {\n" +
             "      \"description\": \"Test dataset 1\"\n" +
             "    },\n" +
@@ -54,7 +54,7 @@ public class TestDataSourcesOptionalPathsTest {
             "  },\n" +
             "  {\n" +
             "    \"name\": \"test-dataset-2\",\n" +
-            "    \"url\": \"http://example.com/dataset2.hdf5\",\n" +
+            "    \"url\": \"http://example.com/dataset2.nbdset\",\n" +
             "    \"attributes\": {\n" +
             "      \"description\": \"Test dataset 2\"\n" +
             "    },\n" +
@@ -104,7 +104,7 @@ public class TestDataSourcesOptionalPathsTest {
         Path requiredCatalog = requiredDir.resolve("catalog.json");
         Files.writeString(requiredCatalog, "[{\n" +
             "  \"name\": \"required-dataset\",\n" +
-            "  \"url\": \"http://example.com/required.hdf5\",\n" +
+            "  \"url\": \"http://example.com/required.nbdset\",\n" +
             "  \"attributes\": {},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -152,7 +152,7 @@ public class TestDataSourcesOptionalPathsTest {
         Path requiredCatalog = requiredDir.resolve("catalog.json");
         Files.writeString(requiredCatalog, "[{\n" +
             "  \"name\": \"required-dataset\",\n" +
-            "  \"url\": \"http://example.com/required.hdf5\",\n" +
+            "  \"url\": \"http://example.com/required.nbdset\",\n" +
             "  \"attributes\": {\"source\": \"required\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -164,7 +164,7 @@ public class TestDataSourcesOptionalPathsTest {
         Path optionalCatalog1 = optionalDir1.resolve("catalog.json");
         Files.writeString(optionalCatalog1, "[{\n" +
             "  \"name\": \"optional-dataset-1\",\n" +
-            "  \"url\": \"http://example.com/optional1.hdf5\",\n" +
+            "  \"url\": \"http://example.com/optional1.nbdset\",\n" +
             "  \"attributes\": {\"source\": \"optional1\"},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -209,7 +209,7 @@ public class TestDataSourcesOptionalPathsTest {
         Path catalogFile = catalogDir.resolve("catalog.json");
         Files.writeString(catalogFile, "[{\n" +
             "  \"name\": \"config-dataset\",\n" +
-            "  \"url\": \"http://example.com/config.hdf5\",\n" +
+            "  \"url\": \"http://example.com/config.nbdset\",\n" +
             "  \"attributes\": {},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +
@@ -248,7 +248,7 @@ public class TestDataSourcesOptionalPathsTest {
         Path requiredCatalog = requiredDir.resolve("catalog.json");
         Files.writeString(requiredCatalog, "[{\n" +
             "  \"name\": \"test-dataset\",\n" +
-            "  \"url\": \"http://example.com/test.hdf5\",\n" +
+            "  \"url\": \"http://example.com/test.nbdset\",\n" +
             "  \"attributes\": {},\n" +
             "  \"profiles\": {},\n" +
             "  \"tags\": {}\n" +

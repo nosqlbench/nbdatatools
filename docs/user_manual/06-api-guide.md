@@ -51,50 +51,37 @@ DatasetView<double[]> doubleVectors = ...; // For high precision
 
 ## Loading Datasets
 
-### From HDF5 Files
+### From dataset directories
 
-Load a complete test dataset:
+Load a complete test dataset from a directory containing `dataset.yaml`:
 
 ```java
 import io.nosqlbench.vectordata.discovery.TestDataView;
 import java.nio.file.Paths;
 
-// Load test dataset
-TestDataView testData = TestDataView.open(Paths.get("dataset.hdf5"));
-
-// Access components
+TestDataView testData = TestDataView.open(Paths.get("datasets/mteb-lite"));
 DatasetView<float[]> baseVectors = testData.getBaseVectors();
 DatasetView<float[]> queryVectors = testData.getQueryVectors();
-
-System.out.printf("Loaded %d base vectors of %d dimensions%n", 
-    baseVectors.getCount(), baseVectors.getVectorDimensions());
 ```
 
 ### From Individual Components
 
-Load just the base vectors:
+Load just the base vectors stored in `.fvec` form:
 
 ```java
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
 
-// Load only base vectors
-FloatVectors vectors = FloatVectors.open(Paths.get("vectors.hdf5"), "/base");
-
+FloatVectors vectors = FloatVectors.open(Paths.get("datasets/mteb-lite/base.fvec"));
 System.out.printf("Loaded %d vectors%n", vectors.getCount());
 ```
 
 ### Remote Datasets
 
-Load from URLs:
-
 ```java
 import java.net.URI;
 
-// Load from HTTP/HTTPS
 TestDataView remoteData = TestDataView.open(
-    URI.create("https://example.com/dataset.hdf5"));
-
-// The data is downloaded and cached automatically
+    URI.create("https://example.com/datasets/mteb-lite/"));
 ```
 
 ## Unified Dataset Loading with DatasetLoader
@@ -103,11 +90,10 @@ The `DatasetLoader` class provides a single, unified API for loading datasets fr
 
 ### Supported Dataset Sources
 
-`DatasetLoader` supports three types of dataset sources:
+`DatasetLoader` supports two dataset sources:
 
-1. **Remote URLs** - HTTP/HTTPS URLs to remote datasets
-2. **Local HDF5 files** - Local .hdf5 or .h5 files
-3. **Local filesystem datasets** - Directories containing dataset.yaml
+1. **Remote URLs** - HTTP/HTTPS directories containing dataset.yaml
+2. **Local filesystem datasets** - Directories containing dataset.yaml (and facet files)
 
 ### Basic Usage
 
@@ -154,34 +140,9 @@ try (ProfileSelector dataset = DatasetLoader.load(
 - Automatic local caching
 - Efficient for large datasets (only downloads chunks as accessed)
 
-#### Local HDF5 Files
-
-For local HDF5 files, `DatasetLoader` uses the `TestDataGroup` implementation for direct file access:
-
-```java
-// Load from HDF5 file
-try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset.hdf5")) {
-    TestDataView profile = dataset.profile("default");
-
-    // Direct access to HDF5 file
-    FloatVectors baseVectors = profile.getBaseVectors().orElseThrow();
-}
-
-// Also works with .h5 extension
-ProfileSelector dataset = DatasetLoader.load("/path/to/dataset.h5");
-
-// Tilde expansion supported
-ProfileSelector dataset = DatasetLoader.load("~/datasets/my-vectors.hdf5");
-```
-
-**HDF5 Implementation:** Uses `TestDataGroup` → `HDF5ProfileDataView`
-- Direct HDF5 dataset access
-- Supports all HDF5 dataset features
-- Profile-based configuration from HDF5 attributes
-
 #### Local Filesystem Datasets
 
-For local directories containing `dataset.yaml`, `DatasetLoader` uses the `FilesystemTestDataGroup` implementation:
+For local directories containing `dataset.yaml`, `DatasetLoader` uses the `TestDataGroup` implementation:
 
 ```java
 // Load from directory with dataset.yaml
@@ -196,7 +157,7 @@ try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset/")) {
 ProfileSelector dataset = DatasetLoader.load("/path/to/dataset/dataset.yaml");
 ```
 
-**Filesystem Implementation:** Uses `FilesystemTestDataGroup` → `FilesystemTestDataView`
+**Filesystem Implementation:** Uses `TestDataGroup` → `FilesystemTestDataView`
 - Direct AsyncFileChannel access to vector files
 - Supports xvec formats (fvec, ivec, bvec)
 - Profile and windowing configuration via dataset.yaml
@@ -242,15 +203,11 @@ Input is URL (starts with http:// or https://)?
   → Use VirtualProfileSelector (remote access with caching)
 
 Input is directory?
-  → Check for dataset.yaml → Use FilesystemTestDataGroup
-  → Check for single .hdf5 file → Use TestDataGroup
-  → Multiple HDF5 files → Error (ambiguous)
-  → No recognizable format → Error
+  → dataset.yaml present → Use TestDataGroup
+  → No manifest → Error
 
-Input is file?
-  → Named dataset.yaml → Use FilesystemTestDataGroup (parent dir)
-  → Extension .hdf5 or .h5 → Use TestDataGroup
-  → Try opening as HDF5 → Use TestDataGroup or Error
+Input is dataset.yaml file?
+  → Use TestDataGroup with parent directory
 ```
 
 ### Working with Multiple Profiles
@@ -308,9 +265,8 @@ ProfileSelector ds3 = DatasetLoader.load(datasetUrl);
 
 | Source Type | Detection | Implementation | Access Method |
 |-------------|-----------|----------------|---------------|
-| Remote URL | Starts with http:// or https:// | VirtualProfileSelector | MAFileChannel with on-demand download |
-| Local HDF5 file | Extension .hdf5/.h5 or HDF5 header | TestDataGroup | Direct HDF5 access |
-| Filesystem dataset | dataset.yaml present | FilesystemTestDataGroup | AsyncFileChannel to xvec files |
+| Remote URL | Starts with http:///https:// | VirtualProfileSelector | MAFileChannel with on-demand download |
+| Filesystem dataset | dataset.yaml present | TestDataGroup | AsyncFileChannel to xvec facet files |
 
 ### Performance Considerations
 
@@ -320,12 +276,7 @@ ProfileSelector ds3 = DatasetLoader.load(datasetUrl);
 - Merkle verification ensures data integrity
 - Caching improves subsequent access
 
-**Local HDF5 (TestDataGroup):**
-- Direct file access, no download overhead
-- Best for: Complete datasets stored locally
-- Fast random access to any vector
-
-**Filesystem (FilesystemTestDataGroup):**
+**Filesystem (TestDataGroup):**
 - Direct AsyncFileChannel to individual files
 - Best for: Datasets with separate vector files
 - Flexible windowing and range support
@@ -373,8 +324,7 @@ public class DatasetLoaderExample {
 
 This example works identically whether `datasetSource` is:
 - A remote URL: `https://example.com/datasets/my-vectors/`
-- A local HDF5 file: `/path/to/dataset.hdf5`
-- A local filesystem dataset: `/path/to/dataset/`
+- A local dataset directory: `/path/to/dataset/`
 
 ## Basic Vector Operations
 
@@ -547,7 +497,7 @@ import io.nosqlbench.nbdatatools.api.fileio.VectorFileStream;
 
 // Open as stream
 try (VectorFileStream<float[]> stream = 
-     VectorFileStream.open(Paths.get("large_vectors.hdf5"))) {
+     VectorFileStream.open(Paths.get("large_datasets/mteb-lite/base.fvec"))) {
     
     // Process each vector
     for (float[] vector : stream) {
@@ -564,7 +514,7 @@ When you know the size:
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
 
 try (BoundedVectorFileStream<float[]> stream = 
-     BoundedVectorFileStream.open(Paths.get("vectors.hdf5"))) {
+     BoundedVectorFileStream.open(Paths.get("datasets/mteb-lite/base.fvec"))) {
     
     long totalVectors = stream.getSize();
     System.out.printf("Processing %d vectors...%n", totalVectors);
@@ -590,7 +540,7 @@ try (BoundedVectorFileStream<float[]> stream =
 Access dataset attributes:
 
 ```java
-TestDataView testData = TestDataView.open(Paths.get("dataset.hdf5"));
+TestDataView testData = TestDataView.open(Paths.get("datasets/mteb-lite"));
 
 // Basic metadata
 String distanceFunction = testData.getDistance();
@@ -603,7 +553,7 @@ System.out.printf("Dataset: %s, Distance: %s, License: %s%n",
 
 ### Custom Attributes
 
-Read custom attributes from HDF5:
+Read custom attributes from the manifest or tagged views:
 
 ```java
 import io.nosqlbench.vectordata.spec.tagging.Tagged;
@@ -689,7 +639,7 @@ public static double innerProductDistance(float[] a, float[] b) {
 
 ### Writing Vector Data
 
-Create new HDF5 datasets:
+Create a new `.fvec` facet:
 
 ```java
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
@@ -697,9 +647,9 @@ import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 // Create vectors
 List<float[]> vectors = generateVectors(10000, 128);
 
-// Write to HDF5
+// Write to .fvec
 try (VectorFileStreamStore<float[]> store = 
-     VectorFileStreamStore.open(Paths.get("new_dataset.hdf5"))) {
+     VectorFileStreamStore.open(Paths.get("generated/base.fvec"))) {
     
     // Write vectors in batches
     store.writeBulk(vectors);
@@ -745,7 +695,7 @@ for (float[] query : queryVectors) {
 
 // Write complete dataset
 writeCompleteDataset(
-    Paths.get("complete_testset.hdf5"),
+    Paths.get("generated/complete_dataset"),
     baseVectors, queryVectors, 
     groundTruthIndices, groundTruthDistances,
     "euclidean"
@@ -789,7 +739,7 @@ DSProfile profile = DSProfile.builder()
     .build();
 
 TestDataView customData = TestDataView.open(
-    Paths.get("dataset.hdf5"), 
+    Paths.get("datasets/mteb-lite"), 
     profile
 );
 ```
@@ -800,7 +750,7 @@ TestDataView customData = TestDataView.open(
 
 ```java
 try {
-    TestDataView testData = TestDataView.open(Paths.get("dataset.hdf5"));
+    TestDataView testData = TestDataView.open(Paths.get("datasets/mteb-lite"));
     
     // Validate dataset structure
     if (testData.getBaseVectors().getCount() == 0) {
@@ -993,7 +943,7 @@ class EvaluationResults {
 Always close resources:
 
 ```java
-try (TestDataView testData = TestDataView.open(Paths.get("dataset.hdf5"))) {
+try (TestDataView testData = TestDataView.open(Paths.get("datasets/mteb-lite"))) {
     // Use testData...
 } // Automatically closed
 ```

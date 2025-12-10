@@ -21,7 +21,7 @@ package io.nosqlbench.vectordata.spec.attributes.syntax;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/// This class captures a basic string specification for assigning an attribute to an hdf5 parent.
+/// This class captures a basic string specification for assigning an attribute value.
 /// The format can support any of these examples/variants:
 /// - `(String)astring` -> String
 /// - `(int)234` -> int
@@ -85,7 +85,7 @@ public class AttrValue<T> {
   public static <T> AttrValue<T> parse(String spec) {
     Matcher m = SPEC_PATTERN.matcher(spec);
     if (!m.matches()) {
-      throw new IllegalArgumentException("Invalid HDF5 value spec format: " + spec);
+      throw new IllegalArgumentException("Invalid attribute value format: " + spec);
     }
     String typename = m.group("typename") != null ? m.group("typename").trim() : "";
     String literal = m.group("literal");

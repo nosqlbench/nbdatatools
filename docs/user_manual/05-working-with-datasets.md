@@ -6,7 +6,7 @@ This chapter provides practical workflows for common dataset management tasks us
 
 ```mermaid
 graph TD
-    A[Raw Data] -->|convert| B[HDF5 Format]
+    A[Raw Data] -->|convert| B[dataset.yaml Layout]
     B -->|catalog| C[Dataset Catalog]
     C -->|discover| D[Find Dataset]
     D -->|download| E[Local Copy]
@@ -73,7 +73,7 @@ Base vectors: 1,000,000
 Query vectors: 10,000
 Ground truth neighbors: 100
 File size: 512MB
-Download URL: https://example.com/datasets/sift-128-euclidean.hdf5
+Download URL: https://example.com/datasets/sift-128-euclidean/
 Checksum: sha256:abc123...
 ```
 
@@ -89,7 +89,7 @@ java -jar nbvectors.jar datasets download \
   --output ./datasets/
 ```
 
-The file will be saved as `./datasets/sift-128-euclidean.hdf5`.
+The dataset will be materialized under `./datasets/sift-128-euclidean/` (manifest plus facets).
 
 To target an alternate profile, change the part after the colon (for example `sift-128-euclidean:validation`). Escape literal colons in dataset names with `\:` such as `vector\:set:default`.
 
@@ -118,36 +118,30 @@ Download with a custom filename:
 ```bash
 java -jar nbvectors.jar datasets download \
   --name "glove-100-angular" \
-  --output ./data/my_glove_dataset.hdf5
+  --output ./data/glove-100
 ```
 
 ## Converting Your Own Data
 
 ### Single Vector File
 
-Convert a `.fvec` file to HDF5:
+Convert a `.fvec` file to CSV:
 
 ```bash
-java -jar nbvectors.jar export_hdf5 \
+java -jar nbvectors.jar convert file \
   --input my_vectors.fvec \
-  --output my_dataset.hdf5 \
-  --dataset-name "my_embeddings" \
-  --distance euclidean
+  --output my_vectors.csv \
+  --dimensions 128
 ```
 
 ### Complete Test Dataset
 
-Convert base vectors, queries, and ground truth:
+Convert base vectors, queries, and ground truth into other formats:
 
 ```bash
-java -jar nbvectors.jar export_hdf5 \
-  --input base_vectors.fvec \
-  --queries query_vectors.fvec \
-  --neighbors ground_truth.ivec \
-  --distances ground_truth_distances.fvec \
-  --output complete_dataset.hdf5 \
-  --distance cosine \
-  --dataset-name "my_ann_testset"
+java -jar nbvectors.jar convert file --input base_vectors.fvec --output base_vectors.json
+java -jar nbvectors.jar convert file --input query_vectors.fvec --output query_vectors.csv
+java -jar nbvectors.jar convert file --input ground_truth.ivec --output ground_truth.json
 ```
 
 ### From Parquet
@@ -155,11 +149,11 @@ java -jar nbvectors.jar export_hdf5 \
 Convert from Parquet format:
 
 ```bash
-java -jar nbvectors.jar export_hdf5 \
+java -jar nbvectors.jar convert file \
   --input vectors.parquet \
-  --output vectors.hdf5 \
-  --parquet-vector-column "embedding" \
-  --parquet-id-column "id"
+  --output vectors.fvec \
+  --parquet-column embedding \
+  --parquet-id-column id
 ```
 
 ### Batch Conversion
@@ -170,10 +164,9 @@ Convert multiple files in a directory:
 #!/bin/bash
 for file in *.fvec; do
     base=$(basename "$file" .fvec)
-    java -jar nbvectors.jar export_hdf5 \
+    java -jar nbvectors.jar convert file \
       --input "$file" \
-      --output "${base}.hdf5" \
-      --dataset-name "$base"
+      --output "${base}.csv"
 done
 ```
 
@@ -184,12 +177,12 @@ done
 Get a high-level description:
 
 ```bash
-java -jar nbvectors.jar analyze describe --file dataset.hdf5
+java -jar nbvectors.jar analyze describe datasets/mteb-lite
 ```
 
 Output example:
 ```
-Dataset: dataset.hdf5
+Dataset: datasets/mteb-lite
 Format version: 1.0
 Distance function: euclidean
 Created: 2024-01-15T10:30:00Z
@@ -218,7 +211,7 @@ Get comprehensive statistics:
 
 ```bash
 java -jar nbvectors.jar analyze describe \
-  --file dataset.hdf5 \
+  datasets/mteb-lite \
   --detailed \
   --format json
 ```
@@ -226,7 +219,7 @@ java -jar nbvectors.jar analyze describe \
 Example output:
 ```json
 {
-  "file": "dataset.hdf5",
+  "dataset": "datasets/mteb-lite",
   "version": "1.0",
   "distance": "euclidean",
   "base_vectors": {
@@ -249,8 +242,7 @@ Example output:
 Check that k-NN ground truth is correct:
 
 ```bash
-java -jar nbvectors.jar analyze verify_knn \
-  --file dataset.hdf5 \
+java -jar nbvectors.jar analyze verify_knn datasets/mteb-lite \
   --sample-size 1000 \
   --k 10
 ```
@@ -271,13 +263,10 @@ Useful for data quality checking.
 
 ### Structure Validation
 
-Verify that an HDF5 file follows the standard structure:
+Verify that a dataset directory follows the standard structure:
 
 ```bash
-java -jar nbvectors.jar show_hdf5 \
-  --file dataset.hdf5 \
-  --tree \
-  --attributes
+java -jar nbvectors.jar analyze describe datasets/mteb-lite --format json
 ```
 
 ### Data Consistency Checks
@@ -286,15 +275,15 @@ Check for common issues:
 
 ```bash
 # Check dimensions match between base and query
-java -jar nbvectors.jar analyze describe --file dataset.hdf5
+java -jar nbvectors.jar analyze describe datasets/mteb-lite
 
 # Verify ground truth dimensions
-java -jar nbvectors.jar analyze verify_knn --file dataset.hdf5 --k 1
+java -jar nbvectors.jar analyze verify_knn datasets/mteb-lite --k 1
 
-# Check for data corruption
+# Check for data corruption on a specific facet
 java -jar nbvectors.jar merkle verify \
-  --file dataset.hdf5 \
-  --reference dataset.mref
+  --file datasets/mteb-lite/base.fvec \
+  --reference base.mref
 ```
 
 ## Working with Subsets
@@ -305,8 +294,8 @@ Create smaller datasets for testing:
 
 ```bash
 java -jar nbvectors.jar analyze select \
-  --file large_dataset.hdf5 \
-  --output small_dataset.hdf5 \
+  --dataset datasets/mteb-lite \
+  --output small_subset/ \
   --base-count 10000 \
   --query-count 1000 \
   --k 10
@@ -336,8 +325,8 @@ Define data windows for cross-validation:
 Apply window configuration:
 ```bash
 java -jar nbvectors.jar analyze select \
-  --file dataset.hdf5 \
-  --output train_set.hdf5 \
+  --dataset datasets/mteb-lite \
+  --output train_set/ \
   --window-config windows.json \
   --window train
 ```
@@ -346,173 +335,109 @@ java -jar nbvectors.jar analyze select \
 
 ### Single Directory
 
-Create a catalog of all HDF5 files in a directory:
+Create a catalog of dataset directories:
 
 ```bash
-java -jar nbvectors.jar catalog_hdf5 \
-  --directory ./datasets \
-  --output catalog.json
+java -jar nbvectors.jar catalog \
+  --directories ./datasets \
+  --basename catalog
 ```
 
 ### Recursive Scanning
 
-Scan directories recursively:
+Scan directories recursively and include stats/checksums:
 
 ```bash
-java -jar nbvectors.jar catalog_hdf5 \
-  --directory ./all_datasets \
-  --output complete_catalog.json \
+java -jar nbvectors.jar catalog \
+  --directories ./all_datasets \
   --recursive \
-  --pattern "*.hdf5"
-```
-
-### Custom Catalog Entry
-
-Add metadata to catalog entries:
-
-```bash
-java -jar nbvectors.jar catalog_hdf5 \
-  --directory ./datasets \
-  --output catalog_with_metadata.json \
+  --basename complete_catalog \
   --include-checksums \
   --include-statistics
 ```
 
 ## Metadata Management
 
-### View Metadata
+### Inspect dataset.yaml
 
-Show all attributes in an HDF5 file:
+View manifest metadata directly:
 
 ```bash
-java -jar nbvectors.jar tag_hdf5 list --file dataset.hdf5
+cat datasets/mteb-lite/dataset.yaml
 ```
 
-### Add Metadata
+### Update Attributes
 
-Add custom attributes:
+Modify attributes via standard YAML tools or scripts:
 
 ```bash
-# Add license information
-java -jar nbvectors.jar tag_hdf5 write \
-  --file dataset.hdf5 \
-  --path / \
-  --attribute license \
-  --value "CC-BY-4.0"
-
-# Add vendor information  
-java -jar nbvectors.jar tag_hdf5 write \
-  --file dataset.hdf5 \
-  --path / \
-  --attribute vendor \
-  --value "Example University"
-
-# Add creation date
-java -jar nbvectors.jar tag_hdf5 write \
-  --file dataset.hdf5 \
-  --path / \
-  --attribute created \
-  --value "$(date -Iseconds)"
+python3 - <<'PYDATA'
+import yaml
+from pathlib import Path
+manifest = Path('datasets/mteb-lite/dataset.yaml')
+data = yaml.safe_load(manifest.read_text())
+data.setdefault('attributes', {})['license'] = 'CC-BY-4.0'
+manifest.write_text(yaml.safe_dump(data))
+PYDATA
 ```
 
-### Read Specific Metadata
+### Query Metadata
 
-Read individual attributes:
+Use `vectordata info` to extract specific fields:
 
 ```bash
-java -jar nbvectors.jar tag_hdf5 read \
-  --file dataset.hdf5 \
-  --path / \
-  --attribute license
+java -jar nbvectors.jar vectordata info datasets/mteb-lite --property attributes.license
 ```
 
 ## Performance Optimization
 
-### Preprocessing Large Files
+### Preprocessing Large Facets
 
-For very large datasets, create merkle trees for integrity:
+For very large facets, create Merkle references:
 
 ```bash
-java -jar nbvectors.jar merkle create \
-  --file huge_dataset.hdf5 \
-  --output huge_dataset.mref \
-  --chunk-size 1MB
+java -jar nbvectors.jar merkle create   --file datasets/mteb-lite/base.fvec   --output base.mref   --chunk-size 1MB
 ```
 
-### Chunked Processing
-
-Process large files in chunks:
+### Prebuffering Profiles
 
 ```bash
-java -jar nbvectors.jar analyze describe \
-  --file huge_dataset.hdf5 \
-  --streaming \
-  --chunk-size 100000
+java -jar nbvectors.jar datasets prebuffer datasets/mteb-lite --profile default
 ```
 
-### Parallel Operations
-
-Use multiple threads where supported:
+### Parallel Conversions
 
 ```bash
-java -jar nbvectors.jar export_hdf5 \
-  --input huge_vectors.fvec \
-  --output huge_vectors.hdf5 \
-  --parallel 8 \
-  --streaming
+java -jar nbvectors.jar convert file   --input huge_vectors.fvec   --output huge_vectors.csv   --parallel 8
 ```
 
 ## Quality Assurance Workflows
 
 ### Full Dataset Validation
 
-Complete validation pipeline:
-
 ```bash
 #!/bin/bash
-DATASET="my_dataset.hdf5"
+DATASET="datasets/mteb-lite"
 
-echo "1. Checking file structure..."
-java -jar nbvectors.jar show_hdf5 --file $DATASET --tree
-
-echo "2. Analyzing dataset..."
-java -jar nbvectors.jar analyze describe --file $DATASET --detailed
-
-echo "3. Checking for zero vectors..."
-java -jar nbvectors.jar analyze count_zeros --file $DATASET
-
-echo "4. Verifying ground truth..."
-java -jar nbvectors.jar analyze verify_knn --file $DATASET --sample-size 100
-
-echo "5. Creating integrity signature..."
-java -jar nbvectors.jar merkle create --file $DATASET --output ${DATASET%.hdf5}.mref
-
-echo "Validation complete!"
+java -jar nbvectors.jar analyze describe "$DATASET" --detailed
+java -jar nbvectors.jar analyze verify_knn "$DATASET" --sample-size 100 --k 10
+java -jar nbvectors.jar merkle create --file "$DATASET/base.fvec" --output base.mref
 ```
 
 ### Automated Testing
 
-Test script for multiple datasets:
-
 ```bash
 #!/bin/bash
-for dataset in datasets/*.hdf5; do
-    echo "Testing $dataset..."
-    
-    # Quick validation
-    if ! java -jar nbvectors.jar analyze describe --file "$dataset" > /dev/null; then
-        echo "ERROR: Invalid dataset structure in $dataset"
-        continue
-    fi
-    
-    # Check ground truth if present
-    if java -jar nbvectors.jar show_hdf5 --file "$dataset" --path /neighbors > /dev/null 2>&1; then
-        if ! java -jar nbvectors.jar analyze verify_knn --file "$dataset" --sample-size 10 > /dev/null; then
-            echo "WARNING: Ground truth issues in $dataset"
-        fi
-    fi
-    
-    echo "✓ $dataset passed validation"
+for dataset in datasets/*/dataset.yaml; do
+  dir=$(dirname "$dataset")
+  echo "Testing $dir ..."
+  if ! java -jar nbvectors.jar analyze describe "$dir" > /dev/null; then
+    echo "ERROR: invalid dataset in $dir"; continue
+  fi
+  if ! java -jar nbvectors.jar analyze verify_knn "$dir" --sample-size 10 > /dev/null; then
+    echo "WARNING: ground truth issues in $dir"
+  fi
+  echo "✓ $dir passed validation"
 done
 ```
 
@@ -520,89 +445,64 @@ done
 
 ### With Python
 
-Access NBDataTools datasets from Python:
+Access vectordata facets from Python using NumPy:
 
 ```python
-import h5py
 import numpy as np
 
-# Load dataset
-with h5py.File('dataset.hdf5', 'r') as f:
-    base_vectors = f['/base/data'][:]
-    query_vectors = f['/query/data'][:]
-    neighbors = f['/neighbors/data'][:]
-    
-    # Get metadata
-    distance_func = f.attrs['distance'].decode('utf-8')
-    dimensions = f['/base'].attrs['dimensions']
-    
-    print(f"Loaded {len(base_vectors)} vectors of {dimensions}D")
-    print(f"Distance function: {distance_func}")
+def read_fvec(path):
+    data = np.fromfile(path, dtype='<f4')
+    dims = int.from_bytes(open(path, 'rb').read(4), 'little', signed=False)
+    return data.reshape(-1, dims + 1)[:, 1:]
+
+base_vectors = read_fvec('datasets/mteb-lite/base.fvec')
+print(base_vectors.shape)
 ```
 
 ### With Spark
 
-Load data into Spark:
+First convert a facet to Parquet, then load it:
+
+```bash
+java -jar nbvectors.jar convert file   --input datasets/mteb-lite/base.fvec   --output base.parquet
+```
 
 ```scala
 import org.apache.spark.sql.SparkSession
-
-val spark = SparkSession.builder()
-  .appName("VectorAnalysis")
-  .getOrCreate()
-
-// Convert HDF5 to Parquet first if needed
-// java -jar nbvectors.jar export_parquet --input dataset.hdf5 --output dataset.parquet
-
-val vectors = spark.read.parquet("dataset.parquet")
+val spark = SparkSession.builder().appName("VectorAnalysis").getOrCreate()
+val vectors = spark.read.parquet("base.parquet")
 vectors.show()
 ```
 
 ## Troubleshooting Common Issues
 
-### File Corruption
+### Facet Corruption
 
-If you suspect file corruption:
+If you suspect corruption in a facet file:
 
 ```bash
-# Check file integrity
 java -jar nbvectors.jar merkle verify \
-  --file dataset.hdf5 \
-  --reference dataset.mref
+  --file datasets/mteb-lite/base.fvec \
+  --reference base.mref
+```
 
-# Re-download if needed
-java -jar nbvectors.jar datasets download \
-  --name "dataset-name" \
-  --output ./datasets/ \
-  --verify \
-  --force
+Re-download if needed:
+
+```bash
+java -jar nbvectors.jar datasets download dataset-name:default --output ./datasets/ --verify --force
 ```
 
 ### Dimension Mismatches
 
-When converting data with dimension issues:
-
 ```bash
-# Explicitly specify dimensions
-java -jar nbvectors.jar export_hdf5 \
-  --input vectors.fvec \
-  --output vectors.hdf5 \
-  --dimensions 128 \
-  --force-dimensions
+java -jar nbvectors.jar convert file   --input vectors.fvec   --output vectors.csv   --dimensions 128
 ```
 
 ### Memory Issues
 
-For large datasets:
-
 ```bash
-# Increase heap size
-java -Xmx16g -jar nbvectors.jar analyze describe --file huge_dataset.hdf5
-
-# Use streaming mode
-java -jar nbvectors.jar analyze describe \
-  --file huge_dataset.hdf5 \
-  --streaming
+java -Xmx16g -jar nbvectors.jar analyze describe datasets/mteb-lite
+java -jar nbvectors.jar datasets prebuffer datasets/mteb-lite --profile default
 ```
 
 ## Best Practices
@@ -643,7 +543,7 @@ java -jar nbvectors.jar analyze describe \
 This chapter covered practical workflows for:
 
 - **Discovering** datasets from catalogs
-- **Converting** various formats to HDF5
+- **Converting** between supported formats
 - **Analyzing** dataset properties and quality
 - **Validating** data integrity
 - **Creating** and managing catalogs

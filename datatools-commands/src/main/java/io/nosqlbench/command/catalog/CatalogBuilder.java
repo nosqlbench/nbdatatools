@@ -20,7 +20,6 @@ package io.nosqlbench.command.catalog;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import io.nosqlbench.command.json.subcommands.export_json.Hdf5JsonSummarizer;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,11 +35,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
- /// Builds catalog files for HDF5 files and dataset.yaml files.
+ /// Builds catalog files for dataset.yaml-based vector datasets.
  /// The catalog files are created at each directory level, with paths relative to the catalog location.
 public class CatalogBuilder {
     private static final Logger logger = LogManager.getLogger(CatalogBuilder.class);
-    private static final Hdf5JsonSummarizer jsonSummarizer = new Hdf5JsonSummarizer();
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final Dump dump = new Dump(DumpSettings.builder().build());
 
@@ -66,18 +64,8 @@ public class CatalogBuilder {
         if (Files.isDirectory(path)) {
             // Process directory recursively, starting from the innermost directories
             entries = processDirectoryRecursively(path, basename, commonParent);
-        } else if (Files.isRegularFile(path) && path.toString().endsWith(".hdf5")) {
-            // For individual HDF5 files, create a catalog in the parent directory
-            Path parentDir = path.getParent();
-            if (parentDir != null) {
-                Map<String, Object> entry = createHdf5Entry(path, commonParent);
-                entries.add(entry);
-
-                // Create a catalog in the parent directory
-                List<Map<String, Object>> parentEntries = new ArrayList<>();
-                parentEntries.add(createHdf5Entry(path, parentDir));
-                saveCatalog(parentEntries, parentDir, basename);
-            }
+        } else if (Files.isRegularFile(path)) {
+            logger.warn("Skipping unsupported file in catalog builder: {}", path);
         } else {
             throw new IOException("Not a valid file or directory: " + path);
         }
@@ -86,7 +74,7 @@ public class CatalogBuilder {
     }
 
     /**
-     * Recursively processes a directory to find dataset.yaml files and .hdf5 files.
+     * Recursively processes a directory to find dataset.yaml files.
      * Creates catalog files at each directory level, with paths relative to the catalog location.
      *
      * @param directory The directory to process
@@ -98,12 +86,12 @@ public class CatalogBuilder {
     private static List<Map<String, Object>> processDirectoryRecursively(Path directory, String basename, Path commonParent) throws IOException {
         // First, process all subdirectories recursively
         List<Path> subdirectories = new ArrayList<>();
-        List<Path> hdf5Files = new ArrayList<>();
         Path datasetYaml = directory.resolve("dataset.yaml");
         boolean isDatasetRoot = Files.exists(datasetYaml);
 
-        // Create a list to collect all entries for this directory and subdirectories
+        // Create lists to collect entries for this directory and subdirectories
         List<Map<String, Object>> allEntries = new ArrayList<>();
+        List<Map<String, Object>> dirEntries = new ArrayList<>();
 
         // If this is a dataset root, don't process subdirectories
         if (!isDatasetRoot) {
@@ -111,8 +99,6 @@ public class CatalogBuilder {
                 for (Path path : dirStream) {
                     if (Files.isDirectory(path)) {
                         subdirectories.add(path);
-                    } else if (Files.isRegularFile(path) && path.toString().endsWith(".hdf5")) {
-                        hdf5Files.add(path);
                     }
                 }
             }
@@ -121,11 +107,11 @@ public class CatalogBuilder {
             for (Path subdir : subdirectories) {
                 List<Map<String, Object>> subdirEntries = processDirectoryRecursively(subdir, basename, commonParent);
                 allEntries.addAll(subdirEntries);
+                dirEntries.addAll(relativizeEntries(subdirEntries, subdir, directory));
             }
         }
 
         // Now create a catalog for this directory
-        List<Map<String, Object>> dirEntries = new ArrayList<>();
 
         // Add dataset.yaml entry if it exists
         if (isDatasetRoot) {
@@ -137,17 +123,7 @@ public class CatalogBuilder {
             allEntries.add(commonParentEntry);
         }
 
-        // Add HDF5 file entries
-        for (Path hdf5File : hdf5Files) {
-            Map<String, Object> dirEntry = createHdf5Entry(hdf5File, directory);
-            dirEntries.add(dirEntry);
-
-            // Also add an entry relative to the common parent
-            Map<String, Object> commonParentEntry = createHdf5Entry(hdf5File, commonParent);
-            allEntries.add(commonParentEntry);
-        }
-
-        // Save the catalog for this directory
+        // Save the catalog for this directory (even if it's a container)
         saveCatalog(dirEntries, directory, basename);
 
         // Add all entries from this directory to the result
@@ -166,6 +142,7 @@ public class CatalogBuilder {
     private static Map<String, Object> createDatasetEntry(Path datasetYaml, Path catalogDir) {
         TestGroupLayout layout = TestGroupLayout.load(datasetYaml);
         Map<String, Object> entry = new HashMap<>();
+        entry.put("dataset_type", "dataset.yaml");
         entry.put("layout", layout.toData());
 
         // Set the path relative to the catalog directory
@@ -175,36 +152,21 @@ public class CatalogBuilder {
         return entry;
     }
 
-    /**
-     * Creates an entry for an HDF5 file.
-     *
-     * @param hdf5File The path to the HDF5 file
-     * @param catalogDir The directory where the catalog will be saved
-     * @return A map representing the HDF5 file entry
-     */
-    private static Map<String, Object> createHdf5Entry(Path hdf5File, Path catalogDir) {
-        Map<String, Object> entry = new HashMap<>();
-
-        try {
-            // Try to read the HDF5 file
-            entry = jsonSummarizer.describeFile(hdf5File);
-        } catch (Exception e) {
-            // For invalid HDF5 files, create a minimal entry
-            logger.warn("Could not read HDF5 file as valid HDF5: {} ({})", hdf5File, e.getMessage());
-            entry.put("error", "Invalid HDF5 file: " + e.getMessage());
-            try {
-                entry.put("file_size", Files.exists(hdf5File) ? Files.size(hdf5File) : 0);
-            } catch (IOException ioe) {
-                logger.warn("Could not get file size for {}: {}", hdf5File, ioe.getMessage());
-                entry.put("file_size", -1);
+    private static List<Map<String, Object>> relativizeEntries(List<Map<String, Object>> entries,
+                                                               Path sourceDir,
+                                                               Path targetDir) {
+        List<Map<String, Object>> adjusted = new ArrayList<>();
+        for (Map<String, Object> entry : entries) {
+            Map<String, Object> copy = new HashMap<>(entry);
+            Object pathObj = entry.get("path");
+            if (pathObj != null) {
+                Path sourcePath = sourceDir.resolve(pathObj.toString());
+                Path relativePath = targetDir.relativize(sourcePath);
+                copy.put("path", relativePath.toString());
             }
+            adjusted.add(copy);
         }
-
-        // Set the path relative to the catalog directory
-        Path relativePath = catalogDir.relativize(hdf5File);
-        entry.put("path", relativePath.toString());
-
-        return entry;
+        return adjusted;
     }
 
     /**

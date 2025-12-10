@@ -1,4 +1,3 @@
-io.nosqlbench.command.hdf5.CMD_hdf5
 io.nosqlbench.command.merkle.CMD_merkle
 io.nosqlbench.command.generate.CMD_generate
 io.nosqlbench.command.fetch.CMD_fetch

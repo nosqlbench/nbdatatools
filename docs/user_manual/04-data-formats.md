@@ -6,98 +6,72 @@ NBDataTools supports multiple vector data formats for input and output. This cha
 
 | Format | Extension | Type | Metadata | Random Access | Compression | Use Case |
 |--------|-----------|------|----------|---------------|-------------|----------|
-| **HDF5** | .hdf5, .h5 | Binary | Yes | Yes | Yes | Standard format |
+| **Dataset dir** | dataset.yaml + facets | Mixed | Yes | Yes | With compression | Canonical layout |
 | **fvec** | .fvec | Binary | No | No | No | Float vectors |
 | **ivec** | .ivec | Binary | No | No | No | Integer vectors |
 | **bvec** | .bvec | Binary | No | No | No | Byte vectors |
 | **Parquet** | .parquet | Binary | Yes | Yes | Yes | Columnar data |
 | **JSON** | .json | Text | Yes | Yes | No | Configuration |
 
-## HDF5 Format (Recommended)
+## Dataset Directory Layout (Recommended)
 
 ### Overview
 
-HDF5 (Hierarchical Data Format 5) is the standard format for NBDataTools. It provides:
-- Hierarchical organization
-- Rich metadata support
-- Efficient storage with compression
-- Partial I/O capabilities
-- Cross-platform compatibility
+NBDataTools now treats dataset directories as the canonical layout:
+- Metadata (attributes, profiles, windows) in `dataset.yaml`
+- Facets stored as standard vector files (`.fvec/.ivec/.bvec/.parquet`)
+- Works across local filesystems and remote HTTP range requests
 
 ### Structure
 
 ```
-dataset.hdf5
-├── /                           # Root group
-│   ├── @version               # Format version attribute
-│   ├── @distance              # Distance function
-│   └── @created               # Creation timestamp
-├── /base                      # Base vectors group
-│   ├── data                   # Vector data (n × d array)
-│   ├── @count                 # Number of vectors
-│   └── @dimensions            # Vector dimensions
-├── /query                     # Query vectors group
-│   ├── data                   # Query data (m × d array)
-│   ├── @count                 # Number of queries
-│   └── @dimensions            # Query dimensions
-├── /neighbors                 # Ground truth indices
-│   ├── data                   # Indices (m × k array)
-│   └── @k                     # Number of neighbors
-└── /distances                 # Ground truth distances
-    ├── data                   # Distances (m × k array)
-    └── @k                     # Number of neighbors
+dataset/
+├── dataset.yaml              # Attributes, profiles, windows
+├── base.fvec                 # Base vectors (n × d)
+├── query.fvec                # Query vectors (m × d)
+├── neighbors.ivec            # Ground-truth indices (m × k)
+└── distances.fvec            # Ground-truth distances (m × k)
 ```
 
-### Creating HDF5 Files
+### dataset.yaml Example
 
-From vector files:
+```yaml
+attributes:
+  distance_function: COSINE
+  license: Apache-2.0
+  vendor: nosqlbench
+profiles:
+  default:
+    base_vectors:
+      source: base.fvec
+      window: [0, 1_000_000)
+    query_vectors:
+      source: query.fvec
+      window: [0, 10_000)
+    neighbor_indices:
+      source: neighbors.ivec
+    neighbor_distances:
+      source: distances.fvec
+```
+
+### Working with Dataset Directories
+
+Inspect structure and metadata:
 ```bash
-java -jar nbvectors.jar export_hdf5 \
-  --input base.fvec \
-  --output dataset.hdf5 \
-  --dataset-name "my_dataset"
+java -jar nbvectors.jar analyze describe datasets/mteb-lite
 ```
 
-With complete test data:
+List views/profiles:
 ```bash
-java -jar nbvectors.jar export_hdf5 \
-  --input base.fvec \
-  --queries queries.fvec \
-  --neighbors neighbors.ivec \
-  --distances distances.fvec \
-  --output complete.hdf5 \
-  --distance euclidean
+java -jar nbvectors.jar vectordata views datasets/mteb-lite
 ```
 
-### Reading HDF5 Files
-
-Inspect structure:
+Prebuffer a profile for streaming access:
 ```bash
-java -jar nbvectors.jar show_hdf5 --file dataset.hdf5 --tree
+java -jar nbvectors.jar datasets prebuffer datasets/mteb-lite --profile default
 ```
 
-View attributes:
-```bash
-java -jar nbvectors.jar show_hdf5 --file dataset.hdf5 --attributes
-```
-
-### HDF5 Attributes
-
-Standard attributes include:
-
-| Attribute | Location | Description |
-|-----------|----------|-------------|
-| `version` | `/` | Format version (e.g., "1.0") |
-| `distance` | `/` | Distance function name |
-| `created` | `/` | ISO 8601 timestamp |
-| `license` | `/` | Dataset license |
-| `vendor` | `/` | Dataset provider |
-| `model` | `/` | Model/algorithm used |
-| `count` | `/base`, `/query` | Number of vectors |
-| `dimensions` | `/base`, `/query` | Vector dimensionality |
-| `k` | `/neighbors`, `/distances` | Number of neighbors |
-
-## Binary Vector Formats
+```## Binary Vector Formats
 
 ### fvec Format (Float Vectors)
 
@@ -157,22 +131,22 @@ def read_fvec(filename):
 
 ### Converting Binary Formats
 
-Convert to HDF5:
+Convert between binary formats:
 ```bash
-# Float vectors
-java -jar nbvectors.jar export_hdf5 \
+# Float vectors to CSV
+java -jar nbvectors.jar convert file \
   --input vectors.fvec \
-  --output vectors.hdf5
+  --output vectors.csv
 
-# Integer vectors
-java -jar nbvectors.jar export_hdf5 \
+# Integer vectors to JSON
+java -jar nbvectors.jar convert file \
   --input indices.ivec \
-  --output indices.hdf5
+  --output indices.json
 
-# Byte vectors
-java -jar nbvectors.jar export_hdf5 \
+# Byte vectors to float vectors
+java -jar nbvectors.jar convert file \
   --input features.bvec \
-  --output features.hdf5
+  --output features.fvec
 ```
 
 ## Parquet Format
@@ -198,14 +172,14 @@ root
  |    |-- timestamp: timestamp
 ```
 
-### Converting from Parquet
+### Extracting Columns
 
 ```bash
-java -jar nbvectors.jar export_hdf5 \
+java -jar nbvectors.jar convert file \
   --input vectors.parquet \
-  --output vectors.hdf5 \
-  --parquet-column "vector" \
-  --parquet-id-column "id"
+  --output vectors.fvec \
+  --parquet-column vector \
+  --parquet-id-column id
 ```
 
 ### Advantages
@@ -255,41 +229,45 @@ JSON is used for:
 }
 ```
 
-### Building from JSON
+### Editing Metadata
 
+Adjust dataset attributes or profiles directly in `dataset.yaml`. Common updates include:
+- Adding/removing profiles for different corpus sizes
+- Changing `distance_function` or annotations such as `license`
+- Updating facet paths when moving data between directories
+
+After editing, re-run `analyze describe <dataset-dir>` to confirm the manifest is still valid.
+
+### Exporting Summaries
+
+You can capture lightweight metadata snapshots in JSON by running:
 ```bash
-java -jar nbvectors.jar build_hdf5 \
-  --spec dataset_spec.json \
-  --output dataset.hdf5
+java -jar nbvectors.jar analyze describe datasets/mteb-lite --format json > summary.json
 ```
 
-### Exporting to JSON
+Use this when sharing dataset characteristics without distributing the full vectors.
 
-Export metadata only:
-```bash
-java -jar nbvectors.jar export_json \
-  --input dataset.hdf5 \
-  --output metadata.json
-```
+### Programmatic Updates
 
-Export with sample data:
-```bash
-java -jar nbvectors.jar export_json \
-  --input dataset.hdf5 \
-  --output summary.json \
-  --sample-size 100
+Automate manifest changes with your language of choice—for example, in Python:
+```python
+import yaml
+from pathlib import Path
+
+data = yaml.safe_load(Path('dataset/dataset.yaml').read_text())
+data['attributes']['notes'] = 'Verified 2024-03-10'
+Path('dataset/dataset.yaml').write_text(yaml.safe_dump(data))
 ```
 
 ## Format Selection Guide
 
 ### When to Use Each Format
 
-**Use HDF5 when you need:**
+**Use dataset directories when you need:**
 - ✅ Complete test datasets with metadata
-- ✅ Random access to vectors
-- ✅ Compression and efficiency
-- ✅ Cross-platform compatibility
-- ✅ Rich attribute support
+- ✅ Random/random access via profiles and windows
+- ✅ HTTP-friendly range reads
+- ✅ Easy manual inspection/version control
 
 **Use fvec/ivec/bvec when:**
 - ✅ Working with existing tools that expect these formats
@@ -311,9 +289,9 @@ java -jar nbvectors.jar export_json \
 
 ## Format Conversion Matrix
 
-| From ↓ To → | HDF5 | fvec | ivec | bvec | Parquet | JSON |
-|-------------|------|------|------|------|---------|------|
-| **HDF5** | - | ✅ | ✅ | ✅ | ✅ | ✅ |
+| From ↓ To → | Dataset dir | fvec | ivec | bvec | Parquet | JSON |
+|-------------|-------------|------|------|------|---------|------|
+| **Dataset dir** | - | ✅ (facets) | ✅ (facets) | ✅ (facets) | ✅ | ✅ |
 | **fvec** | ✅ | - | ❌ | ❌ | ✅ | ✅* |
 | **ivec** | ✅ | ❌ | - | ❌ | ✅ | ✅* |
 | **bvec** | ✅ | ❌ | ❌ | - | ✅ | ✅* |
@@ -321,7 +299,7 @@ java -jar nbvectors.jar export_json \
 | **JSON** | ✅** | ✅** | ✅** | ✅** | ✅** | - |
 
 *Small datasets only  
-**Via build_hdf5 command
+**Metadata summaries only
 
 ## Performance Characteristics
 
@@ -329,7 +307,7 @@ java -jar nbvectors.jar export_json \
 
 | Format | Sequential Read | Random Read | Memory Usage |
 |--------|----------------|-------------|--------------|
-| HDF5 | Fast | Fast | Medium |
+| Dataset dir | Fast | Fast | Medium |
 | fvec | Very Fast | Slow | Low |
 | ivec | Very Fast | Slow | Low |
 | bvec | Very Fast | Slow | Very Low |
@@ -340,7 +318,7 @@ java -jar nbvectors.jar export_json \
 
 | Format | Write Speed | Compression | Append Support |
 |--------|-------------|-------------|----------------|
-| HDF5 | Fast | Yes | Yes |
+| Dataset dir | Fast (per facet) | Yes (per file) | Yes |
 | fvec | Very Fast | No | Yes |
 | ivec | Very Fast | No | Yes |
 | bvec | Very Fast | No | Yes |
@@ -353,11 +331,9 @@ java -jar nbvectors.jar export_json \
 
 For files larger than memory:
 
+Use prebuffering when datasets need to be in place before a performance oriented test. Dynamic buffering from a remote source should be avoided for performance testing.
 ```bash
-# HDF5 supports partial reads natively
-java -jar nbvectors.jar analyze describe \
-  --file large_dataset.hdf5 \
-  --sample-size 1000
+java -jar nbvectors.jar datasets prebuffer datasets/mteb-lite --profile default
 ```
 
 ### Streaming Conversion
@@ -365,11 +341,10 @@ java -jar nbvectors.jar analyze describe \
 Convert large files without loading fully:
 
 ```bash
-java -jar nbvectors.jar export_hdf5 \
+java -jar nbvectors.jar convert file \
   --input huge_vectors.fvec \
-  --output huge_vectors.hdf5 \
-  --streaming \
-  --chunk-size 1000000
+  --output huge_vectors.csv \
+  --parallel 8
 ```
 
 ## Format Validation
@@ -378,8 +353,8 @@ java -jar nbvectors.jar export_hdf5 \
 
 Check format consistency:
 ```bash
-# Verify HDF5 structure
-java -jar nbvectors.jar analyze describe --file dataset.hdf5
+# Verify dataset.yaml manifest
+java -jar nbvectors.jar analyze describe datasets/mteb-lite
 
 # Check binary format dimensions
 java -jar nbvectors.jar analyze count_zeros --file vectors.fvec
@@ -387,21 +362,19 @@ java -jar nbvectors.jar analyze count_zeros --file vectors.fvec
 
 ### Validate Against Schema
 
-For HDF5 files:
+For dataset directories, validate by running:
 ```bash
-java -jar nbvectors.jar validate \
-  --file dataset.hdf5 \
-  --schema vectordata-v1
+java -jar nbvectors.jar vectordata views datasets/mteb-lite
 ```
 
 ## Best Practices
 
 ### 1. Choose the Right Format
 
-- **Development**: Use HDF5 for flexibility
-- **Production**: Use format matching your tools
-- **Archival**: Use HDF5 with compression
-- **Transfer**: Consider Parquet for size
+- **Development**: Use dataset directories for full-fidelity manifests
+- **Production**: Use the format your serving stack expects (fvec/ivec/bvec/parquet)
+- **Archival**: Keep dataset directories plus compressed facets
+- **Transfer**: Consider Parquet for compact long-term storage
 
 ### 2. Include Metadata
 
@@ -431,7 +404,7 @@ Common issues:
 
 NBDataTools supports a variety of formats to meet different needs:
 
-- **HDF5** is the recommended format for most use cases
+- **Dataset directories** are the canonical shared format
 - **Binary formats** (fvec, ivec, bvec) for compatibility
 - **Parquet** for big data integration
 - **JSON** for configuration and small datasets

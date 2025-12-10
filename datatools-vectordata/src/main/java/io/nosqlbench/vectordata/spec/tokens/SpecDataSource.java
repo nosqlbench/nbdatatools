@@ -24,7 +24,7 @@ import io.nosqlbench.vectordata.spec.predicates.PNode;
 import java.util.Optional;
 
 /// Defines the provider interface for test data which may be used
-/// to construct a valid HDF5 test data file.
+/// to construct a valid vectordata dataset (dataset.yaml + file facets).
 ///
 /// Methods which return optional correspond to optional components of the
 /// test data spec. Other methods are required to be implemented and return

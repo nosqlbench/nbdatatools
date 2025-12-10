@@ -183,29 +183,6 @@
       </plugin>
 
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-gpg-plugin</artifactId>
-        <version>3.0.1</version>
-        <executions>
-          <execution>
-            <id>sign-artifacts</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>sign</goal>
-            </goals>
-            <configuration>
-              <keyname>nosqlbenchdroid@gmail.com</keyname>
-              <passphraseServerId>gpg.passphrase</passphraseServerId>
-              <!--              <useAgent>true</useAgent>-->
-              <gpgArguments>
-                <cmdParam>--pinentry-mode</cmdParam>
-                <cmdParam>loopback</cmdParam>
-              </gpgArguments>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
         <version>0.15</version>

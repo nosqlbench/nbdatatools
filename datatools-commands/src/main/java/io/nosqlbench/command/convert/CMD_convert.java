@@ -18,7 +18,6 @@ package io.nosqlbench.command.convert;
  */
 
 import io.nosqlbench.command.convert.subcommands.CMD_convert_file;
-import io.nosqlbench.command.convert.subcommands.CMD_convert_hdf52dataset;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
 import io.nosqlbench.nbdatatools.api.services.Selector;
 import org.apache.logging.log4j.LogManager;
@@ -35,7 +34,6 @@ import java.util.concurrent.Callable;
 
  ## Subcommands
  - `file`: Convert between different vector file formats (fvec, ivec, bvec, csv, json)
- - `hdf52dataset`: Convert HDF5 datasets to vectordata dataset format
 
  ## Supported Formats
  - fvec: float vector format (4-byte float values)
@@ -43,13 +41,11 @@ import java.util.concurrent.Callable;
  - bvec: binary vector format (1-byte unsigned values)
  - csv: comma-separated text format
  - json: JSON-based vector format
- - HDF5: Hierarchical Data Format version 5
  - vectordata dataset: Directory-based dataset format with dataset.yaml metadata
 
  # Basic Usage
  ```
  convert file --input vectors.fvec --output vectors.csv
- convert hdf52dataset --input dataset.hdf5 --output ./my_dataset/
  ```
  */
 @Selector("convert")
@@ -61,7 +57,6 @@ import java.util.concurrent.Callable;
     exitCodeList = {"0: success", "1: warning", "2: error"},
     subcommands = {
         CMD_convert_file.class,
-        CMD_convert_hdf52dataset.class,
         CommandLine.HelpCommand.class
     })
 public class CMD_convert implements Callable<Integer>, BundledCommand {

@@ -18,9 +18,7 @@ package io.nosqlbench.command.vectordata;
  */
 
 import io.nosqlbench.vectordata.discovery.DatasetLoader;
-import io.nosqlbench.vectordata.discovery.FilesystemTestDataGroup;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
@@ -99,11 +97,8 @@ public class VectordataCliSupport {
     }
 
     private static String deriveDatasetName(String spec, ProfileSelector selector) {
-        if (selector instanceof FilesystemTestDataGroup fs) {
+        if (selector instanceof TestDataGroup fs) {
             return fs.getName();
-        }
-        if (selector instanceof TestDataGroup tg) {
-            return tg.getName();
         }
         Path asPath = Path.of(spec);
         if (Files.exists(asPath)) {
@@ -143,14 +138,7 @@ public class VectordataCliSupport {
     }
 
     private static List<String> orderedProfiles(ProfileSelector selector) {
-        List<String> names = new ArrayList<>();
-        if (selector instanceof io.nosqlbench.vectordata.downloader.VirtualProfileSelector vps) {
-            names.addAll(vps.profiles());
-        } else if (selector instanceof FilesystemTestDataGroup fs) {
-            names.addAll(fs.getProfileNames());
-        } else if (selector instanceof TestDataGroup tg) {
-            names.addAll(tg.getProfileNames());
-        }
+        List<String> names = new ArrayList<>(selector.profileNames());
         selector.presetProfile().ifPresent(p -> {
             if (!names.contains(p)) {
                 names.add(0, p);

@@ -79,9 +79,9 @@ java -jar nbvectors.jar
 ```
 
 Output will show commands like:
-- `analyze` - Analyze test data files
-- `export_hdf5` - Convert vector files to HDF5
-- `datasets` - Browse available datasets
+- `analyze` - Analyze dataset directories/URLs
+- `convert file` - Convert between vector file formats
+- `datasets` - Browse available dataset catalogs
 - And many more...
 
 ### 3. Get Command-Specific Help
@@ -89,29 +89,28 @@ Output will show commands like:
 For any command, add `--help`:
 
 ```bash
-java -jar nbvectors.jar export_hdf5 --help
+java -jar nbvectors.jar convert file --help
 ```
 
 ## Quick Start Examples
 
-### Example 1: Convert Vector Files to HDF5
+### Example 1: Convert Vector Files
 
 If you have `.fvec` files (common format for float vectors):
 
 ```bash
 # Convert a single file
-java -jar nbvectors.jar export_hdf5 \
+java -jar nbvectors.jar convert file \
   --input vectors.fvec \
-  --output vectors.hdf5 \
-  --dataset-name "my_vectors"
+  --output vectors.csv
 ```
 
 ### Example 2: Analyze a Dataset
 
-Check the contents of an HDF5 file:
+Inspect the dataset in the current directory (dataset.yaml with xvec files):
 
 ```bash
-java -jar nbvectors.jar analyze describe --file dataset.hdf5
+java -jar nbvectors.jar analyze describe datasets/mteb-lite
 ```
 
 ### Example 3: Browse Available Datasets
@@ -163,16 +162,16 @@ You can override defaults with environment variables:
 
 ### Converting Data for Testing
 
-1. **Prepare your data** in a supported format (fvec, ivec, parquet)
-2. **Convert to HDF5** using `export_hdf5`
-3. **Verify the conversion** with `analyze describe`
+1. **Prepare your data** in a supported format (fvec, ivec, bvec, parquet)
+2. **Convert as needed** using `convert ...`
+3. **Verify the result** with `analyze describe`
 4. **Use the data** in your tests
 
 ### Working with Existing Datasets
 
 1. **Browse available** datasets with `datasets list`
 2. **Download** the dataset you need
-3. **Inspect** with `show_hdf5` or `analyze`
+3. **Inspect** with `analyze describe`
 4. **Use** in your application or benchmarks
 
 ## Next Steps

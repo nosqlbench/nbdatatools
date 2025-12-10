@@ -22,6 +22,7 @@ import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 
 import java.nio.file.Path;
+import java.io.IOException;
 
 /// Main entry point for accessing vector test data.
 ///
@@ -34,19 +35,14 @@ public class VectorTestData {
   /// Private constructor to prevent instantiation of this utility class.
   private VectorTestData() {}
 
-  /// Loads test data from a file path specified as a string.
+  /// Loads test data from a dataset directory or descriptor.
   ///
-  /// @param path The path to the test data file
-  /// @return A TestDataGroup containing the loaded data
-  public static TestDataGroup load(String path) {
+  /// @param path The path to the dataset directory or dataset.yaml file
+  public static TestDataGroup load(String path) throws IOException {
     return load(Path.of(path));
   }
 
-  /// Loads test data from a file path.
-  ///
-  /// @param path The path to the test data file
-  /// @return A TestDataGroup containing the loaded data
-  public static TestDataGroup load(Path path) {
+  public static TestDataGroup load(Path path) throws IOException {
     return new TestDataGroup(path);
   }
 

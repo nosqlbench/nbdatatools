@@ -37,9 +37,8 @@ import java.util.concurrent.Callable;
     parameterListHeading = "%nParameters:%n%",
     optionListHeading = "%nOptions:%n",
     header="Create catalog views of vector test data files and dataset directories",
-    description = "When given a directory, it will be recursively traversed to find:\n" +
-              "1. Directories containing a 'dataset.yaml' file (treated as dataset roots)\n" +
-              "2. Individual .hdf5 files\n" +
+    description = "When given a directory, it will be recursively traversed to find\n" +
+              "directories containing a 'dataset.yaml' file (treated as dataset roots).\n" +
               "Catalog files (catalog.json and catalog.yaml) will be created at\n" +
               "each directory level, with paths in each catalog being relative\n" +
               "to the location of the catalog file.",
@@ -53,8 +52,8 @@ public class CMD_old_catalog implements Callable<Integer> {
 
   private static final Logger logger = LogManager.getLogger(CMD_old_catalog.class);
 
-  @CommandLine.Parameters(description = "Files and/or directories to catalog; Directories will be recursively traversed "
-                                        + "to find dataset.yaml files and .hdf5 files. Catalog files will be created "
+  @CommandLine.Parameters(description = "Directories to catalog; directories will be recursively traversed "
+                                        + "to find dataset.yaml files. Catalog files will be created "
                                         + "at each directory level.", defaultValue = ".")
   private List<Path> paths;
 
@@ -63,7 +62,7 @@ public class CMD_old_catalog implements Callable<Integer> {
       defaultValue = "catalog")
   private String basename;
 
-  /// run a catalog_hdf5 command
+  /// run a catalog command
   /// @param args
   ///     command line args
   public static void main(String[] args) {

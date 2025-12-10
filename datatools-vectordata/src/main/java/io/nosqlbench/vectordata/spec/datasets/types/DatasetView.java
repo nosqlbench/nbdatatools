@@ -18,16 +18,14 @@ package io.nosqlbench.vectordata.spec.datasets.types;
  */
 
 
-import io.nosqlbench.vectordata.discovery.TestDataGroup;
-
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 
-/// Each dataset which is accessible through the {@link TestDataGroup}
-/// API **must** implement this interface.
-/// @see TestDataGroup
+/// Each dataset which is accessible through the vectordata discovery APIs
+/// must implement this interface.
+/// @see io.nosqlbench.vectordata.discovery.ProfileSelector
 /// @param <T> the type of the vector elements
 public interface DatasetView<T> extends Iterable<T> {
 

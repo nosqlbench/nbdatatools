@@ -93,7 +93,7 @@ public enum TestDataKind {
 
   /// Creates a new TestDataKind enum value
   /// @param path
-  ///     The path to the dataset in the HDF5 file
+  ///     The canonical path for this dataset view
   /// @param description
   ///     The description of the dataset
   /// @param attributesClass

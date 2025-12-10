@@ -18,10 +18,8 @@ package io.nosqlbench.vectordata.layout;
  */
 
 
-import io.jhdf.api.Group;
-import io.jhdf.api.Node;
-import io.nosqlbench.vectordata.utils.SHARED;
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
+import io.nosqlbench.vectordata.utils.SHARED;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -68,35 +66,6 @@ public class TestGroupLayout {
   public static final String ATTRIBUTES = "attributes";
   /// Constant for the attachments section name in configuration files
   public static final String ATTACHMENTS = "attachments";
-
-  /// Creates a TestGroupLayout from an HDF5 Group.
-  ///
-  /// This method extracts profile configurations, attributes, and attachments from an existing HDF5 group.
-  ///
-  /// @param group The HDF5 group to extract configuration from
-  /// @return A new TestGroupLayout instance
-  /// @throws RuntimeException If the group doesn't contain valid profile data
-  public static TestGroupLayout fromGroup(Group group) {
-    String profilesData = group.getAttribute("profiles").getData().toString();
-    Map<String,?> profilesMap = null;
-    if (profilesData.startsWith("{") && profilesData.endsWith("}")) {
-      profilesMap = SHARED.mapFromJson(profilesData);
-    } else {
-      profilesMap = (Map<String,?>)SHARED.yamlLoader.loadFromString(profilesData);
-    }
-    FGroup profiles = FGroup.fromObject(profilesMap, null);
-
-    List<String> attachments = new ArrayList<>();
-    Node attachmentsNode = group.getChild(ATTACHMENTS);
-    Group attachmentsGroup = (Group) attachmentsNode;
-    if (attachmentsGroup == null) {
-      attachmentsGroup.getChildren().values().stream()
-          .filter(n -> n.getType() == io.jhdf.api.NodeType.DATASET).forEach(n -> {
-            attachments.add(n.getName());
-          });
-    }
-    return new TestGroupLayout(profiles, null, RootGroupAttributes.fromGroup(group), attachments);
-  }
 
   /// Creates a TestGroupLayout from a YAML configuration string.
   ///

@@ -18,7 +18,6 @@ package io.nosqlbench.vectordata.discovery;
  */
 
 
-import io.jhdf.HdfFile;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
 import io.nosqlbench.vectordata.downloader.VirtualProfileSelector;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
@@ -34,19 +33,18 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/// Unified loader for datasets from various sources (URLs, local paths, HDF5, filesystem-based).
+/// Unified loader for datasets from various sources (URLs or filesystem-based datasets).
 ///
 /// This class provides a simple API for loading datasets without needing to know the underlying
 /// format or location. It automatically:
 /// - Detects remote URLs vs local paths
 /// - For remote URLs: Uses VirtualProfileSelector with on-demand downloading and Merkle verification
-/// - For local paths: Detects HDF5 vs filesystem-based formats and uses appropriate implementation
+/// - For local paths: Detects dataset directories with dataset.yaml descriptors and uses the filesystem implementation
 /// - Returns the appropriate ProfileSelector implementation
 ///
 /// Supported sources:
 /// - Remote URLs: https://example.com/dataset/ (uses VirtualProfileSelector with MAFileChannel)
-/// - Local HDF5 files: /path/to/dataset.hdf5 (uses TestDataGroup)
-/// - Local filesystem datasets: /path/to/dataset/ with dataset.yaml (uses FilesystemTestDataGroup)
+/// - Local filesystem datasets: /path/to/dataset/ with dataset.yaml (uses TestDataGroup)
 /// - Tilde expansion: ~/datasets/my-data
 ///
 /// Example usage:
@@ -56,13 +54,6 @@ import java.util.Map;
 ///     TestDataView profile = dataset.profile("default");
 ///     // ... use the dataset (downloads on-demand with caching)
 /// }
-///
-/// // Load from local HDF5
-/// try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset.hdf5")) {
-///     TestDataView profile = dataset.profile("default");
-///     // ... use the dataset
-/// }
-///
 /// // Load from local filesystem with dataset.yaml
 /// try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset/")) {
 ///     TestDataView profile = dataset.profile("default");
@@ -174,7 +165,7 @@ public class DatasetLoader {
         }
     }
 
-    /// Loads a dataset from a local path, auto-detecting the format.
+    /// Loads a dataset from a local path, expecting dataset.yaml descriptors.
     ///
     /// @param path The local path to the dataset
     /// @return A ProfileSelector for accessing the dataset
@@ -183,13 +174,6 @@ public class DatasetLoader {
         if (!Files.exists(path)) {
             throw new IOException("Dataset path does not exist: " + path);
         }
-
-        // Decision tree for determining dataset format:
-        // 1. If it's a file and ends with .hdf5 or .h5 -> HDF5
-        // 2. If it's a file named dataset.yaml -> Filesystem-based (use parent directory)
-        // 3. If it's a directory with dataset.yaml -> Filesystem-based
-        // 4. If it's a file that can be opened as HDF5 -> HDF5
-        // 5. Otherwise -> error
 
         if (Files.isDirectory(path)) {
             return loadFromDirectory(path);
@@ -210,27 +194,9 @@ public class DatasetLoader {
         Path yamlPath = dirPath.resolve("dataset.yaml");
         if (Files.exists(yamlPath)) {
             logger.info("Detected filesystem-based dataset (dataset.yaml found)");
-            return new FilesystemTestDataGroup(dirPath);
+            return new TestDataGroup(dirPath);
         }
-
-        // Check for HDF5 files in the directory
-        Path[] hdf5Files = Files.list(dirPath)
-            .filter(p -> {
-                String name = p.getFileName().toString().toLowerCase();
-                return name.endsWith(".hdf5") || name.endsWith(".h5");
-            })
-            .limit(2)
-            .toArray(Path[]::new);
-
-        if (hdf5Files.length == 1) {
-            logger.info("Detected single HDF5 file in directory: {}", hdf5Files[0]);
-            return new TestDataGroup(hdf5Files[0]);
-        } else if (hdf5Files.length > 1) {
-            throw new IOException("Multiple HDF5 files found in directory " + dirPath +
-                ". Please specify which file to load.");
-        }
-
-        throw new IOException("No dataset.yaml or HDF5 files found in directory: " + dirPath);
+        throw new IOException("No dataset.yaml found in directory: " + dirPath);
     }
 
     /// Loads a dataset from a file path.
@@ -245,64 +211,9 @@ public class DatasetLoader {
         // Check if it's dataset.yaml
         if (fileName.equals("dataset.yaml")) {
             logger.info("Detected dataset.yaml file, using parent directory");
-            return new FilesystemTestDataGroup(filePath);
+            return new TestDataGroup(filePath.getParent());
         }
-
-        // Check if it's an HDF5 file by extension
-        String lowerName = fileName.toLowerCase();
-        if (lowerName.endsWith(".hdf5") || lowerName.endsWith(".h5")) {
-            logger.info("Detected HDF5 file by extension");
-            return new TestDataGroup(filePath);
-        }
-
-        // Try to open as HDF5 as a fallback
-        try {
-            logger.debug("Attempting to open as HDF5 file");
-            HdfFile hdfFile = new HdfFile(filePath);
-            hdfFile.close();
-            logger.info("Successfully opened as HDF5 file");
-            return new TestDataGroup(filePath);
-        } catch (Exception e) {
-            logger.debug("Failed to open as HDF5: {}", e.getMessage());
-            throw new IOException("Could not determine dataset format for file: " + filePath +
-                ". Expected HDF5 file or dataset.yaml", e);
-        }
-    }
-
-    /// Attempts to detect if a path points to an HDF5 file.
-    ///
-    /// @param path The path to check
-    /// @return true if the path appears to be an HDF5 file
-    private static boolean isHdf5File(Path path) {
-        if (!Files.isRegularFile(path)) {
-            return false;
-        }
-
-        String fileName = path.getFileName().toString().toLowerCase();
-        if (fileName.endsWith(".hdf5") || fileName.endsWith(".h5")) {
-            return true;
-        }
-
-        // Try to open as HDF5
-        try {
-            HdfFile hdfFile = new HdfFile(path);
-            hdfFile.close();
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /// Attempts to detect if a path points to a filesystem-based dataset.
-    ///
-    /// @param path The path to check
-    /// @return true if the path appears to be a filesystem-based dataset
-    private static boolean isFilesystemDataset(Path path) {
-        if (Files.isDirectory(path)) {
-            return Files.exists(path.resolve("dataset.yaml"));
-        } else if (Files.isRegularFile(path)) {
-            return path.getFileName().toString().equals("dataset.yaml");
-        }
-        return false;
+        throw new IOException("Unsupported dataset descriptor: " + filePath +
+            ". Provide a dataset directory or dataset.yaml file.");
     }
 }

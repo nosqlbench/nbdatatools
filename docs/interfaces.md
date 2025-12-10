@@ -211,15 +211,6 @@ Small interfaces that provide common capabilities across the codebase.
 
 ## Specialized Processing APIs
 
-### HDF5 Processing
-**Package**: `io.nosqlbench.command.hdf5.subcommands.tag_hdf5.traversal`
-
-Visitor pattern interfaces for HDF5 file processing:
-- **HdfVisitor**: Visit HDF5 structure elements
-- **HdfVisitorFilter**: Filter which elements to visit
-- **HdfVisitorInjector**: Inject processing logic
-- **HdfViewTransform**: Transform HDF5 views
-
 ### Event System
 
 #### EventSink
@@ -236,7 +227,7 @@ The interfaces follow several key design patterns:
 2. **Async-First**: Core operations return CompletableFuture for non-blocking I/O
 3. **Separation of Concerns**: Clear boundaries between data access, transport, and verification
 4. **Strategy Pattern**: Multiple implementations for different use cases (e.g., ChunkScheduler)
-5. **Visitor Pattern**: For traversing complex data structures (HDF5, Parquet)
+5. **Visitor Pattern**: For traversing complex data structures (dataset.yaml, Parquet)
 6. **Factory Pattern**: Service providers for extensibility
 7. **Fluent Interfaces**: Many interfaces support method chaining
 

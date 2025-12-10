@@ -37,14 +37,14 @@ public class TestDataViewPrebufferTest {
         assertEquals("java.util.concurrent.CompletableFuture", prebufferMethod.getReturnType().getName());
     }
 
-    /// Test that HDF5ProfileDataView implements the prebuffer method
+    /// Test that FilesystemTestDataView implements the prebuffer method
     @Test
-    public void testHDF5ProfileDataViewHasPrebufferMethod() throws NoSuchMethodException {
-        Class<?> clazz = HDF5ProfileDataView.class;
+    public void testFilesystemTestDataViewHasPrebufferMethod() throws NoSuchMethodException {
+        Class<?> clazz = FilesystemTestDataView.class;
 
         // Test that prebuffer method exists
         Method prebufferMethod = clazz.getDeclaredMethod("prebuffer");
-        assertNotNull(prebufferMethod, "prebuffer method should exist in HDF5ProfileDataView");
+        assertNotNull(prebufferMethod, "prebuffer method should exist in FilesystemTestDataView");
         assertEquals("java.util.concurrent.CompletableFuture", prebufferMethod.getReturnType().getName());
     }
 

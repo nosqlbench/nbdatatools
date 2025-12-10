@@ -23,6 +23,7 @@ import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
 
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /// Implementation of ProfileSelector for virtual profiles.
@@ -53,6 +54,11 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
   /// @return A set of strings containing all available profile names
   public Set<String> getProfileNames() {
     return profiles();
+  }
+
+  @Override
+  public Set<String> profileNames() {
+    return new LinkedHashSet<>(profiles());
   }
 
   /// Selects a specific profile by name.

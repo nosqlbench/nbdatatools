@@ -29,38 +29,32 @@ A complete test dataset for ANN benchmarking includes:
 └─────────────────────────────────────┘
 ```
 
-## The HDF5 Standard Format
+## Standard Dataset Layout
 
-### Why HDF5?
+### Why dataset.yaml + facet files?
 
-NBDataTools uses HDF5 as its standard format because:
-- **Hierarchical**: Organize related data together
-- **Self-describing**: Metadata stored with data
-- **Efficient**: Binary format with compression
-- **Portable**: Cross-platform compatibility
-- **Partial I/O**: Read subsets without loading everything
+NBDataTools represents datasets as directories because:
+- **Transparent**: Each facet (base/query/indices/etc.) lives in a plain file (fvec/ivec/bvec/parquet)
+- **Composable**: Profiles describe which slices of each file participate in a given test
+- **Versionable**: Git-friendly YAML plus binary files, no monolithic container
+- **Portable**: Works across local disks, object stores, and HTTP range requests
+- **Efficient**: Supports partial I/O through MAFileChannel and dataset windows
 
-### HDF5 Structure for Vector Data
+### Directory Structure
 
 ```
-dataset.hdf5
-├── /base                    # Base vectors dataset
-│   ├── data                 # The actual vectors
-│   └── attributes           # Metadata
-├── /query                   # Query vectors
-│   ├── data
-│   └── attributes
-├── /neighbors               # Ground truth indices
-│   ├── data
-│   └── attributes
-├── /distances               # Ground truth distances
-│   ├── data
-│   └── attributes
-└── attributes               # Global metadata
-    ├── distance             # Distance function
-    ├── version              # Format version
-    └── ...                  # Other metadata
+dataset/
+├── dataset.yaml              # Declares attributes, profiles, windows
+├── base.fvec                 # Base vectors
+├── query.fvec                # Query vectors
+├── neighbors.ivec            # Neighbor indices (ground truth)
+└── distances.fvec            # Neighbor distances
 ```
+
+`dataset.yaml` describes:
+- **Attributes**: metadata such as distance function, license, vendor
+- **Profiles**: named combinations of base/query/windows (e.g., `default`, `1m`, `10m`)
+- **Facets**: paths to the actual vector/index files and their ranges
 
 ## Data Access Patterns
 
@@ -230,7 +224,7 @@ vectors = dataset.getRange(1000, 100); // Fast, already loaded
 | **ivec** | .ivec | Integer vectors | Binary |
 | **bvec** | .bvec | Byte vectors | Binary |
 | **Parquet** | .parquet | Columnar format | Binary |
-| **HDF5** | .hdf5/.h5 | Hierarchical data | Binary |
+| **Dataset dir** | dataset.yaml + files | Profile-based layout | Mixed |
 | **JSON** | .json | Text format | Text |
 
 ### Format Characteristics
@@ -245,10 +239,10 @@ vectors = dataset.getRange(1000, 100); // Fast, already loaded
 - Good compression
 - Schema support
 
-**HDF5**:
-- Rich metadata
-- Hierarchical organization
-- Partial I/O support
+**Dataset directories**:
+- Attributes + profiles in YAML
+- Facets stored as standard vector files
+- Works locally or via HTTP range requests
 
 ## Service Architecture
 
@@ -320,7 +314,7 @@ for (int i = start; i < start + count; i++) {
 ### 4. Use Appropriate Tools
 
 - `analyze` commands for understanding data
-- `export_hdf5` for format conversion
+- `convert ...` for format conversion
 - `datasets` for standard test data
 
 ## Summary
@@ -328,7 +322,7 @@ for (int i = start; i < start + count; i++) {
 These core concepts form the foundation of NBDataTools:
 
 - **Vector datasets** contain high-dimensional data for testing
-- **HDF5** provides a rich, standard format
+- **Dataset directories** provide a portable canonical format
 - **Multiple access patterns** suit different use cases
 - **Merkle verification** ensures data integrity
 - **Async operations** improve performance

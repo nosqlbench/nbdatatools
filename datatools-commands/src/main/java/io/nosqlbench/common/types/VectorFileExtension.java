@@ -33,7 +33,6 @@ public enum VectorFileExtension {
     IVEC(new String[]{".ivec", ".ivecs"}, FileType.xvec, int[].class),
     FVEC(new String[]{".fvec", ".fvecs"}, FileType.xvec, float[].class),
     BVEC(new String[]{".bvec", ".bvecs"}, FileType.xvec, byte[].class),
-    HDF5(new String[]{".hdf5"}, FileType.xvec, float[].class),
     PARQUET(new String[]{".parquet"}, FileType.parquet, float[].class),
     CSV(new String[]{".csv"}, FileType.csv, float[].class);
 

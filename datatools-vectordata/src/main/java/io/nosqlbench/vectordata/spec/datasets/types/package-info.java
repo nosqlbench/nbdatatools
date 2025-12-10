@@ -2,7 +2,7 @@
 ///
 /// This package defines the fundamental interfaces for working with different types of vector datasets,
 /// including base vectors, query vectors, neighbor indices, and distance metrics. These interfaces
-/// are implemented by format-specific classes (HDF5, xvec, etc.) to provide uniform access patterns.
+/// are implemented by format-specific classes (dataset.yaml/xvec, remote selectors, etc.) to provide uniform access patterns.
 ///
 /// ## Key Components
 ///

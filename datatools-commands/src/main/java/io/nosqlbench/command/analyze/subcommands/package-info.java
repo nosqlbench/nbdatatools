@@ -17,9 +17,9 @@
 ///
 /// ## verify_knn
 ///
-/// This command reads data from an HDF5 file in the standard vector KNN answer key format,
+/// This command reads data from vectordata datasets (dataset.yaml plus xvec stacks),
 /// computing correct neighborhoods and comparing them to the provided ones.
-/// * Arguments are HDF5 files to verify.
+/// * Arguments are dataset roots or explicit vector files to verify.
 /// * The command computes KNN neighborhoods and compares them against the answer-key data given.
 /// * It is a pure Java implementation which requires no other vector processing libraries or hardware.
 /// * It is not as fast as a GPU or TPU, but it is a simpler implementation which makes it easier
@@ -44,4 +44,3 @@ package io.nosqlbench.command.analyze.subcommands;
  * specific language governing permissions and limitations
  * under the License.
  */
-

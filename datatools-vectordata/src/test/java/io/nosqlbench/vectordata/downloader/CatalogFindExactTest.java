@@ -260,7 +260,7 @@ public class CatalogFindExactTest {
         try {
             return new DatasetEntry(
                 name,
-                new java.net.URL("http://example.com/" + name + ".hdf5"),
+                new java.net.URL("http://example.com/" + name + ".nbdset"),
                 Map.of("test", "true"),
                 profiles,
                 Map.of()

@@ -31,8 +31,8 @@ Generate a Merkle reference for a file:
 
 ```bash
 java -jar nbvectors.jar merkle create \
-  --file large_dataset.hdf5 \
-  --output large_dataset.mref \
+  --file datasets/mteb-lite/base.fvec \
+  --output base.mref \
   --chunk-size 1MB \
   --algorithm SHA-256
 ```
@@ -48,13 +48,13 @@ Verify file integrity:
 
 ```bash
 java -jar nbvectors.jar merkle verify \
-  --file large_dataset.hdf5 \
-  --reference large_dataset.mref
+  --file datasets/mteb-lite/base.fvec \
+  --reference base.mref
 ```
 
 Output example:
 ```
-Verifying large_dataset.hdf5...
+Verifying datasets/mteb-lite/base.fvec...
 Chunks verified: 512/512 (100%)
 Status: VALID
 Verification time: 2.3 seconds
@@ -66,8 +66,8 @@ Check specific byte ranges:
 
 ```bash
 java -jar nbvectors.jar merkle verify \
-  --file large_dataset.hdf5 \
-  --reference large_dataset.mref \
+  --file datasets/mteb-lite/base.fvec \
+  --reference base.mref \
   --range 1000000:2000000
 ```
 
@@ -78,13 +78,13 @@ Track verification state:
 ```bash
 # Show current verification state
 java -jar nbvectors.jar merkle status \
-  --state large_dataset.mrkl
+  --state base.mrkl
 
 # Resume partial verification
 java -jar nbvectors.jar merkle verify \
-  --file large_dataset.hdf5 \
-  --reference large_dataset.mref \
-  --state large_dataset.mrkl \
+  --file datasets/mteb-lite/base.fvec \
+  --reference base.mref \
+  --state base.mrkl \
   --resume
 ```
 
@@ -98,10 +98,10 @@ For large datasets, configure JVM heap:
 
 ```bash
 # 16GB heap for very large datasets
-java -Xmx16g -jar nbvectors.jar analyze describe --file huge_dataset.hdf5
+java -Xmx16g -jar nbvectors.jar analyze describe --file datasets/mteb-lite/base.fvec
 
 # Monitor memory usage
-java -XX:+PrintGCDetails -Xmx8g -jar nbvectors.jar export_hdf5 --input large.fvec --output large.hdf5
+java -XX:+PrintGCDetails -Xmx8g -jar nbvectors.jar convert file --input large.fvec --output large.csv
 ```
 
 #### Garbage Collection Tuning
@@ -126,7 +126,7 @@ Configure concurrent operations:
 # Set specific thread counts
 java -Dnbdatatools.threads.io=8 \
      -Dnbdatatools.threads.compute=16 \
-     -jar nbvectors.jar export_hdf5 --input huge.fvec --output huge.hdf5
+     -jar nbvectors.jar convert file --input huge.fvec --output huge.csv
 ```
 
 #### Async Processing Example
@@ -180,7 +180,7 @@ Enable detailed metrics:
 ```bash
 java -Dnbdatatools.metrics.enabled=true \
      -Dnbdatatools.metrics.output=metrics.json \
-     -jar nbvectors.jar analyze describe --file dataset.hdf5
+     -jar nbvectors.jar analyze describe --file datasets/mteb-lite
 ```
 
 Example metrics output:
@@ -517,7 +517,7 @@ Create test datasets:
 public void testVectorDatasetProcessing() {
     // Create test data
     List<float[]> testVectors = generateRandomVectors(1000, 128);
-    Path testFile = createTemporaryHDF5(testVectors);
+    Path testFile = createTemporaryFacet(testVectors);
     
     try (TestDataView testData = TestDataView.open(testFile)) {
         DatasetView<float[]> vectors = testData.getBaseVectors();
@@ -534,7 +534,7 @@ public void testVectorDatasetProcessing() {
     }
 }
 
-private Path createTemporaryHDF5(List<float[]> vectors) {
+private Path createTemporaryFacet(List<float[]> vectors) {
     // Implementation to create temporary test file
     return null; // Simplified
 }
@@ -547,7 +547,7 @@ Benchmark different configurations:
 ```java
 @Test
 public void benchmarkDatasetAccess() {
-    Path largeDataset = Paths.get("large_test_dataset.hdf5");
+    Path largeDataset = Paths.get("large_test_datasets/mteb-lite");
     
     // Test different chunk sizes
     int[] chunkSizes = {64 * 1024, 1024 * 1024, 10 * 1024 * 1024};
@@ -580,17 +580,17 @@ Test complete workflows:
 @Test
 public void testCompleteWorkflow() {
     // 1. Convert data
-    convertVectorData("input.fvec", "output.hdf5");
+    convertVectorData("input.fvec", "output/base.fvec");
     
     // 2. Verify conversion
-    verifyDatasetStructure("output.hdf5");
+    verifyDatasetStructure("output");
     
     // 3. Test access patterns
-    testSequentialAccess("output.hdf5");
-    testRandomAccess("output.hdf5");
+    testSequentialAccess("output");
+    testRandomAccess("output");
     
     // 4. Validate integrity
-    createAndVerifyMerkleTree("output.hdf5");
+    createAndVerifyMerkleTree("output/base.fvec");
 }
 ```
 
@@ -603,7 +603,7 @@ Enable detailed debugging:
 ```bash
 java -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG \
      -Dorg.slf4j.simpleLogger.showDateTime=true \
-     -jar nbvectors.jar analyze describe --file dataset.hdf5
+     -jar nbvectors.jar analyze describe --file datasets/mteb-lite
 ```
 
 ### Memory Analysis
@@ -694,8 +694,8 @@ java -jar nbvectors.jar datasets download \
   --checksum-algorithm SHA-256
 
 # Create and verify Merkle trees
-java -jar nbvectors.jar merkle create --file sensitive_data.hdf5 --output sensitive_data.mref
-java -jar nbvectors.jar merkle verify --file sensitive_data.hdf5 --reference sensitive_data.mref
+java -jar nbvectors.jar merkle create --file sensitive_data/base.fvec --output sensitive_data.mref
+java -jar nbvectors.jar merkle verify --file sensitive_data/base.fvec --reference sensitive_data.mref
 ```
 
 ### Access Control

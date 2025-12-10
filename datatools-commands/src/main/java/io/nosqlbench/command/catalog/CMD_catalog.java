@@ -20,7 +20,6 @@ package io.nosqlbench.command.catalog;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import io.nosqlbench.command.json.subcommands.export_json.Hdf5JsonSummarizer;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
 import org.apache.logging.log4j.LogManager;
@@ -50,18 +49,16 @@ import java.util.stream.Collectors;
  * in a simpler, declarative pass over all entries.
  */
 @CommandLine.Command(name = "catalog",
-    header = "Create catalog views of HDF5 files and dataset directories",
-    description = "When given files or directories, recursively find dataset roots (directories with dataset.yaml)" +
-                  " and .hdf5 files, and produce catalog.json and catalog.yaml files at each directory level.",
+    header = "Create catalog views of vectordata dataset directories",
+    description = "When given directories, recursively find dataset roots (directories with dataset.yaml)" +
+                  " and produce catalog.json and catalog.yaml files at each directory level.",
     exitCodeList = {"0: success", "1: error processing files"})
 public class CMD_catalog implements Callable<Integer>, BundledCommand {
 
     private static final Logger logger = LogManager.getLogger(CMD_catalog.class);
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final Dump yamlDumper = new Dump(DumpSettings.builder().build());
-    private static final Hdf5JsonSummarizer summarizer = new Hdf5JsonSummarizer();
-
-    @CommandLine.Parameters(description = "Files and/or directories to catalog; Directories will be traversed to find dataset.yaml and .hdf5 files", arity = "0..*")
+    @CommandLine.Parameters(description = "Directories to catalog; directories will be traversed to find dataset.yaml files", arity = "0..*")
     private List<Path> inputs;
 
     @CommandLine.Option(names = "--basename", description = "Base name for catalog files (no extension)", defaultValue = "catalog")
@@ -102,11 +99,12 @@ public class CMD_catalog implements Callable<Integer>, BundledCommand {
             }
             // Determine common parent directory
             Path commonParent = findCommonParent(roots);
-            // Gather all entries (dataset roots and hdf5 files)
+            // Gather all entries (dataset roots only)
             List<Entry> entries = new ArrayList<>();
             for (Path root : roots) {
-                if (Files.isRegularFile(root) && root.toString().endsWith(".hdf5")) {
-                    entries.add(loadHdf5Entry(root));
+                if (Files.isRegularFile(root)) {
+                    logger.error("File inputs are no longer supported: {}", root);
+                    return 1;
                 } else if (Files.isDirectory(root)) {
                     Files.walkFileTree(root, Set.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE,
                         new SimpleFileVisitor<>() {
@@ -122,9 +120,6 @@ public class CMD_catalog implements Callable<Integer>, BundledCommand {
                             }
                             @Override
                             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                                if (file.toString().endsWith(".hdf5")) {
-                                    entries.add(loadHdf5Entry(file));
-                                }
                                 return FileVisitResult.CONTINUE;
                             }
                         }
@@ -195,22 +190,6 @@ public class CMD_catalog implements Callable<Integer>, BundledCommand {
         return new Entry(yamlPath.toAbsolutePath().normalize(), data);
     }
 
-    private Entry loadHdf5Entry(Path file) {
-        Map<String, Object> data;
-        try {
-            data = summarizer.describeFile(file);
-        } catch (Exception e) {
-            data = new HashMap<>();
-            data.put("error", e.getMessage());
-        }
-        // Set entry name and type for .hdf5 files
-        String fname = file.getFileName().toString();
-        String base = fname.endsWith(".hdf5") ? fname.substring(0, fname.length() - 5) : fname;
-        data.put("name", base);
-        data.put("dataset_type", "hdf5");
-        return new Entry(file.toAbsolutePath().normalize(), data);
-    }
-
     /**
      * Loads the dataset entry and all files referenced under its "profiles" section.
      */
@@ -220,35 +199,6 @@ public class CMD_catalog implements Callable<Integer>, BundledCommand {
         // dataset.yaml entry
         Entry dsEntry = loadDatasetEntry(yamlPath);
         list.add(dsEntry);
-        // extract profile sources
-        Object layoutObj = dsEntry.data.get("layout");
-        if (layoutObj instanceof Map<?, ?>) {
-            Map<String, Object> layoutData = (Map<String, Object>) layoutObj;
-            Object profilesObj = layoutData.get("profiles");
-            if (profilesObj instanceof Map<?, ?>) {
-                Map<String, Object> profiles = (Map<String, Object>) profilesObj;
-        for (Object profVal : profiles.values()) {
-            if (profVal instanceof Map<?, ?>) {
-                Map<String, Object> profMap = (Map<String, Object>) profVal;
-                for (Object entryVal : profMap.values()) {
-                    if (entryVal instanceof Map<?, ?>) {
-                        Map<String, Object> fileSpec = (Map<String, Object>) entryVal;
-                        Object src = fileSpec.get("source");
-                        if (src instanceof String) {
-                            String srcStr = (String) src;
-                            if (srcStr.endsWith(".hdf5")) {
-                                Path fp = yamlPath.getParent().resolve(srcStr);
-                                if (Files.exists(fp)) {
-                                    list.add(loadHdf5Entry(fp));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-            }
-        }
         return list;
     }
 

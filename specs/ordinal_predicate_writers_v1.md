@@ -1,6 +1,6 @@
 # Ordinal Predicate Writers spec v1
 
-_A standard for writing vector search predicates into HDF5 files._
+_Guidance for writing ordinal predicates alongside vectordata dataset manifests._
 _version:_ 1
 
 This section specifies a way to read and write non-vector predicates in tandem
@@ -12,7 +12,7 @@ values in non-vector predicates. There are several reasons for this:
 1. To allow focus on the numerical relationships between vector spaces and related fields. 
    Ordinals provide the most direct _identity_ semantics for emulating operational behaviors 
    during hybrid query.
-2. To keep the hdf5 encoding uniform in most cases. Array-based indexing makes for efficient IO 
+2. To keep the facet encoding uniform in most cases. Array-based indexing makes for efficient IO 
    which is necessary to give test systems operational leverage.
 3. To simplify integration across a number of client runtimes and tools. Generalized syntax 
    mapping between disparate systems is not the fundamental goal of this specification and would 
@@ -24,11 +24,10 @@ The result of a hybrid query is the logical conjunction of both the
 vector ANN predicate and the non-vector predicates. Thus, the augmentative data can be 
 considered to be a parallel version of what we already provide for the KNN dataset.
 
-## HDF5 addressing
+## Predicate association
 
-The dataset containing filtering predicates will be named "/filters", and the association with query
-vectors shall be made as with other named datasets. Filter predicate '0' is the first one to appear
-in the dataset, and corresponds to ANN query vector '0', from the "/test" dataset.
+Predicates are stored under `profiles.<name>.predicates` (inline) or referenced via external files.
+Predicate index `0` corresponds to query vector `0`, predicate `1` to query `1`, and so on.
 
 # Encoding Schemes
 
@@ -55,8 +54,8 @@ long as the calling system can map them to actual field names during op construc
 
 A predicate may be encoded as a variable-length byte stream, or it may be fixed-length. When all
 predicates in a dataset have the same structure, then they should be by-definition the same length.
-The native `byte` type in Java is a signed two's compliment value. This is the form that is used 
-for hdf5 datasets.
+The native `byte` type in Java is a signed two's compliment value and is used for encoding tokens
+and lengths within predicate facets.
 
 ## Encoding
 
@@ -107,5 +106,4 @@ as in prepared statements. This requires the predicate structure to be uniform, 
 that varies are the comparators.
 
 * `uniform` | `mixed`
-
 

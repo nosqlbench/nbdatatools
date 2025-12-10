@@ -23,7 +23,7 @@ Welcome to the NBDataTools user manual. This comprehensive guide covers all aspe
 
 NBDataTools is a comprehensive toolkit for managing vector test data, particularly for Approximate Nearest Neighbor (ANN) benchmarking. It provides:
 
-- **Standardized Format**: HDF5-based format for vector datasets
+- **Standardized Format**: Dataset directories (`dataset.yaml` + facet files)
 - **Command-Line Tools**: Powerful CLI for data conversion, analysis, and management
 - **Java APIs**: Type-safe, async-first APIs for programmatic access
 - **Data Integrity**: Merkle tree-based verification

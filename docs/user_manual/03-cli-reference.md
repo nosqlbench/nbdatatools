@@ -47,18 +47,17 @@ java -jar nbvectors.jar analyze count_zeros --file vectors.fvec
 Verify k-nearest neighbor ground truth data.
 
 ```bash
-java -jar nbvectors.jar analyze verify_knn --file <path>
+java -jar nbvectors.jar analyze verify_knn [dataset-path]
 ```
 
 **Options:**
-- `--file, -f` - Path to HDF5 file (required)
+- `dataset-path` - Dataset directory or remote URL (defaults to current directory)
 - `--sample-size` - Number of queries to verify (default: 100)
 - `--k` - Number of neighbors to check (default: 10)
 
 **Example:**
 ```bash
-java -jar nbvectors.jar analyze verify_knn \
-  --file dataset.hdf5 \
+java -jar nbvectors.jar analyze verify_knn datasets/mteb-lite \
   --sample-size 1000 \
   --k 100
 ```
@@ -68,18 +67,17 @@ java -jar nbvectors.jar analyze verify_knn \
 Describe dataset contents and structure.
 
 ```bash
-java -jar nbvectors.jar analyze describe --file <path>
+java -jar nbvectors.jar analyze describe [dataset-path]
 ```
 
 **Options:**
-- `--file, -f` - Path to dataset file (required)
+- `dataset-path` - Dataset directory or remote URL (defaults to current directory)
 - `--detailed` - Show detailed statistics
 - `--format` - Output format (text, json)
 
 **Example:**
 ```bash
-java -jar nbvectors.jar analyze describe \
-  --file dataset.hdf5 \
+java -jar nbvectors.jar analyze describe datasets/mteb-lite \
   --detailed \
   --format json
 ```
@@ -88,77 +86,26 @@ java -jar nbvectors.jar analyze describe \
 
 Commands for converting between different vector formats.
 
-#### export_hdf5
+#### convert file
 
-Export vector files to HDF5 format.
+Convert between supported vector file formats (fvec, ivec, bvec, csv, json).
 
 ```bash
-java -jar nbvectors.jar export_hdf5 [options]
+java -jar nbvectors.jar convert file --input <file> --output <file>
 ```
 
 **Options:**
 - `--input, -i` - Input file path (required)
-- `--output, -o` - Output HDF5 file path (required)
-- `--dataset-name` - Name for the dataset
-- `--input-format` - Input format (fvec, ivec, bvec, parquet)
+- `--output, -o` - Output file path (required)
+- `--input-format` / `--output-format` - Force formats when auto-detection is ambiguous
 - `--dimensions` - Vector dimensions (auto-detected if possible)
-- `--distance` - Distance function (euclidean, cosine, inner-product)
-
-**Examples:**
-
-Convert float vectors:
-```bash
-java -jar nbvectors.jar export_hdf5 \
-  --input vectors.fvec \
-  --output vectors.hdf5 \
-  --dataset-name "my_vectors" \
-  --distance euclidean
-```
-
-Convert with ground truth:
-```bash
-java -jar nbvectors.jar export_hdf5 \
-  --input base.fvec \
-  --queries queries.fvec \
-  --neighbors neighbors.ivec \
-  --distances distances.fvec \
-  --output complete_dataset.hdf5
-```
-
-#### export_json
-
-Export HDF5 datasets to JSON format.
-
-```bash
-java -jar nbvectors.jar export_json --input <hdf5> --output <json>
-```
-
-**Options:**
-- `--input, -i` - Input HDF5 file (required)
-- `--output, -o` - Output JSON file (required)
-- `--pretty` - Pretty-print JSON
-- `--include-vectors` - Include vector data (warning: large!)
 
 **Example:**
 ```bash
-java -jar nbvectors.jar export_json \
-  --input dataset.hdf5 \
-  --output summary.json \
-  --pretty
+java -jar nbvectors.jar convert file \
+  --input vectors.fvec \
+  --output vectors.csv
 ```
-
-#### build_hdf5
-
-Build HDF5 files from JSON specifications.
-
-```bash
-java -jar nbvectors.jar build_hdf5 --spec <json> --output <hdf5>
-```
-
-**Options:**
-- `--spec, -s` - JSON specification file (required)
-- `--output, -o` - Output HDF5 file (required)
-- `--validate` - Validate after building
 
 ### Dataset Management Commands
 
@@ -227,87 +174,6 @@ java -jar nbvectors.jar datasets info --name <dataset>
 java -jar nbvectors.jar datasets info --name "glove-100-angular"
 ```
 
-### HDF5-Specific Commands
-
-Commands for working with HDF5 files.
-
-#### show_hdf5
-
-Display HDF5 file structure and contents.
-
-```bash
-java -jar nbvectors.jar show_hdf5 --file <path> [options]
-```
-
-**Options:**
-- `--file, -f` - HDF5 file path (required)
-- `--tree` - Show tree structure
-- `--attributes` - Show all attributes
-- `--data` - Show data samples
-- `--path` - Specific path within HDF5
-
-**Example:**
-```bash
-java -jar nbvectors.jar show_hdf5 \
-  --file dataset.hdf5 \
-  --tree \
-  --attributes
-```
-
-#### tag_hdf5
-
-Read or write HDF5 attributes.
-
-```bash
-java -jar nbvectors.jar tag_hdf5 <subcommand> [options]
-```
-
-**Subcommands:**
-
-##### read
-```bash
-java -jar nbvectors.jar tag_hdf5 read \
-  --file dataset.hdf5 \
-  --path /base \
-  --attribute distance
-```
-
-##### write
-```bash
-java -jar nbvectors.jar tag_hdf5 write \
-  --file dataset.hdf5 \
-  --path / \
-  --attribute license \
-  --value "MIT"
-```
-
-##### list
-```bash
-java -jar nbvectors.jar tag_hdf5 list --file dataset.hdf5
-```
-
-#### catalog_hdf5
-
-Create catalog entries for HDF5 files.
-
-```bash
-java -jar nbvectors.jar catalog_hdf5 --directory <dir> --output <catalog>
-```
-
-**Options:**
-- `--directory, -d` - Directory to scan (required)
-- `--output, -o` - Output catalog file
-- `--recursive` - Scan recursively
-- `--pattern` - File pattern to match
-
-**Example:**
-```bash
-java -jar nbvectors.jar catalog_hdf5 \
-  --directory ./datasets \
-  --output catalog.json \
-  --recursive
-```
-
 ### Utility Commands
 
 General utility commands.
@@ -330,8 +196,8 @@ java -jar nbvectors.jar fetch --url <url> --output <file>
 **Example:**
 ```bash
 java -jar nbvectors.jar fetch \
-  --url https://example.com/large-dataset.hdf5 \
-  --output dataset.hdf5 \
+  --url https://example.com/datasets/mteb-lite.tar \
+  --output mteb-lite.tar \
   --resume \
   --threads 4
 ```
@@ -381,7 +247,7 @@ java -jar nbvectors.jar generate [options]
 - `--count, -n` - Number of vectors (required)
 - `--dimensions, -d` - Vector dimensions (required)
 - `--output, -o` - Output file (required)
-- `--format` - Output format (fvec, hdf5)
+- `--format` - Output format (fvec, ivec, bvec, csv, json)
 - `--distribution` - Data distribution (uniform, gaussian)
 - `--seed` - Random seed
 
@@ -430,7 +296,7 @@ java -jar nbvectors.jar huggingface dl \
 ```bash
 java -jar nbvectors.jar huggingface dl \
   --repo "organization/dataset-name" \
-  --file "vectors.hdf5" \
+  --file "base_vectors.fvec" \
   --output ./downloads/
 ```
 
@@ -439,16 +305,16 @@ java -jar nbvectors.jar huggingface dl \
 ### 1. Convert and Verify Workflow
 
 ```bash
-# Convert vectors to HDF5
-java -jar nbvectors.jar export_hdf5 \
+# Convert vectors from fvec to csv
+java -jar nbvectors.jar convert file \
   --input raw_vectors.fvec \
-  --output dataset.hdf5
+  --output vectors.csv
 
-# Describe the result
-java -jar nbvectors.jar analyze describe --file dataset.hdf5
+# Describe the dataset directory
+java -jar nbvectors.jar analyze describe datasets/mteb-lite
 
-# Verify if ground truth is included
-java -jar nbvectors.jar analyze verify_knn --file dataset.hdf5
+# Verify ground truth
+java -jar nbvectors.jar analyze verify_knn datasets/mteb-lite
 ```
 
 ### 2. Dataset Discovery Workflow
@@ -471,13 +337,13 @@ java -jar nbvectors.jar datasets download \
 ```bash
 # Create merkle tree
 java -jar nbvectors.jar merkle create \
-  --file large_dataset.hdf5 \
-  --output large_dataset.mref
+  --file datasets/mteb-lite/base.fvec \
+  --output base.mref
 
 # Later, verify integrity
 java -jar nbvectors.jar merkle verify \
-  --file large_dataset.hdf5 \
-  --reference large_dataset.mref
+  --file datasets/mteb-lite/base.fvec \
+  --reference base.mref
 ```
 
 ## Performance Tips
@@ -486,16 +352,16 @@ java -jar nbvectors.jar merkle verify \
 
 For large datasets, increase heap size:
 ```bash
-java -Xmx16g -jar nbvectors.jar analyze describe --file huge_dataset.hdf5
+java -Xmx16g -jar nbvectors.jar analyze describe datasets/mteb-lite
 ```
 
 ### Parallel Processing
 
 Some commands support parallel execution:
 ```bash
-java -jar nbvectors.jar export_hdf5 \
+java -jar nbvectors.jar convert file \
   --input vectors.fvec \
-  --output vectors.hdf5 \
+  --output vectors.csv \
   --parallel 8
 ```
 
@@ -503,9 +369,9 @@ java -jar nbvectors.jar export_hdf5 \
 
 Use verbose mode for detailed progress:
 ```bash
-java -jar nbvectors.jar export_hdf5 \
+java -jar nbvectors.jar convert file \
   --input large.fvec \
-  --output large.hdf5 \
+  --output large.csv \
   --verbose
 ```
 

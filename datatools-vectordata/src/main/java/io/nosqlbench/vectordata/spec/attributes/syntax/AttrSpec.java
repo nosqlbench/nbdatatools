@@ -21,7 +21,7 @@ package io.nosqlbench.vectordata.spec.attributes.syntax;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/// Attribute Specifier - a specific attribute within an HDF5 file,
+/// Attribute specifier - identifies an attribute target within a dataset structure,
 /// with optional parent name.
 /// ```
 /// varname
@@ -61,7 +61,7 @@ public class AttrSpec {
   /// a pattern to match attr specs
   @SuppressWarnings({"RegExpRepeatedSpace", "RegExpUnexpectedAnchor"})
   public static final Pattern SPEC_PATTERN = Pattern.compile(
-      "(?<path>/|(?:/[^:/.]+)+)?          # Optional HDF5 path (e.g., /, /group, /group1/group2)\n" +
+      "(?<path>/|(?:/[^:/.]+)+)?          # Optional path (e.g., /, /group, /group1/group2)\n" +
           "[:.]?                              # Optional : or . separating path from attribute\n" +
           "(?<attr>[a-zA-Z_][a-zA-Z0-9_]*)    # Variable name (required, follows identifier rules)\n", Pattern.COMMENTS
   );
@@ -72,7 +72,7 @@ public class AttrSpec {
   public static AttrSpec parse(String spec) {
     Matcher m = SPEC_PATTERN.matcher(spec);
     if (!m.matches()) {
-      throw new IllegalArgumentException("Invalid HDF5 attribute spec format: " + spec);
+      throw new IllegalArgumentException("Invalid attribute spec format: " + spec);
     }
     String path = m.group("path") != null ? m.group("path").trim() : "/";
     String attr = m.group("attr");

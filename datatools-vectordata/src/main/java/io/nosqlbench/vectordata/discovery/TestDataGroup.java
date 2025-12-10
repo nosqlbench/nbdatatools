@@ -17,25 +17,19 @@ package io.nosqlbench.vectordata.discovery;
  * under the License.
  */
 
-import io.jhdf.HdfFile;
-import io.jhdf.api.Attribute;
-import io.jhdf.api.Dataset;
-import io.jhdf.api.Group;
-import io.jhdf.api.Node;
-import io.jhdf.exceptions.HdfInvalidPathException;
-import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
-import io.nosqlbench.vectordata.spec.tokens.Templatizer;
-import io.nosqlbench.vectordata.layout.FProfiles;
-import io.nosqlbench.vectordata.layout.FSource;
-import io.nosqlbench.vectordata.layout.FView;
-import io.nosqlbench.vectordata.layout.FWindow;
-import io.nosqlbench.vectordata.layout.FGroup;
-import io.nosqlbench.vectordata.layout.TestGroupLayout;
-import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
-import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
-import io.nosqlbench.vectordata.spec.tokens.SpecToken;
-import io.nosqlbench.vectordata.utils.SHARED;
 
+import io.nosqlbench.vectordata.layout.FGroup;
+import io.nosqlbench.vectordata.layout.FProfiles;
+import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+import io.nosqlbench.vectordata.spec.tokens.SpecToken;
+import io.nosqlbench.vectordata.spec.tokens.Templatizer;
+import io.nosqlbench.vectordata.utils.SHARED;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -44,390 +38,263 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/// This is the entry to consuming Vector Test Data according to the documented spec.
-/// This is the de-facto reference implementation of an accessor API that uses the documented
-/// HDF5 data format. When there are any conflicts between this and the provided documentation,
-/// then this implement should take precedence.
+/// TestDataGroup implementation for filesystem-based datasets using dataset.yaml configuration.
 ///
-/// In a future edition, the documentation should be derived directly from this reference
-/// implementation and the accompanying Javadoc.
+/// This class allows loading datasets directly from the local filesystem using a dataset.yaml
+/// configuration file. It wires up vector files (fvec, ivec, etc.) through AsyncFileChannel
+/// without requiring HDF5 format.
+///
+/// Example dataset.yaml:
+/// <pre>
+/// attributes:
+///   distance_function: COSINE
+///   license: APL
+///   url: https://github.com/nosqlbench/nbdatatools
+///
+/// profiles:
+///   default:
+///     base_vectors: base.fvec
+///     query_vectors: query.fvec
+///     neighbor_distances: distances.fvec
+///     neighbor_indices: indices.ivec
+///   small:
+///     base_vectors:
+///       source: base.fvec
+///       window: 0..1000
+///     query_vectors: query.fvec
+///     neighbor_indices: indices.ivec
+/// </pre>
 public class TestDataGroup implements AutoCloseable, ProfileSelector {
+    private static final Logger logger = LogManager.getLogger(TestDataGroup.class);
 
-  /// The default profile name used when no specific profile is requested
-  public static final String DEFAULT_PROFILE = "default";
-  /// The root HDF5 group containing all datasets
-  private final Group group;
-  /// The parsed profile configurations from the HDF5 file
-  private final FGroup groupProfiles;
-  /// The root group attributes parsed from the HDF5 file
-  private RootGroupAttributes attributes;
+    /// The default profile name
+    public static final String DEFAULT_PROFILE = "default";
 
-  /// Cache of profile views to avoid recreating them
-  private Map<String, TestDataView> profileCache = new LinkedHashMap<>();
+    /// The directory containing the dataset files
+    private final Path datasetDirectory;
 
-  /// Name of the sources group in the HDF5 file
-  public static final String SOURCES_GROUP = "sources";
-  /// Name of the attachments group in the HDF5 file
-  public static final String ATTACHMENTS_GROUP = "attachments";
-  /// Name of the profiles attribute in the HDF5 file
-  public static final String PROFILES_ATTR = "profiles";
-  private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "nbvectors");
+    /// The parsed profile configurations
+    private final FGroup groupProfiles;
 
-  /// create a vector data reader
-  /// @param path
-  ///     the path to the HDF5 file
-  public TestDataGroup(Path path) {
-    this(new HdfFile(path));
-  }
+    /// The attributes from the dataset.yaml
+    private final Map<String, Object> attributes;
 
-  /// create a vector data reader
-  /// @param file
-  ///     the HDF5 file
-  public TestDataGroup(HdfFile file) {
-    this((Group) file);
+    /// Cache of profile views
+    private final Map<String, TestDataView> profileCache = new LinkedHashMap<>();
 
-  }
+    /// The name of the dataset (derived from directory name)
+    private final String datasetName;
 
-  /// Creates a TestDataGroup from an HDF5 Group.
-  ///
-  /// @param group The HDF5 group to read data from
-  public TestDataGroup(Group group) {
-    this.group = group;
-    this.attributes = RootGroupAttributes.fromGroup(group);
-    this.groupProfiles = initConfig();
-  }
+    /// Creates a TestDataGroup from a directory path containing a dataset.yaml file.
+    ///
+    /// @param path The path to either a directory containing dataset.yaml or the dataset.yaml file itself
+    /// @throws IOException If the dataset.yaml cannot be read or parsed
+    public TestDataGroup(Path path) throws IOException {
+        // Handle both directory and direct file paths
+        if (Files.isDirectory(path)) {
+            this.datasetDirectory = path;
+            Path yamlPath = path.resolve("dataset.yaml");
+            if (!Files.exists(yamlPath)) {
+                throw new IOException("dataset.yaml not found in directory: " + path);
+            }
+        } else if (path.getFileName().toString().equals("dataset.yaml")) {
+            this.datasetDirectory = path.getParent();
+        } else {
+            throw new IOException("Path must be either a directory containing dataset.yaml or the dataset.yaml file itself: " + path);
+        }
 
-  /// Initializes the profile configuration from the HDF5 file.
-  ///
-  /// @return The parsed profile configuration
-  private FGroup initConfig() {
-    TestGroupLayout testGroupLayout=null;
-    Attribute profilesAttr = group.getAttribute(PROFILES_ATTR);
-    if (profilesAttr == null) {
-      return SyntheticDataConfig();
-    }
-    String profilesJson = profilesAttr.getData().toString();
-    Map<String, ?> profilesData = SHARED.mapFromJson(profilesJson);
-    FGroup fgroup = FGroup.fromObject(profilesData, null);
-    return fgroup;
-  }
+        this.datasetName = datasetDirectory.getFileName().toString();
 
-  /// Creates a synthetic profile configuration when none is found in the HDF5 file.
-  ///
-  /// This method attempts to infer a configuration based on the available datasets.
-  ///
-  /// @return A synthetic profile configuration
-  private FGroup SyntheticDataConfig() {
-    //    Map<String,FProfile> fprofiles = new LinkedHashMap<>();
-    Map<String, FView> fviews = new LinkedHashMap<>();
-    //    List<FSource> sources = new ArrayList<>();
-      group.getChildren().forEach((dsname, nodeValue) -> {
-      if (nodeValue instanceof Dataset) {
-        TestDataKind kind = TestDataKind.fromString(dsname);
-        fviews.put(kind.name(), new FView(new FSource(dsname, FWindow.ALL), FWindow.ALL));
-      }
-      TestDataKind.fromOptionalString(dsname).ifPresent(s -> {
+        // Load and parse dataset.yaml
+        Path yamlPath = datasetDirectory.resolve("dataset.yaml");
+        logger.info("Loading dataset configuration from: {}", yamlPath);
 
-      });
-      TestDataKind kind = TestDataKind.fromString(dsname);
-    });
-    FGroup fgroup = new FGroup(Map.of(DEFAULT_PROFILE, new FProfiles(fviews)));
-    return fgroup;
-  }
+        String yamlContent = Files.readString(yamlPath);
+        Map<String, Object> config = (Map<String, Object>) SHARED.yamlLoader.loadFromString(yamlContent);
 
-  /// Gets the name of this data group.
-  ///
-  /// @return The name of the data group
-  public String getName() {
-    return group.getName();
-  }
+        // Extract attributes
+        this.attributes = (Map<String, Object>) config.getOrDefault("attributes", new LinkedHashMap<>());
 
+        // Parse profiles - FGroup.fromObject expects the profiles map directly, not wrapped
+        Map<String, Object> profilesData = (Map<String, Object>) config.get("profiles");
+        if (profilesData == null || profilesData.isEmpty()) {
+            throw new IOException("No profiles defined in dataset.yaml");
+        }
 
-  /// Gets a group node from the HDF5 file by path.
-  ///
-  /// @param path The path to the group
-  /// @return An Optional containing the group node, or empty if not found or not a group
-  private Optional<Node> getGroup(String path) {
-    try {
-      Node node = this.group.getByPath(path);
-      if (node.isGroup()) {
-        return Optional.of(node);
-      } else {
-        return Optional.empty();
-      }
-    } catch (HdfInvalidPathException e) {
-      return Optional.empty();
-    }
-  }
+        // FGroup.fromObject already handles normalization of shorthand names via TestDataKind.fromOptionalString
+        this.groupProfiles = FGroup.fromObject(profilesData, null);
 
-  /// Gets any node from the HDF5 file by path.
-  ///
-  /// @param path The path to the node
-  /// @return An Optional containing the node, or empty if not found
-  private Optional<Node> getNode(String path) {
-    try {
-      Node node = this.group.getByPath(path);
-      return Optional.of(node);
-    } catch (HdfInvalidPathException e) {
-      return Optional.empty();
-    }
-  }
-
-
-  /// Looks up a token value across all profiles.
-  ///
-  /// @param tokenName The name of the token to look up
-  /// @return A map of profile names to token values
-  public Map<String, String> lookupTokens(String tokenName) {
-    Map<String, String> tokens = new LinkedHashMap<>();
-    for (String profile : getProfileNames()) {
-      tokens.put(profile, profile(profile).lookupToken(tokenName).orElse(null));
-    }
-    return tokens;
-  }
-
-
-  /// Closes the underlying HDF5 file if this group is the root.
-  ///
-  /// @throws Exception If an error occurs while closing the file
-  @Override
-  public void close() throws Exception {
-    if (group instanceof HdfFile) {
-      ((HdfFile) group).close();
-      return;
-    }
-  }
-
-  /// Returns a string representation of this TestDataGroup.
-  ///
-  /// @return A string representation of this TestDataGroup
-  @Override
-  public String toString() {
-    final StringBuffer sb = new StringBuffer("TestDataGroup{");
-    sb.append("attributes=").append(attributes);
-    sb.append(", group=").append(group);
-    sb.append(", groupProfiles=").append(groupProfiles);
-    sb.append(", profiles=").append(profileCache);
-    sb.append('}');
-    return sb.toString();
-  }
-
-  /// Gets the first dataset found from a list of possible paths.
-  ///
-  /// @param names The paths to search for datasets
-  /// @return An Optional containing the first dataset found, or empty if none found
-  Optional<Dataset> getFirstDataset(String... names) {
-    Dataset dataset = null;
-    for (String name : names) {
-      try {
-        dataset = group.getDatasetByPath(name);
-        return Optional.of(dataset);
-      } catch (HdfInvalidPathException ignored) {
-      }
-    }
-    return Optional.empty();
-  }
-
-  /// Gets the first dataset found from a list of possible paths, throwing an exception if none found.
-  ///
-  /// @param names The paths to search for datasets
-  /// @return The first dataset found
-  /// @throws HdfInvalidPathException If no dataset is found at any of the specified paths
-  private Dataset getFirstDatasetRequired(String... names) {
-    Optional<Dataset> firstDataset = getFirstDataset(names);
-    return firstDataset.orElseThrow(() -> new HdfInvalidPathException(
-        "none of the following datasets were found: " + String.join(",", names),
-        this.group.getFileAsPath()
-    ));
-  }
-
-  /// Get the full set of standard config tokens that are associated with this dataset.
-  /// These are simple textual values to use for labeling results elsewhere
-  /// @return the full set of standard config tokens
-  /// @param profile The profile to get the tokens for
-  public Map<String, String> getTokens(String profile) {
-    Map<String, String> tokenMap = new LinkedHashMap<>();
-    TestDataView tokenProfile = profile(profile);
-    for (SpecToken specToken : SpecToken.values()) {
-      specToken.apply(tokenProfile).ifPresent(t -> tokenMap.put(specToken.name(), t));
-    }
-    return tokenMap;
-  }
-
-  /// get the tags associated with this dataset
-  /// @return the tags associated with this dataset
-  public Map<String, String> getTags() {
-    return RootGroupAttributes.fromGroup(group).tags();
-  }
-
-  /// Gets the set of configuration names available for a specific data kind.
-  ///
-  /// @param kind The kind of data to get configurations for
-  /// @return A set of configuration names
-  public Set<String> getConfigs(TestDataKind kind) {
-    Set<String> configSet = new LinkedHashSet<>();
-    try {
-      Node child = this.group.getChild(kind.name());
-      if (child instanceof Dataset) {
-        configSet.add(DEFAULT_PROFILE);
-      } else if (child instanceof Group) {
-        Group g = (Group) child;
-        Map<String, Node> children = g.getChildren();
-        configSet.addAll(children.keySet());
-      }
-    } catch (HdfInvalidPathException ignored) {
-    }
-    return configSet;
-  }
-
-  /// Gets a profile by name, returning an empty Optional if not found.
-  ///
-  /// @param profileName The name of the profile to get
-  /// @return An Optional containing the profile, or empty if not found
-  public Optional<TestDataView> getProfileOptionally(String profileName) {
-    FProfiles fprofile = this.groupProfiles.profiles().get(profileName);
-    if (fprofile == null) {
-      return Optional.empty();
-    }
-    TestDataView profile =
-        profileCache.computeIfAbsent(profileName, p -> new HDF5ProfileDataView(this, fprofile));
-    return Optional.of(profile);
-  }
-
-  /// Gets the default profile.
-  ///
-  /// @return The default profile
-  public TestDataView getDefaultProfile() {
-    return this.profile(DEFAULT_PROFILE);
-  }
-  /// Gets a profile by name, throwing an exception if not found.
-  ///
-  /// @param profileName The name of the profile to get
-  /// @return The profile
-  /// @throws IllegalArgumentException If the profile is not found
-  @Override
-  public TestDataView profile(String profileName) {
-    // Extract effective profile name based on the documented rules
-    String effectiveProfileName;
-    
-    if (profileName.contains(":")) {
-      // If it has colons, take the last word after the last colon
-      int lastColonIndex = profileName.lastIndexOf(':');
-      effectiveProfileName = profileName.substring(lastColonIndex + 1);
-    } else if (profileName.equals(getName())) {
-      // If it's a single word matching the dataset name, use "default"
-      effectiveProfileName = DEFAULT_PROFILE;
-    } else {
-      effectiveProfileName = profileName;
-    }
-    // Otherwise, use the profileName as-is (already set above)
-    
-    return getProfileOptionally(effectiveProfileName).orElseThrow(() -> new IllegalArgumentException(
-        "profile '" + effectiveProfileName + "' not found in " + this));
-  }
-
-  @Override
-  public ProfileSelector setCacheDir(String cacheDir) {
-    this.cacheDir = Path.of(cacheDir.replace("~", System.getProperty("user.home")));
-    return this;
-  }
-
-  /// Gets the set of all profile names available in this data group.
-  ///
-  /// @return A set of profile names
-  public Set<String> getProfileNames() {
-    Set<String> names = this.groupProfiles.profiles().keySet();
-    names.forEach(n -> profileCache.computeIfAbsent(n, p -> null));
-    return profileCache.keySet();
-  }
-
-  /// Gets an attribute from the root group by name.
-  ///
-  /// @param attrname The name of the attribute to get
-  /// @return The attribute, or null if not found
-  public Attribute getAttribute(String attrname) {
-    Attribute attribute = group.getAttribute(attrname);
-    return attribute;
-  }
-
-  /// Tokenizes a template string using the tokens available in this data group.
-  ///
-  /// @param template The template string to tokenize
-  /// @return An Optional containing the tokenized string, or empty if tokenization failed
-  public Optional<String> tokenize(String template) {
-    return new Templatizer(t -> this.lookupToken(t).orElse(null)).templatize(template);
-  }
-
-  /// Gets the cache of all profiles, initializing it if empty.
-  ///
-  /// @return A map of profile names to profile views
-  public synchronized Map<String, TestDataView> getProfileCache() {
-    if (profileCache.isEmpty()) {
-      profileCache.putAll(getProfileNames().stream()
-          .collect(Collectors.toMap(p -> p, p -> profile(p))));
-    }
-    return profileCache;
-  }
-
-  /// Gets all available tokens for this data group across all profiles.
-  ///
-  /// @return A map of token names to token values
-  public Map<String,String> getTokens() {
-      Map<String,String> tokens = new LinkedHashMap<>();
-      Set<String> tokenNames = new LinkedHashSet<>();
-      getProfileCache().values().forEach(p -> tokenNames.addAll(p.getTokens().keySet()));
-      tokenNames.forEach(t -> tokens.put(t,lookupToken(t).orElse(null)));
-      return tokens;
-  }
-
-  /// Looks up a token value, first in the root attributes, then across all profiles.
-  ///
-  /// @param tokenName The name of the token to look up
-  /// @return An Optional containing the token value, or empty if not found
-  private Optional<String> lookupToken(String tokenName) {
-
-    Attribute rootAttr = group.getAttribute(tokenName);
-    if (rootAttr != null) {
-      return Optional.of(rootAttr.getData().toString());
+        logger.info("Loaded {} profile(s) from {}", groupProfiles.profiles().size(), yamlPath);
     }
 
-    Set<String> values = getProfileCache().values().stream().map(p -> p.lookupToken(tokenName))
-        .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toSet());
-    if (values.isEmpty()) {
-      return Optional.empty();
+    public String getName() {
+        return datasetName;
     }
-    if (values.size() == 1) {
-      return Optional.of(values.iterator().next());
+
+    /// Gets the directory containing the dataset files.
+    ///
+    /// @return The dataset directory path
+    public Path getDatasetDirectory() {
+        return datasetDirectory;
     }
-    boolean numeric = true;
-    boolean textual = true;
-    for (String value : values) {
-      if (value.matches("[0-9]+")) {
-        textual = false;
-      } else {
-        numeric = false;
-      }
-      if (!numeric && !textual) {
+
+    /// Gets an attribute value by name.
+    ///
+    /// @param name The attribute name
+    /// @return The attribute value, or null if not found
+    public Object getAttribute(String name) {
+        return attributes.get(name);
+    }
+
+    /// Gets the set of all profile names available in this dataset.
+    ///
+    /// @return A set of profile names
+    public Set<String> getProfileNames() {
+        return groupProfiles.profiles().keySet();
+    }
+
+    /// Gets a profile by name.
+    ///
+    /// @param profileName The name of the profile to get
+    /// @return The TestDataView for the profile
+    /// @throws IllegalArgumentException If the profile is not found
+    @Override
+    public TestDataView profile(String profileName) {
+        // Extract effective profile name based on the documented rules
+        String effectiveProfileName;
+
+        if (profileName.contains(":")) {
+            // If it has colons, take the last word after the last colon
+            int lastColonIndex = profileName.lastIndexOf(':');
+            effectiveProfileName = profileName.substring(lastColonIndex + 1);
+        } else if (profileName.equals(getName())) {
+            // If it's a single word matching the dataset name, use "default"
+            effectiveProfileName = DEFAULT_PROFILE;
+        } else {
+            effectiveProfileName = profileName;
+        }
+
+        return getProfileOptionally(effectiveProfileName)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "profile '" + effectiveProfileName + "' not found in " + this));
+    }
+
+    /// Gets a profile by name, returning an empty Optional if not found.
+    ///
+    /// @param profileName The name of the profile to get
+    /// @return An Optional containing the profile, or empty if not found
+    public Optional<TestDataView> getProfileOptionally(String profileName) {
+        FProfiles fprofile = this.groupProfiles.profiles().get(profileName);
+        if (fprofile == null) {
+            return Optional.empty();
+        }
+
+        TestDataView profile = profileCache.computeIfAbsent(
+            profileName,
+            p -> new FilesystemTestDataView(this, fprofile, profileName)
+        );
+        return Optional.of(profile);
+    }
+
+    /// Gets the default profile.
+    ///
+    /// @return The default profile
+    public TestDataView getDefaultProfile() {
+        return this.profile(DEFAULT_PROFILE);
+    }
+
+    @Override
+    public ProfileSelector setCacheDir(String cacheDir) {
+        // No-op for filesystem-based datasets
+        return this;
+    }
+
+    /// Gets the distance function for this dataset.
+    ///
+    /// @return The distance function
+    public DistanceFunction getDistanceFunction() {
+        Object distanceFunc = attributes.get(SpecToken.distance_function.name());
+        if (distanceFunc == null) {
+            return DistanceFunction.COSINE; // default
+        }
+        return DistanceFunction.valueOf(distanceFunc.toString().toUpperCase());
+    }
+
+    /// Looks up a token value, first in the root attributes, then across all profiles.
+    ///
+    /// @param tokenName The name of the token to look up
+    /// @return An Optional containing the token value, or empty if not found
+    public Optional<String> lookupToken(String tokenName) {
+        Object attrValue = attributes.get(tokenName);
+        if (attrValue != null) {
+            return Optional.of(attrValue.toString());
+        }
+
+        // Check across profiles
+        Set<String> values = getProfileCache().values().stream()
+            .map(p -> p.lookupToken(tokenName))
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toSet());
+
+        if (values.isEmpty()) {
+            return Optional.empty();
+        }
+        if (values.size() == 1) {
+            return Optional.of(values.iterator().next());
+        }
+
+        // Multiple different values
         return Optional.of("_");
-      }
-      if (numeric) {
-        long min = values.stream().map(Long::parseLong).min(Long::compareTo).orElseThrow();
-        long max = values.stream().map(Long::parseLong).min(Long::compareTo).orElseThrow();
-        return Optional.of(min + "to" + max);
-      } else {
-        return Optional.of(String.valueOf(values.size() + "V"));
-      }
     }
-    return Optional.empty();
-  }
 
-  /// Gets the distance function used for this dataset.
-  ///
-  /// @return The distance function, defaulting to COSINE if not specified
-  public DistanceFunction getDistanceFunction() {
-    return Optional.ofNullable(group.getAttribute(SpecToken.distance_function.name())).map(Attribute::getData)
-        .map(String::valueOf).map(String::toUpperCase)
-        .map(DistanceFunction::valueOf).orElse(DistanceFunction.COSINE);
-  }
+    /// Gets the cache of all profiles, initializing it if empty.
+    ///
+    /// @return A map of profile names to profile views
+    public synchronized Map<String, TestDataView> getProfileCache() {
+        if (profileCache.isEmpty()) {
+            profileCache.putAll(getProfileNames().stream()
+                .collect(Collectors.toMap(p -> p, p -> profile(p))));
+        }
+        return profileCache;
+    }
 
+    /// Gets all available tokens for this dataset across all profiles.
+    ///
+    /// @return A map of token names to token values
+    public Map<String, String> getTokens() {
+        Map<String, String> tokens = new LinkedHashMap<>();
+        Set<String> tokenNames = new LinkedHashSet<>();
+        getProfileCache().values().forEach(p -> tokenNames.addAll(p.getTokens().keySet()));
+        tokenNames.forEach(t -> tokens.put(t, lookupToken(t).orElse(null)));
+        return tokens;
+    }
+
+    /// Tokenizes a template string using the tokens available in this dataset.
+    ///
+    /// @param template The template string to tokenize
+    /// @return An Optional containing the tokenized string, or empty if tokenization failed
+    public Optional<String> tokenize(String template) {
+        return new Templatizer(t -> this.lookupToken(t).orElse(null)).templatize(template);
+    }
+
+    @Override
+    public void close() throws Exception {
+        // Close all cached profile views if they need cleanup
+        for (TestDataView view : profileCache.values()) {
+            if (view instanceof AutoCloseable) {
+                ((AutoCloseable) view).close();
+            }
+        }
+        profileCache.clear();
+    }
+
+    @Override
+    public String toString() {
+        return "TestDataGroup{" +
+            "name='" + datasetName + '\'' +
+            ", directory=" + datasetDirectory +
+            ", profiles=" + getProfileNames() +
+            '}';
+    }
 }

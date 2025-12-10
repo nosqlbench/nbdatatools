@@ -11,10 +11,10 @@ This document provides a high-level overview of NBDataTools architecture and des
 │  Command Line Interface (nbvectors.jar)                    │
 ├─────────────────────┬───────────────────┬───────────────────┤
 │    Analysis Tools   │  Conversion Tools │ Dataset Management│
-│  • analyze          │  • export_hdf5    │  • datasets       │
-│  • verify_knn       │  • export_json    │  • catalog_hdf5   │
-│  • count_zeros      │  • build_hdf5     │  • show_hdf5      │
-│  • describe         │                   │  • tag_hdf5       │
+│  • analyze          │  • convert file   │  • datasets       │
+│  • verify_knn       │  • export_json    │  • catalog        │
+│  • count_zeros      │                   │  • download       │
+│  • describe         │                   │  • plan           │
 ├─────────────────────┴───────────────────┴───────────────────┤
 │                      Core APIs                              │
 ├─────────────────────────────────────────────────────────────┤
@@ -35,7 +35,7 @@ This document provides a high-level overview of NBDataTools architecture and des
 │  • Verification     • Partial Downloads • Integrity Proofs │
 ├─────────────────────────────────────────────────────────────┤
 │  Storage Backends                                           │
-│  • HDF5 Files       • Binary Formats    • Remote Storage   │
+│  • Dataset Dirs     • Binary Formats    • Remote Storage   │
 │  • Local Cache      • Parquet Files     • Cloud Storage    │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -242,7 +242,7 @@ Clear boundaries between different responsibilities:
 └─────────────────┘    └─────────────────┘    └─────────────────┘
         │                       │                       │
         ▼                       ▼                       ▼
-  Dataset Views          HTTP/File Clients         HDF5/Binary
+  Dataset Views          HTTP/File Clients         Binary Stores
   Type-safe APIs         Range Requests            Local/Remote
   Async Operations       Connection Pooling        Caching
 ```
@@ -291,7 +291,7 @@ Clear boundaries between different responsibilities:
    └─ Write to storage backend
    
 3. Storage Backend
-   ├─ Serialize data (HDF5/Binary)
+   ├─ Serialize data (xvec/binary)
    ├─ Write to file/stream
    └─ Update metadata
    

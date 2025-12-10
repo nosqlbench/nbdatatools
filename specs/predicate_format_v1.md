@@ -14,8 +14,8 @@ TBD
 
 # JSON Format
 
-This format is what is used as the accepted format for writing hdf5 filter datasets.
-It is the format that you should process your source data into for use with the buildhdf5 command.
+This format is what is used as the accepted format for writing dataset filter datasets.
+It is the format that you should process your source data into for use with the builddataset command.
 
 ## Node Types
 

@@ -26,8 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGroupLayoutTests {
 
-  private final static FSource fs1 = new FSource("test1.hdf5", "[0..1_000_000,0..128)");
-  private final static FSource fs2 = new FSource("test1.hdf5", "[0..1_000_000,0..128)");
+  private final static FSource fs1 = new FSource("test1.fvec", "[0..1_000_000,0..128)");
+  private final static FSource fs2 = new FSource("test1.fvec", "[0..1_000_000,0..128)");
   private final static FWindow fw1 = new FWindow("5..100", "0..90");
   private final static FWindow fw2 = new FWindow("10..100", "0..80");
   private final static FView fv1 = new FView(fs1, fw1);
@@ -57,14 +57,14 @@ public class TestGroupLayoutTests {
         "profiles:\n" +
         "  p1:\n" +
         "    base_vectors:\n" +
-        "      source: test1.hdf5(0..1_000_000,0..128)\n" +
+        "      source: test1.fvec(0..1_000_000,0..128)\n" +
         "      window: (5..100,0..90)\n" +
         "    query_vectors:\n" +
-        "      source: test1.hdf5(0..1_000_000,0..128)\n" +
+        "      source: test1.fvec(0..1_000_000,0..128)\n" +
         "      window: (5..100,0..90)\n" +
         "  p2:\n" +
         "    base_vectors:\n" +
-        "      source: test1.hdf5(0..1_000_000,0..128)\n" +
+        "      source: test1.fvec(0..1_000_000,0..128)\n" +
         "      window: (10..100,0..80)";
     TestGroupLayout fgc = TestGroupLayout.fromYaml(yaml);
     //    assertThat(fc2).isEqualTo(fc1);

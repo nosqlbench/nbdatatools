@@ -20,6 +20,7 @@ package io.nosqlbench.vectordata.downloader;
 
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -101,12 +102,14 @@ public class DownloadResult {
     ///
     /// @return An Optional containing the data group, or empty if not available
     public Optional<TestDataGroup> getDataGroup() {
-        if (isSuccess()) {
-            return Optional.of(new TestDataGroup(path));
-        } else {
+        if (!isSuccess()) {
             return Optional.empty();
         }
-
+        try {
+            return Optional.of(new TestDataGroup(path));
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to load dataset at " + path, e);
+        }
     }
     /// Gets the associated data group, throwing an exception if not available.
     ///
@@ -114,6 +117,6 @@ public class DownloadResult {
     /// @throws IllegalStateException if the data group is not available
     public TestDataGroup getRequiredDataGroup() {
         return getDataGroup().orElseThrow(() -> new RuntimeException("download of '" + path +
-                                                                     "' failed: " + error.getMessage()));
+            "' failed: " + (error != null ? error.getMessage() : "unknown error")));
     }
 }
