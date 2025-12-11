@@ -19,6 +19,7 @@ package io.nosqlbench.nbdatatools.api.concurrent;
 
 import java.io.PrintStream;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
@@ -350,7 +351,22 @@ public interface ProgressIndicator<T>  {
                             outputStream.println(getEnhancedProgressString(progressHistory, startTime) + " - Complete");
                         }
                     } else if (future.isCompletedExceptionally() && !future.isCancelled()) {
-                        outputStream.println("Task failed");
+                        Throwable completionError = null;
+                        try {
+                            future.join();
+                        } catch (CompletionException completionException) {
+                            completionError = completionException.getCause() != null
+                                ? completionException.getCause()
+                                : completionException;
+                        } catch (RuntimeException runtimeException) {
+                            completionError = runtimeException;
+                        }
+
+                        StringBuilder message = new StringBuilder("Error monitoring progress");
+                        if (completionError != null && completionError.getMessage() != null && !completionError.getMessage().isBlank()) {
+                            message.append(": ").append(completionError.getMessage());
+                        }
+                        outputStream.println(message);
                     } else if (future.isCancelled()) {
                         outputStream.println("Task cancelled");
                     } else {
