@@ -29,6 +29,11 @@
       <artifactId>datatools-io-transport</artifactId>
       <version>${revision}</version>
     </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>datatools-virtdata</artifactId>
+      <version>${revision}</version>
+    </dependency>
 
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>

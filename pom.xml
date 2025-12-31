@@ -33,6 +33,7 @@
     <module>datatools-parquet-reader</module>
     <module>datatools-vectordata</module>
     <module>datatools-status-api</module>
+    <module>datatools-virtdata</module>
   </modules>
 
   <profiles>

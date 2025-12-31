@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.nosqlbench</groupId>
+    <version>${revision}</version>
+    <artifactId>datatools-mvn-defaults</artifactId>
+    <relativePath>../datatools-mvn-defaults</relativePath>
+  </parent>
+
+  <artifactId>datatools-virtdata</artifactId>
+  <name>${project.artifactId}</name>
+  <description>Math helpers for vector space operations</description>
+  <url>https://github.com/nosqlbench/nbdatatools</url>
+
+  <properties>
+    <javadoc.name>datatools-virtdata</javadoc.name>
+  </properties>
+
+  <dependencies>
+
+    <!-- JSON serialization -->
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.10.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-suite</artifactId>
+      <version>1.10.2</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- JMH for microbenchmarks -->
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-core</artifactId>
+      <version>1.37</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-generator-annprocess</artifactId>
+      <version>1.37</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <repositories>
+    <repository>
+      <name>Central Portal Snapshots</name>
+      <id>central-portal-snapshots</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+  <scm>
+    <connection>scm:git:git://github.com/nosqlbench/nbdatatools.git</connection>
+    <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git
+    </developerConnection>
+    <url>https://github.com/nosqlbench/nbdatatools/tree/main</url>
+  </scm>
+  <distributionManagement>
+    <snapshotRepository>
+      <id>central</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+    </snapshotRepository>
+    <repository>
+      <id>central</id>
+      <url>https://central.sonatype.com/</url>
+    </repository>
+  </distributionManagement>
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Jonathan Shook</name>
+      <email>jshook@gmail.com</email>
+      <organization>nosqlbench.io</organization>
+      <organizationUrl>https://nosqlbench.io/</organizationUrl>
+    </developer>
+    <developer>
+      <name>Mark Wolters</name>
+      <email>mwolters138@gmail.com</email>
+      <organization>nosqlbench.io</organization>
+      <organizationUrl>https://nosqlbench.io/</organizationUrl>
+    </developer>
+  </developers>
+
+  <build>
+    <plugins>
+
+      <!-- Multi-Release JAR: Java 11 base + Java 25 Vector API -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.14.0</version>
+        <executions>
+          <!-- Base Java 11 compilation -->
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <release>11</release> <!-- All other modules and sources in this project are set for Java 25 -->
+            </configuration>
+          </execution>
+
+          <!-- Java 25 Vector API compilation -->
+          <execution>
+            <id>java25-compile</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <release>25</release>
+              <multiReleaseOutput>true</multiReleaseOutput>
+              <compileSourceRoots>
+                <compileSourceRoot>${project.basedir}/src/main/java25</compileSourceRoot>
+              </compileSourceRoots>
+              <compilerArgs>
+                <arg>--add-modules</arg>
+                <arg>jdk.incubator.vector</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+
+          <!-- Test compilation with JMH annotation processor -->
+          <execution>
+            <id>default-testCompile</id>
+            <phase>test-compile</phase>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+            <configuration>
+              <release>25</release>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>org.openjdk.jmh</groupId>
+                  <artifactId>jmh-generator-annprocess</artifactId>
+                  <version>1.37</version>
+                </path>
+              </annotationProcessorPaths>
+              <compilerArgs>
+                <arg>--add-modules</arg>
+                <arg>jdk.incubator.vector</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Enable Multi-Release JAR -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Multi-Release>true</Multi-Release>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <!-- Run only the test suite, not individual tests -->
+          <includes>
+            <include>**/VectorDataTestSuite.java</include>
+          </includes>
+          <!-- Add Vector API module for JDK 25 multi-release JAR support -->
+          <argLine>--add-modules jdk.incubator.vector</argLine>
+          <!-- Configure ephemeral test resources to use target/ directory -->
+          <systemPropertyVariables>
+            <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+          </systemPropertyVariables>
+        </configuration>
+        <executions>
+          <!-- Default execution runs regular tests -->
+          <execution>
+            <id>default-test</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>**/VectorDataTestSuite.java</include>
+              </includes>
+              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+          <!-- Performance test execution runs only when activated -->
+          <execution>
+            <id>performance-tests</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>**/PerformanceTestSuite.java</include>
+              </includes>
+              <skip>${skipPerformanceTests}</skip>
+              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>0.15</version>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <includes>
+            <include>**/*.java</include>
+          </includes>
+          <excludes>
+            <exclude>**/gen/**</exclude>
+            <exclude>**/generated/**</exclude>
+            <exclude>**/jmh_generated/**</exclude>
+            <exclude>**/generated-sources/**</exclude>
+          </excludes>
+          <addLicenseHeaders>true</addLicenseHeaders>
+          <copyrightMessage>Copyright (c) nosqlbench</copyrightMessage>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>flatten-maven-plugin</artifactId>
+        <version>1.3.0</version>
+        <configuration>
+          <updatePomFile>true</updatePomFile>
+          <flattenMode>resolveCiFriendliesOnly</flattenMode>
+        </configuration>
+        <executions>
+          <execution>
+            <id>flatten</id>
+            <phase>process-resources</phase>
+            <goals>
+              <goal>flatten</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>flatten.clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.11.2</version>
+        <executions>
+          <execution>
+            <id>attach-javadoc</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <includes>
+          <include>META-INF/services/**</include>
+        </includes>
+      </resource>
+    </resources>
+
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+        <excludes>
+          <exclude>testserver/temp/**</exclude>
+        </excludes>
+      </testResource>
+    </testResources>
+
+  </build>
+
+
+  <profiles>
+    <profile>
+      <id>native</id>
+      <build>
+        <plugins>
+
+          <!--          Building with native image seems infeasible with some dependencies-->
+          <!--          <plugin>-->
+          <!--            <groupId>org.graalvm.buildtools</groupId>-->
+          <!--            <artifactId>native-maven-plugin</artifactId>-->
+          <!--            <version>${native.maven.plugin.version}</version>-->
+          <!--            <executions>-->
+          <!--              <execution>-->
+          <!--                <id>build-native</id>-->
+          <!--                <goals>-->
+          <!--                  <goal>compile-no-fork</goal>-->
+          <!--                </goals>-->
+          <!--                <phase>package</phase>-->
+          <!--              </execution>-->
+          <!--              &lt;!&ndash;              <execution>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <id>test-native</id>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <goals>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                  <goal>test</goal>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                </goals>&ndash;&gt;-->
+          <!--              &lt;!&ndash;                <phase>test</phase>&ndash;&gt;-->
+          <!--              &lt;!&ndash;              </execution>&ndash;&gt;-->
+          <!--            </executions>-->
+          <!--            <configuration>-->
+          <!--              <fallback>false</fallback>-->
+          <!--            </configuration>-->
+          <!--          </plugin>-->
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+</project>
