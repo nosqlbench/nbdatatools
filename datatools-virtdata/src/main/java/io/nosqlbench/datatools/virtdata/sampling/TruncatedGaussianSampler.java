@@ -1,5 +1,3 @@
-package io.nosqlbench.datatools.virtdata;
-
 /*
  * Copyright (c) nosqlbench
  *
@@ -17,6 +15,10 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+package io.nosqlbench.datatools.virtdata.sampling;
+
+import io.nosqlbench.vshapes.model.GaussianCDF;
+
 /**
  * Truncated Gaussian sampler using proper inverse transform method.
  *
@@ -30,63 +32,26 @@ package io.nosqlbench.datatools.virtdata;
  * <h2>Algorithm</h2>
  *
  * <pre>{@code
- * ┌─────────────────────────────────────────────────────────────────────┐
- * │           TRUNCATED GAUSSIAN INVERSE TRANSFORM                      │
- * └─────────────────────────────────────────────────────────────────────┘
- *
  *   SETUP (precomputed once per sampler):
- *   ┌──────────────────────────────────────────────────────────────────┐
- *   │ Step 1: Standardize bounds                                       │
- *   │   a = (lower - μ) / σ        (lower bound in standard units)     │
- *   │   b = (upper - μ) / σ        (upper bound in standard units)     │
- *   │                                                                  │
- *   │ Step 2: Compute CDF at bounds                                    │
- *   │   Φ(a) = P(Z ≤ a)            (probability below lower)           │
- *   │   Φ(b) = P(Z ≤ b)            (probability below upper)           │
- *   │                                                                  │
- *   │ Step 3: Compute probability mass                                 │
- *   │   Z = Φ(b) - Φ(a)            (mass within [lower, upper])        │
- *   └──────────────────────────────────────────────────────────────────┘
+ *     Step 1: Standardize bounds
+ *       a = (lower - μ) / σ        (lower bound in standard units)
+ *       b = (upper - μ) / σ        (upper bound in standard units)
+ *
+ *     Step 2: Compute CDF at bounds
+ *       Φ(a) = P(Z ≤ a)            (probability below lower)
+ *       Φ(b) = P(Z ≤ b)            (probability below upper)
+ *
+ *     Step 3: Compute probability mass
+ *       Z = Φ(b) - Φ(a)            (mass within [lower, upper])
  *
  *   SAMPLING (per value):
- *   ┌──────────────────────────────────────────────────────────────────┐
- *   │ Step 4: Rescale unit interval                                    │
- *   │   u' = Φ(a) + u · Z          (maps u∈(0,1) to u'∈(Φ(a),Φ(b)))   │
- *   │                                                                  │
- *   │ Step 5: Invert to get sample                                     │
- *   │   x = μ + σ · Φ⁻¹(u')        (gives x ∈ [lower, upper])         │
- *   └──────────────────────────────────────────────────────────────────┘
+ *     Step 4: Rescale unit interval
+ *       u' = Φ(a) + u · Z          (maps u∈(0,1) to u'∈(Φ(a),Φ(b)))
+ *
+ *     Step 5: Invert to get sample
+ *       x = μ + σ · Φ⁻¹(u')        (gives x ∈ [lower, upper])
  * }</pre>
  *
- * <h2>Visualization</h2>
- *
- * <pre>{@code
- *   Full Gaussian N(μ,σ²)              Truncated to [lower, upper]
- *
- *         ╭───╮                              ╭───╮
- *        ╱     ╲                            ╱     ╲
- *       ╱       ╲                          │       │
- *      ╱         ╲                         │       │
- *   ──┴───────────┴──                   ───┴───────┴───
- *      lower   upper                      lower   upper
- *
- *   Probability outside              All probability mass
- *   bounds is non-zero               concentrated in bounds
- *                                    (rescaled to integrate to 1)
- * }</pre>
- *
- * <h2>Usage</h2>
- *
- * <pre>{@code
- * // Sample from N(0, 1) truncated to [-1, 1]
- * TruncatedGaussianSampler sampler = new TruncatedGaussianSampler(0.0, 1.0, -1.0, 1.0);
- * double value = sampler.sample(0.5);  // Returns ~0.0 (median of truncated dist)
- *
- * // Sample from N(0.5, 0.3) truncated to [0, 1] (common for embeddings)
- * TruncatedGaussianSampler normalized = new TruncatedGaussianSampler(0.5, 0.3, 0.0, 1.0);
- * }</pre>
- *
- * @see GaussianCDF
  * @see InverseGaussianCDF
  */
 public final class TruncatedGaussianSampler {

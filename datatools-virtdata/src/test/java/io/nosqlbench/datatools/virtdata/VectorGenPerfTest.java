@@ -17,6 +17,7 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,7 +35,7 @@ class VectorGenPerfTest {
     @Test
     void testSingleVectorThroughput() {
         VectorSpaceModel model = new VectorSpaceModel(10_000_000, 128, 0.0, 1.0);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         // Warmup
         for (int i = 0; i < WARMUP_ITERATIONS; i++) {
@@ -63,7 +64,7 @@ class VectorGenPerfTest {
     @Test
     void testBatchThroughput() {
         VectorSpaceModel model = new VectorSpaceModel(10_000_000, 128, 0.0, 1.0);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         int batchSize = 1000;
         int batches = BENCHMARK_ITERATIONS / batchSize;
@@ -97,7 +98,7 @@ class VectorGenPerfTest {
     void testO1SamplingCost() {
         // Verify that sampling cost doesn't depend on ordinal value
         VectorSpaceModel model = new VectorSpaceModel(Long.MAX_VALUE / 2, 64, 0.0, 1.0);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         // Warmup
         for (int i = 0; i < WARMUP_ITERATIONS; i++) {
@@ -140,7 +141,7 @@ class VectorGenPerfTest {
         for (int d = 0; d < dimensions.length; d++) {
             int dim = dimensions[d];
             VectorSpaceModel model = new VectorSpaceModel(1_000_000, dim, 0.0, 1.0);
-            VectorGen gen = new VectorGen(model);
+            DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
             // Warmup
             for (int i = 0; i < WARMUP_ITERATIONS; i++) {

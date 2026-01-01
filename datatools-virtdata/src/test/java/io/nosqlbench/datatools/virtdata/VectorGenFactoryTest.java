@@ -17,6 +17,7 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.LongFunction;
@@ -40,7 +41,7 @@ class VectorGenFactoryTest {
         VectorSpaceModel model = new VectorSpaceModel(1000, 64);
         LongFunction<float[]> gen = VectorGenFactory.create(model, VectorGenFactory.Mode.SCALAR);
 
-        assertInstanceOf(ScalarVectorGen.class, gen);
+        assertInstanceOf(ScalarDimensionDistributionGenerator.class, gen);
 
         float[] vector = gen.apply(42);
         assertNotNull(vector);
@@ -88,7 +89,7 @@ class VectorGenFactoryTest {
     @Test
     void testSimpleCreate() {
         VectorSpaceModel model = new VectorSpaceModel(1000, 128);
-        VectorGen gen = VectorGenFactory.create(model);
+        DimensionDistributionGenerator gen = VectorGenFactory.create(model);
 
         assertNotNull(gen);
         float[] vector = gen.apply(0);

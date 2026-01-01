@@ -1,0 +1,2 @@
+io.nosqlbench.datatools.virtdata.DimensionDistributionGenerator
+io.nosqlbench.datatools.virtdata.ScalarDimensionDistributionGenerator

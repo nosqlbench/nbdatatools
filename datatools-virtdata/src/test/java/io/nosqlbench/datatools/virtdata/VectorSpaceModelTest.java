@@ -17,6 +17,9 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.ComponentModel;
+import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,10 +40,10 @@ class VectorSpaceModelTest {
         assertEquals(64, model.dimensions());
 
         // All components should have the same parameters
+        GaussianComponentModel[] gaussians = model.gaussianComponentModels();
         for (int d = 0; d < 64; d++) {
-            GaussianComponentModel cm = model.componentModel(d);
-            assertEquals(2.0, cm.mean());
-            assertEquals(0.5, cm.stdDev());
+            assertEquals(2.0, gaussians[d].getMean());
+            assertEquals(0.5, gaussians[d].getStdDev());
         }
     }
 
@@ -55,16 +58,18 @@ class VectorSpaceModelTest {
         assertEquals(1000, vsm.uniqueVectors());
         assertEquals(3, vsm.dimensions());
 
-        assertEquals(0.0, vsm.componentModel(0).mean());
-        assertEquals(5.0, vsm.componentModel(1).mean());
-        assertEquals(-1.0, vsm.componentModel(2).mean());
+        // Access through typed gaussianComponentModels() method
+        GaussianComponentModel[] retrieved = vsm.gaussianComponentModels();
+        assertEquals(0.0, retrieved[0].getMean());
+        assertEquals(5.0, retrieved[1].getMean());
+        assertEquals(-1.0, retrieved[2].getMean());
     }
 
     @Test
     void testInvalidParameters() {
         assertThrows(IllegalArgumentException.class, () -> new VectorSpaceModel(0, 128));
         assertThrows(IllegalArgumentException.class, () -> new VectorSpaceModel(-1, 128));
-        assertThrows(NullPointerException.class, () -> new VectorSpaceModel(1000, null));
+        assertThrows(NullPointerException.class, () -> new VectorSpaceModel(1000, (ComponentModel[]) null));
         assertThrows(IllegalArgumentException.class, () -> new VectorSpaceModel(1000, new GaussianComponentModel[0]));
     }
 
@@ -80,7 +85,7 @@ class VectorSpaceModelTest {
         GaussianComponentModel[] original = GaussianComponentModel.uniform(0.0, 1.0, 4);
         VectorSpaceModel model = new VectorSpaceModel(100, original);
 
-        GaussianComponentModel[] retrieved = model.componentModels();
+        ComponentModel[] retrieved = model.componentModels();
         assertNotSame(original, retrieved);
         assertEquals(original.length, retrieved.length);
     }

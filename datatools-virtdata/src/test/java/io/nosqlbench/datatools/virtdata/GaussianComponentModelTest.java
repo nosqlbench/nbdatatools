@@ -17,6 +17,7 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.GaussianComponentModel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,15 +27,15 @@ class GaussianComponentModelTest {
     @Test
     void testBasicConstruction() {
         GaussianComponentModel model = new GaussianComponentModel(5.0, 2.0);
-        assertEquals(5.0, model.mean());
-        assertEquals(2.0, model.stdDev());
+        assertEquals(5.0, model.getMean());
+        assertEquals(2.0, model.getStdDev());
     }
 
     @Test
     void testStandardNormal() {
         GaussianComponentModel standard = GaussianComponentModel.standardNormal();
-        assertEquals(0.0, standard.mean());
-        assertEquals(1.0, standard.stdDev());
+        assertEquals(0.0, standard.getMean());
+        assertEquals(1.0, standard.getStdDev());
     }
 
     @Test
@@ -48,8 +49,8 @@ class GaussianComponentModelTest {
         GaussianComponentModel[] models = GaussianComponentModel.uniform(1.5, 0.5, 4);
         assertEquals(4, models.length);
         for (GaussianComponentModel model : models) {
-            assertEquals(1.5, model.mean());
-            assertEquals(0.5, model.stdDev());
+            assertEquals(1.5, model.getMean());
+            assertEquals(0.5, model.getStdDev());
         }
     }
 

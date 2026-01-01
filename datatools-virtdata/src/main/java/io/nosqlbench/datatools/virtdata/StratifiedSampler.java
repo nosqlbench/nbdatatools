@@ -106,8 +106,7 @@ package io.nosqlbench.datatools.virtdata;
  *   <li><b>Clamping</b> - Avoids exact 0 and 1 which would cause infinity in inverse CDF</li>
  * </ul>
  *
- * @see VectorGen
- * @see InverseGaussianCDF
+ * @see VectorGenerator
  */
 public final class StratifiedSampler {
 

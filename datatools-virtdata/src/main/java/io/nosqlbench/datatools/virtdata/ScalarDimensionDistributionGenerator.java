@@ -17,14 +17,18 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
-import java.util.function.LongFunction;
+import io.nosqlbench.datatools.virtdata.sampling.ComponentSampler;
+import io.nosqlbench.datatools.virtdata.sampling.ComponentSamplerFactory;
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
+
+import java.util.Objects;
 
 /**
- * Scalar (non-SIMD) vector generator implementation.
+ * Scalar (non-SIMD) dimension distribution generator implementation.
  *
  * <p>This class provides the pure Java 11 implementation that can be explicitly
  * selected even when running on a Panama-capable JVM. It uses the same algorithm
- * as the base VectorGen class but is guaranteed to never use SIMD optimizations.
+ * as the base DimensionDistributionGenerator but is guaranteed to never use SIMD optimizations.
  *
  * <p>Use this for:
  * <ul>
@@ -33,89 +37,106 @@ import java.util.function.LongFunction;
  *   <li>Environments where SIMD has overhead (very small batches)</li>
  * </ul>
  */
-public final class ScalarVectorGen implements LongFunction<float[]> {
+@GeneratorName(ScalarDimensionDistributionGenerator.GENERATOR_TYPE)
+@ModelType(VectorSpaceModel.class)
+public final class ScalarDimensionDistributionGenerator implements VectorGenerator<VectorSpaceModel> {
 
-    private final VectorSpaceModel model;
-    private final int dimensions;
-    private final long uniqueVectors;
-    private final double[] means;
-    private final double[] stdDevs;
+    /** The generator type identifier. */
+    public static final String GENERATOR_TYPE = "scalar-dimension-distribution";
+
+    private VectorSpaceModel model;
+    private int dimensions;
+    private long uniqueVectors;
+    private ComponentSampler[] samplers;
+    private boolean initialized = false;
 
     /**
-     * Constructs a scalar vector generator.
+     * Default constructor for SPI instantiation.
+     */
+    public ScalarDimensionDistributionGenerator() {
+    }
+
+    /**
+     * Constructs a scalar dimension distribution generator.
      * @param model the vector space model
      */
-    public ScalarVectorGen(VectorSpaceModel model) {
+    public ScalarDimensionDistributionGenerator(VectorSpaceModel model) {
+        initialize(model);
+    }
+
+    @Override
+    public String getGeneratorType() {
+        return GENERATOR_TYPE;
+    }
+
+    @Override
+    public String getDescription() {
+        return "Scalar (non-SIMD) dimension distribution generator for benchmarking";
+    }
+
+    @Override
+    public void initialize(VectorSpaceModel model) {
+        if (this.initialized) {
+            throw new IllegalStateException("Generator already initialized");
+        }
+        Objects.requireNonNull(model, "model cannot be null");
         this.model = model;
         this.dimensions = model.dimensions();
         this.uniqueVectors = model.uniqueVectors();
+        this.samplers = ComponentSamplerFactory.forModels(model.componentModels());
+        this.initialized = true;
+    }
 
-        this.means = new double[dimensions];
-        this.stdDevs = new double[dimensions];
-        for (int d = 0; d < dimensions; d++) {
-            GaussianComponentModel cm = model.componentModel(d);
-            means[d] = cm.mean();
-            stdDevs[d] = cm.stdDev();
+    @Override
+    public boolean isInitialized() {
+        return initialized;
+    }
+
+    private void checkInitialized() {
+        if (!initialized) {
+            throw new IllegalStateException("Generator not initialized. Call initialize(model) first.");
         }
     }
 
     @Override
     public float[] apply(long ordinal) {
+        checkInitialized();
         float[] result = new float[dimensions];
         generateInto(ordinal, result, 0);
         return result;
     }
 
-    /**
-     * Generates a vector into an existing array.
-     * @param ordinal the vector ordinal
-     * @param target the target array
-     * @param offset the offset within target
-     */
+    @Override
     public void generateInto(long ordinal, float[] target, int offset) {
         long normalizedOrdinal = normalizeOrdinal(ordinal);
 
         for (int d = 0; d < dimensions; d++) {
             double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
-            double value = InverseGaussianCDF.quantile(u, means[d], stdDevs[d]);
-            target[offset + d] = (float) value;
+            target[offset + d] = (float) samplers[d].sample(u);
         }
     }
 
-    /**
-     * Generates a vector as double precision.
-     * @param ordinal the vector ordinal
-     * @return an M-dimensional double array
-     */
+    @Override
     public double[] applyAsDouble(long ordinal) {
+        checkInitialized();
         double[] result = new double[dimensions];
         generateIntoDouble(ordinal, result, 0);
         return result;
     }
 
-    /**
-     * Generates a vector into an existing double array.
-     * @param ordinal the vector ordinal
-     * @param target the target array
-     * @param offset the offset within target
-     */
+    @Override
     public void generateIntoDouble(long ordinal, double[] target, int offset) {
         long normalizedOrdinal = normalizeOrdinal(ordinal);
 
         for (int d = 0; d < dimensions; d++) {
             double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
-            double value = InverseGaussianCDF.quantile(u, means[d], stdDevs[d]);
-            target[offset + d] = value;
+            target[offset + d] = samplers[d].sample(u);
         }
     }
 
-    /**
-     * Generates a batch of vectors.
-     * @param startOrdinal the starting ordinal
-     * @param count the number of vectors
-     * @return a 2D array of vectors
-     */
+    @Override
     public float[][] generateBatch(long startOrdinal, int count) {
+        checkInitialized();
         float[][] result = new float[count][dimensions];
         for (int i = 0; i < count; i++) {
             generateInto(startOrdinal + i, result[i], 0);
@@ -123,13 +144,9 @@ public final class ScalarVectorGen implements LongFunction<float[]> {
         return result;
     }
 
-    /**
-     * Generates a flat batch of vectors.
-     * @param startOrdinal the starting ordinal
-     * @param count the number of vectors
-     * @return a flat array of count * dimensions floats
-     */
+    @Override
     public float[] generateFlatBatch(long startOrdinal, int count) {
+        checkInitialized();
         float[] result = new float[count * dimensions];
         for (int i = 0; i < count; i++) {
             generateInto(startOrdinal + i, result, i * dimensions);
@@ -137,27 +154,20 @@ public final class ScalarVectorGen implements LongFunction<float[]> {
         return result;
     }
 
-    /**
-     * Returns the vector space model.
-     * @return the model
-     */
+    @Override
     public VectorSpaceModel model() {
         return model;
     }
 
-    /**
-     * Returns the dimensionality.
-     * @return number of dimensions
-     */
+    @Override
     public int dimensions() {
+        checkInitialized();
         return dimensions;
     }
 
-    /**
-     * Returns the unique vector count.
-     * @return number of unique vectors
-     */
+    @Override
     public long uniqueVectors() {
+        checkInitialized();
         return uniqueVectors;
     }
 

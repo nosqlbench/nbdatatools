@@ -17,12 +17,16 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.datatools.virtdata.sampling.ComponentSampler;
+import io.nosqlbench.datatools.virtdata.sampling.ComponentSamplerFactory;
+import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import jdk.incubator.vector.*;
 
 import java.util.function.LongFunction;
 
 /**
- * Panama Vector API optimized procedural vector generator.
+ * Panama Vector API optimized dimension distribution generator.
  *
  * <p>This Java 25+ implementation uses SIMD operations for batch vector generation,
  * providing significant speedups on CPUs with AVX2 or AVX-512 support.
@@ -34,7 +38,7 @@ import java.util.function.LongFunction;
  *   <li>FMA (fused multiply-add) throughout for performance and precision</li>
  * </ul>
  */
-public class VectorGen implements LongFunction<float[]> {
+public class DimensionDistributionGenerator implements LongFunction<float[]> {
 
     private static final VectorSpecies<Double> SPECIES = DoubleVector.SPECIES_PREFERRED;
     private static final int LANES = SPECIES.length();
@@ -59,24 +63,32 @@ public class VectorGen implements LongFunction<float[]> {
     private final VectorSpaceModel model;
     private final int dimensions;
     private final long uniqueVectors;
+    private final ComponentSampler[] samplers;
+    private final boolean allGaussian;
     private final double[] means;
     private final double[] stdDevs;
 
     /**
-     * Constructs a Panama-optimized vector generator.
+     * Constructs a Panama-optimized dimension distribution generator.
      * @param model the vector space model defining N, M, and per-component distributions
      */
-    public VectorGen(VectorSpaceModel model) {
+    public DimensionDistributionGenerator(VectorSpaceModel model) {
         this.model = model;
         this.dimensions = model.dimensions();
         this.uniqueVectors = model.uniqueVectors();
+        this.allGaussian = model.isAllGaussian();
+        this.samplers = ComponentSamplerFactory.forModels(model.componentModels());
+
+        // Extract means/stdDevs for SIMD optimization (only used if allGaussian)
         this.means = new double[dimensions];
         this.stdDevs = new double[dimensions];
 
-        for (int d = 0; d < dimensions; d++) {
-            GaussianComponentModel cm = model.componentModel(d);
-            means[d] = cm.mean();
-            stdDevs[d] = cm.stdDev();
+        if (allGaussian) {
+            GaussianComponentModel[] gaussians = model.gaussianComponentModels();
+            for (int d = 0; d < dimensions; d++) {
+                means[d] = gaussians[d].getMean();
+                stdDevs[d] = gaussians[d].getStdDev();
+            }
         }
     }
 
@@ -88,36 +100,45 @@ public class VectorGen implements LongFunction<float[]> {
     }
 
     /**
-     * Generates a vector into an existing array using SIMD.
+     * Generates a vector into an existing array using SIMD when all components are Gaussian.
      */
     public void generateInto(long ordinal, float[] target, int offset) {
         long normalizedOrdinal = normalizeOrdinal(ordinal);
 
-        int d = 0;
-        int upperBound = dimensions - (dimensions % LANES);
+        if (allGaussian) {
+            // Use SIMD path for Gaussian components
+            int d = 0;
+            int upperBound = dimensions - (dimensions % LANES);
 
-        // SIMD loop
-        for (; d < upperBound; d += LANES) {
-            double[] unitValues = new double[LANES];
-            for (int lane = 0; lane < LANES; lane++) {
-                unitValues[lane] = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d + lane, uniqueVectors);
+            // SIMD loop
+            for (; d < upperBound; d += LANES) {
+                double[] unitValues = new double[LANES];
+                for (int lane = 0; lane < LANES; lane++) {
+                    unitValues[lane] = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d + lane, uniqueVectors);
+                }
+
+                DoubleVector uVec = DoubleVector.fromArray(SPECIES, unitValues, 0);
+                DoubleVector meanVec = DoubleVector.fromArray(SPECIES, means, d);
+                DoubleVector stdDevVec = DoubleVector.fromArray(SPECIES, stdDevs, d);
+
+                DoubleVector result_vec = simdInverseNormalCDF(uVec, meanVec, stdDevVec);
+
+                for (int lane = 0; lane < LANES; lane++) {
+                    target[offset + d + lane] = (float) result_vec.lane(lane);
+                }
             }
 
-            DoubleVector uVec = DoubleVector.fromArray(SPECIES, unitValues, 0);
-            DoubleVector meanVec = DoubleVector.fromArray(SPECIES, means, d);
-            DoubleVector stdDevVec = DoubleVector.fromArray(SPECIES, stdDevs, d);
-
-            DoubleVector result_vec = simdInverseNormalCDF(uVec, meanVec, stdDevVec);
-
-            for (int lane = 0; lane < LANES; lane++) {
-                target[offset + d + lane] = (float) result_vec.lane(lane);
+            // Scalar tail for Gaussian
+            for (; d < dimensions; d++) {
+                double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
+                target[offset + d] = (float) samplers[d].sample(u);
             }
-        }
-
-        // Scalar tail
-        for (; d < dimensions; d++) {
-            double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
-            target[offset + d] = (float) InverseGaussianCDF.quantile(u, means[d], stdDevs[d]);
+        } else {
+            // Scalar path for heterogeneous component models
+            for (int d = 0; d < dimensions; d++) {
+                double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
+                target[offset + d] = (float) samplers[d].sample(u);
+            }
         }
     }
 
@@ -131,31 +152,38 @@ public class VectorGen implements LongFunction<float[]> {
     }
 
     /**
-     * Generates a vector into an existing double array using SIMD.
+     * Generates a vector into an existing double array using SIMD when all components are Gaussian.
      */
     public void generateIntoDouble(long ordinal, double[] target, int offset) {
         long normalizedOrdinal = normalizeOrdinal(ordinal);
 
-        int d = 0;
-        int upperBound = dimensions - (dimensions % LANES);
+        if (allGaussian) {
+            int d = 0;
+            int upperBound = dimensions - (dimensions % LANES);
 
-        for (; d < upperBound; d += LANES) {
-            double[] unitValues = new double[LANES];
-            for (int lane = 0; lane < LANES; lane++) {
-                unitValues[lane] = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d + lane, uniqueVectors);
+            for (; d < upperBound; d += LANES) {
+                double[] unitValues = new double[LANES];
+                for (int lane = 0; lane < LANES; lane++) {
+                    unitValues[lane] = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d + lane, uniqueVectors);
+                }
+
+                DoubleVector uVec = DoubleVector.fromArray(SPECIES, unitValues, 0);
+                DoubleVector meanVec = DoubleVector.fromArray(SPECIES, means, d);
+                DoubleVector stdDevVec = DoubleVector.fromArray(SPECIES, stdDevs, d);
+
+                DoubleVector result_vec = simdInverseNormalCDF(uVec, meanVec, stdDevVec);
+                result_vec.intoArray(target, offset + d);
             }
 
-            DoubleVector uVec = DoubleVector.fromArray(SPECIES, unitValues, 0);
-            DoubleVector meanVec = DoubleVector.fromArray(SPECIES, means, d);
-            DoubleVector stdDevVec = DoubleVector.fromArray(SPECIES, stdDevs, d);
-
-            DoubleVector result_vec = simdInverseNormalCDF(uVec, meanVec, stdDevVec);
-            result_vec.intoArray(target, offset + d);
-        }
-
-        for (; d < dimensions; d++) {
-            double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
-            target[offset + d] = InverseGaussianCDF.quantile(u, means[d], stdDevs[d]);
+            for (; d < dimensions; d++) {
+                double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
+                target[offset + d] = samplers[d].sample(u);
+            }
+        } else {
+            for (int d = 0; d < dimensions; d++) {
+                double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
+                target[offset + d] = samplers[d].sample(u);
+            }
         }
     }
 
@@ -172,7 +200,7 @@ public class VectorGen implements LongFunction<float[]> {
     }
 
     /**
-     * Generates a flat batch of vectors using SIMD optimization.
+     * Generates a flat batch of vectors using SIMD optimization when all components are Gaussian.
      */
     public float[] generateFlatBatch(long startOrdinal, int count) {
         float[] result = new float[count * dimensions];
@@ -182,29 +210,36 @@ public class VectorGen implements LongFunction<float[]> {
             long normalizedOrdinal = normalizeOrdinal(ordinal);
             int baseOffset = v * dimensions;
 
-            int d = 0;
-            int upperBound = dimensions - (dimensions % LANES);
+            if (allGaussian) {
+                int d = 0;
+                int upperBound = dimensions - (dimensions % LANES);
 
-            for (; d < upperBound; d += LANES) {
-                double[] unitValues = new double[LANES];
-                for (int lane = 0; lane < LANES; lane++) {
-                    unitValues[lane] = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d + lane, uniqueVectors);
+                for (; d < upperBound; d += LANES) {
+                    double[] unitValues = new double[LANES];
+                    for (int lane = 0; lane < LANES; lane++) {
+                        unitValues[lane] = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d + lane, uniqueVectors);
+                    }
+
+                    DoubleVector uVec = DoubleVector.fromArray(SPECIES, unitValues, 0);
+                    DoubleVector meanVec = DoubleVector.fromArray(SPECIES, means, d);
+                    DoubleVector stdDevVec = DoubleVector.fromArray(SPECIES, stdDevs, d);
+
+                    DoubleVector transformed = simdInverseNormalCDF(uVec, meanVec, stdDevVec);
+
+                    for (int lane = 0; lane < LANES; lane++) {
+                        result[baseOffset + d + lane] = (float) transformed.lane(lane);
+                    }
                 }
 
-                DoubleVector uVec = DoubleVector.fromArray(SPECIES, unitValues, 0);
-                DoubleVector meanVec = DoubleVector.fromArray(SPECIES, means, d);
-                DoubleVector stdDevVec = DoubleVector.fromArray(SPECIES, stdDevs, d);
-
-                DoubleVector transformed = simdInverseNormalCDF(uVec, meanVec, stdDevVec);
-
-                for (int lane = 0; lane < LANES; lane++) {
-                    result[baseOffset + d + lane] = (float) transformed.lane(lane);
+                for (; d < dimensions; d++) {
+                    double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
+                    result[baseOffset + d] = (float) samplers[d].sample(u);
                 }
-            }
-
-            for (; d < dimensions; d++) {
-                double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
-                result[baseOffset + d] = (float) InverseGaussianCDF.quantile(u, means[d], stdDevs[d]);
+            } else {
+                for (int d = 0; d < dimensions; d++) {
+                    double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
+                    result[baseOffset + d] = (float) samplers[d].sample(u);
+                }
             }
         }
 

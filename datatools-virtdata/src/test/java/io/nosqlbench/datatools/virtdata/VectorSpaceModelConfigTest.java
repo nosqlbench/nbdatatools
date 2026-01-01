@@ -17,6 +17,9 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -47,9 +50,10 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(1_000_000, model.uniqueVectors());
         assertEquals(128, model.dimensions());
-        assertEquals(0.0, model.componentModel(0).mean());
-        assertEquals(1.0, model.componentModel(0).stdDev());
-        assertFalse(model.componentModel(0).isTruncated());
+        GaussianComponentModel c0 = (GaussianComponentModel) model.componentModel(0);
+        assertEquals(0.0, c0.getMean());
+        assertEquals(1.0, c0.getStdDev());
+        assertFalse(c0.isTruncated());
     }
 
     @Test
@@ -69,9 +73,9 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(500_000, model.uniqueVectors());
         assertEquals(64, model.dimensions());
-        GaussianComponentModel component = model.componentModel(0);
-        assertEquals(0.0, component.mean());
-        assertEquals(1.0, component.stdDev());
+        GaussianComponentModel component = (GaussianComponentModel) model.componentModel(0);
+        assertEquals(0.0, component.getMean());
+        assertEquals(1.0, component.getStdDev());
         assertTrue(component.isTruncated());
         assertEquals(-1.0, component.lower());
         assertEquals(1.0, component.upper());
@@ -96,23 +100,23 @@ class VectorSpaceModelConfigTest {
         assertEquals(3, model.dimensions());
 
         // First component: unbounded N(0, 1)
-        GaussianComponentModel c0 = model.componentModel(0);
-        assertEquals(0.0, c0.mean());
-        assertEquals(1.0, c0.stdDev());
+        GaussianComponentModel c0 = (GaussianComponentModel) model.componentModel(0);
+        assertEquals(0.0, c0.getMean());
+        assertEquals(1.0, c0.getStdDev());
         assertFalse(c0.isTruncated());
 
         // Second component: truncated N(0.5, 0.5) to [0, 1]
-        GaussianComponentModel c1 = model.componentModel(1);
-        assertEquals(0.5, c1.mean());
-        assertEquals(0.5, c1.stdDev());
+        GaussianComponentModel c1 = (GaussianComponentModel) model.componentModel(1);
+        assertEquals(0.5, c1.getMean());
+        assertEquals(0.5, c1.getStdDev());
         assertTrue(c1.isTruncated());
         assertEquals(0.0, c1.lower());
         assertEquals(1.0, c1.upper());
 
         // Third component: unbounded N(-1, 2)
-        GaussianComponentModel c2 = model.componentModel(2);
-        assertEquals(-1.0, c2.mean());
-        assertEquals(2.0, c2.stdDev());
+        GaussianComponentModel c2 = (GaussianComponentModel) model.componentModel(2);
+        assertEquals(-1.0, c2.getMean());
+        assertEquals(2.0, c2.getStdDev());
         assertFalse(c2.isTruncated());
     }
 
@@ -127,8 +131,10 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(original.uniqueVectors(), restored.uniqueVectors());
         assertEquals(original.dimensions(), restored.dimensions());
-        assertEquals(original.componentModel(0).mean(), restored.componentModel(0).mean());
-        assertEquals(original.componentModel(0).stdDev(), restored.componentModel(0).stdDev());
+        GaussianComponentModel origComp = (GaussianComponentModel) original.componentModel(0);
+        GaussianComponentModel restComp = (GaussianComponentModel) restored.componentModel(0);
+        assertEquals(origComp.getMean(), restComp.getMean());
+        assertEquals(origComp.getStdDev(), restComp.getStdDev());
     }
 
     @Test
@@ -143,10 +149,10 @@ class VectorSpaceModelConfigTest {
         assertEquals(original.uniqueVectors(), restored.uniqueVectors());
         assertEquals(original.dimensions(), restored.dimensions());
 
-        GaussianComponentModel origComp = original.componentModel(0);
-        GaussianComponentModel restComp = restored.componentModel(0);
-        assertEquals(origComp.mean(), restComp.mean());
-        assertEquals(origComp.stdDev(), restComp.stdDev());
+        GaussianComponentModel origComp = (GaussianComponentModel) original.componentModel(0);
+        GaussianComponentModel restComp = (GaussianComponentModel) restored.componentModel(0);
+        assertEquals(origComp.getMean(), restComp.getMean());
+        assertEquals(origComp.getStdDev(), restComp.getStdDev());
         assertEquals(origComp.isTruncated(), restComp.isTruncated());
         assertEquals(origComp.lower(), restComp.lower());
         assertEquals(origComp.upper(), restComp.upper());
@@ -170,10 +176,10 @@ class VectorSpaceModelConfigTest {
         assertEquals(original.dimensions(), restored.dimensions());
 
         for (int i = 0; i < original.dimensions(); i++) {
-            GaussianComponentModel orig = original.componentModel(i);
-            GaussianComponentModel rest = restored.componentModel(i);
-            assertEquals(orig.mean(), rest.mean(), "mean mismatch at dim " + i);
-            assertEquals(orig.stdDev(), rest.stdDev(), "stdDev mismatch at dim " + i);
+            GaussianComponentModel orig = (GaussianComponentModel) original.componentModel(i);
+            GaussianComponentModel rest = (GaussianComponentModel) restored.componentModel(i);
+            assertEquals(orig.getMean(), rest.getMean(), "mean mismatch at dim " + i);
+            assertEquals(orig.getStdDev(), rest.getStdDev(), "stdDev mismatch at dim " + i);
             assertEquals(orig.isTruncated(), rest.isTruncated(), "truncated mismatch at dim " + i);
             if (orig.isTruncated()) {
                 assertEquals(orig.lower(), rest.lower(), "lower mismatch at dim " + i);
@@ -226,7 +232,9 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(original.uniqueVectors(), restored.uniqueVectors());
         assertEquals(original.dimensions(), restored.dimensions());
-        assertEquals(original.componentModel(0).isTruncated(), restored.componentModel(0).isTruncated());
+        GaussianComponentModel origComp = (GaussianComponentModel) original.componentModel(0);
+        GaussianComponentModel restComp = (GaussianComponentModel) restored.componentModel(0);
+        assertEquals(origComp.isTruncated(), restComp.isTruncated());
     }
 
     @Test
@@ -243,8 +251,9 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(1000, model.uniqueVectors());
         assertEquals(10, model.dimensions());
-        assertEquals(0.0, model.componentModel(0).mean());
-        assertEquals(1.0, model.componentModel(0).stdDev());
+        GaussianComponentModel c0 = (GaussianComponentModel) model.componentModel(0);
+        assertEquals(0.0, c0.getMean());
+        assertEquals(1.0, c0.getStdDev());
     }
 
     @Test
@@ -261,9 +270,10 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(1_000_000, model.uniqueVectors());
         assertEquals(128, model.dimensions());
-        assertTrue(model.componentModel(0).isTruncated());
-        assertEquals(-1.0, model.componentModel(0).lower());
-        assertEquals(1.0, model.componentModel(0).upper());
+        GaussianComponentModel comp = (GaussianComponentModel) model.componentModel(0);
+        assertTrue(comp.isTruncated());
+        assertEquals(-1.0, comp.lower());
+        assertEquals(1.0, comp.upper());
     }
 
     @Test

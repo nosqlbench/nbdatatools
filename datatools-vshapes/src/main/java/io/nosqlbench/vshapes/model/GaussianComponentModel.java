@@ -1,4 +1,4 @@
-package io.nosqlbench.datatools.virtdata;
+package io.nosqlbench.vshapes.model;
 
 /*
  * Copyright (c) nosqlbench
@@ -20,7 +20,7 @@ package io.nosqlbench.datatools.virtdata;
 import java.util.Objects;
 
 /**
- * Immutable model for a single dimension's Gaussian distribution parameters.
+ * Gaussian (normal) distribution component model.
  *
  * <h2>Purpose</h2>
  *
@@ -38,16 +38,6 @@ import java.util.Objects;
  *   <li>Zero probability mass outside bounds</li>
  * </ul>
  *
- * <pre>{@code
- *   Unbounded N(μ, σ²)                Truncated N(μ, σ²) on [lower, upper]
- *
- *         ╭───╮                              ╭───╮
- *        ╱     ╲                            ╱     ╲
- *       ╱       ╲                          │       │
- *      ╱         ╲                         │       │
- *   ──┴───────────┴──  -∞ to +∞        ───┴───────┴───  [lower, upper]
- * }</pre>
- *
  * <h2>Usage</h2>
  *
  * <pre>{@code
@@ -62,19 +52,16 @@ import java.util.Objects;
  * }</pre>
  *
  * @see VectorSpaceModel
- * @see InverseGaussianCDF
- * @see TruncatedGaussianSampler
  */
-public final class GaussianComponentModel {
+public class GaussianComponentModel implements ComponentModel {
+
+    public static final String MODEL_TYPE = "gaussian";
 
     private final double mean;
     private final double stdDev;
     private final double lower;
     private final double upper;
     private final boolean truncated;
-
-    // Lazily initialized truncated sampler
-    private transient TruncatedGaussianSampler truncatedSampler;
 
     /**
      * Constructs an unbounded Gaussian component model.
@@ -120,27 +107,70 @@ public final class GaussianComponentModel {
         this.truncated = true;
     }
 
+    @Override
+    public String getModelType() {
+        return MODEL_TYPE;
+    }
+
     /**
      * Returns the mean of this Gaussian distribution.
-     *
      * @return the mean (μ)
      */
-    public double mean() {
+    public double getMean() {
         return mean;
     }
 
     /**
      * Returns the standard deviation of this Gaussian distribution.
-     *
      * @return the standard deviation (σ)
      */
-    public double stdDev() {
+    public double getStdDev() {
         return stdDev;
     }
 
     /**
+     * Computes the probability density function (PDF) at a given value.
+     * @param x the value at which to evaluate the PDF
+     * @return the probability density at x
+     */
+    public double pdf(double x) {
+        if (truncated) {
+            if (x < lower || x > upper) {
+                return 0.0;
+            }
+            // PDF of truncated normal: f(x) = φ((x-μ)/σ) / (σ * (Φ(b) - Φ(a)))
+            double z = (x - mean) / stdDev;
+            double phi = Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
+            double cdfRange = GaussianCDF.cdf(upper, mean, stdDev) - GaussianCDF.cdf(lower, mean, stdDev);
+            return phi / (stdDev * cdfRange);
+        } else {
+            // Standard Gaussian PDF: φ(x) = (1/σ√(2π)) * e^(-(x-μ)²/(2σ²))
+            double z = (x - mean) / stdDev;
+            return Math.exp(-0.5 * z * z) / (stdDev * Math.sqrt(2 * Math.PI));
+        }
+    }
+
+    /**
+     * Computes the cumulative distribution function (CDF) at a given value.
+     * @param x the value at which to evaluate the CDF
+     * @return the cumulative probability P(X ≤ x), in range [0, 1]
+     */
+    public double cdf(double x) {
+        if (truncated) {
+            if (x < lower) return 0.0;
+            if (x > upper) return 1.0;
+            // CDF of truncated normal: F(x) = (Φ((x-μ)/σ) - Φ(a)) / (Φ(b) - Φ(a))
+            double cdfX = GaussianCDF.cdf(x, mean, stdDev);
+            double cdfLower = GaussianCDF.cdf(lower, mean, stdDev);
+            double cdfUpper = GaussianCDF.cdf(upper, mean, stdDev);
+            return (cdfX - cdfLower) / (cdfUpper - cdfLower);
+        } else {
+            return GaussianCDF.cdf(x, mean, stdDev);
+        }
+    }
+
+    /**
      * Returns the lower truncation bound.
-     *
      * @return the lower bound, or {@link Double#NEGATIVE_INFINITY} if unbounded
      */
     public double lower() {
@@ -149,7 +179,6 @@ public final class GaussianComponentModel {
 
     /**
      * Returns the upper truncation bound.
-     *
      * @return the upper bound, or {@link Double#POSITIVE_INFINITY} if unbounded
      */
     public double upper() {
@@ -158,7 +187,6 @@ public final class GaussianComponentModel {
 
     /**
      * Returns whether this model has truncation bounds.
-     *
      * @return true if truncated, false if unbounded
      */
     public boolean isTruncated() {
@@ -166,35 +194,7 @@ public final class GaussianComponentModel {
     }
 
     /**
-     * Samples a value from this distribution given a unit interval input.
-     *
-     * <p>This is the main sampling method that handles both truncated and
-     * unbounded cases correctly.
-     *
-     * @param u a value in the open interval (0, 1)
-     * @return a sample from the (possibly truncated) Gaussian distribution
-     */
-    public double sample(double u) {
-        if (truncated) {
-            return getTruncatedSampler().sample(u);
-        } else {
-            return InverseGaussianCDF.quantile(u, mean, stdDev);
-        }
-    }
-
-    /**
-     * Returns the truncated sampler, creating it lazily if needed.
-     */
-    private TruncatedGaussianSampler getTruncatedSampler() {
-        if (truncatedSampler == null) {
-            truncatedSampler = new TruncatedGaussianSampler(mean, stdDev, lower, upper);
-        }
-        return truncatedSampler;
-    }
-
-    /**
      * Creates a standard normal component model N(0, 1) - unbounded.
-     *
      * @return a standard normal Gaussian component model
      */
     public static GaussianComponentModel standardNormal() {
@@ -203,7 +203,6 @@ public final class GaussianComponentModel {
 
     /**
      * Creates a standard normal component model N(0, 1) truncated to [-1, 1].
-     *
      * @return a unit-bounded standard normal Gaussian component model
      */
     public static GaussianComponentModel standardNormalUnitBounded() {

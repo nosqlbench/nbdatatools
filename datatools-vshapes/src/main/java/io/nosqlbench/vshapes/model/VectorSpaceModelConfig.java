@@ -1,4 +1,4 @@
-package io.nosqlbench.datatools.virtdata;
+package io.nosqlbench.vshapes.model;
 
 /*
  * Copyright (c) nosqlbench
@@ -36,11 +36,11 @@ import java.util.Objects;
  * <p>This class provides a JSON representation of vector space model parameters,
  * enabling configuration to be loaded from or saved to JSON files. It supports
  * both uniform distributions (same parameters for all dimensions) and per-dimension
- * custom distributions.
+ * custom distributions with polymorphic model types.
  *
  * <h2>JSON Schema</h2>
  *
- * <p>Uniform distribution (all dimensions share same parameters):
+ * <p>Uniform Gaussian distribution (all dimensions share same parameters):
  * <pre>{@code
  * {
  *   "unique_vectors": 1000000,
@@ -52,44 +52,21 @@ import java.util.Objects;
  * }
  * }</pre>
  *
- * <p>Per-dimension distributions:
+ * <p>Per-dimension distributions (heterogeneous model types):
  * <pre>{@code
  * {
  *   "unique_vectors": 1000000,
  *   "components": [
- *     {"mean": 0.0, "std_dev": 1.0},
- *     {"mean": 0.5, "std_dev": 0.5, "lower_bound": 0.0, "upper_bound": 1.0},
+ *     {"type": "gaussian", "mean": 0.0, "std_dev": 1.0},
+ *     {"type": "uniform", "lower": 0.0, "upper": 1.0},
+ *     {"type": "gaussian", "mean": 0.5, "std_dev": 0.5, "lower_bound": 0.0, "upper_bound": 1.0},
  *     ...
  *   ]
  * }
  * }</pre>
  *
- * <h2>Usage</h2>
- *
- * <pre>{@code
- * // Load from file
- * VectorSpaceModel model = VectorSpaceModelConfig.loadFromFile(Path.of("config.json"));
- *
- * // Load from reader
- * try (Reader reader = Files.newBufferedReader(path)) {
- *     VectorSpaceModel model = VectorSpaceModelConfig.load(reader);
- * }
- *
- * // Save to file
- * VectorSpaceModelConfig.saveToFile(model, Path.of("config.json"));
- *
- * // Create programmatically and save
- * VectorSpaceModelConfig config = new VectorSpaceModelConfig();
- * config.setUniqueVectors(1_000_000);
- * config.setDimensions(128);
- * config.setMean(0.0);
- * config.setStdDev(1.0);
- * config.setLowerBound(-1.0);
- * config.setUpperBound(1.0);
- * VectorSpaceModelConfig.saveToFile(config, Path.of("config.json"));
- * }</pre>
- *
  * @see VectorSpaceModel
+ * @see ComponentModel
  */
 public class VectorSpaceModelConfig {
 
@@ -104,11 +81,11 @@ public class VectorSpaceModelConfig {
     @SerializedName("dimensions")
     private Integer dimensions;
 
-    /** Mean for uniform distribution across all dimensions */
+    /** Mean for uniform Gaussian distribution across all dimensions */
     @SerializedName("mean")
     private Double mean;
 
-    /** Standard deviation for uniform distribution across all dimensions */
+    /** Standard deviation for uniform Gaussian distribution across all dimensions */
     @SerializedName("std_dev")
     private Double stdDev;
 
@@ -125,14 +102,24 @@ public class VectorSpaceModelConfig {
     private ComponentConfig[] components;
 
     /**
-     * Configuration for a single dimension's Gaussian distribution.
+     * Configuration for a single dimension's distribution model.
+     * Supports polymorphic model types via the "type" field.
      */
     public static class ComponentConfig {
+        @SerializedName("type")
+        private String type = "gaussian";  // default to gaussian for backward compatibility
+
         @SerializedName("mean")
         private Double mean;
 
         @SerializedName("std_dev")
         private Double stdDev;
+
+        @SerializedName("lower")
+        private Double lower;
+
+        @SerializedName("upper")
+        private Double upper;
 
         @SerializedName("lower_bound")
         private Double lowerBound;
@@ -143,16 +130,43 @@ public class VectorSpaceModelConfig {
         public ComponentConfig() {
         }
 
+        /**
+         * Creates a Gaussian component config.
+         */
         public ComponentConfig(double mean, double stdDev) {
+            this.type = "gaussian";
             this.mean = mean;
             this.stdDev = stdDev;
         }
 
+        /**
+         * Creates a truncated Gaussian component config.
+         */
         public ComponentConfig(double mean, double stdDev, double lowerBound, double upperBound) {
+            this.type = "gaussian";
             this.mean = mean;
             this.stdDev = stdDev;
             this.lowerBound = lowerBound;
             this.upperBound = upperBound;
+        }
+
+        /**
+         * Creates a Uniform component config.
+         */
+        public static ComponentConfig uniform(double lower, double upper) {
+            ComponentConfig config = new ComponentConfig();
+            config.type = "uniform";
+            config.lower = lower;
+            config.upper = upper;
+            return config;
+        }
+
+        public String getType() {
+            return type != null ? type : "gaussian";
+        }
+
+        public void setType(String type) {
+            this.type = type;
         }
 
         public Double getMean() {
@@ -169,6 +183,22 @@ public class VectorSpaceModelConfig {
 
         public void setStdDev(Double stdDev) {
             this.stdDev = stdDev;
+        }
+
+        public Double getLower() {
+            return lower;
+        }
+
+        public void setLower(Double lower) {
+            this.lower = lower;
+        }
+
+        public Double getUpper() {
+            return upper;
+        }
+
+        public void setUpper(Double upper) {
+            this.upper = upper;
         }
 
         public Double getLowerBound() {
@@ -192,34 +222,72 @@ public class VectorSpaceModelConfig {
         }
 
         /**
-         * Converts this configuration to a GaussianComponentModel.
+         * Converts this configuration to a ComponentModel.
          *
-         * @return the corresponding GaussianComponentModel
-         * @throws IllegalArgumentException if required fields are missing
+         * @return the corresponding ComponentModel
+         * @throws IllegalArgumentException if required fields are missing or type is unknown
          */
-        public GaussianComponentModel toComponentModel() {
-            Objects.requireNonNull(mean, "mean is required");
-            Objects.requireNonNull(stdDev, "std_dev is required");
+        public ComponentModel toComponentModel() {
+            String modelType = getType();
 
-            if (isTruncated()) {
-                return new GaussianComponentModel(mean, stdDev, lowerBound, upperBound);
-            } else {
-                return new GaussianComponentModel(mean, stdDev);
+            switch (modelType) {
+                case "gaussian":
+                    Objects.requireNonNull(mean, "mean is required for gaussian");
+                    Objects.requireNonNull(stdDev, "std_dev is required for gaussian");
+                    if (isTruncated()) {
+                        return new GaussianComponentModel(mean, stdDev, lowerBound, upperBound);
+                    } else {
+                        return new GaussianComponentModel(mean, stdDev);
+                    }
+
+                case "uniform":
+                    Double lo = lower != null ? lower : lowerBound;
+                    Double hi = upper != null ? upper : upperBound;
+                    Objects.requireNonNull(lo, "lower is required for uniform");
+                    Objects.requireNonNull(hi, "upper is required for uniform");
+                    return new UniformComponentModel(lo, hi);
+
+                default:
+                    throw new IllegalArgumentException("Unknown component model type: " + modelType);
             }
         }
 
         /**
-         * Creates a ComponentConfig from a GaussianComponentModel.
+         * Creates a ComponentConfig from a ComponentModel.
          *
          * @param model the source model
          * @return the corresponding ComponentConfig
          */
-        public static ComponentConfig fromComponentModel(GaussianComponentModel model) {
-            if (model.isTruncated()) {
-                return new ComponentConfig(model.mean(), model.stdDev(), model.lower(), model.upper());
+        public static ComponentConfig fromComponentModel(ComponentModel model) {
+            ComponentConfig config = new ComponentConfig();
+            config.type = model.getModelType();
+
+            if (model instanceof GaussianComponentModel) {
+                GaussianComponentModel gaussian = (GaussianComponentModel) model;
+                config.mean = gaussian.getMean();
+                config.stdDev = gaussian.getStdDev();
+                if (gaussian.isTruncated()) {
+                    config.lowerBound = gaussian.lower();
+                    config.upperBound = gaussian.upper();
+                }
+            } else if (model instanceof UniformComponentModel) {
+                UniformComponentModel uniform = (UniformComponentModel) model;
+                config.lower = uniform.getLower();
+                config.upper = uniform.getUpper();
+            } else if (model instanceof EmpiricalComponentModel) {
+                EmpiricalComponentModel empirical = (EmpiricalComponentModel) model;
+                config.mean = empirical.getMean();
+                config.stdDev = empirical.getStdDev();
+                config.lowerBound = empirical.getMin();
+                config.upperBound = empirical.getMax();
+            } else if (model instanceof CompositeComponentModel) {
+                // Composite models don't have simple scalar properties
+                // The type field is sufficient for identification
             } else {
-                return new ComponentConfig(model.mean(), model.stdDev());
+                throw new IllegalArgumentException("Unknown component model type: " + model.getClass().getName());
             }
+
+            return config;
         }
     }
 
@@ -283,10 +351,7 @@ public class VectorSpaceModelConfig {
     }
 
     /**
-     * Returns whether this config uses uniform distribution (same for all dimensions)
-     * or per-dimension custom distributions.
-     *
-     * @return true if using per-dimension components, false if uniform
+     * Returns whether this config uses per-dimension custom distributions.
      */
     public boolean hasPerDimensionComponents() {
         return components != null && components.length > 0;
@@ -294,8 +359,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Returns whether this config has truncation bounds.
-     *
-     * @return true if lower_bound and upper_bound are specified
      */
     public boolean isTruncated() {
         return lowerBound != null && upperBound != null;
@@ -312,13 +375,13 @@ public class VectorSpaceModelConfig {
 
         if (hasPerDimensionComponents()) {
             // Per-dimension configuration
-            GaussianComponentModel[] models = new GaussianComponentModel[components.length];
+            ComponentModel[] models = new ComponentModel[components.length];
             for (int i = 0; i < components.length; i++) {
                 models[i] = components[i].toComponentModel();
             }
             return new VectorSpaceModel(uniqueVectors, models);
         } else {
-            // Uniform configuration
+            // Uniform Gaussian configuration
             Objects.requireNonNull(dimensions, "dimensions is required for uniform configuration");
             double m = mean != null ? mean : 0.0;
             double s = stdDev != null ? stdDev : 1.0;
@@ -341,44 +404,44 @@ public class VectorSpaceModelConfig {
         VectorSpaceModelConfig config = new VectorSpaceModelConfig();
         config.setUniqueVectors(model.uniqueVectors());
 
-        GaussianComponentModel[] componentModels = model.componentModels();
+        ComponentModel[] componentModels = model.componentModels();
 
-        // Check if all components are identical (uniform)
-        boolean allSame = true;
-        GaussianComponentModel first = componentModels[0];
-        for (int i = 1; i < componentModels.length; i++) {
-            if (!componentModels[i].equals(first)) {
-                allSame = false;
-                break;
+        // Check if all components are identical Gaussian (can use compact uniform format)
+        boolean canUseUniform = model.isAllGaussian();
+        if (canUseUniform) {
+            GaussianComponentModel first = (GaussianComponentModel) componentModels[0];
+            for (int i = 1; i < componentModels.length; i++) {
+                if (!componentModels[i].equals(first)) {
+                    canUseUniform = false;
+                    break;
+                }
+            }
+
+            if (canUseUniform) {
+                // Use uniform representation
+                config.setDimensions(model.dimensions());
+                config.setMean(first.getMean());
+                config.setStdDev(first.getStdDev());
+                if (first.isTruncated()) {
+                    config.setLowerBound(first.lower());
+                    config.setUpperBound(first.upper());
+                }
+                return config;
             }
         }
 
-        if (allSame) {
-            // Use uniform representation
-            config.setDimensions(model.dimensions());
-            config.setMean(first.mean());
-            config.setStdDev(first.stdDev());
-            if (first.isTruncated()) {
-                config.setLowerBound(first.lower());
-                config.setUpperBound(first.upper());
-            }
-        } else {
-            // Use per-dimension representation
-            ComponentConfig[] components = new ComponentConfig[componentModels.length];
-            for (int i = 0; i < componentModels.length; i++) {
-                components[i] = ComponentConfig.fromComponentModel(componentModels[i]);
-            }
-            config.setComponents(components);
+        // Use per-dimension representation
+        ComponentConfig[] components = new ComponentConfig[componentModels.length];
+        for (int i = 0; i < componentModels.length; i++) {
+            components[i] = ComponentConfig.fromComponentModel(componentModels[i]);
         }
+        config.setComponents(components);
 
         return config;
     }
 
     /**
      * Loads a VectorSpaceModelConfig from JSON.
-     *
-     * @param json the JSON string
-     * @return the parsed configuration
      */
     public static VectorSpaceModelConfig fromJson(String json) {
         return GSON.fromJson(json, VectorSpaceModelConfig.class);
@@ -386,9 +449,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Loads a VectorSpaceModelConfig from a Reader.
-     *
-     * @param reader the reader providing JSON
-     * @return the parsed configuration
      */
     public static VectorSpaceModelConfig fromJson(Reader reader) {
         return GSON.fromJson(reader, VectorSpaceModelConfig.class);
@@ -396,8 +456,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Serializes this configuration to JSON.
-     *
-     * @return the JSON string
      */
     public String toJson() {
         return GSON.toJson(this);
@@ -405,8 +463,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Writes this configuration as JSON to a Writer.
-     *
-     * @param writer the target writer
      */
     public void toJson(Writer writer) {
         GSON.toJson(this, writer);
@@ -414,10 +470,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Loads a VectorSpaceModel directly from a JSON file.
-     *
-     * @param path the path to the JSON file
-     * @return the loaded VectorSpaceModel
-     * @throws IOException if the file cannot be read
      */
     public static VectorSpaceModel loadFromFile(Path path) throws IOException {
         try (Reader reader = Files.newBufferedReader(path)) {
@@ -427,9 +479,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Loads a VectorSpaceModel from a Reader providing JSON.
-     *
-     * @param reader the reader providing JSON
-     * @return the loaded VectorSpaceModel
      */
     public static VectorSpaceModel load(Reader reader) {
         VectorSpaceModelConfig config = fromJson(reader);
@@ -438,9 +487,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Loads a VectorSpaceModel from a JSON string.
-     *
-     * @param json the JSON string
-     * @return the loaded VectorSpaceModel
      */
     public static VectorSpaceModel load(String json) {
         VectorSpaceModelConfig config = fromJson(json);
@@ -449,10 +495,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Saves a VectorSpaceModel to a JSON file.
-     *
-     * @param model the model to save
-     * @param path the target file path
-     * @throws IOException if the file cannot be written
      */
     public static void saveToFile(VectorSpaceModel model, Path path) throws IOException {
         VectorSpaceModelConfig config = fromVectorSpaceModel(model);
@@ -463,10 +505,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Saves a VectorSpaceModelConfig to a JSON file.
-     *
-     * @param config the configuration to save
-     * @param path the target file path
-     * @throws IOException if the file cannot be written
      */
     public static void saveToFile(VectorSpaceModelConfig config, Path path) throws IOException {
         try (Writer writer = Files.newBufferedWriter(path)) {
@@ -476,9 +514,6 @@ public class VectorSpaceModelConfig {
 
     /**
      * Saves a VectorSpaceModel to a Writer as JSON.
-     *
-     * @param model the model to save
-     * @param writer the target writer
      */
     public static void save(VectorSpaceModel model, Writer writer) {
         VectorSpaceModelConfig config = fromVectorSpaceModel(model);

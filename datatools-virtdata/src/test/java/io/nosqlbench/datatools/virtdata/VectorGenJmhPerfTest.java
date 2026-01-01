@@ -17,6 +17,7 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
@@ -47,8 +48,8 @@ public class VectorGenJmhPerfTest {
     @Param({"100"})
     private int batchSize;
 
-    private ScalarVectorGen scalarGen;
-    private VectorGen panamaGen;
+    private ScalarDimensionDistributionGenerator scalarGen;
+    private DimensionDistributionGenerator panamaGen;
 
     // Thread-safe ordinal counter for multi-threaded tests
     private AtomicLong ordinalCounter;
@@ -56,8 +57,8 @@ public class VectorGenJmhPerfTest {
     @Setup(Level.Trial)
     public void setup() {
         VectorSpaceModel model = new VectorSpaceModel(10_000_000L, dimensions, 0.0, 1.0);
-        scalarGen = new ScalarVectorGen(model);
-        panamaGen = new VectorGen(model);
+        scalarGen = new ScalarDimensionDistributionGenerator(model);
+        panamaGen = new DimensionDistributionGenerator(model);
         ordinalCounter = new AtomicLong(0);
 
         System.out.println("Panama available: " + VectorGenFactory.isPanamaAvailable());

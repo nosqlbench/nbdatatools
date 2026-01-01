@@ -31,7 +31,8 @@ import org.junit.platform.suite.api.Suite;
     StratifiedSamplerTest.class,
     VectorGenTest.class,
     VectorGenFactoryTest.class,
-    VectorSpaceModelConfigTest.class
+    VectorSpaceModelConfigTest.class,
+    VectorGeneratorIOTest.class
 })
 public class VectorDataTestSuite {
 }

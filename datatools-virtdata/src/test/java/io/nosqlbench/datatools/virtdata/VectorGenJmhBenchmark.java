@@ -17,6 +17,7 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.Runner;
@@ -54,8 +55,8 @@ public class VectorGenJmhBenchmark {
 
     private LongFunction<float[]> panamaGen;
     private LongFunction<float[]> scalarGen;
-    private ScalarVectorGen scalarGenTyped;
-    private VectorGen panamaGenTyped;
+    private ScalarDimensionDistributionGenerator scalarGenTyped;
+    private DimensionDistributionGenerator panamaGenTyped;
 
     private long ordinal;
 
@@ -65,11 +66,11 @@ public class VectorGenJmhBenchmark {
 
         // Create both implementations
         scalarGen = VectorGenFactory.create(model, VectorGenFactory.Mode.SCALAR);
-        scalarGenTyped = (ScalarVectorGen) scalarGen;
+        scalarGenTyped = (ScalarDimensionDistributionGenerator) scalarGen;
 
         if (VectorGenFactory.isPanamaAvailable()) {
             panamaGen = VectorGenFactory.create(model, VectorGenFactory.Mode.PANAMA);
-            panamaGenTyped = (VectorGen) panamaGen;
+            panamaGenTyped = (DimensionDistributionGenerator) panamaGen;
         } else {
             // Fallback to scalar if Panama not available
             panamaGen = scalarGen;

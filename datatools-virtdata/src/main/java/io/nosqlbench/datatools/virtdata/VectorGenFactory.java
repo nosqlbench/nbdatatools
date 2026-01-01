@@ -17,10 +17,12 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
+
 import java.util.function.LongFunction;
 
 /**
- * Factory for creating VectorGen instances with explicit implementation selection.
+ * Factory for creating DimensionDistributionGenerator instances with explicit implementation selection.
  *
  * <p>By default, the JVM's multi-release JAR mechanism automatically selects the
  * optimal implementation based on runtime version. This factory allows explicit
@@ -53,34 +55,34 @@ public final class VectorGenFactory {
     }
 
     /**
-     * Creates a VectorGen with automatic implementation selection.
+     * Creates a DimensionDistributionGenerator with automatic implementation selection.
      * @param model the vector space model
-     * @return a VectorGen instance
+     * @return a DimensionDistributionGenerator instance
      */
-    public static VectorGen create(VectorSpaceModel model) {
-        return new VectorGen(model);
+    public static DimensionDistributionGenerator create(VectorSpaceModel model) {
+        return new DimensionDistributionGenerator(model);
     }
 
     /**
-     * Creates a VectorGen with explicit implementation selection.
+     * Creates a generator with explicit implementation selection.
      *
      * @param model the vector space model
      * @param mode the implementation mode
-     * @return a VectorGen instance (or scalar wrapper if SCALAR mode is forced)
+     * @return a generator instance (scalar or auto based on mode)
      * @throws UnsupportedOperationException if PANAMA mode is requested but not available
      */
     public static LongFunction<float[]> create(VectorSpaceModel model, Mode mode) {
         switch (mode) {
             case AUTO:
-                return new VectorGen(model);
+                return new DimensionDistributionGenerator(model);
             case SCALAR:
-                return new ScalarVectorGen(model);
+                return new ScalarDimensionDistributionGenerator(model);
             case PANAMA:
                 if (!isPanamaAvailable()) {
                     throw new UnsupportedOperationException(
                         "Panama Vector API not available. Requires Java 25+ runtime.");
                 }
-                return new VectorGen(model);
+                return new DimensionDistributionGenerator(model);
             default:
                 throw new IllegalArgumentException("Unknown mode: " + mode);
         }

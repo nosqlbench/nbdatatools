@@ -17,8 +17,9 @@ package io.nosqlbench.command.analyze.subcommands;
  * under the License.
  */
 
-import io.nosqlbench.datatools.virtdata.VectorSpaceModel;
-import io.nosqlbench.datatools.virtdata.VectorSpaceModelConfig;
+import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -96,12 +97,13 @@ class CMD_analyze_profileTest {
         assertNotNull(model);
 
         // Verify truncation bounds are set
-        assertTrue(model.componentModel(0).isTruncated(),
+        GaussianComponentModel gaussian = (GaussianComponentModel) model.componentModel(0);
+        assertTrue(gaussian.isTruncated(),
             "Component should be truncated when --truncated is specified");
 
         System.out.println("Truncated model bounds: [" +
-            model.componentModel(0).lower() + ", " +
-            model.componentModel(0).upper() + "]");
+            gaussian.lower() + ", " +
+            gaussian.upper() + "]");
     }
 
     @Test

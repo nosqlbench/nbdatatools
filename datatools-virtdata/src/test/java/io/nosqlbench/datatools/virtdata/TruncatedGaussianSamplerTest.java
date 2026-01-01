@@ -17,6 +17,8 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.datatools.virtdata.sampling.TruncatedGaussianSampler;
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -130,9 +132,9 @@ class TruncatedGaussianSamplerTest {
 
     @Test
     void testVectorGenWithTruncation() {
-        // Verify VectorGen correctly uses truncated sampling
+        // Verify DimensionDistributionGenerator correctly uses truncated sampling
         VectorSpaceModel model = VectorSpaceModel.unitBounded(10000, 64);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         // Generate many vectors and verify all values are in bounds
         for (long ordinal = 0; ordinal < 1000; ordinal++) {

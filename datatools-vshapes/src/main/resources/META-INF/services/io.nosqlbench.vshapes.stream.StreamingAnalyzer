@@ -1,0 +1,2 @@
+io.nosqlbench.vshapes.analyzers.dimensiondistribution.DimensionDistributionAnalyzer
+io.nosqlbench.vshapes.analyzers.dimensionstatistics.DimensionStatisticsAnalyzer

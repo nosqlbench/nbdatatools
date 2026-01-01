@@ -123,8 +123,28 @@ public class TestDataFiles {
   public static Path saveToFile(float[][] vectors, Path path, Format format) {
     try {
       // Ensure parent directory exists
-      if (path.getParent() != null) {
-        Files.createDirectories(path.getParent());
+      Path parentDir = path.getParent();
+      if (parentDir != null) {
+        try {
+          Files.createDirectories(parentDir);
+        } catch (java.nio.file.FileAlreadyExistsException e) {
+          // Handle race condition or broken symlink
+          Path problemPath = java.nio.file.Path.of(e.getFile());
+          if (Files.isSymbolicLink(problemPath)) {
+            try {
+              Path target = Files.readSymbolicLink(problemPath);
+              if (!target.isAbsolute()) {
+                target = problemPath.getParent().resolve(target);
+              }
+              Files.createDirectories(target);
+            } catch (IOException targetEx) {
+              Files.delete(problemPath);
+            }
+            Files.createDirectories(parentDir);
+          } else if (!Files.isDirectory(parentDir)) {
+            throw e;
+          }
+        }
       }
       
       switch (format) {

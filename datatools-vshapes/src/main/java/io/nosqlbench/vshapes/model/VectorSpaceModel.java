@@ -1,4 +1,4 @@
-package io.nosqlbench.datatools.virtdata;
+package io.nosqlbench.vshapes.model;
 
 /*
  * Copyright (c) nosqlbench
@@ -21,7 +21,11 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * Configuration model for a discrete vector space with per-dimension Gaussian distributions.
+ * Configuration model for a discrete vector space with per-dimension distribution models.
+ *
+ * <p>This is the primary implementation of {@link VectorModel}, providing a
+ * second-order tensor model that defines a space of N unique vectors, each
+ * with M dimensions.
  *
  * <h2>Purpose</h2>
  *
@@ -29,7 +33,27 @@ import java.util.Objects;
  * <ul>
  *   <li><b>N</b> - The number of unique vectors that can be sampled</li>
  *   <li><b>M</b> - The dimensionality of each vector</li>
- *   <li><b>Per-dimension distributions</b> - Gaussian parameters (μ, σ) for each dimension</li>
+ *   <li><b>Per-dimension distributions</b> - ScalarModel for each dimension</li>
+ * </ul>
+ *
+ * <h2>Tensor Hierarchy</h2>
+ *
+ * <p>VectorSpaceModel implements {@link VectorModel}, the second level in the
+ * tensor model hierarchy:
+ * <ul>
+ *   <li>{@link ScalarModel} - First-order (single dimension)</li>
+ *   <li><b>{@link VectorModel}</b> - Second-order (M dimensions) - this class</li>
+ *   <li>{@link MatrixModel} - Third-order (K vector models)</li>
+ * </ul>
+ *
+ * <h2>Heterogeneous Model Support</h2>
+ *
+ * <p>Each dimension can have a different distribution type:
+ * <ul>
+ *   <li>{@link GaussianScalarModel} / {@link GaussianComponentModel} - Normal distribution</li>
+ *   <li>{@link UniformScalarModel} / {@link UniformComponentModel} - Uniform distribution</li>
+ *   <li>{@link EmpiricalScalarModel} / {@link EmpiricalComponentModel} - Histogram-based distribution</li>
+ *   <li>{@link CompositeScalarModel} / {@link CompositeComponentModel} - Mixture of distributions</li>
  * </ul>
  *
  * <h2>Model Structure</h2>
@@ -48,31 +72,14 @@ import java.util.Objects;
  *   ┌─────────────────────────────────────────────────────────────────┐
  *   │ PER-DIMENSION DISTRIBUTIONS                                     │
  *   │                                                                 │
- *   │   dim 0: GaussianComponentModel(μ₀, σ₀)                         │
- *   │   dim 1: GaussianComponentModel(μ₁, σ₁)                         │
- *   │   dim 2: GaussianComponentModel(μ₂, σ₂)                         │
+ *   │   dim 0: GaussianScalarModel(μ₀, σ₀)                            │
+ *   │   dim 1: UniformScalarModel(lower₁, upper₁)                     │
+ *   │   dim 2: EmpiricalScalarModel(histogram₂)                       │
  *   │   ...                                                           │
- *   │   dim M-1: GaussianComponentModel(μₘ₋₁, σₘ₋₁)                   │
+ *   │   dim M-1: GaussianScalarModel(μₘ₋₁, σₘ₋₁)                      │
  *   │                                                                 │
- *   │   Each dimension can have different mean and stdDev,            │
- *   │   or all can share the same (uniform) distribution.             │
+ *   │   Each dimension can have a different distribution type.        │
  *   └─────────────────────────────────────────────────────────────────┘
- * }</pre>
- *
- * <h2>Ordinal to Vector Mapping</h2>
- *
- * <pre>{@code
- *   ORDINAL SPACE                    VECTOR SPACE
- *   [0, N-1]                         M-dimensional
- *
- *      0  ─────────────────────►  [v₀₀, v₀₁, ..., v₀ₘ₋₁]
- *      1  ─────────────────────►  [v₁₀, v₁₁, ..., v₁ₘ₋₁]
- *      2  ─────────────────────►  [v₂₀, v₂₁, ..., v₂ₘ₋₁]
- *      ⋮                             ⋮
- *    N-1  ─────────────────────►  [vₙ₋₁₀, vₙ₋₁₁, ..., vₙ₋₁ₘ₋₁]
- *
- *   Each ordinal maps to exactly one vector (bijective for [0,N-1])
- *   Ordinals outside [0,N-1] wrap: ordinal % N
  * }</pre>
  *
  * <h2>Usage Examples</h2>
@@ -81,40 +88,39 @@ import java.util.Objects;
  * // Standard normal distribution across all 128 dimensions
  * VectorSpaceModel model1 = new VectorSpaceModel(1_000_000, 128);
  *
- * // Custom uniform distribution (mean=5, stdDev=2) across all dimensions
+ * // Custom uniform Gaussian distribution across all dimensions
  * VectorSpaceModel model2 = new VectorSpaceModel(1_000_000, 128, 5.0, 2.0);
  *
- * // Per-dimension custom distributions
- * GaussianComponentModel[] custom = {
- *     new GaussianComponentModel(0.0, 1.0),   // dim 0: standard normal
- *     new GaussianComponentModel(10.0, 2.0),  // dim 1: mean=10, stdDev=2
- *     new GaussianComponentModel(-5.0, 0.5),  // dim 2: mean=-5, stdDev=0.5
+ * // Heterogeneous: different model types per dimension
+ * ScalarModel[] custom = {
+ *     new GaussianScalarModel(0.0, 1.0),         // dim 0: Gaussian
+ *     new UniformScalarModel(0.0, 1.0),          // dim 1: Uniform
+ *     new GaussianScalarModel(-5.0, 0.5),        // dim 2: Gaussian
  * };
  * VectorSpaceModel model3 = new VectorSpaceModel(1_000_000, custom);
  * }</pre>
  *
- * @see VectorGen
- * @see GaussianComponentModel
+ * @see VectorModel
+ * @see ScalarModel
+ * @see GaussianScalarModel
  */
-public final class VectorSpaceModel {
+public final class VectorSpaceModel implements VectorModel {
 
     private final long uniqueVectors;
     private final int dimensions;
-    private final GaussianComponentModel[] componentModels;
+    private final ComponentModel[] componentModels;
 
     /**
-     * Constructs a vector space model with component-specific Gaussian distributions.
+     * Constructs a vector space model with component-specific distribution models.
      *
-     * <pre>{@code
-     * componentModels[] ──► VectorSpaceModel
-     *   [G₀, G₁, ..., Gₘ₋₁]     N=uniqueVectors, M=componentModels.length
-     * }</pre>
+     * <p>Supports heterogeneous models where each dimension can have a different
+     * distribution type (Gaussian, Uniform, Empirical, etc.).
      *
      * @param uniqueVectors the number of unique vectors N in the space; must be positive
-     * @param componentModels the Gaussian model for each dimension; length determines M
+     * @param componentModels the distribution model for each dimension; length determines M
      * @throws IllegalArgumentException if uniqueVectors is not positive or componentModels is empty
      */
-    public VectorSpaceModel(long uniqueVectors, GaussianComponentModel[] componentModels) {
+    public VectorSpaceModel(long uniqueVectors, ComponentModel[] componentModels) {
         if (uniqueVectors <= 0) {
             throw new IllegalArgumentException("Number of unique vectors must be positive, got: " + uniqueVectors);
         }
@@ -189,6 +195,7 @@ public final class VectorSpaceModel {
      *
      * @return N, the number of unique vectors that can be generated
      */
+    @Override
     public long uniqueVectors() {
         return uniqueVectors;
     }
@@ -198,18 +205,21 @@ public final class VectorSpaceModel {
      *
      * @return M, the number of dimensions in each generated vector
      */
+    @Override
     public int dimensions() {
         return dimensions;
     }
 
     /**
-     * Returns the Gaussian model for a specific dimension.
+     * Returns the distribution model for a specific dimension.
      *
      * @param dimension the dimension index (0-based, must be in [0, M-1])
-     * @return the Gaussian component model for that dimension
+     * @return the component model for that dimension
      * @throws IndexOutOfBoundsException if dimension is out of range
+     * @deprecated Use {@link #scalarModel(int)} instead
      */
-    public GaussianComponentModel componentModel(int dimension) {
+    @Deprecated(since = "2.0", forRemoval = true)
+    public ComponentModel componentModel(int dimension) {
         if (dimension < 0 || dimension >= dimensions) {
             throw new IndexOutOfBoundsException("Dimension " + dimension + " out of range [0, " + dimensions + ")");
         }
@@ -220,8 +230,88 @@ public final class VectorSpaceModel {
      * Returns all component models.
      *
      * @return a defensive copy of the component models array
+     * @deprecated Use {@link #scalarModels()} instead
      */
-    public GaussianComponentModel[] componentModels() {
+    @Deprecated(since = "2.0", forRemoval = true)
+    public ComponentModel[] componentModels() {
         return Arrays.copyOf(componentModels, componentModels.length);
+    }
+
+    /**
+     * Returns the scalar model for a specific dimension.
+     *
+     * <p>This is the preferred method for accessing per-dimension models
+     * as part of the {@link VectorModel} interface.
+     *
+     * @param dimension the dimension index (0-based, must be in [0, M-1])
+     * @return the scalar model for that dimension
+     * @throws IndexOutOfBoundsException if dimension is out of range
+     */
+    @Override
+    public ScalarModel scalarModel(int dimension) {
+        return componentModel(dimension);
+    }
+
+    /**
+     * Returns all scalar models.
+     *
+     * <p>This is the preferred method for accessing per-dimension models
+     * as part of the {@link VectorModel} interface.
+     *
+     * @return a defensive copy of the scalar models array
+     */
+    @Override
+    public ScalarModel[] scalarModels() {
+        return Arrays.copyOf(componentModels, componentModels.length);
+    }
+
+    /**
+     * Returns whether all component models are of the same type.
+     *
+     * @return true if all dimensions use the same model type
+     */
+    public boolean isHomogeneous() {
+        if (componentModels.length == 0) return true;
+        String firstType = componentModels[0].getModelType();
+        for (int i = 1; i < componentModels.length; i++) {
+            if (!componentModels[i].getModelType().equals(firstType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns whether all component models are Gaussian.
+     *
+     * @return true if all dimensions use GaussianComponentModel
+     */
+    public boolean isAllGaussian() {
+        for (ComponentModel model : componentModels) {
+            if (!(model instanceof GaussianComponentModel)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns all component models as GaussianComponentModel array.
+     *
+     * <p>This is a convenience method for backward compatibility with code
+     * that expects GaussianComponentModel[].
+     *
+     * @return array of GaussianComponentModel
+     * @throws IllegalStateException if not all components are Gaussian
+     */
+    public GaussianComponentModel[] gaussianComponentModels() {
+        if (!isAllGaussian()) {
+            throw new IllegalStateException("Not all component models are Gaussian. Use componentModels() instead.");
+        }
+        GaussianComponentModel[] result = new GaussianComponentModel[componentModels.length];
+        for (int i = 0; i < componentModels.length; i++) {
+            result[i] = (GaussianComponentModel) componentModels[i];
+        }
+        return result;
     }
 }

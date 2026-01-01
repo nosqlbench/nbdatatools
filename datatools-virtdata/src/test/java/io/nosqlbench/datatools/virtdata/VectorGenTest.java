@@ -17,6 +17,7 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -30,7 +31,7 @@ class VectorGenTest {
     @Test
     void testBasicGeneration() {
         VectorSpaceModel model = new VectorSpaceModel(1000, 128);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         float[] vector = gen.apply(0);
         assertNotNull(vector);
@@ -40,7 +41,7 @@ class VectorGenTest {
     @Test
     void testDeterminism() {
         VectorSpaceModel model = new VectorSpaceModel(1000, 64);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         float[] first = gen.apply(42);
         float[] second = gen.apply(42);
@@ -51,7 +52,7 @@ class VectorGenTest {
     @Test
     void testDifferentOrdinalsDifferentVectors() {
         VectorSpaceModel model = new VectorSpaceModel(1000, 32);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         float[] v0 = gen.apply(0);
         float[] v1 = gen.apply(1);
@@ -65,7 +66,7 @@ class VectorGenTest {
     @Test
     void testOrdinalWrapping() {
         VectorSpaceModel model = new VectorSpaceModel(100, 16);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         // Ordinal 100 should wrap to 0
         float[] v0 = gen.apply(0);
@@ -81,7 +82,7 @@ class VectorGenTest {
     @Test
     void testNegativeOrdinalWrapping() {
         VectorSpaceModel model = new VectorSpaceModel(100, 16);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         // Ordinal -1 should wrap to 99
         float[] v99 = gen.apply(99);
@@ -92,7 +93,7 @@ class VectorGenTest {
     @Test
     void testGenerateInto() {
         VectorSpaceModel model = new VectorSpaceModel(1000, 32);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         float[] target = new float[64];
         gen.generateInto(42, target, 0);
@@ -110,7 +111,7 @@ class VectorGenTest {
     @Test
     void testDoubleGeneration() {
         VectorSpaceModel model = new VectorSpaceModel(1000, 16);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         double[] vectorD = gen.applyAsDouble(42);
         float[] vectorF = gen.apply(42);
@@ -126,7 +127,7 @@ class VectorGenTest {
     @Test
     void testBatchGeneration() {
         VectorSpaceModel model = new VectorSpaceModel(10000, 64);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         float[][] batch = gen.generateBatch(100, 50);
 
@@ -141,7 +142,7 @@ class VectorGenTest {
     @Test
     void testFlatBatchGeneration() {
         VectorSpaceModel model = new VectorSpaceModel(10000, 32);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         float[] flat = gen.generateFlatBatch(0, 100);
 
@@ -161,7 +162,7 @@ class VectorGenTest {
     void testDistributionProperties() {
         // Generate many vectors and check statistical properties
         VectorSpaceModel model = new VectorSpaceModel(100000, 4, 0.0, 1.0);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         int sampleSize = 10000;
         double[] means = new double[4];
@@ -194,7 +195,7 @@ class VectorGenTest {
         // Verify that N distinct ordinals produce N distinct vectors
         int n = 1000;
         VectorSpaceModel model = new VectorSpaceModel(n, 16);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         Set<String> uniqueVectors = new HashSet<>();
         for (int i = 0; i < n; i++) {
@@ -210,7 +211,7 @@ class VectorGenTest {
     void testCustomDistribution() {
         // Test with non-standard Gaussian parameters
         VectorSpaceModel model = new VectorSpaceModel(10000, 8, 5.0, 2.0);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         int sampleSize = 5000;
         double sum = 0;
@@ -232,7 +233,7 @@ class VectorGenTest {
     @Test
     void testModelAccessors() {
         VectorSpaceModel model = new VectorSpaceModel(12345, 256);
-        VectorGen gen = new VectorGen(model);
+        DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 
         assertEquals(12345, gen.uniqueVectors());
         assertEquals(256, gen.dimensions());

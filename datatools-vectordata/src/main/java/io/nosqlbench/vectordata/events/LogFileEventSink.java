@@ -104,7 +104,27 @@ public class LogFileEventSink implements EventSink, Closeable {
 
         try {
 
-            Files.createDirectories(logFilePath.getParent());
+            Path parentDir = logFilePath.getParent();
+            try {
+                Files.createDirectories(parentDir);
+            } catch (java.nio.file.FileAlreadyExistsException e) {
+                // Handle race condition or broken symlink
+                Path problemPath = java.nio.file.Path.of(e.getFile());
+                if (Files.isSymbolicLink(problemPath)) {
+                    try {
+                        Path target = Files.readSymbolicLink(problemPath);
+                        if (!target.isAbsolute()) {
+                            target = problemPath.getParent().resolve(target);
+                        }
+                        Files.createDirectories(target);
+                    } catch (IOException targetEx) {
+                        Files.delete(problemPath);
+                    }
+                    Files.createDirectories(parentDir);
+                } else if (!Files.isDirectory(parentDir)) {
+                    throw e;
+                }
+            }
 
             this.writer = new BufferedWriter(new FileWriter(logFilePath.toFile(), true));
             // Write the creation time as the first line in ISO 8601 format with a special event type

@@ -18,9 +18,9 @@ package io.nosqlbench.command.analyze.subcommands;
  */
 
 import io.nosqlbench.common.types.VectorFileExtension;
-import io.nosqlbench.datatools.virtdata.GaussianComponentModel;
-import io.nosqlbench.datatools.virtdata.VectorSpaceModel;
-import io.nosqlbench.datatools.virtdata.VectorSpaceModelConfig;
+import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
