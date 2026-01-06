@@ -17,16 +17,16 @@
 
 package io.nosqlbench.datatools.virtdata.sampling;
 
-import io.nosqlbench.vshapes.model.ComponentModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorModel;
 
-/// Factory for creating bound ScalarSampler instances from ScalarModel types.
+/// Factory for creating bound ComponentSampler instances from ScalarModel types.
 ///
 /// # Tensor Hierarchy
 ///
-/// ScalarSamplerFactory corresponds to the first-order tensor level (ScalarModel):
-/// - ScalarSamplerFactory - Creates samplers for ScalarModels
+/// ComponentSamplerFactory corresponds to the first-order tensor level (ScalarModel):
+/// - ComponentSamplerFactory - Creates samplers for ScalarModels
 /// - VectorGeneratorIO - Creates generators for VectorModels
 ///
 /// # Overview
@@ -38,13 +38,13 @@ import io.nosqlbench.vshapes.model.VectorModel;
 ///
 /// ```java
 /// ScalarModel model = ...; // from VectorModel
-/// ScalarSampler sampler = ScalarSamplerFactory.forModel(model);
+/// ComponentSampler sampler = ComponentSamplerFactory.forModel(model);
 ///
 /// // Hot path - no type checks, no casting
 /// double value = sampler.sample(u);
 /// ```
 ///
-/// @see ScalarSampler
+/// @see ComponentSampler
 /// @see io.nosqlbench.vshapes.model.ScalarModel
 public final class ScalarSamplerFactory {
 
@@ -57,16 +57,16 @@ public final class ScalarSamplerFactory {
     /// Type dispatch happens here at construction time, not at sample time.
     ///
     /// @param model the scalar model
-    /// @return a ScalarSampler bound to the model's parameters
+    /// @return a ComponentSampler bound to the model's parameters
     /// @throws IllegalArgumentException if the model type is not supported
     @SuppressWarnings("deprecation")
-    public static ScalarSampler forModel(ScalarModel model) {
+    public static ComponentSampler forModel(ScalarModel model) {
         // Delegate to ComponentSamplerFactory for now
-        // All current ScalarModel implementations are ComponentModel subclasses
-        if (model instanceof ComponentModel) {
-            ComponentModel componentModel = (ComponentModel) model;
+        // All current ScalarModel implementations are ScalarModel subclasses
+        if (model instanceof ScalarModel) {
+            ScalarModel componentModel = (ScalarModel) model;
             ComponentSampler sampler = ComponentSamplerFactory.forModel(componentModel);
-            // Wrap the ComponentSampler as a ScalarSampler
+            // Wrap the ComponentSampler as a ComponentSampler
             return sampler::sample;
         }
         throw new IllegalArgumentException(
@@ -79,8 +79,8 @@ public final class ScalarSamplerFactory {
     ///
     /// @param models the scalar models
     /// @return an array of bound samplers
-    public static ScalarSampler[] forModels(ScalarModel[] models) {
-        ScalarSampler[] samplers = new ScalarSampler[models.length];
+    public static ComponentSampler[] forModels(ScalarModel[] models) {
+        ComponentSampler[] samplers = new ComponentSampler[models.length];
         for (int i = 0; i < models.length; i++) {
             samplers[i] = forModel(models[i]);
         }
@@ -93,7 +93,7 @@ public final class ScalarSamplerFactory {
     ///
     /// @param model the vector model
     /// @return an array of bound samplers, one per dimension
-    public static ScalarSampler[] forVectorModel(VectorModel model) {
+    public static ComponentSampler[] forVectorModel(VectorModel model) {
         return forModels(model.scalarModels());
     }
 }

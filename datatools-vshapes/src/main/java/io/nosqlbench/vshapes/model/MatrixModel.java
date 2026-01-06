@@ -122,7 +122,18 @@ package io.nosqlbench.vshapes.model;
 ///
 /// @see ScalarModel
 /// @see VectorModel
-public interface MatrixModel {
+/// @see TensorModel
+public interface MatrixModel extends TensorModel {
+
+    /// Returns the model shape of this model.
+    ///
+    /// MatrixModels are always [ModelShape#MATRIX] (order 2).
+    ///
+    /// @return [ModelShape#MATRIX]
+    @Override
+    default ModelShape getModelShape() {
+        return ModelShape.MATRIX;
+    }
 
     /**
      * Returns the number of VectorModels in this matrix.
@@ -146,4 +157,13 @@ public interface MatrixModel {
      * @return a defensive copy of the vector models array
      */
     VectorModel[] vectorModels();
+
+    /// Returns the model type identifier for serialization.
+    ///
+    /// This string is used in JSON serialization to identify the
+    /// concrete implementation type, enabling polymorphic deserialization.
+    ///
+    /// @return the model type identifier
+    @Override
+    String getModelType();
 }

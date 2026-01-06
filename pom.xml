@@ -31,6 +31,7 @@
     <module>datatools-io-transport</module>
     <module>datatools-jetty-test-server</module>
     <module>datatools-parquet-reader</module>
+    <module>datatools-vshapes</module>
     <module>datatools-vectordata</module>
     <module>datatools-status-api</module>
     <module>datatools-virtdata</module>
@@ -38,23 +39,11 @@
 
   <profiles>
     <profile>
-      <id>vshapes</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <modules>
-        <module>datatools-vshapes</module>
-      </modules>
-    </profile>
-    <profile>
       <id>all</id>
       <properties>
         <!-- Enable all performance tests that are disabled by default -->
         <skipPerformanceTests>false</skipPerformanceTests>
       </properties>
-      <modules>
-        <module>datatools-vshapes</module>
-      </modules>
     </profile>
   </profiles>
   <developers>

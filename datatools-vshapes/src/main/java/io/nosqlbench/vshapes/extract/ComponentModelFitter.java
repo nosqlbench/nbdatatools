@@ -17,7 +17,7 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.ComponentModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
 
 /**
  * Interface for fitting a specific distribution type to observed data.
@@ -31,7 +31,7 @@ import io.nosqlbench.vshapes.model.ComponentModel;
  * <h2>Fitting Process</h2>
  *
  * <pre>{@code
- * Observed Data ──► Fitter ──► ComponentModel
+ * Observed Data ──► Fitter ──► ScalarModel
  *                      │
  *                      └── Also computes goodness-of-fit score
  * }</pre>
@@ -49,11 +49,11 @@ import io.nosqlbench.vshapes.model.ComponentModel;
  * ComponentModelFitter gaussianFitter = new GaussianModelFitter();
  * FitResult result = gaussianFitter.fit(dimensionData);
  *
- * ComponentModel model = result.model();
+ * ScalarModel model = result.model();
  * double goodnessOfFit = result.goodnessOfFit();
  * }</pre>
  *
- * @see GaussianModelFitter
+ * @see NormalModelFitter
  * @see UniformModelFitter
  * @see EmpiricalModelFitter
  * @see BestFitSelector
@@ -67,7 +67,7 @@ public interface ComponentModelFitter {
      * @param goodnessOfFit score indicating fit quality (lower is better)
      * @param modelType the type identifier for this model
      */
-    record FitResult(ComponentModel model, double goodnessOfFit, String modelType) {
+    record FitResult(ScalarModel model, double goodnessOfFit, String modelType) {
 
         /**
          * Creates a fit result.
@@ -108,7 +108,7 @@ public interface ComponentModelFitter {
 
     /**
      * Returns the model type identifier for this fitter.
-     * This should match {@link ComponentModel#getModelType()} for fitted models.
+     * This should match {@link ScalarModel#getModelType()} for fitted models.
      *
      * @return the model type identifier (e.g., "gaussian", "uniform", "empirical")
      */

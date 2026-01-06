@@ -17,7 +17,7 @@ package io.nosqlbench.command.analyze.subcommands;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import org.junit.jupiter.api.Test;
@@ -54,7 +54,7 @@ class CMD_analyze_profileTest {
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute(
-            testFile.toString(),
+            "-b", testFile.toString(),
             "-o", outputFile.toString()
         );
 
@@ -86,9 +86,10 @@ class CMD_analyze_profileTest {
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute(
-            testFile.toString(),
+            "-b", testFile.toString(),
             "-o", outputFile.toString(),
-            "--truncated"
+            "--truncated",
+            "--model-type", "normal"
         );
 
         assertEquals(0, exitCode, "Command should succeed");
@@ -97,13 +98,13 @@ class CMD_analyze_profileTest {
         assertNotNull(model);
 
         // Verify truncation bounds are set
-        GaussianComponentModel gaussian = (GaussianComponentModel) model.componentModel(0);
-        assertTrue(gaussian.isTruncated(),
+        NormalScalarModel normal = (NormalScalarModel) model.scalarModel(0);
+        assertTrue(normal.isTruncated(),
             "Component should be truncated when --truncated is specified");
 
         System.out.println("Truncated model bounds: [" +
-            gaussian.lower() + ", " +
-            gaussian.upper() + "]");
+            normal.lower() + ", " +
+            normal.upper() + "]");
     }
 
     @Test
@@ -121,7 +122,7 @@ class CMD_analyze_profileTest {
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute(
-            testFile.toString(),
+            "-b", testFile.toString(),
             "-o", outputFile.toString(),
             "--sample", "10"
         );
@@ -148,7 +149,7 @@ class CMD_analyze_profileTest {
         CommandLine commandLine = new CommandLine(cmd);
 
         int exitCode = commandLine.execute(
-            testFile.toString(),
+            "-b", testFile.toString(),
             "-o", outputFile.toString(),
             "-n", "1000000"
         );
@@ -175,7 +176,7 @@ class CMD_analyze_profileTest {
 
         try {
             int exitCode = commandLine.execute(
-                nonExistentFile.toString(),
+                "-b", nonExistentFile.toString(),
                 "-o", outputFile.toString()
             );
 
@@ -184,5 +185,65 @@ class CMD_analyze_profileTest {
         } finally {
             System.setErr(originalErr);
         }
+    }
+
+    @Test
+    void testProfileWithInlineRange(@TempDir Path tempDir) throws Exception {
+        Path testFile = Path.of("../datatools-vectordata/src/test/resources/testserver/rawdatasets/testxvec/testxvec_base.fvec");
+
+        if (!Files.exists(testFile)) {
+            System.out.println("Skipping test - test file not found: " + testFile);
+            return;
+        }
+
+        Path outputFile = tempDir.resolve("test_model_range.json");
+
+        CMD_analyze_profile cmd = new CMD_analyze_profile();
+        CommandLine commandLine = new CommandLine(cmd);
+
+        // Use inline range specification to profile first 100 vectors
+        int exitCode = commandLine.execute(
+            "-b", testFile.toString() + ":100",
+            "-o", outputFile.toString()
+        );
+
+        assertEquals(0, exitCode, "Command should succeed with inline range");
+        assertTrue(Files.exists(outputFile), "Output file should be created");
+
+        VectorSpaceModel model = VectorSpaceModelConfig.loadFromFile(outputFile);
+        assertNotNull(model);
+        // The unique vectors count should reflect the range size (100)
+        // or whatever was specified via -n option
+        assertEquals(100, model.uniqueVectors(),
+            "Model unique vectors should match the range size");
+    }
+
+    @Test
+    void testProfileWithHalfOpenIntervalRange(@TempDir Path tempDir) throws Exception {
+        Path testFile = Path.of("../datatools-vectordata/src/test/resources/testserver/rawdatasets/testxvec/testxvec_base.fvec");
+
+        if (!Files.exists(testFile)) {
+            System.out.println("Skipping test - test file not found: " + testFile);
+            return;
+        }
+
+        Path outputFile = tempDir.resolve("test_model_interval.json");
+
+        CMD_analyze_profile cmd = new CMD_analyze_profile();
+        CommandLine commandLine = new CommandLine(cmd);
+
+        // Use half-open interval notation [10,60) to profile 50 vectors
+        int exitCode = commandLine.execute(
+            "-b", testFile.toString() + ":[10,60)",
+            "-o", outputFile.toString()
+        );
+
+        assertEquals(0, exitCode, "Command should succeed with interval range");
+        assertTrue(Files.exists(outputFile), "Output file should be created");
+
+        VectorSpaceModel model = VectorSpaceModelConfig.loadFromFile(outputFile);
+        assertNotNull(model);
+        assertEquals(50, model.uniqueVectors(),
+            "Model unique vectors should match the range size (60-10=50)");
     }
 }

@@ -21,13 +21,13 @@ package io.nosqlbench.datatools.virtdata.sampling;
 ///
 /// # Tensor Hierarchy
 ///
-/// ScalarSampler corresponds to the first-order tensor level (ScalarModel):
-/// - ScalarSampler - First-order (samples from a single ScalarModel)
+/// ComponentSampler corresponds to the first-order tensor level (ScalarModel):
+/// - ComponentSampler - First-order (samples from a single ScalarModel)
 /// - VectorGenerator - Second-order (generates vectors from VectorModel)
 ///
 /// # Overview
 ///
-/// ScalarSampler is functionally equivalent to {@link ComponentSampler} and is
+/// ComponentSampler is functionally equivalent to {@link ComponentSampler} and is
 /// provided for consistency with the tensor model terminology. This interface
 /// extends ComponentSampler to maintain backward compatibility.
 ///
@@ -53,13 +53,13 @@ package io.nosqlbench.datatools.virtdata.sampling;
 ///
 /// ```java
 /// // Create sampler bound to model (extracts parameters)
-/// ScalarSampler sampler = ScalarSamplerFactory.forModel(model);
+/// ComponentSampler sampler = ComponentSamplerFactory.forModel(model);
 ///
 /// // Sample with just u - no model reference needed
 /// double value = sampler.sample(0.5);
 /// ```
 ///
-/// @see ScalarSamplerFactory
+/// @see ComponentSamplerFactory
 /// @see io.nosqlbench.vshapes.model.ScalarModel
 @FunctionalInterface
 public interface ScalarSampler extends ComponentSampler {

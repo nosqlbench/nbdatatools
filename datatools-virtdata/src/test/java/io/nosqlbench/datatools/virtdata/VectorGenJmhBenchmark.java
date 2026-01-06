@@ -58,6 +58,11 @@ public class VectorGenJmhBenchmark {
     private ScalarDimensionDistributionGenerator scalarGenTyped;
     private DimensionDistributionGenerator panamaGenTyped;
 
+    // LERP and normalized generators
+    private VectorGenerator<VectorSpaceModel> lerpGen;
+    private VectorGenerator<VectorSpaceModel> normalizedGen;
+    private VectorGenerator<VectorSpaceModel> lerpNormalizedGen;
+
     private long ordinal;
 
     @Setup(Level.Trial)
@@ -76,6 +81,25 @@ public class VectorGenJmhBenchmark {
             panamaGen = scalarGen;
             panamaGenTyped = null;
         }
+
+        // Create LERP-optimized generator
+        GeneratorOptions lerpOptions = GeneratorOptions.builder()
+            .useLerp(true)
+            .build();
+        lerpGen = VectorGenFactory.create(model, lerpOptions);
+
+        // Create normalized generator
+        GeneratorOptions normOptions = GeneratorOptions.builder()
+            .normalizeL2(true)
+            .build();
+        normalizedGen = VectorGenFactory.create(model, normOptions);
+
+        // Create LERP + normalized generator
+        GeneratorOptions bothOptions = GeneratorOptions.builder()
+            .useLerp(true)
+            .normalizeL2(true)
+            .build();
+        lerpNormalizedGen = VectorGenFactory.create(model, bothOptions);
 
         ordinal = 0;
     }
@@ -140,6 +164,45 @@ public class VectorGenJmhBenchmark {
     @Benchmark
     public void singleVectorDouble_Scalar(Blackhole bh) {
         bh.consume(scalarGenTyped.applyAsDouble(ordinal++));
+    }
+
+    // ==================== LERP Optimized Benchmarks ====================
+
+    @Benchmark
+    public void singleVector_Lerp(Blackhole bh) {
+        bh.consume(lerpGen.apply(ordinal++));
+    }
+
+    @Benchmark
+    public void batchFlat_Lerp(Blackhole bh) {
+        bh.consume(lerpGen.generateFlatBatch(ordinal, batchSize));
+        ordinal += batchSize;
+    }
+
+    // ==================== Normalized Benchmarks ====================
+
+    @Benchmark
+    public void singleVector_Normalized(Blackhole bh) {
+        bh.consume(normalizedGen.apply(ordinal++));
+    }
+
+    @Benchmark
+    public void batchFlat_Normalized(Blackhole bh) {
+        bh.consume(normalizedGen.generateFlatBatch(ordinal, batchSize));
+        ordinal += batchSize;
+    }
+
+    // ==================== LERP + Normalized Benchmarks ====================
+
+    @Benchmark
+    public void singleVector_LerpNormalized(Blackhole bh) {
+        bh.consume(lerpNormalizedGen.apply(ordinal++));
+    }
+
+    @Benchmark
+    public void batchFlat_LerpNormalized(Blackhole bh) {
+        bh.consume(lerpNormalizedGen.generateFlatBatch(ordinal, batchSize));
+        ordinal += batchSize;
     }
 
     /**

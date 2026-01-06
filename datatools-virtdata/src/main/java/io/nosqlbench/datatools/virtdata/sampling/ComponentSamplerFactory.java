@@ -17,11 +17,17 @@
 
 package io.nosqlbench.datatools.virtdata.sampling;
 
-import io.nosqlbench.vshapes.model.ComponentModel;
-import io.nosqlbench.vshapes.model.CompositeComponentModel;
-import io.nosqlbench.vshapes.model.EmpiricalComponentModel;
-import io.nosqlbench.vshapes.model.GaussianComponentModel;
-import io.nosqlbench.vshapes.model.UniformComponentModel;
+import io.nosqlbench.vshapes.model.BetaPrimeScalarModel;
+import io.nosqlbench.vshapes.model.BetaScalarModel;
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
+import io.nosqlbench.vshapes.model.EmpiricalScalarModel;
+import io.nosqlbench.vshapes.model.GammaScalarModel;
+import io.nosqlbench.vshapes.model.InverseGammaScalarModel;
+import io.nosqlbench.vshapes.model.NormalScalarModel;
+import io.nosqlbench.vshapes.model.PearsonIVScalarModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
+import io.nosqlbench.vshapes.model.StudentTScalarModel;
+import io.nosqlbench.vshapes.model.UniformScalarModel;
 
 /// Factory for creating bound ComponentSampler instances.
 ///
@@ -33,7 +39,7 @@ import io.nosqlbench.vshapes.model.UniformComponentModel;
 /// # Usage
 ///
 /// ```java
-/// ComponentModel model = ...; // from VectorSpaceModel
+/// ScalarModel model = ...; // from VectorSpaceModel.scalarModel(d)
 /// ComponentSampler sampler = ComponentSamplerFactory.forModel(model);
 ///
 /// // Hot path - no type checks, no casting
@@ -51,18 +57,30 @@ public final class ComponentSamplerFactory {
     ///
     /// Type dispatch happens here at construction time, not at sample time.
     ///
-    /// @param model the component model
+    /// @param model the scalar model
     /// @return a ComponentSampler bound to the model's parameters
     /// @throws IllegalArgumentException if the model type is not supported
-    public static ComponentSampler forModel(ComponentModel model) {
-        if (model instanceof GaussianComponentModel) {
-            return new GaussianSampler((GaussianComponentModel) model);
-        } else if (model instanceof UniformComponentModel) {
-            return new UniformSampler((UniformComponentModel) model);
-        } else if (model instanceof EmpiricalComponentModel) {
-            return new EmpiricalSampler((EmpiricalComponentModel) model);
-        } else if (model instanceof CompositeComponentModel) {
-            return new CompositeSampler((CompositeComponentModel) model);
+    public static ComponentSampler forModel(ScalarModel model) {
+        if (model instanceof NormalScalarModel) {
+            return new NormalSampler((NormalScalarModel) model);
+        } else if (model instanceof UniformScalarModel) {
+            return new UniformSampler((UniformScalarModel) model);
+        } else if (model instanceof BetaScalarModel) {
+            return new BetaSampler((BetaScalarModel) model);
+        } else if (model instanceof GammaScalarModel) {
+            return new GammaSampler((GammaScalarModel) model);
+        } else if (model instanceof StudentTScalarModel) {
+            return new StudentTSampler((StudentTScalarModel) model);
+        } else if (model instanceof InverseGammaScalarModel) {
+            return new InverseGammaSampler((InverseGammaScalarModel) model);
+        } else if (model instanceof BetaPrimeScalarModel) {
+            return new BetaPrimeSampler((BetaPrimeScalarModel) model);
+        } else if (model instanceof PearsonIVScalarModel) {
+            return new PearsonIVSampler((PearsonIVScalarModel) model);
+        } else if (model instanceof EmpiricalScalarModel) {
+            return new EmpiricalSampler((EmpiricalScalarModel) model);
+        } else if (model instanceof CompositeScalarModel) {
+            return new CompositeSampler((CompositeScalarModel) model);
         } else {
             throw new IllegalArgumentException(
                 "No sampler for model type: " + model.getClass().getName());
@@ -73,9 +91,9 @@ public final class ComponentSamplerFactory {
     ///
     /// Convenience method for creating samplers for all dimensions at once.
     ///
-    /// @param models the component models
+    /// @param models the scalar models
     /// @return an array of bound samplers
-    public static ComponentSampler[] forModels(ComponentModel[] models) {
+    public static ComponentSampler[] forModels(ScalarModel[] models) {
         ComponentSampler[] samplers = new ComponentSampler[models.length];
         for (int i = 0; i < models.length; i++) {
             samplers[i] = forModel(models[i]);

@@ -31,9 +31,17 @@ import org.junit.platform.suite.api.Suite;
 /// Like the main test suite, this suite uses the JettyFileServerExtension to provide a web server
 /// that serves test resources for the tests in the vectordata module.
 ///
-/// To run this suite, use one of the following Maven commands:
-/// 1. mvn test -DskipPerformanceTests=false
-/// 2. mvn test -Dtest=PerformanceTestSuite
+/// ## Test Profile Usage
+///
+/// By default, only unit tests run. Use profiles to enable additional test categories:
+///
+/// | Command                              | Unit | Performance | Accuracy |
+/// |--------------------------------------|------|-------------|----------|
+/// | `mvn test`                           |  ✓   |             |          |
+/// | `mvn test -Paccuracy`                |  ✓   |             |    ✓     |
+/// | `mvn test -Pperformance`             |  ✓   |      ✓      |          |
+/// | `mvn test -Pperformance,accuracy`    |  ✓   |      ✓      |    ✓     |
+/// | `mvn test -Palltests`                |  ✓   |      ✓      |    ✓     |
 @Suite
 @SelectPackages("io.nosqlbench.vectordata")
 @IncludeTags("performance")

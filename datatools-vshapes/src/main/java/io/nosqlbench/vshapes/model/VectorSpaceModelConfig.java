@@ -66,13 +66,13 @@ import java.util.Objects;
  * }</pre>
  *
  * @see VectorSpaceModel
- * @see ComponentModel
+ * @see ScalarModel
  */
 public class VectorSpaceModelConfig {
 
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
-            .serializeNulls()
+            .registerTypeAdapterFactory(ScalarModelTypeAdapterFactory.create())
             .create();
 
     @SerializedName("unique_vectors")
@@ -104,46 +104,113 @@ public class VectorSpaceModelConfig {
     /**
      * Configuration for a single dimension's distribution model.
      * Supports polymorphic model types via the "type" field.
+     *
+     * <p><b>Supported Model Types:</b></p>
+     * <ul>
+     *   <li><b>normal</b>: Normal (Gaussian) distribution - mean, std_dev, optional bounds</li>
+     *   <li><b>uniform</b>: Uniform distribution - lower, upper</li>
+     *   <li><b>beta</b>: Beta distribution - alpha, beta, lower, upper</li>
+     *   <li><b>gamma</b>: Gamma distribution - shape, scale, shift</li>
+     *   <li><b>inverse_gamma</b>: Inverse Gamma distribution - shape, scale</li>
+     *   <li><b>student_t</b>: Student's t distribution - nu, mu, sigma</li>
+     *   <li><b>pearson_iv</b>: Pearson Type IV distribution - m, nu, a, lambda</li>
+     *   <li><b>beta_prime</b>: Beta Prime distribution - alpha, beta, scale</li>
+     *   <li><b>empirical</b>: Empirical histogram - bins, counts, min, max</li>
+     *   <li><b>composite</b>: Composite/mixture model - sub_models, weights</li>
+     * </ul>
      */
     public static class ComponentConfig {
         @SerializedName("type")
-        private String type = "gaussian";  // default to gaussian for backward compatibility
+        private String type = "normal";  // default to normal distribution
 
+        // Normal distribution parameters
         @SerializedName("mean")
         private Double mean;
 
         @SerializedName("std_dev")
         private Double stdDev;
 
+        // Uniform distribution parameters
         @SerializedName("lower")
         private Double lower;
 
         @SerializedName("upper")
         private Double upper;
 
+        // Truncation bounds (for normal, gamma, etc.)
         @SerializedName("lower_bound")
         private Double lowerBound;
 
         @SerializedName("upper_bound")
         private Double upperBound;
 
+        // Beta distribution parameters
+        @SerializedName("alpha")
+        private Double alpha;
+
+        @SerializedName("beta")
+        private Double beta;
+
+        // Gamma distribution parameters
+        @SerializedName("shape")
+        private Double shape;
+
+        @SerializedName("scale")
+        private Double scale;
+
+        @SerializedName("shift")
+        private Double shift;
+
+        // Student's t distribution parameters
+        @SerializedName("nu")
+        private Double nu;
+
+        @SerializedName("mu")
+        private Double mu;
+
+        @SerializedName("sigma")
+        private Double sigma;
+
+        // Pearson IV parameters
+        @SerializedName("m")
+        private Double m;
+
+        @SerializedName("a")
+        private Double a;
+
+        @SerializedName("lambda")
+        private Double lambda;
+
+        // Empirical histogram
+        @SerializedName("bins")
+        private double[] bins;
+
+        @SerializedName("counts")
+        private int[] counts;
+
+        @SerializedName("min")
+        private Double min;
+
+        @SerializedName("max")
+        private Double max;
+
         public ComponentConfig() {
         }
 
         /**
-         * Creates a Gaussian component config.
+         * Creates a Normal component config.
          */
         public ComponentConfig(double mean, double stdDev) {
-            this.type = "gaussian";
+            this.type = "normal";
             this.mean = mean;
             this.stdDev = stdDev;
         }
 
         /**
-         * Creates a truncated Gaussian component config.
+         * Creates a truncated Normal component config.
          */
         public ComponentConfig(double mean, double stdDev, double lowerBound, double upperBound) {
-            this.type = "gaussian";
+            this.type = "normal";
             this.mean = mean;
             this.stdDev = stdDev;
             this.lowerBound = lowerBound;
@@ -162,7 +229,7 @@ public class VectorSpaceModelConfig {
         }
 
         public String getType() {
-            return type != null ? type : "gaussian";
+            return type != null ? type : "normal";
         }
 
         public void setType(String type) {
@@ -222,22 +289,22 @@ public class VectorSpaceModelConfig {
         }
 
         /**
-         * Converts this configuration to a ComponentModel.
+         * Converts this configuration to a ScalarModel.
          *
-         * @return the corresponding ComponentModel
+         * @return the corresponding ScalarModel
          * @throws IllegalArgumentException if required fields are missing or type is unknown
          */
-        public ComponentModel toComponentModel() {
+        public ScalarModel toComponentModel() {
             String modelType = getType();
 
             switch (modelType) {
-                case "gaussian":
-                    Objects.requireNonNull(mean, "mean is required for gaussian");
-                    Objects.requireNonNull(stdDev, "std_dev is required for gaussian");
+                case "normal":
+                    Objects.requireNonNull(mean, "mean is required for normal");
+                    Objects.requireNonNull(stdDev, "std_dev is required for normal");
                     if (isTruncated()) {
-                        return new GaussianComponentModel(mean, stdDev, lowerBound, upperBound);
+                        return new NormalScalarModel(mean, stdDev, lowerBound, upperBound);
                     } else {
-                        return new GaussianComponentModel(mean, stdDev);
+                        return new NormalScalarModel(mean, stdDev);
                     }
 
                 case "uniform":
@@ -245,7 +312,55 @@ public class VectorSpaceModelConfig {
                     Double hi = upper != null ? upper : upperBound;
                     Objects.requireNonNull(lo, "lower is required for uniform");
                     Objects.requireNonNull(hi, "upper is required for uniform");
-                    return new UniformComponentModel(lo, hi);
+                    return new UniformScalarModel(lo, hi);
+
+                case "beta":
+                    Objects.requireNonNull(alpha, "alpha is required for beta");
+                    Objects.requireNonNull(beta, "beta is required for beta");
+                    double betaLower = lower != null ? lower : 0.0;
+                    double betaUpper = upper != null ? upper : 1.0;
+                    return new BetaScalarModel(alpha, beta, betaLower, betaUpper);
+
+                case "gamma":
+                    Objects.requireNonNull(shape, "shape is required for gamma");
+                    Objects.requireNonNull(scale, "scale is required for gamma");
+                    double gammaLocation = shift != null ? shift : 0.0;
+                    return new GammaScalarModel(shape, scale, gammaLocation);
+
+                case "inverse_gamma":
+                    Objects.requireNonNull(shape, "shape is required for inverse_gamma");
+                    Objects.requireNonNull(scale, "scale is required for inverse_gamma");
+                    return new InverseGammaScalarModel(shape, scale);
+
+                case "student_t":
+                    Objects.requireNonNull(nu, "nu is required for student_t");
+                    double tLocation = mu != null ? mu : 0.0;
+                    double tScale = sigma != null ? sigma : 1.0;
+                    return new StudentTScalarModel(nu, tLocation, tScale);
+
+                case "pearson_iv":
+                    Objects.requireNonNull(m, "m is required for pearson_iv");
+                    Objects.requireNonNull(nu, "nu is required for pearson_iv");
+                    Objects.requireNonNull(a, "a is required for pearson_iv");
+                    Objects.requireNonNull(lambda, "lambda is required for pearson_iv");
+                    return new PearsonIVScalarModel(m, nu, a, lambda);
+
+                case "beta_prime":
+                    Objects.requireNonNull(alpha, "alpha is required for beta_prime");
+                    Objects.requireNonNull(beta, "beta is required for beta_prime");
+                    double bpScale = scale != null ? scale : 1.0;
+                    return new BetaPrimeScalarModel(alpha, beta, bpScale);
+
+                case "empirical":
+                    Objects.requireNonNull(bins, "bins is required for empirical");
+                    Objects.requireNonNull(mean, "mean is required for empirical");
+                    Objects.requireNonNull(stdDev, "std_dev is required for empirical");
+                    // bins contains bin edges, create a simple uniform CDF
+                    double[] cdf = new double[bins.length];
+                    for (int i = 0; i < cdf.length; i++) {
+                        cdf[i] = (double) (i + 1) / cdf.length;
+                    }
+                    return new EmpiricalScalarModel(bins, cdf, mean, stdDev);
 
                 default:
                     throw new IllegalArgumentException("Unknown component model type: " + modelType);
@@ -253,34 +368,57 @@ public class VectorSpaceModelConfig {
         }
 
         /**
-         * Creates a ComponentConfig from a ComponentModel.
+         * Creates a ComponentConfig from a ScalarModel.
          *
          * @param model the source model
          * @return the corresponding ComponentConfig
          */
-        public static ComponentConfig fromComponentModel(ComponentModel model) {
+        public static ComponentConfig fromComponentModel(ScalarModel model) {
             ComponentConfig config = new ComponentConfig();
             config.type = model.getModelType();
 
-            if (model instanceof GaussianComponentModel) {
-                GaussianComponentModel gaussian = (GaussianComponentModel) model;
-                config.mean = gaussian.getMean();
-                config.stdDev = gaussian.getStdDev();
-                if (gaussian.isTruncated()) {
-                    config.lowerBound = gaussian.lower();
-                    config.upperBound = gaussian.upper();
+            if (model instanceof NormalScalarModel normal) {
+                config.mean = normal.getMean();
+                config.stdDev = normal.getStdDev();
+                if (normal.isTruncated()) {
+                    config.lowerBound = normal.lower();
+                    config.upperBound = normal.upper();
                 }
-            } else if (model instanceof UniformComponentModel) {
-                UniformComponentModel uniform = (UniformComponentModel) model;
+            } else if (model instanceof UniformScalarModel uniform) {
                 config.lower = uniform.getLower();
                 config.upper = uniform.getUpper();
-            } else if (model instanceof EmpiricalComponentModel) {
-                EmpiricalComponentModel empirical = (EmpiricalComponentModel) model;
+            } else if (model instanceof BetaScalarModel beta) {
+                config.alpha = beta.getAlpha();
+                config.beta = beta.getBeta();
+                config.lower = beta.getLower();
+                config.upper = beta.getUpper();
+            } else if (model instanceof GammaScalarModel gamma) {
+                config.shape = gamma.getShape();
+                config.scale = gamma.getScale();
+                config.shift = gamma.getLocation();
+            } else if (model instanceof InverseGammaScalarModel invGamma) {
+                config.shape = invGamma.getShape();
+                config.scale = invGamma.getScale();
+            } else if (model instanceof StudentTScalarModel studentT) {
+                config.nu = studentT.getDegreesOfFreedom();
+                config.mu = studentT.getLocation();
+                config.sigma = studentT.getScale();
+            } else if (model instanceof PearsonIVScalarModel pearson) {
+                config.m = pearson.getM();
+                config.nu = pearson.getNu();
+                config.a = pearson.getA();
+                config.lambda = pearson.getLambda();
+            } else if (model instanceof BetaPrimeScalarModel betaPrime) {
+                config.alpha = betaPrime.getAlpha();
+                config.beta = betaPrime.getBeta();
+                config.scale = betaPrime.getScale();
+            } else if (model instanceof EmpiricalScalarModel empirical) {
                 config.mean = empirical.getMean();
                 config.stdDev = empirical.getStdDev();
-                config.lowerBound = empirical.getMin();
-                config.upperBound = empirical.getMax();
-            } else if (model instanceof CompositeComponentModel) {
+                config.min = empirical.getMin();
+                config.max = empirical.getMax();
+                config.bins = empirical.getBinEdges();
+            } else if (model instanceof CompositeScalarModel) {
                 // Composite models don't have simple scalar properties
                 // The type field is sufficient for identification
             } else {
@@ -375,7 +513,7 @@ public class VectorSpaceModelConfig {
 
         if (hasPerDimensionComponents()) {
             // Per-dimension configuration
-            ComponentModel[] models = new ComponentModel[components.length];
+            ScalarModel[] models = new ScalarModel[components.length];
             for (int i = 0; i < components.length; i++) {
                 models[i] = components[i].toComponentModel();
             }
@@ -404,14 +542,14 @@ public class VectorSpaceModelConfig {
         VectorSpaceModelConfig config = new VectorSpaceModelConfig();
         config.setUniqueVectors(model.uniqueVectors());
 
-        ComponentModel[] componentModels = model.componentModels();
+        ScalarModel[] scalarModels = model.scalarModels();
 
-        // Check if all components are identical Gaussian (can use compact uniform format)
-        boolean canUseUniform = model.isAllGaussian();
+        // Check if all components are identical Normal (can use compact uniform format)
+        boolean canUseUniform = model.isAllNormal();
         if (canUseUniform) {
-            GaussianComponentModel first = (GaussianComponentModel) componentModels[0];
-            for (int i = 1; i < componentModels.length; i++) {
-                if (!componentModels[i].equals(first)) {
+            NormalScalarModel first = (NormalScalarModel) scalarModels[0];
+            for (int i = 1; i < scalarModels.length; i++) {
+                if (!scalarModels[i].equals(first)) {
                     canUseUniform = false;
                     break;
                 }
@@ -431,9 +569,9 @@ public class VectorSpaceModelConfig {
         }
 
         // Use per-dimension representation
-        ComponentConfig[] components = new ComponentConfig[componentModels.length];
-        for (int i = 0; i < componentModels.length; i++) {
-            components[i] = ComponentConfig.fromComponentModel(componentModels[i]);
+        ComponentConfig[] components = new ComponentConfig[scalarModels.length];
+        for (int i = 0; i < scalarModels.length; i++) {
+            components[i] = ComponentConfig.fromComponentModel((ScalarModel) scalarModels[i]);
         }
         config.setComponents(components);
 

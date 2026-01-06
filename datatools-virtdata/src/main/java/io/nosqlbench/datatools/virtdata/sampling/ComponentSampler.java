@@ -32,7 +32,7 @@ package io.nosqlbench.datatools.virtdata.sampling;
 ///
 ///   Construction (once)                    Sampling (per value)
 ///  ┌─────────────────┐                   ┌─────────────────┐
-///  │ ComponentModel  │                   │   double u      │
+///  │ ScalarModel  │                   │   double u      │
 ///  │ mean, stdDev,   │ ──► Sampler ◄──── │   ∈ (0,1)       │
 ///  │ bounds, type    │     (bound)       └────────┬────────┘
 ///  └─────────────────┘                            │

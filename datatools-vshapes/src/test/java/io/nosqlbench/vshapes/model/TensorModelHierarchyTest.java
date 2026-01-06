@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * <ul>
  *   <li>ScalarModel is the base interface for all distribution models</li>
  *   <li>VectorModel is implemented by VectorSpaceModel</li>
- *   <li>ComponentModel extends ScalarModel (backward compatibility)</li>
+ *   <li>ScalarModel extends ScalarModel (backward compatibility)</li>
  *   <li>New *ScalarModel classes work correctly</li>
  * </ul>
  */
@@ -39,10 +39,10 @@ class TensorModelHierarchyTest {
     // ===== ScalarModel Interface Tests =====
 
     @Test
-    void scalarModelInterfaceIsImplementedByGaussianScalarModel() {
-        ScalarModel scalar = new GaussianScalarModel(0.0, 1.0);
+    void scalarModelInterfaceIsImplementedByNormalScalarModel() {
+        ScalarModel scalar = new NormalScalarModel(0.0, 1.0);
         assertNotNull(scalar.getModelType());
-        assertEquals("gaussian", scalar.getModelType());
+        assertEquals("normal", scalar.getModelType());
     }
 
     @Test
@@ -64,7 +64,7 @@ class TensorModelHierarchyTest {
     void scalarModelInterfaceIsImplementedByCompositeScalarModel() {
         ScalarModel scalar = new CompositeScalarModel(
             List.of(
-                new GaussianScalarModel(0.0, 1.0),
+                new NormalScalarModel(0.0, 1.0),
                 new UniformScalarModel(-1.0, 1.0)
             ),
             new double[]{0.5, 0.5}
@@ -73,27 +73,27 @@ class TensorModelHierarchyTest {
         assertEquals("composite", scalar.getModelType());
     }
 
-    // ===== ComponentModel Extends ScalarModel (Backward Compatibility) =====
+    // ===== ScalarModel Extends ScalarModel (Backward Compatibility) =====
 
     @Test
-    @SuppressWarnings("deprecation")
+    
     void componentModelExtendsScalarModel() {
-        ComponentModel component = new GaussianComponentModel(0.0, 1.0);
+        ScalarModel component = new NormalScalarModel(0.0, 1.0);
         assertTrue(component instanceof ScalarModel);
     }
 
     @Test
-    @SuppressWarnings("deprecation")
-    void gaussianComponentModelImplementsScalarModel() {
-        GaussianComponentModel gaussian = new GaussianComponentModel(0.0, 1.0);
-        ScalarModel scalar = gaussian;
-        assertEquals("gaussian", scalar.getModelType());
+    
+    void normalComponentModelImplementsScalarModel() {
+        NormalScalarModel normal = new NormalScalarModel(0.0, 1.0);
+        ScalarModel scalar = normal;
+        assertEquals("normal", scalar.getModelType());
     }
 
     @Test
-    @SuppressWarnings("deprecation")
+    
     void uniformComponentModelImplementsScalarModel() {
-        UniformComponentModel uniform = new UniformComponentModel(0.0, 1.0);
+        UniformScalarModel uniform = new UniformScalarModel(0.0, 1.0);
         ScalarModel scalar = uniform;
         assertEquals("uniform", scalar.getModelType());
     }
@@ -117,81 +117,81 @@ class TensorModelHierarchyTest {
     }
 
     @Test
-    @SuppressWarnings("deprecation")
+    
     void vectorModelScalarModelReturnsCorrectModel() {
-        ComponentModel[] custom = {
-            new GaussianScalarModel(0.0, 1.0),
+        ScalarModel[] custom = {
+            new NormalScalarModel(0.0, 1.0),
             new UniformScalarModel(0.0, 1.0),
-            new GaussianScalarModel(-5.0, 0.5)
+            new NormalScalarModel(-5.0, 0.5)
         };
         VectorModel vector = new VectorSpaceModel(1000, custom);
 
-        assertEquals("gaussian", vector.scalarModel(0).getModelType());
+        assertEquals("normal", vector.scalarModel(0).getModelType());
         assertEquals("uniform", vector.scalarModel(1).getModelType());
-        assertEquals("gaussian", vector.scalarModel(2).getModelType());
+        assertEquals("normal", vector.scalarModel(2).getModelType());
     }
 
     @Test
-    @SuppressWarnings("deprecation")
+    
     void vectorModelWithHeterogeneousScalarModels() {
-        ComponentModel[] models = {
-            new GaussianScalarModel(0.0, 1.0),
+        ScalarModel[] models = {
+            new NormalScalarModel(0.0, 1.0),
             new UniformScalarModel(-1.0, 1.0),
-            new GaussianScalarModel(5.0, 2.0)
+            new NormalScalarModel(5.0, 2.0)
         };
         VectorSpaceModel vsm = new VectorSpaceModel(100, models);
         VectorModel vector = vsm;
 
         assertEquals(3, vector.dimensions());
-        assertInstanceOf(GaussianScalarModel.class, vector.scalarModel(0));
+        assertInstanceOf(NormalScalarModel.class, vector.scalarModel(0));
         assertInstanceOf(UniformScalarModel.class, vector.scalarModel(1));
-        assertInstanceOf(GaussianScalarModel.class, vector.scalarModel(2));
+        assertInstanceOf(NormalScalarModel.class, vector.scalarModel(2));
     }
 
     // ===== New *ScalarModel Class Tests =====
 
     @Test
-    void gaussianScalarModelExtendsGaussianComponentModel() {
-        GaussianScalarModel scalar = new GaussianScalarModel(0.0, 1.0);
-        assertTrue(scalar instanceof GaussianComponentModel);
+    void normalScalarModelExtendsNormalScalarModel() {
+        NormalScalarModel scalar = new NormalScalarModel(0.0, 1.0);
+        assertTrue(scalar instanceof NormalScalarModel);
         assertEquals(0.0, scalar.getMean());
         assertEquals(1.0, scalar.getStdDev());
     }
 
     @Test
-    void gaussianScalarModelTruncated() {
-        GaussianScalarModel scalar = new GaussianScalarModel(0.0, 1.0, -1.0, 1.0);
+    void normalScalarModelTruncated() {
+        NormalScalarModel scalar = new NormalScalarModel(0.0, 1.0, -1.0, 1.0);
         assertTrue(scalar.isTruncated());
         assertEquals(-1.0, scalar.lower());
         assertEquals(1.0, scalar.upper());
     }
 
     @Test
-    void uniformScalarModelExtendsUniformComponentModel() {
+    void uniformScalarModelExtendsUniformScalarModel() {
         UniformScalarModel scalar = new UniformScalarModel(0.0, 1.0);
-        assertTrue(scalar instanceof UniformComponentModel);
+        assertTrue(scalar instanceof UniformScalarModel);
         assertEquals(0.0, scalar.getLower());
         assertEquals(1.0, scalar.getUpper());
     }
 
     @Test
-    void empiricalScalarModelExtendsEmpiricalComponentModel() {
+    void empiricalScalarModelExtendsEmpiricalScalarModel() {
         float[] data = {0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f};
         EmpiricalScalarModel scalar = EmpiricalScalarModel.fromData(data);
-        assertTrue(scalar instanceof EmpiricalComponentModel);
+        assertTrue(scalar instanceof EmpiricalScalarModel);
         assertTrue(scalar.getBinCount() > 0);
     }
 
     @Test
-    void compositeScalarModelExtendsCompositeComponentModel() {
+    void compositeScalarModelExtendsCompositeScalarModel() {
         CompositeScalarModel scalar = new CompositeScalarModel(
             List.of(
-                new GaussianScalarModel(0.0, 1.0),
+                new NormalScalarModel(0.0, 1.0),
                 new UniformScalarModel(-1.0, 1.0)
             ),
             new double[]{0.5, 0.5}
         );
-        assertTrue(scalar instanceof CompositeComponentModel);
+        assertTrue(scalar instanceof CompositeScalarModel);
         assertEquals(2, scalar.getComponentCount());
     }
 
@@ -199,7 +199,7 @@ class TensorModelHierarchyTest {
     void compositeScalarModelWithWeights() {
         CompositeScalarModel scalar = new CompositeScalarModel(
             List.of(
-                new GaussianScalarModel(0.0, 1.0),
+                new NormalScalarModel(0.0, 1.0),
                 new UniformScalarModel(-1.0, 1.0)
             ),
             new double[]{0.7, 0.3}
@@ -212,10 +212,10 @@ class TensorModelHierarchyTest {
     // ===== Static Factory Method Tests =====
 
     @Test
-    void gaussianScalarModelUniformFactory() {
-        GaussianScalarModel[] models = GaussianScalarModel.uniformScalar(0.0, 1.0, 4);
+    void normalScalarModelUniformFactory() {
+        NormalScalarModel[] models = NormalScalarModel.uniformScalar(0.0, 1.0, 4);
         assertEquals(4, models.length);
-        for (GaussianScalarModel model : models) {
+        for (NormalScalarModel model : models) {
             assertEquals(0.0, model.getMean());
             assertEquals(1.0, model.getStdDev());
         }
@@ -235,11 +235,11 @@ class TensorModelHierarchyTest {
 
     @Test
     void scalarModelCanBeCastToComponentModel() {
-        ScalarModel scalar = new GaussianScalarModel(0.0, 1.0);
-        if (scalar instanceof ComponentModel component) {
-            assertEquals("gaussian", component.getModelType());
+        ScalarModel scalar = new NormalScalarModel(0.0, 1.0);
+        if (scalar instanceof ScalarModel component) {
+            assertEquals("normal", component.getModelType());
         } else {
-            fail("GaussianScalarModel should be castable to ComponentModel");
+            fail("NormalScalarModel should be castable to ScalarModel");
         }
     }
 
@@ -248,9 +248,130 @@ class TensorModelHierarchyTest {
         VectorModel vector = new VectorSpaceModel(1000, 128);
         if (vector instanceof VectorSpaceModel vsm) {
             assertEquals(128, vsm.dimensions());
-            assertTrue(vsm.isAllGaussian());
+            assertTrue(vsm.isAllNormal());
         } else {
             fail("VectorSpaceModel should be castable from VectorModel");
         }
+    }
+
+    // ===== IsomorphicVectorModel Interface Tests =====
+
+    @Test
+    void vectorSpaceModelImplementsIsomorphicVectorModel() {
+        VectorSpaceModel vsm = new VectorSpaceModel(1000, 128);
+        assertTrue(vsm instanceof IsomorphicVectorModel);
+    }
+
+    @Test
+    void isomorphicVectorModelWithUniformGaussian() {
+        VectorSpaceModel vsm = new VectorSpaceModel(1000, 128, 0.0, 1.0);
+        IsomorphicVectorModel ivm = vsm;
+
+        assertTrue(ivm.isIsomorphic());
+        assertEquals("normal", ivm.isomorphicModelType());
+        assertNotNull(ivm.representativeScalarModel());
+        assertEquals(NormalScalarModel.class, ivm.scalarModelClass());
+    }
+
+    @Test
+    void isomorphicVectorModelWithUniformUniform() {
+        ScalarModel[] models = UniformScalarModel.uniformScalar(-1.0, 1.0, 64);
+        VectorSpaceModel vsm = new VectorSpaceModel(1000, models);
+        IsomorphicVectorModel ivm = vsm;
+
+        assertTrue(ivm.isIsomorphic());
+        assertEquals("uniform", ivm.isomorphicModelType());
+        assertInstanceOf(UniformScalarModel.class, ivm.representativeScalarModel());
+        assertEquals(UniformScalarModel.class, ivm.scalarModelClass());
+    }
+
+    @Test
+    
+    void heterogeneousVectorModelIsNotIsomorphic() {
+        ScalarModel[] models = {
+            new NormalScalarModel(0.0, 1.0),
+            new UniformScalarModel(-1.0, 1.0),
+            new NormalScalarModel(5.0, 2.0)
+        };
+        VectorSpaceModel vsm = new VectorSpaceModel(1000, models);
+        IsomorphicVectorModel ivm = vsm;
+
+        assertFalse(ivm.isIsomorphic());
+    }
+
+    @Test
+    
+    void heterogeneousModelThrowsOnRepresentativeModel() {
+        ScalarModel[] models = {
+            new NormalScalarModel(0.0, 1.0),
+            new UniformScalarModel(-1.0, 1.0)
+        };
+        VectorSpaceModel vsm = new VectorSpaceModel(1000, models);
+        IsomorphicVectorModel ivm = vsm;
+
+        assertThrows(IllegalStateException.class, ivm::representativeScalarModel);
+    }
+
+    @Test
+    
+    void heterogeneousModelThrowsOnScalarModelClass() {
+        ScalarModel[] models = {
+            new NormalScalarModel(0.0, 1.0),
+            new UniformScalarModel(-1.0, 1.0)
+        };
+        VectorSpaceModel vsm = new VectorSpaceModel(1000, models);
+        IsomorphicVectorModel ivm = vsm;
+
+        assertThrows(IllegalStateException.class, ivm::scalarModelClass);
+    }
+
+    @Test
+    
+    void heterogeneousModelThrowsOnIsomorphicModelType() {
+        ScalarModel[] models = {
+            new NormalScalarModel(0.0, 1.0),
+            new UniformScalarModel(-1.0, 1.0)
+        };
+        VectorSpaceModel vsm = new VectorSpaceModel(1000, models);
+        IsomorphicVectorModel ivm = vsm;
+
+        assertThrows(IllegalStateException.class, ivm::isomorphicModelType);
+    }
+
+    @Test
+    void samplerResolverPatternWithIsomorphicModel() {
+        // Demonstrates the sampler resolver use case
+        VectorModel model = new VectorSpaceModel(1000, 128, 0.0, 1.0);
+
+        String samplerType = resolveSamplerType(model);
+        assertEquals("vectorized-normal", samplerType);
+    }
+
+    @Test
+    
+    void samplerResolverPatternWithHeterogeneousModel() {
+        // Demonstrates fallback for heterogeneous models
+        ScalarModel[] models = {
+            new NormalScalarModel(0.0, 1.0),
+            new UniformScalarModel(-1.0, 1.0)
+        };
+        VectorModel model = new VectorSpaceModel(1000, models);
+
+        String samplerType = resolveSamplerType(model);
+        assertEquals("component-wise", samplerType);
+    }
+
+    /// Example sampler resolver method demonstrating the interface usage
+    private String resolveSamplerType(VectorModel model) {
+        if (model instanceof IsomorphicVectorModel ivm && ivm.isIsomorphic()) {
+            Class<?> type = ivm.scalarModelClass();
+            if (NormalScalarModel.class.isAssignableFrom(type)) {
+                return "vectorized-normal";
+            } else if (UniformScalarModel.class.isAssignableFrom(type)) {
+                return "vectorized-uniform";
+            }
+            return "vectorized-generic";
+        }
+        return "component-wise";
     }
 }

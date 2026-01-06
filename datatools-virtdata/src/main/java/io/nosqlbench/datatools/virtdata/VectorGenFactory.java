@@ -17,16 +17,35 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.datatools.virtdata.sampling.ComponentSampler;
+import io.nosqlbench.datatools.virtdata.sampling.ComponentSamplerFactory;
+import io.nosqlbench.datatools.virtdata.sampling.LerpSamplerFactory;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 
 import java.util.function.LongFunction;
 
 /**
- * Factory for creating DimensionDistributionGenerator instances with explicit implementation selection.
+ * Factory for creating VectorGenerator instances with configurable options.
  *
  * <p>By default, the JVM's multi-release JAR mechanism automatically selects the
  * optimal implementation based on runtime version. This factory allows explicit
- * selection for testing, benchmarking, or when the automatic selection is not desired.
+ * selection and additional configuration for LERP optimization and normalization.
+ *
+ * <h2>Usage</h2>
+ * <pre>{@code
+ * // Simple creation with defaults
+ * VectorGenerator<VectorSpaceModel> gen = VectorGenFactory.create(model);
+ *
+ * // With explicit mode
+ * LongFunction<float[]> gen = VectorGenFactory.create(model, Mode.SCALAR);
+ *
+ * // With full options
+ * GeneratorOptions options = GeneratorOptions.builder()
+ *     .useLerp(true)
+ *     .normalizeL2(true)
+ *     .build();
+ * VectorGenerator<VectorSpaceModel> gen = VectorGenFactory.create(model, options);
+ * }</pre>
  */
 public final class VectorGenFactory {
 
@@ -107,5 +126,50 @@ public final class VectorGenFactory {
      */
     public static String getAutoImplementationName() {
         return isPanamaAvailable() ? "Panama" : "Scalar";
+    }
+
+    /**
+     * Creates a generator with the specified options.
+     *
+     * <p>Options control:
+     * <ul>
+     *   <li>Implementation mode (AUTO, SCALAR, PANAMA)</li>
+     *   <li>LERP optimization (pre-computed lookup tables for O(1) sampling)</li>
+     *   <li>L2 normalization (output unit vectors)</li>
+     * </ul>
+     *
+     * @param model the vector space model
+     * @param options the generator options
+     * @return a configured generator
+     */
+    public static VectorGenerator<VectorSpaceModel> create(VectorSpaceModel model, GeneratorOptions options) {
+        // Step 1: Create samplers (with or without LERP)
+        ComponentSampler[] samplers;
+        if (options.useLerp()) {
+            samplers = LerpSamplerFactory.forModels(model.scalarModels(), options.lerpTableSize());
+        } else {
+            samplers = ComponentSamplerFactory.forModels(model.scalarModels());
+        }
+
+        // Step 2: Create base generator with pre-built samplers
+        VectorGenerator<VectorSpaceModel> gen;
+        switch (options.mode()) {
+            case AUTO:
+            case PANAMA:
+                gen = new ConfigurableDimensionDistributionGenerator(model, samplers);
+                break;
+            case SCALAR:
+                gen = new ConfigurableDimensionDistributionGenerator(model, samplers);
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown mode: " + options.mode());
+        }
+
+        // Step 3: Wrap with normalization if requested
+        if (options.normalizeL2()) {
+            gen = new NormalizingVectorGenerator<>(gen);
+        }
+
+        return gen;
     }
 }

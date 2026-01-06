@@ -21,6 +21,9 @@ import io.nosqlbench.vshapes.extract.BestFitSelectorTest;
 import io.nosqlbench.vshapes.extract.DatasetModelExtractorTest;
 import io.nosqlbench.vshapes.extract.DimensionStatisticsTest;
 import io.nosqlbench.vshapes.extract.ModelFitterTest;
+import io.nosqlbench.vshapes.extract.NumaAwareDatasetModelExtractorTest;
+import io.nosqlbench.vshapes.extract.NumaTopologyTest;
+import io.nosqlbench.vshapes.extract.ParallelDatasetModelExtractorTest;
 import io.nosqlbench.vshapes.measures.HubnessMeasureTest;
 import io.nosqlbench.vshapes.measures.LIDMeasureTest;
 import io.nosqlbench.vshapes.measures.MarginMeasureTest;
@@ -47,6 +50,9 @@ import org.junit.platform.suite.api.Suite;
     ModelFitterTest.class,
     BestFitSelectorTest.class,
     DatasetModelExtractorTest.class,
+    ParallelDatasetModelExtractorTest.class,
+    NumaTopologyTest.class,
+    NumaAwareDatasetModelExtractorTest.class,
 
     // Stream package tests
     AnalyzerHarnessTest.class

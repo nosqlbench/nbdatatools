@@ -209,7 +209,7 @@ class VectorGenTest {
 
     @Test
     void testCustomDistribution() {
-        // Test with non-standard Gaussian parameters
+        // Test with non-standard normal parameters
         VectorSpaceModel model = new VectorSpaceModel(10000, 8, 5.0, 2.0);
         DimensionDistributionGenerator gen = new DimensionDistributionGenerator(model);
 

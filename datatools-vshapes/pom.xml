@@ -84,6 +84,20 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- JMH for microbenchmarks -->
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-core</artifactId>
+      <version>1.37</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-generator-annprocess</artifactId>
+      <version>1.37</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <repositories>
@@ -139,6 +153,83 @@
   <build>
     <plugins>
 
+      <!-- Multi-Release JAR: Java 11 base + Java 25 Vector API -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.14.0</version>
+        <executions>
+          <!-- Base Java 25 compilation (vshapes uses records) -->
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <release>25</release>
+              <compilerArgs>
+                <arg>--add-modules</arg>
+                <arg>jdk.incubator.vector</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+
+          <!-- Java 25 Vector API multi-release output -->
+          <execution>
+            <id>java25-compile</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <configuration>
+              <release>25</release>
+              <multiReleaseOutput>true</multiReleaseOutput>
+              <compileSourceRoots>
+                <compileSourceRoot>${project.basedir}/src/main/java25</compileSourceRoot>
+              </compileSourceRoots>
+              <compilerArgs>
+                <arg>--add-modules</arg>
+                <arg>jdk.incubator.vector</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+
+          <!-- Test compilation with JMH annotation processor -->
+          <execution>
+            <id>default-testCompile</id>
+            <phase>test-compile</phase>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+            <configuration>
+              <release>25</release>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>org.openjdk.jmh</groupId>
+                  <artifactId>jmh-generator-annprocess</artifactId>
+                  <version>1.37</version>
+                </path>
+              </annotationProcessorPaths>
+              <compilerArgs>
+                <arg>--add-modules</arg>
+                <arg>jdk.incubator.vector</arg>
+              </compilerArgs>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Enable Multi-Release JAR -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Multi-Release>true</Multi-Release>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -147,6 +238,8 @@
           <includes>
             <include>**/VectorDataTestSuite.java</include>
           </includes>
+          <!-- Add Vector API module for JDK 25 multi-release JAR support -->
+          <argLine>--add-modules jdk.incubator.vector</argLine>
           <!-- Configure ephemeral test resources to use target/ directory -->
           <systemPropertyVariables>
             <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
@@ -164,12 +257,13 @@
               <includes>
                 <include>**/VectorDataTestSuite.java</include>
               </includes>
+              <argLine>--add-modules jdk.incubator.vector</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>
             </configuration>
           </execution>
-          <!-- Performance test execution runs only when activated -->
+          <!-- Performance test execution, enable with -Pperformance or -Palltests -->
           <execution>
             <id>performance-tests</id>
             <phase>test</phase>
@@ -181,6 +275,25 @@
                 <include>**/PerformanceTestSuite.java</include>
               </includes>
               <skip>${skipPerformanceTests}</skip>
+              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+          <!-- Accuracy test execution, enable with -Paccuracy or -Palltests -->
+          <execution>
+            <id>accuracy-tests</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>**/AccuracyTestSuite.java</include>
+              </includes>
+              <skip>${skipAccuracyTests}</skip>
+              <argLine>--add-modules jdk.incubator.vector</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>
@@ -247,6 +360,11 @@
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>3.11.2</version>
         <configuration>
+          <!-- Required for jdk.incubator.vector API used in BatchDimensionStatistics -->
+          <additionalJOptions>
+            <additionalJOption>--add-modules</additionalJOption>
+            <additionalJOption>jdk.incubator.vector</additionalJOption>
+          </additionalJOptions>
           <!--          <additionalOptions>-->
           <!--            <additionalOption>-Xdoclint:none</additionalOption>-->
           <!--          </additionalOptions>-->

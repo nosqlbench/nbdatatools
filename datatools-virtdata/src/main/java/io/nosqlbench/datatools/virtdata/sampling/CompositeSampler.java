@@ -17,8 +17,8 @@
 
 package io.nosqlbench.datatools.virtdata.sampling;
 
-import io.nosqlbench.vshapes.model.ComponentModel;
-import io.nosqlbench.vshapes.model.CompositeComponentModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
 
 /// Sampler for Composite (mixture) distributions, bound at construction.
 ///
@@ -32,8 +32,8 @@ public final class CompositeSampler implements ComponentSampler {
     /// Creates a sampler bound to the given Composite model.
     ///
     /// @param model the Composite component model
-    public CompositeSampler(CompositeComponentModel model) {
-        ComponentModel[] components = model.getComponents();
+    public CompositeSampler(CompositeScalarModel model) {
+        ScalarModel[] components = model.getScalarModels();
         double[] weights = model.getWeights();
 
         // Create bound samplers for each component

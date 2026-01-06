@@ -17,14 +17,21 @@ package io.nosqlbench.vshapes.model;
  * under the License.
  */
 
+import com.google.gson.annotations.SerializedName;
+
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Composite (mixture) scalar model combining multiple distributions with weights.
  *
- * <p>This class is functionally identical to {@link CompositeComponentModel}.
- * It provides the preferred naming convention for the tensor model hierarchy.
+ * <h2>Purpose</h2>
+ *
+ * <p>This scalar model combines multiple scalar models into a mixture
+ * distribution. Each component has an associated weight that determines the
+ * probability of sampling from that component. This is useful for modeling
+ * multi-modal distributions.
  *
  * <h2>Tensor Hierarchy</h2>
  *
@@ -36,19 +43,26 @@ import java.util.List;
  *   <li>{@link MatrixModel} - Third-order (K vector models)</li>
  * </ul>
  *
+ * <h2>Design</h2>
+ *
+ * <p>This model is a pure data container holding the component models and
+ * their weights. It does not compute derived statistics (mean, stdDev, bounds)
+ * because that would require assuming all component types support those methods.
+ * Instead, the CompositeSampler in virtdata handles sampling logic.
+ *
  * <h2>Usage</h2>
  *
  * <pre>{@code
  * // Create a bimodal distribution (two Gaussians)
  * CompositeScalarModel bimodal = CompositeScalarModel.of(
- *     new GaussianScalarModel(-2.0, 0.5),  // left mode
- *     new GaussianScalarModel(2.0, 0.5)    // right mode
+ *     new NormalScalarModel(-2.0, 0.5),  // left mode
+ *     new NormalScalarModel(2.0, 0.5)    // right mode
  * );  // equal weights
  *
  * // Create with custom weights
  * CompositeScalarModel weighted = new CompositeScalarModel(
  *     List.of(
- *         new GaussianScalarModel(0.0, 1.0),
+ *         new NormalScalarModel(0.0, 1.0),
  *         new UniformScalarModel(-1.0, 1.0)
  *     ),
  *     new double[]{0.7, 0.3}  // 70% Gaussian, 30% Uniform
@@ -57,37 +71,57 @@ import java.util.List;
  *
  * @see ScalarModel
  * @see VectorModel
- * @see CompositeComponentModel
+ * @see VectorSpaceModel
  */
-public final class CompositeScalarModel extends CompositeComponentModel {
+@ModelType(CompositeScalarModel.MODEL_TYPE)
+public class CompositeScalarModel implements ScalarModel {
+
+    public static final String MODEL_TYPE = "composite";
+
+    @SerializedName("components")
+    private final ScalarModel[] components;
+
+    @SerializedName("weights")
+    private final double[] weights;
 
     /**
-     * Constructs a composite scalar model with specified components and weights.
+     * Constructs a composite model with specified components and weights.
      *
-     * @param components the scalar models (can be any ScalarModel implementations)
+     * @param components the scalar models
      * @param weights the weights for each component (will be normalized to sum to 1.0)
      * @throws IllegalArgumentException if arrays have different lengths or weights are negative
      */
     public CompositeScalarModel(List<? extends ScalarModel> components, double[] weights) {
-        super(toComponentModels(components), weights);
-    }
+        Objects.requireNonNull(components, "components cannot be null");
+        Objects.requireNonNull(weights, "weights cannot be null");
+        if (components.isEmpty()) {
+            throw new IllegalArgumentException("components cannot be empty");
+        }
+        if (components.size() != weights.length) {
+            throw new IllegalArgumentException("components and weights must have same length");
+        }
 
-    @SuppressWarnings("deprecation")
-    private static List<ComponentModel> toComponentModels(List<? extends ScalarModel> scalars) {
-        // Since ComponentModel extends ScalarModel, we can cast any ComponentModel implementation
-        // For ScalarModels that aren't ComponentModels, we'd need an adapter (not needed for current impls)
-        return scalars.stream()
-            .map(s -> {
-                if (s instanceof ComponentModel) {
-                    return (ComponentModel) s;
-                }
-                throw new IllegalArgumentException("ScalarModel must be a ComponentModel: " + s.getClass());
-            })
-            .toList();
+        // Validate and normalize weights
+        double sum = 0;
+        for (double w : weights) {
+            if (w < 0) {
+                throw new IllegalArgumentException("weights must be non-negative");
+            }
+            sum += w;
+        }
+        if (sum <= 0) {
+            throw new IllegalArgumentException("weights must sum to a positive value");
+        }
+
+        this.components = components.toArray(new ScalarModel[0]);
+        this.weights = new double[weights.length];
+        for (int i = 0; i < weights.length; i++) {
+            this.weights[i] = weights[i] / sum;  // Normalize
+        }
     }
 
     /**
-     * Creates a composite scalar model with equal weights.
+     * Creates a composite model with equal weights.
      *
      * @param scalars the scalar models
      * @return a CompositeScalarModel with equal weights
@@ -98,28 +132,57 @@ public final class CompositeScalarModel extends CompositeComponentModel {
         return new CompositeScalarModel(Arrays.asList(scalars), weights);
     }
 
+    @Override
+    public String getModelType() {
+        return MODEL_TYPE;
+    }
+
     /**
      * Returns the scalar models.
-     *
      * @return a copy of the scalar models array
      */
     public ScalarModel[] getScalarModels() {
-        ComponentModel[] components = getComponents();
-        ScalarModel[] result = new ScalarModel[components.length];
-        for (int i = 0; i < components.length; i++) {
-            result[i] = components[i];
-        }
+        return Arrays.copyOf(components, components.length);
+    }
+
+    /**
+     * Returns the normalized weights.
+     * @return a copy of the weights array (sums to 1.0)
+     */
+    public double[] getWeights() {
+        return Arrays.copyOf(weights, weights.length);
+    }
+
+    /**
+     * Returns the number of components.
+     * @return the component count
+     */
+    public int getComponentCount() {
+        return components.length;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof CompositeScalarModel)) return false;
+        CompositeScalarModel that = (CompositeScalarModel) o;
+        return Arrays.equals(components, that.components) &&
+               Arrays.equals(weights, that.weights);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Arrays.hashCode(components);
+        result = 31 * result + Arrays.hashCode(weights);
         return result;
     }
 
     @Override
     public String toString() {
-        ScalarModel[] scalars = getScalarModels();
-        double[] weights = getWeights();
         StringBuilder sb = new StringBuilder("CompositeScalarModel[");
-        for (int i = 0; i < scalars.length; i++) {
+        for (int i = 0; i < components.length; i++) {
             if (i > 0) sb.append(", ");
-            sb.append(String.format("%.2f*%s", weights[i], scalars[i].getModelType()));
+            sb.append(String.format("%.2f*%s", weights[i], components[i].getModelType()));
         }
         sb.append("]");
         return sb.toString();

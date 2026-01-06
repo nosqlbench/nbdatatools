@@ -20,7 +20,7 @@ package io.nosqlbench.vshapes.analyzers.dimensiondistribution;
 import io.nosqlbench.vshapes.extract.BestFitSelector;
 import io.nosqlbench.vshapes.extract.ComponentModelFitter;
 import io.nosqlbench.vshapes.extract.DimensionStatistics;
-import io.nosqlbench.vshapes.model.ComponentModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import io.nosqlbench.vshapes.stream.AnalyzerName;
 import io.nosqlbench.vshapes.stream.DataspaceShape;
@@ -117,7 +117,7 @@ import io.nosqlbench.vshapes.stream.StreamingAnalyzer;
 ///                                                       │
 ///                                                       ▼
 ///                                               ┌───────────────┐
-///                                               │ ComponentModel│
+///                                               │ ScalarModel│
 ///                                               │  (best fit)   │
 ///                                               └───────────────┘
 /// ```
@@ -299,13 +299,13 @@ public final class DimensionDistributionAnalyzer implements StreamingAnalyzer<Ve
     /// For each dimension:
     /// 1. Converts accumulated statistics to [DimensionStatistics]
     /// 2. Retrieves reservoir samples
-    /// 3. Uses [BestFitSelector] to choose the best [ComponentModel]
+    /// 3. Uses [BestFitSelector] to choose the best [ScalarModel]
     ///
     /// @return the extracted [VectorSpaceModel]
     @Override
     public VectorSpaceModel complete() {
         int dims = shape.dimensionality();
-        ComponentModel[] components = new ComponentModel[dims];
+        ScalarModel[] components = new ScalarModel[dims];
 
         for (int d = 0; d < dims; d++) {
             OnlineAccumulator acc = accumulators[d];

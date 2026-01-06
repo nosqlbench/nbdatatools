@@ -19,7 +19,7 @@ package io.nosqlbench.datatools.virtdata;
 
 import io.nosqlbench.datatools.virtdata.sampling.ComponentSampler;
 import io.nosqlbench.datatools.virtdata.sampling.ComponentSamplerFactory;
-import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import jdk.incubator.vector.*;
 
@@ -33,14 +33,16 @@ import java.util.function.LongFunction;
  *
  * <p>Key optimizations:
  * <ul>
- *   <li>SIMD polynomial approximation for inverse Gaussian CDF</li>
+ *   <li>SIMD polynomial approximation for inverse normal CDF</li>
  *   <li>Vectorized log/sqrt using pure arithmetic (no scalar fallback)</li>
  *   <li>FMA (fused multiply-add) throughout for performance and precision</li>
  * </ul>
+ *
+ * <p>SIMD species selection is centralized via {@link LocalSpecies}.
  */
 public class DimensionDistributionGenerator implements LongFunction<float[]> {
 
-    private static final VectorSpecies<Double> SPECIES = DoubleVector.SPECIES_PREFERRED;
+    private static final VectorSpecies<Double> SPECIES = LocalSpecies.doubleSpecies();
     private static final int LANES = SPECIES.length();
 
     // Abramowitz-Stegun 26.2.23 coefficients for inverse normal CDF
@@ -64,7 +66,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     private final int dimensions;
     private final long uniqueVectors;
     private final ComponentSampler[] samplers;
-    private final boolean allGaussian;
+    private final boolean allNormal;
     private final double[] means;
     private final double[] stdDevs;
 
@@ -76,18 +78,18 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
         this.model = model;
         this.dimensions = model.dimensions();
         this.uniqueVectors = model.uniqueVectors();
-        this.allGaussian = model.isAllGaussian();
-        this.samplers = ComponentSamplerFactory.forModels(model.componentModels());
+        this.allNormal = model.isAllNormal();
+        this.samplers = ComponentSamplerFactory.forModels(model.scalarModels());
 
-        // Extract means/stdDevs for SIMD optimization (only used if allGaussian)
+        // Extract means/stdDevs for SIMD optimization (only used if allNormal)
         this.means = new double[dimensions];
         this.stdDevs = new double[dimensions];
 
-        if (allGaussian) {
-            GaussianComponentModel[] gaussians = model.gaussianComponentModels();
+        if (allNormal) {
+            NormalScalarModel[] normals = model.normalScalarModels();
             for (int d = 0; d < dimensions; d++) {
-                means[d] = gaussians[d].getMean();
-                stdDevs[d] = gaussians[d].getStdDev();
+                means[d] = normals[d].getMean();
+                stdDevs[d] = normals[d].getStdDev();
             }
         }
     }
@@ -100,12 +102,12 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     }
 
     /**
-     * Generates a vector into an existing array using SIMD when all components are Gaussian.
+     * Generates a vector into an existing array using SIMD when all components are normal.
      */
     public void generateInto(long ordinal, float[] target, int offset) {
         long normalizedOrdinal = normalizeOrdinal(ordinal);
 
-        if (allGaussian) {
+        if (allNormal) {
             // Use SIMD path for Gaussian components
             int d = 0;
             int upperBound = dimensions - (dimensions % LANES);
@@ -128,7 +130,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
                 }
             }
 
-            // Scalar tail for Gaussian
+            // Scalar tail for normal
             for (; d < dimensions; d++) {
                 double u = StratifiedSampler.unitIntervalValue(normalizedOrdinal, d, uniqueVectors);
                 target[offset + d] = (float) samplers[d].sample(u);
@@ -152,12 +154,12 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     }
 
     /**
-     * Generates a vector into an existing double array using SIMD when all components are Gaussian.
+     * Generates a vector into an existing double array using SIMD when all components are normal.
      */
     public void generateIntoDouble(long ordinal, double[] target, int offset) {
         long normalizedOrdinal = normalizeOrdinal(ordinal);
 
-        if (allGaussian) {
+        if (allNormal) {
             int d = 0;
             int upperBound = dimensions - (dimensions % LANES);
 
@@ -200,7 +202,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     }
 
     /**
-     * Generates a flat batch of vectors using SIMD optimization when all components are Gaussian.
+     * Generates a flat batch of vectors using SIMD optimization when all components are normal.
      */
     public float[] generateFlatBatch(long startOrdinal, int count) {
         float[] result = new float[count * dimensions];
@@ -210,7 +212,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
             long normalizedOrdinal = normalizeOrdinal(ordinal);
             int baseOffset = v * dimensions;
 
-            if (allGaussian) {
+            if (allNormal) {
                 int d = 0;
                 int upperBound = dimensions - (dimensions % LANES);
 
@@ -247,7 +249,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     }
 
     /**
-     * SIMD inverse Gaussian CDF using pure arithmetic operations.
+     * SIMD inverse normal CDF using pure arithmetic operations.
      * All operations (log, sqrt) are implemented as vectorized polynomial approximations
      * that use only FMA/add/mul/div - no scalar fallbacks.
      */

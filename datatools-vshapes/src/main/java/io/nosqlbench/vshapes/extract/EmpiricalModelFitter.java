@@ -17,7 +17,7 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.EmpiricalComponentModel;
+import io.nosqlbench.vshapes.model.EmpiricalScalarModel;
 
 import java.util.Objects;
 
@@ -55,7 +55,7 @@ import java.util.Objects;
  *   <li>Preserving the exact shape of observed data is important</li>
  * </ul>
  *
- * @see EmpiricalComponentModel
+ * @see EmpiricalScalarModel
  * @see ComponentModelFitter
  */
 public final class EmpiricalModelFitter implements ComponentModelFitter {
@@ -92,7 +92,7 @@ public final class EmpiricalModelFitter implements ComponentModelFitter {
         }
 
         int bins = autoBinCount ? computeOptimalBinCount(values.length) : binCount;
-        EmpiricalComponentModel model = EmpiricalComponentModel.fromData(values, bins);
+        EmpiricalScalarModel model = EmpiricalScalarModel.fromData(values, bins);
 
         // Compute a smoothness-based score (lower is better)
         double goodnessOfFit = computeSmoothnessScore(values, bins);
@@ -108,7 +108,7 @@ public final class EmpiricalModelFitter implements ComponentModelFitter {
 
     @Override
     public String getModelType() {
-        return EmpiricalComponentModel.MODEL_TYPE;
+        return EmpiricalScalarModel.MODEL_TYPE;
     }
 
     @Override

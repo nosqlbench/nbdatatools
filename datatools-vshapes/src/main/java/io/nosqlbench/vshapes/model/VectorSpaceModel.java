@@ -50,10 +50,10 @@ import java.util.Objects;
  *
  * <p>Each dimension can have a different distribution type:
  * <ul>
- *   <li>{@link GaussianScalarModel} / {@link GaussianComponentModel} - Normal distribution</li>
- *   <li>{@link UniformScalarModel} / {@link UniformComponentModel} - Uniform distribution</li>
- *   <li>{@link EmpiricalScalarModel} / {@link EmpiricalComponentModel} - Histogram-based distribution</li>
- *   <li>{@link CompositeScalarModel} / {@link CompositeComponentModel} - Mixture of distributions</li>
+ *   <li>{@link NormalScalarModel} - Normal distribution (Pearson Type 0)</li>
+ *   <li>{@link UniformScalarModel} - Uniform distribution</li>
+ *   <li>{@link EmpiricalScalarModel} - Histogram-based distribution</li>
+ *   <li>{@link CompositeScalarModel} - Mixture of distributions</li>
  * </ul>
  *
  * <h2>Model Structure</h2>
@@ -72,11 +72,11 @@ import java.util.Objects;
  *   ┌─────────────────────────────────────────────────────────────────┐
  *   │ PER-DIMENSION DISTRIBUTIONS                                     │
  *   │                                                                 │
- *   │   dim 0: GaussianScalarModel(μ₀, σ₀)                            │
+ *   │   dim 0: NormalScalarModel(μ₀, σ₀)                              │
  *   │   dim 1: UniformScalarModel(lower₁, upper₁)                     │
  *   │   dim 2: EmpiricalScalarModel(histogram₂)                       │
  *   │   ...                                                           │
- *   │   dim M-1: GaussianScalarModel(μₘ₋₁, σₘ₋₁)                      │
+ *   │   dim M-1: NormalScalarModel(μₘ₋₁, σₘ₋₁)                        │
  *   │                                                                 │
  *   │   Each dimension can have a different distribution type.        │
  *   └─────────────────────────────────────────────────────────────────┘
@@ -93,48 +93,50 @@ import java.util.Objects;
  *
  * // Heterogeneous: different model types per dimension
  * ScalarModel[] custom = {
- *     new GaussianScalarModel(0.0, 1.0),         // dim 0: Gaussian
+ *     new NormalScalarModel(0.0, 1.0),           // dim 0: Normal
  *     new UniformScalarModel(0.0, 1.0),          // dim 1: Uniform
- *     new GaussianScalarModel(-5.0, 0.5),        // dim 2: Gaussian
+ *     new NormalScalarModel(-5.0, 0.5),          // dim 2: Normal
  * };
  * VectorSpaceModel model3 = new VectorSpaceModel(1_000_000, custom);
  * }</pre>
  *
  * @see VectorModel
  * @see ScalarModel
- * @see GaussianScalarModel
+ * @see NormalScalarModel
  */
-public final class VectorSpaceModel implements VectorModel {
+public final class VectorSpaceModel implements VectorModel, IsomorphicVectorModel {
+
+    public static final String MODEL_TYPE = "vector_space";
 
     private final long uniqueVectors;
     private final int dimensions;
-    private final ComponentModel[] componentModels;
+    private final ScalarModel[] scalarModels;
 
     /**
-     * Constructs a vector space model with component-specific distribution models.
+     * Constructs a vector space model with dimension-specific distribution models.
      *
      * <p>Supports heterogeneous models where each dimension can have a different
      * distribution type (Gaussian, Uniform, Empirical, etc.).
      *
      * @param uniqueVectors the number of unique vectors N in the space; must be positive
-     * @param componentModels the distribution model for each dimension; length determines M
-     * @throws IllegalArgumentException if uniqueVectors is not positive or componentModels is empty
+     * @param scalarModels the distribution model for each dimension; length determines M
+     * @throws IllegalArgumentException if uniqueVectors is not positive or scalarModels is empty
      */
-    public VectorSpaceModel(long uniqueVectors, ComponentModel[] componentModels) {
+    public VectorSpaceModel(long uniqueVectors, ScalarModel[] scalarModels) {
         if (uniqueVectors <= 0) {
             throw new IllegalArgumentException("Number of unique vectors must be positive, got: " + uniqueVectors);
         }
-        Objects.requireNonNull(componentModels, "Component models cannot be null");
-        if (componentModels.length == 0) {
-            throw new IllegalArgumentException("Component models cannot be empty");
+        Objects.requireNonNull(scalarModels, "Scalar models cannot be null");
+        if (scalarModels.length == 0) {
+            throw new IllegalArgumentException("Scalar models cannot be empty");
         }
         this.uniqueVectors = uniqueVectors;
-        this.dimensions = componentModels.length;
-        this.componentModels = Arrays.copyOf(componentModels, componentModels.length);
+        this.dimensions = scalarModels.length;
+        this.scalarModels = Arrays.copyOf(scalarModels, scalarModels.length);
     }
 
     /**
-     * Constructs a vector space model with uniform Gaussian distribution across all dimensions.
+     * Constructs a vector space model with uniform normal distribution across all dimensions.
      *
      * <p>All M dimensions will share the same mean and standard deviation.
      *
@@ -144,7 +146,7 @@ public final class VectorSpaceModel implements VectorModel {
      * @param stdDev the standard deviation for all component distributions
      */
     public VectorSpaceModel(long uniqueVectors, int dimensions, double mean, double stdDev) {
-        this(uniqueVectors, GaussianComponentModel.uniform(mean, stdDev, dimensions));
+        this(uniqueVectors, NormalScalarModel.uniformScalar(mean, stdDev, dimensions));
     }
 
     /**
@@ -160,7 +162,7 @@ public final class VectorSpaceModel implements VectorModel {
     }
 
     /**
-     * Constructs a vector space model with truncated Gaussian distribution across all dimensions.
+     * Constructs a vector space model with truncated normal distribution across all dimensions.
      *
      * <p>All M dimensions will share the same mean, standard deviation, and truncation bounds.
      * The truncation ensures all generated values fall within [lower, upper].
@@ -174,7 +176,7 @@ public final class VectorSpaceModel implements VectorModel {
      */
     public VectorSpaceModel(long uniqueVectors, int dimensions, double mean, double stdDev,
                             double lower, double upper) {
-        this(uniqueVectors, GaussianComponentModel.uniformTruncated(mean, stdDev, lower, upper, dimensions));
+        this(uniqueVectors, NormalScalarModel.uniformScalar(mean, stdDev, lower, upper, dimensions));
     }
 
     /**
@@ -211,37 +213,7 @@ public final class VectorSpaceModel implements VectorModel {
     }
 
     /**
-     * Returns the distribution model for a specific dimension.
-     *
-     * @param dimension the dimension index (0-based, must be in [0, M-1])
-     * @return the component model for that dimension
-     * @throws IndexOutOfBoundsException if dimension is out of range
-     * @deprecated Use {@link #scalarModel(int)} instead
-     */
-    @Deprecated(since = "2.0", forRemoval = true)
-    public ComponentModel componentModel(int dimension) {
-        if (dimension < 0 || dimension >= dimensions) {
-            throw new IndexOutOfBoundsException("Dimension " + dimension + " out of range [0, " + dimensions + ")");
-        }
-        return componentModels[dimension];
-    }
-
-    /**
-     * Returns all component models.
-     *
-     * @return a defensive copy of the component models array
-     * @deprecated Use {@link #scalarModels()} instead
-     */
-    @Deprecated(since = "2.0", forRemoval = true)
-    public ComponentModel[] componentModels() {
-        return Arrays.copyOf(componentModels, componentModels.length);
-    }
-
-    /**
      * Returns the scalar model for a specific dimension.
-     *
-     * <p>This is the preferred method for accessing per-dimension models
-     * as part of the {@link VectorModel} interface.
      *
      * @param dimension the dimension index (0-based, must be in [0, M-1])
      * @return the scalar model for that dimension
@@ -249,7 +221,10 @@ public final class VectorSpaceModel implements VectorModel {
      */
     @Override
     public ScalarModel scalarModel(int dimension) {
-        return componentModel(dimension);
+        if (dimension < 0 || dimension >= dimensions) {
+            throw new IndexOutOfBoundsException("Dimension " + dimension + " out of range [0, " + dimensions + ")");
+        }
+        return scalarModels[dimension];
     }
 
     /**
@@ -262,19 +237,23 @@ public final class VectorSpaceModel implements VectorModel {
      */
     @Override
     public ScalarModel[] scalarModels() {
-        return Arrays.copyOf(componentModels, componentModels.length);
+        return Arrays.copyOf(scalarModels, scalarModels.length);
     }
 
     /**
-     * Returns whether all component models are of the same type.
+     * Returns whether all dimensions use the same {@link ScalarModel} implementation type.
      *
-     * @return true if all dimensions use the same model type
+     * <p>When this returns {@code true}, sampler resolvers can use vectorized
+     * sampling strategies that apply the same algorithm across all dimensions.
+     *
+     * @return true if all M dimensions share the same ScalarModel class
      */
-    public boolean isHomogeneous() {
-        if (componentModels.length == 0) return true;
-        String firstType = componentModels[0].getModelType();
-        for (int i = 1; i < componentModels.length; i++) {
-            if (!componentModels[i].getModelType().equals(firstType)) {
+    @Override
+    public boolean isIsomorphic() {
+        if (scalarModels.length == 0) return true;
+        String firstType = scalarModels[0].getModelType();
+        for (int i = 1; i < scalarModels.length; i++) {
+            if (!scalarModels[i].getModelType().equals(firstType)) {
                 return false;
             }
         }
@@ -282,13 +261,48 @@ public final class VectorSpaceModel implements VectorModel {
     }
 
     /**
-     * Returns whether all component models are Gaussian.
+     * Returns a representative {@link ScalarModel} instance from this model.
      *
-     * @return true if all dimensions use GaussianComponentModel
+     * <p>When {@link #isIsomorphic()} returns {@code true}, this provides a sample
+     * instance that can be used to determine the appropriate sampler type.
+     *
+     * @return the ScalarModel for dimension 0, or null if the model is empty
+     * @throws IllegalStateException if called when {@link #isIsomorphic()} is false
      */
-    public boolean isAllGaussian() {
-        for (ComponentModel model : componentModels) {
-            if (!(model instanceof GaussianComponentModel)) {
+    @Override
+    public ScalarModel representativeScalarModel() {
+        if (scalarModels.length == 0) return null;
+        if (!isIsomorphic()) {
+            throw new IllegalStateException("Cannot get representative model: model is heterogeneous");
+        }
+        return scalarModels[0];
+    }
+
+    /**
+     * Returns the {@link ScalarModel} implementation class used across all dimensions.
+     *
+     * @return the Class of the ScalarModel implementation
+     * @throws IllegalStateException if called when {@link #isIsomorphic()} is false
+     */
+    @Override
+    public Class<? extends ScalarModel> scalarModelClass() {
+        if (scalarModels.length == 0) {
+            throw new IllegalStateException("Cannot get scalar model class: model is empty");
+        }
+        if (!isIsomorphic()) {
+            throw new IllegalStateException("Cannot get scalar model class: model is heterogeneous");
+        }
+        return scalarModels[0].getClass();
+    }
+
+    /**
+     * Returns whether all scalar models are Normal.
+     *
+     * @return true if all dimensions use NormalScalarModel
+     */
+    public boolean isAllNormal() {
+        for (ScalarModel model : scalarModels) {
+            if (!(model instanceof NormalScalarModel)) {
                 return false;
             }
         }
@@ -296,22 +310,30 @@ public final class VectorSpaceModel implements VectorModel {
     }
 
     /**
-     * Returns all component models as GaussianComponentModel array.
+     * Returns all scalar models as NormalScalarModel array.
      *
-     * <p>This is a convenience method for backward compatibility with code
-     * that expects GaussianComponentModel[].
+     * <p>This is a convenience method for cases where you need
+     * to work directly with NormalScalarModel[].
      *
-     * @return array of GaussianComponentModel
-     * @throws IllegalStateException if not all components are Gaussian
+     * @return array of NormalScalarModel
+     * @throws IllegalStateException if not all models are Normal
      */
-    public GaussianComponentModel[] gaussianComponentModels() {
-        if (!isAllGaussian()) {
-            throw new IllegalStateException("Not all component models are Gaussian. Use componentModels() instead.");
+    public NormalScalarModel[] normalScalarModels() {
+        if (!isAllNormal()) {
+            throw new IllegalStateException("Not all scalar models are Normal. Use scalarModels() instead.");
         }
-        GaussianComponentModel[] result = new GaussianComponentModel[componentModels.length];
-        for (int i = 0; i < componentModels.length; i++) {
-            result[i] = (GaussianComponentModel) componentModels[i];
+        NormalScalarModel[] result = new NormalScalarModel[scalarModels.length];
+        for (int i = 0; i < scalarModels.length; i++) {
+            result[i] = (NormalScalarModel) scalarModels[i];
         }
         return result;
+    }
+
+    /// Returns the model type identifier for serialization.
+    ///
+    /// @return "vector_space"
+    @Override
+    public String getModelType() {
+        return MODEL_TYPE;
     }
 }

@@ -71,7 +71,7 @@ import java.util.Objects;
  *  │  ┌─────────────────────────────────────────┐    │                    │
  *  │  │ STAGE 3: DIMENSION DISTRIBUTION SAMPLE  │    │    ┌──────────┐    │
  *  │  │   componentModel[d].sample(u)           │────┼───►│ vector[d]│────┘
- *  │  │   u → value (Gaussian/Uniform/Empirical)│    │    └──────────┘
+ *  │  │   u → value (Normal/Uniform/Empirical)│    │    └──────────┘
  *  │  └─────────────────────────────────────────┘    │
  *  └─────────────────────────────────────────────────┘
  * }</pre>
@@ -83,7 +83,7 @@ import java.util.Objects;
  * <tr><th>Stage</th><th>Component</th><th>Input</th><th>Output</th><th>Purpose</th></tr>
  * <tr><td>1</td><td>Normalize</td><td>any long</td><td>[0, N-1]</td><td>Wrap ordinal to valid range</td></tr>
  * <tr><td>2</td><td>{@link StratifiedSampler}</td><td>ordinal, dim</td><td>(0, 1)</td><td>Anti-congruent unit value</td></tr>
- * <tr><td>3</td><td>ComponentModel</td><td>u ∈ (0,1)</td><td>float</td><td>Per-dimension distribution sample</td></tr>
+ * <tr><td>3</td><td>ScalarModel</td><td>u ∈ (0,1)</td><td>float</td><td>Per-dimension distribution sample</td></tr>
  * </table>
  *
  * <h2>Key Properties</h2>
@@ -173,7 +173,7 @@ public class DimensionDistributionGenerator implements VectorGenerator<VectorSpa
         this.model = model;
         this.dimensions = model.dimensions();
         this.uniqueVectors = model.uniqueVectors();
-        this.samplers = ComponentSamplerFactory.forModels(model.componentModels());
+        this.samplers = ComponentSamplerFactory.forModels(model.scalarModels());
         this.initialized = true;
     }
 
@@ -189,7 +189,7 @@ public class DimensionDistributionGenerator implements VectorGenerator<VectorSpa
     }
 
     /**
-     * Generates a vector for the given ordinal using permuted-stratified Gaussian sampling.
+     * Generates a vector for the given ordinal using permuted-stratified normal sampling.
      *
      * <p>This is the main entry point implementing {@code LongFunction<float[]>}.
      *

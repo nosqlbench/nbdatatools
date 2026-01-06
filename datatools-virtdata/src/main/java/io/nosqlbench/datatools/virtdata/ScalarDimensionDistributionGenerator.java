@@ -83,7 +83,7 @@ public final class ScalarDimensionDistributionGenerator implements VectorGenerat
         this.model = model;
         this.dimensions = model.dimensions();
         this.uniqueVectors = model.uniqueVectors();
-        this.samplers = ComponentSamplerFactory.forModels(model.componentModels());
+        this.samplers = ComponentSamplerFactory.forModels(model.scalarModels());
         this.initialized = true;
     }
 

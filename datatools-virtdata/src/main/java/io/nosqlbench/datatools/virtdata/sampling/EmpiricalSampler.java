@@ -17,7 +17,7 @@
 
 package io.nosqlbench.datatools.virtdata.sampling;
 
-import io.nosqlbench.vshapes.model.EmpiricalComponentModel;
+import io.nosqlbench.vshapes.model.EmpiricalScalarModel;
 
 /// Sampler for Empirical distributions, bound at construction.
 ///
@@ -34,7 +34,7 @@ public final class EmpiricalSampler implements ComponentSampler {
     /// Creates a sampler bound to the given Empirical model.
     ///
     /// @param model the Empirical component model
-    public EmpiricalSampler(EmpiricalComponentModel model) {
+    public EmpiricalSampler(EmpiricalScalarModel model) {
         this.binEdges = model.getBinEdges();
         this.cdf = model.getCdf();
         this.binCount = model.getBinCount();

@@ -68,7 +68,7 @@
 ///
 /// | vshapes Model | virtdata Sampler/Generator |
 /// |---------------|----------------------------|
-/// | ScalarModel | ScalarSampler |
+/// | ScalarModel | ComponentSampler |
 /// | VectorModel | VectorGenerator |
 ///
 /// ## Generator Types

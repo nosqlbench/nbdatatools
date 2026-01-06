@@ -68,27 +68,33 @@ class StratifiedSamplerTest {
     }
 
     @Test
-    void testOrdinalPermutation() {
-        // Permuted ordinals should be well-distributed
-        Set<Long> permutedValues = new HashSet<>();
+    void testOrdinalUniqueness() {
+        // Different ordinals should produce different values (with high probability)
+        // Using PCG RNG ensures good distribution across the unit interval
+        long total = 10000;
+        Set<Double> values = new HashSet<>();
         for (long ordinal = 0; ordinal < 1000; ordinal++) {
-            long permuted = StratifiedSampler.permuteOrdinal(ordinal, 0);
-            permutedValues.add(permuted);
+            double value = StratifiedSampler.unitIntervalValue(ordinal, 0, total);
+            values.add(value);
         }
 
-        // All 1000 ordinals should produce unique permuted values
-        assertEquals(1000, permutedValues.size(), "Permutation should preserve uniqueness");
+        // All 1000 ordinals should produce distinct values
+        assertEquals(1000, values.size(), "Each ordinal should produce a unique value");
     }
 
     @Test
-    void testDimensionAffectsPermutation() {
-        long ordinal = 12345;
-        long perm0 = StratifiedSampler.permuteOrdinal(ordinal, 0);
-        long perm1 = StratifiedSampler.permuteOrdinal(ordinal, 1);
-        long perm5 = StratifiedSampler.permuteOrdinal(ordinal, 5);
+    void testBatchGeneration() {
+        // Test batch generation consistency
+        long total = 10000;
+        double[] batch = StratifiedSampler.unitIntervalBatch(0, 0, 100, total);
 
-        assertNotEquals(perm0, perm1, "Different dimensions should produce different permutations");
-        assertNotEquals(perm1, perm5, "Different dimensions should produce different permutations");
+        assertEquals(100, batch.length, "Batch should have correct size");
+
+        // Verify each value matches individual generation
+        for (int i = 0; i < 100; i++) {
+            double individual = StratifiedSampler.unitIntervalValue(i, 0, total);
+            assertEquals(individual, batch[i], "Batch value should match individual");
+        }
     }
 
     @Test

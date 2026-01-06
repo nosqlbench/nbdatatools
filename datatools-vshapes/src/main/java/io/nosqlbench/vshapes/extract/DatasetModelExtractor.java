@@ -17,7 +17,7 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.ComponentModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 
 /**
@@ -30,7 +30,7 @@ import io.nosqlbench.vshapes.model.VectorSpaceModel;
  * For each dimension d in [0, numDimensions):
  *   1. Extract column d from the dataset
  *   2. Compute dimension statistics
- *   3. Fit candidate models (Gaussian, Uniform, Empirical)
+ *   3. Fit candidate models (Normal, Uniform, Empirical)
  *   4. Select best-fitting model based on goodness-of-fit
  *   5. Store selected model as component d
  *
@@ -51,15 +51,15 @@ import io.nosqlbench.vshapes.model.VectorSpaceModel;
  * <pre>{@code
  * // Default extraction (automatic model selection)
  * DatasetModelExtractor extractor = new DatasetModelExtractor();
- * VectorSpaceModel model = extractor.extract(data);
+ * VectorSpaceModel model = extractor.extractVectorModel(data);
  *
- * // Force Gaussian models only
- * DatasetModelExtractor gaussianExtractor = DatasetModelExtractor.gaussianOnly();
- * VectorSpaceModel gaussianModel = gaussianExtractor.extract(data);
+ * // Force Normal models only
+ * DatasetModelExtractor normalExtractor = DatasetModelExtractor.normalOnly();
+ * VectorSpaceModel normalModel = normalExtractor.extractVectorModel(data);
  *
  * // With custom selector and target unique vectors
  * BestFitSelector selector = BestFitSelector.parametricOnly();
- * DatasetModelExtractor extractor = new DatasetModelExtractor(selector, 1_000_000);
+ * DatasetModelExtractor customExtractor = new DatasetModelExtractor(selector, 1_000_000);
  * }</pre>
  *
  * @see ModelExtractor
@@ -74,12 +74,13 @@ public final class DatasetModelExtractor implements ModelExtractor {
     private final BestFitSelector selector;
     private final long uniqueVectors;
     private final ComponentModelFitter forcedFitter;
+    private final boolean collectAllFits;
 
     /**
      * Creates an extractor with default settings (automatic model selection).
      */
     public DatasetModelExtractor() {
-        this(BestFitSelector.defaultSelector(), DEFAULT_UNIQUE_VECTORS, null);
+        this(BestFitSelector.defaultSelector(), DEFAULT_UNIQUE_VECTORS, null, false);
     }
 
     /**
@@ -89,7 +90,7 @@ public final class DatasetModelExtractor implements ModelExtractor {
      * @param uniqueVectors target number of unique vectors for the model
      */
     public DatasetModelExtractor(BestFitSelector selector, long uniqueVectors) {
-        this(selector, uniqueVectors, null);
+        this(selector, uniqueVectors, null, false);
     }
 
     /**
@@ -99,25 +100,40 @@ public final class DatasetModelExtractor implements ModelExtractor {
      * @param uniqueVectors target number of unique vectors for the model
      */
     public DatasetModelExtractor(ComponentModelFitter forcedFitter, long uniqueVectors) {
-        this(null, uniqueVectors, forcedFitter);
+        this(null, uniqueVectors, forcedFitter, false);
     }
 
-    private DatasetModelExtractor(BestFitSelector selector, long uniqueVectors, ComponentModelFitter forcedFitter) {
+    private DatasetModelExtractor(BestFitSelector selector, long uniqueVectors,
+                                   ComponentModelFitter forcedFitter, boolean collectAllFits) {
         this.selector = selector;
         if (uniqueVectors <= 0) {
             throw new IllegalArgumentException("uniqueVectors must be positive, got: " + uniqueVectors);
         }
         this.uniqueVectors = uniqueVectors;
         this.forcedFitter = forcedFitter;
+        this.collectAllFits = collectAllFits;
     }
 
     /**
-     * Creates an extractor that uses only Gaussian models.
+     * Returns a copy of this extractor configured to collect all fit scores.
      *
-     * @return an extractor configured for Gaussian-only extraction
+     * <p>When enabled, {@link #extractWithStats(float[][])} will populate
+     * {@link ExtractionResult#allFitsData()} with scores for all model types,
+     * not just the selected best. This enables fit quality comparison tables.
+     *
+     * @return a new extractor with all-fits collection enabled
      */
-    public static DatasetModelExtractor gaussianOnly() {
-        return new DatasetModelExtractor(new GaussianModelFitter(), DEFAULT_UNIQUE_VECTORS);
+    public DatasetModelExtractor withAllFitsCollection() {
+        return new DatasetModelExtractor(selector, uniqueVectors, forcedFitter, true);
+    }
+
+    /**
+     * Creates an extractor that uses only Normal models.
+     *
+     * @return an extractor configured for Normal-only extraction
+     */
+    public static DatasetModelExtractor normalOnly() {
+        return new DatasetModelExtractor(new NormalModelFitter(), DEFAULT_UNIQUE_VECTORS);
     }
 
     /**
@@ -141,14 +157,14 @@ public final class DatasetModelExtractor implements ModelExtractor {
     /**
      * Creates an extractor using parametric models only (no empirical).
      *
-     * @return an extractor that chooses between Gaussian and Uniform
+     * @return an extractor that chooses between Normal and Uniform
      */
     public static DatasetModelExtractor parametricOnly() {
         return new DatasetModelExtractor(BestFitSelector.parametricOnly(), DEFAULT_UNIQUE_VECTORS);
     }
 
     @Override
-    public VectorSpaceModel extract(float[][] data) {
+    public VectorSpaceModel extractVectorModel(float[][] data) {
         return extractWithStats(data).model();
     }
 
@@ -159,7 +175,7 @@ public final class DatasetModelExtractor implements ModelExtractor {
         long startTime = System.currentTimeMillis();
         int numDimensions = transposedData.length;
 
-        ComponentModel[] components = new ComponentModel[numDimensions];
+        ScalarModel[] components = new ScalarModel[numDimensions];
         DimensionStatistics[] stats = new DimensionStatistics[numDimensions];
         ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[numDimensions];
 
@@ -195,9 +211,25 @@ public final class DatasetModelExtractor implements ModelExtractor {
         // Transpose data for efficient per-dimension access
         float[][] transposed = transpose(data, numVectors, numDimensions);
 
-        ComponentModel[] components = new ComponentModel[numDimensions];
+        ScalarModel[] components = new ScalarModel[numDimensions];
         DimensionStatistics[] stats = new DimensionStatistics[numDimensions];
         ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[numDimensions];
+
+        // For all-fits collection
+        AllFitsData allFitsData = null;
+        double[][] allFitScores = null;
+        int[] bestFitIndices = null;
+        String[] sparklines = null;
+        java.util.List<String> modelTypes = null;
+
+        if (collectAllFits && selector != null) {
+            modelTypes = selector.getFitters().stream()
+                .map(ComponentModelFitter::getModelType)
+                .toList();
+            allFitScores = new double[numDimensions][modelTypes.size()];
+            bestFitIndices = new int[numDimensions];
+            sparklines = new String[numDimensions];
+        }
 
         for (int d = 0; d < numDimensions; d++) {
             float[] dimensionData = transposed[d];
@@ -206,6 +238,15 @@ public final class DatasetModelExtractor implements ModelExtractor {
             ComponentModelFitter.FitResult result;
             if (forcedFitter != null) {
                 result = forcedFitter.fit(stats[d], dimensionData);
+            } else if (collectAllFits) {
+                // Use the method that returns all scores
+                BestFitSelector.SelectionWithAllFits selection =
+                    selector.selectBestWithAllFits(stats[d], dimensionData);
+                result = selection.bestFit();
+                allFitScores[d] = selection.allScores();
+                bestFitIndices[d] = selection.bestIndex();
+                // Generate sparkline histogram
+                sparklines[d] = Sparkline.generate(dimensionData, Sparkline.DEFAULT_WIDTH);
             } else {
                 result = selector.selectBestResult(stats[d], dimensionData);
             }
@@ -214,10 +255,14 @@ public final class DatasetModelExtractor implements ModelExtractor {
             components[d] = result.model();
         }
 
+        if (collectAllFits && modelTypes != null) {
+            allFitsData = new AllFitsData(modelTypes, allFitScores, bestFitIndices, sparklines);
+        }
+
         long extractionTime = System.currentTimeMillis() - startTime;
 
         VectorSpaceModel model = new VectorSpaceModel(uniqueVectors, components);
-        return new ExtractionResult(model, stats, fitResults, extractionTime);
+        return new ExtractionResult(model, stats, fitResults, extractionTime, allFitsData);
     }
 
     /**
@@ -241,7 +286,7 @@ public final class DatasetModelExtractor implements ModelExtractor {
         }
         float[][] transposed = transpose(data, numVectors, numDimensions);
 
-        ComponentModel[] components = new ComponentModel[numDimensions];
+        ScalarModel[] components = new ScalarModel[numDimensions];
         DimensionStatistics[] stats = new DimensionStatistics[numDimensions];
         ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[numDimensions];
 

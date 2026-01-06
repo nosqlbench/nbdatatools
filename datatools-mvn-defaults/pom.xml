@@ -18,8 +18,10 @@
     <maven.deploy.skip>true</maven.deploy.skip>
     <maven.compiler.source>16</maven.compiler.source>
     <maven.compiler.target>16</maven.compiler.target>
-    <!-- Performance tests are disabled by default, enable with -Pall profile -->
+    <!-- Performance tests are disabled by default, enable with -Palltests or -Pperformance -->
     <skipPerformanceTests>true</skipPerformanceTests>
+    <!-- Accuracy tests are disabled by default, enable with -Palltests or -Paccuracy -->
+    <skipAccuracyTests>true</skipAccuracyTests>
     <!-- JDK toolchain version - override with -Djdk.toolchain.version=25 -->
     <jdk.toolchain.version>25</jdk.toolchain.version>
   </properties>
@@ -642,11 +644,28 @@
   </build>
 
   <profiles>
+    <!-- Run all tests: unit + performance + accuracy -->
     <profile>
-      <id>all</id>
+      <id>alltests</id>
       <properties>
-        <!-- Enable all performance tests that are disabled by default -->
         <skipPerformanceTests>false</skipPerformanceTests>
+        <skipAccuracyTests>false</skipAccuracyTests>
+      </properties>
+    </profile>
+
+    <!-- Run unit + performance tests -->
+    <profile>
+      <id>performance</id>
+      <properties>
+        <skipPerformanceTests>false</skipPerformanceTests>
+      </properties>
+    </profile>
+
+    <!-- Run unit + accuracy tests -->
+    <profile>
+      <id>accuracy</id>
+      <properties>
+        <skipAccuracyTests>false</skipAccuracyTests>
       </properties>
     </profile>
 
@@ -681,6 +700,7 @@
         <jdk.toolchain.version>25</jdk.toolchain.version>
       </properties>
     </profile>
+
   </profiles>
 
 </project>

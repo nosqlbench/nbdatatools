@@ -106,11 +106,28 @@ version     Print version/build information
 [Nbvectors javadocs](https://javadoc.io/doc/io.nosqlbench/nbvectors/latest/index.html)
 are graciously hosted by [javadoc.io](https://javadoc.io/).
 
+## Testing
+
+Tests are organized into three categories that can be run independently or together using Maven profiles:
+
+| Command                              | Unit | Performance | Accuracy |
+|--------------------------------------|------|-------------|----------|
+| `mvn test`                           |  ✓   |             |          |
+| `mvn test -Paccuracy`                |  ✓   |             |    ✓     |
+| `mvn test -Pperformance`             |  ✓   |      ✓      |          |
+| `mvn test -Pperformance,accuracy`    |  ✓   |      ✓      |    ✓     |
+| `mvn test -Palltests`                |  ✓   |      ✓      |    ✓     |
+
+- **Unit tests**: Core functionality tests, run by default
+- **Performance tests**: Benchmarks and performance regression tests, tagged with `@Tag("performance")`
+- **Accuracy tests**: Numerical precision and statistical accuracy tests, tagged with `@Tag("accuracy")`
+
 ## Java Version
 
-This project is built with Java 23, and will tend to track the latest LTS at the very least. 
-Generally speaking, one of the most effective ways to speed up your Java app is to use a modern 
-JVM. The same applies to Java-based testing systems.
+This project uses multi-release JARs with Java 11 as the base bytecode target and Java 25 for
+optional features like the Vector API. Build requires JDK 25. Generally speaking, one of the
+most effective ways to speed up your Java app is to use a modern JVM. The same applies to
+Java-based testing systems.
 
 ----
 

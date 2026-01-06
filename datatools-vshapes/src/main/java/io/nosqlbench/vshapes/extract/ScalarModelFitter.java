@@ -28,9 +28,9 @@ import io.nosqlbench.vshapes.model.ScalarModel;
  *
  * <h2>Tensor Hierarchy</h2>
  *
- * <p>ScalarModelFitter corresponds to the first-order tensor level (ScalarModel):
+ * <p>ComponentModelFitter corresponds to the first-order tensor level (ScalarModel):
  * <ul>
- *   <li>ScalarModelFitter - Fits ScalarModels to per-dimension data</li>
+ *   <li>ComponentModelFitter - Fits ScalarModels to per-dimension data</li>
  *   <li>ModelExtractor - Extracts VectorModels from multi-dimensional data</li>
  * </ul>
  *
@@ -51,7 +51,7 @@ import io.nosqlbench.vshapes.model.ScalarModel;
  * <h2>Usage</h2>
  *
  * <pre>{@code
- * ScalarModelFitter gaussianFitter = new GaussianModelFitter();
+ * ComponentModelFitter gaussianFitter = new GaussianModelFitter();
  * FitResult result = gaussianFitter.fit(dimensionData);
  *
  * ScalarModel model = result.scalarModel();
@@ -103,7 +103,7 @@ public interface ScalarModelFitter extends ComponentModelFitter {
             return new ScalarFitResult() {
                 @Override
                 public ScalarModel scalarModel() {
-                    return result.model();  // ComponentModel extends ScalarModel
+                    return result.model();  // ScalarModel extends ScalarModel
                 }
 
                 @Override

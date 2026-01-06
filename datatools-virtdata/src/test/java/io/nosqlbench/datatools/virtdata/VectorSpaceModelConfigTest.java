@@ -17,7 +17,7 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(1_000_000, model.uniqueVectors());
         assertEquals(128, model.dimensions());
-        GaussianComponentModel c0 = (GaussianComponentModel) model.componentModel(0);
+        NormalScalarModel c0 = (NormalScalarModel) model.scalarModel(0);
         assertEquals(0.0, c0.getMean());
         assertEquals(1.0, c0.getStdDev());
         assertFalse(c0.isTruncated());
@@ -73,7 +73,7 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(500_000, model.uniqueVectors());
         assertEquals(64, model.dimensions());
-        GaussianComponentModel component = (GaussianComponentModel) model.componentModel(0);
+        NormalScalarModel component = (NormalScalarModel) model.scalarModel(0);
         assertEquals(0.0, component.getMean());
         assertEquals(1.0, component.getStdDev());
         assertTrue(component.isTruncated());
@@ -100,13 +100,13 @@ class VectorSpaceModelConfigTest {
         assertEquals(3, model.dimensions());
 
         // First component: unbounded N(0, 1)
-        GaussianComponentModel c0 = (GaussianComponentModel) model.componentModel(0);
+        NormalScalarModel c0 = (NormalScalarModel) model.scalarModel(0);
         assertEquals(0.0, c0.getMean());
         assertEquals(1.0, c0.getStdDev());
         assertFalse(c0.isTruncated());
 
         // Second component: truncated N(0.5, 0.5) to [0, 1]
-        GaussianComponentModel c1 = (GaussianComponentModel) model.componentModel(1);
+        NormalScalarModel c1 = (NormalScalarModel) model.scalarModel(1);
         assertEquals(0.5, c1.getMean());
         assertEquals(0.5, c1.getStdDev());
         assertTrue(c1.isTruncated());
@@ -114,7 +114,7 @@ class VectorSpaceModelConfigTest {
         assertEquals(1.0, c1.upper());
 
         // Third component: unbounded N(-1, 2)
-        GaussianComponentModel c2 = (GaussianComponentModel) model.componentModel(2);
+        NormalScalarModel c2 = (NormalScalarModel) model.scalarModel(2);
         assertEquals(-1.0, c2.getMean());
         assertEquals(2.0, c2.getStdDev());
         assertFalse(c2.isTruncated());
@@ -131,8 +131,8 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(original.uniqueVectors(), restored.uniqueVectors());
         assertEquals(original.dimensions(), restored.dimensions());
-        GaussianComponentModel origComp = (GaussianComponentModel) original.componentModel(0);
-        GaussianComponentModel restComp = (GaussianComponentModel) restored.componentModel(0);
+        NormalScalarModel origComp = (NormalScalarModel) original.scalarModel(0);
+        NormalScalarModel restComp = (NormalScalarModel) restored.scalarModel(0);
         assertEquals(origComp.getMean(), restComp.getMean());
         assertEquals(origComp.getStdDev(), restComp.getStdDev());
     }
@@ -149,8 +149,8 @@ class VectorSpaceModelConfigTest {
         assertEquals(original.uniqueVectors(), restored.uniqueVectors());
         assertEquals(original.dimensions(), restored.dimensions());
 
-        GaussianComponentModel origComp = (GaussianComponentModel) original.componentModel(0);
-        GaussianComponentModel restComp = (GaussianComponentModel) restored.componentModel(0);
+        NormalScalarModel origComp = (NormalScalarModel) original.scalarModel(0);
+        NormalScalarModel restComp = (NormalScalarModel) restored.scalarModel(0);
         assertEquals(origComp.getMean(), restComp.getMean());
         assertEquals(origComp.getStdDev(), restComp.getStdDev());
         assertEquals(origComp.isTruncated(), restComp.isTruncated());
@@ -160,10 +160,10 @@ class VectorSpaceModelConfigTest {
 
     @Test
     void testRoundTripPerDimensionModel() {
-        GaussianComponentModel[] components = {
-            new GaussianComponentModel(0.0, 1.0),
-            new GaussianComponentModel(0.5, 0.5, 0.0, 1.0),
-            new GaussianComponentModel(-1.0, 2.0)
+        NormalScalarModel[] components = {
+            new NormalScalarModel(0.0, 1.0),
+            new NormalScalarModel(0.5, 0.5, 0.0, 1.0),
+            new NormalScalarModel(-1.0, 2.0)
         };
         VectorSpaceModel original = new VectorSpaceModel(100_000, components);
 
@@ -176,8 +176,8 @@ class VectorSpaceModelConfigTest {
         assertEquals(original.dimensions(), restored.dimensions());
 
         for (int i = 0; i < original.dimensions(); i++) {
-            GaussianComponentModel orig = (GaussianComponentModel) original.componentModel(i);
-            GaussianComponentModel rest = (GaussianComponentModel) restored.componentModel(i);
+            NormalScalarModel orig = (NormalScalarModel) original.scalarModel(i);
+            NormalScalarModel rest = (NormalScalarModel) restored.scalarModel(i);
             assertEquals(orig.getMean(), rest.getMean(), "mean mismatch at dim " + i);
             assertEquals(orig.getStdDev(), rest.getStdDev(), "stdDev mismatch at dim " + i);
             assertEquals(orig.isTruncated(), rest.isTruncated(), "truncated mismatch at dim " + i);
@@ -232,8 +232,8 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(original.uniqueVectors(), restored.uniqueVectors());
         assertEquals(original.dimensions(), restored.dimensions());
-        GaussianComponentModel origComp = (GaussianComponentModel) original.componentModel(0);
-        GaussianComponentModel restComp = (GaussianComponentModel) restored.componentModel(0);
+        NormalScalarModel origComp = (NormalScalarModel) original.scalarModel(0);
+        NormalScalarModel restComp = (NormalScalarModel) restored.scalarModel(0);
         assertEquals(origComp.isTruncated(), restComp.isTruncated());
     }
 
@@ -251,7 +251,7 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(1000, model.uniqueVectors());
         assertEquals(10, model.dimensions());
-        GaussianComponentModel c0 = (GaussianComponentModel) model.componentModel(0);
+        NormalScalarModel c0 = (NormalScalarModel) model.scalarModel(0);
         assertEquals(0.0, c0.getMean());
         assertEquals(1.0, c0.getStdDev());
     }
@@ -270,7 +270,7 @@ class VectorSpaceModelConfigTest {
 
         assertEquals(1_000_000, model.uniqueVectors());
         assertEquals(128, model.dimensions());
-        GaussianComponentModel comp = (GaussianComponentModel) model.componentModel(0);
+        NormalScalarModel comp = (NormalScalarModel) model.scalarModel(0);
         assertTrue(comp.isTruncated());
         assertEquals(-1.0, comp.lower());
         assertEquals(1.0, comp.upper());
@@ -316,8 +316,8 @@ class VectorSpaceModelConfigTest {
     @Test
     void testConfigDetectsUniformDistribution() {
         // When all components are identical, config should use uniform representation
-        GaussianComponentModel same = new GaussianComponentModel(0.0, 1.0);
-        GaussianComponentModel[] components = new GaussianComponentModel[10];
+        NormalScalarModel same = new NormalScalarModel(0.0, 1.0);
+        NormalScalarModel[] components = new NormalScalarModel[10];
         for (int i = 0; i < 10; i++) {
             components[i] = same;
         }
@@ -332,9 +332,9 @@ class VectorSpaceModelConfigTest {
 
     @Test
     void testConfigDetectsPerDimensionDistribution() {
-        GaussianComponentModel[] components = {
-            new GaussianComponentModel(0.0, 1.0),
-            new GaussianComponentModel(1.0, 2.0)  // Different from first
+        NormalScalarModel[] components = {
+            new NormalScalarModel(0.0, 1.0),
+            new NormalScalarModel(1.0, 2.0)  // Different from first
         };
         VectorSpaceModel model = new VectorSpaceModel(1000, components);
 
@@ -343,5 +343,53 @@ class VectorSpaceModelConfigTest {
         assertTrue(config.hasPerDimensionComponents());
         assertNotNull(config.getComponents());
         assertEquals(2, config.getComponents().length);
+    }
+
+    @Test
+    void testJsonOutputHasNoNullValues() {
+        // Create a model with per-dimension components
+        NormalScalarModel[] components = {
+            new NormalScalarModel(0.0, 1.0),
+            new NormalScalarModel(0.5, 0.5, 0.0, 1.0)  // truncated
+        };
+        VectorSpaceModel model = new VectorSpaceModel(1000, components);
+
+        VectorSpaceModelConfig config = VectorSpaceModelConfig.fromVectorSpaceModel(model);
+        String json = config.toJson();
+
+        // Verify no null values appear in the output
+        assertFalse(json.contains("null"), "JSON should not contain null values: " + json);
+
+        // Verify the type field is included
+        assertTrue(json.contains("\"type\":"), "JSON should include type field: " + json);
+
+        // Verify model-specific fields are present
+        assertTrue(json.contains("\"mean\":"), "Normal model should have mean: " + json);
+        assertTrue(json.contains("\"std_dev\":"), "Normal model should have std_dev: " + json);
+
+        // Verify truncation bounds only appear for truncated model
+        // The second component has truncation, so we should see lower_bound/upper_bound
+        assertTrue(json.contains("\"lower_bound\":"), "Truncated model should have lower_bound: " + json);
+        assertTrue(json.contains("\"upper_bound\":"), "Truncated model should have upper_bound: " + json);
+
+        System.out.println("JSON output:\n" + json);
+    }
+
+    @Test
+    void testUniformJsonOutputIsCompact() {
+        // Uniform model should have compact representation (no components array)
+        VectorSpaceModel model = new VectorSpaceModel(1_000_000, 128, 0.0, 1.0);
+
+        VectorSpaceModelConfig config = VectorSpaceModelConfig.fromVectorSpaceModel(model);
+        String json = config.toJson();
+
+        // Verify no null values
+        assertFalse(json.contains("null"), "JSON should not contain null values: " + json);
+
+        // Verify compact format (dimensions, not components)
+        assertTrue(json.contains("\"dimensions\":"), "Should use compact dimensions format: " + json);
+        assertFalse(json.contains("\"components\":"), "Should not have components array for uniform model: " + json);
+
+        System.out.println("Uniform JSON output:\n" + json);
     }
 }

@@ -17,8 +17,8 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.ComponentModel;
-import io.nosqlbench.vshapes.model.GaussianComponentModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
+import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.junit.jupiter.api.Test;
 
@@ -34,32 +34,32 @@ class VectorSpaceModelTest {
     }
 
     @Test
-    void testCustomGaussianConstruction() {
+    void testCustomNormalConstruction() {
         VectorSpaceModel model = new VectorSpaceModel(500, 64, 2.0, 0.5);
         assertEquals(500, model.uniqueVectors());
         assertEquals(64, model.dimensions());
 
         // All components should have the same parameters
-        GaussianComponentModel[] gaussians = model.gaussianComponentModels();
+        NormalScalarModel[] normals = model.normalScalarModels();
         for (int d = 0; d < 64; d++) {
-            assertEquals(2.0, gaussians[d].getMean());
-            assertEquals(0.5, gaussians[d].getStdDev());
+            assertEquals(2.0, normals[d].getMean());
+            assertEquals(0.5, normals[d].getStdDev());
         }
     }
 
     @Test
     void testComponentSpecificModels() {
-        GaussianComponentModel[] models = new GaussianComponentModel[3];
-        models[0] = new GaussianComponentModel(0.0, 1.0);
-        models[1] = new GaussianComponentModel(5.0, 2.0);
-        models[2] = new GaussianComponentModel(-1.0, 0.5);
+        NormalScalarModel[] models = new NormalScalarModel[3];
+        models[0] = new NormalScalarModel(0.0, 1.0);
+        models[1] = new NormalScalarModel(5.0, 2.0);
+        models[2] = new NormalScalarModel(-1.0, 0.5);
 
         VectorSpaceModel vsm = new VectorSpaceModel(1000, models);
         assertEquals(1000, vsm.uniqueVectors());
         assertEquals(3, vsm.dimensions());
 
-        // Access through typed gaussianComponentModels() method
-        GaussianComponentModel[] retrieved = vsm.gaussianComponentModels();
+        // Access through typed normalScalarModels() method
+        NormalScalarModel[] retrieved = vsm.normalScalarModels();
         assertEquals(0.0, retrieved[0].getMean());
         assertEquals(5.0, retrieved[1].getMean());
         assertEquals(-1.0, retrieved[2].getMean());
@@ -69,23 +69,23 @@ class VectorSpaceModelTest {
     void testInvalidParameters() {
         assertThrows(IllegalArgumentException.class, () -> new VectorSpaceModel(0, 128));
         assertThrows(IllegalArgumentException.class, () -> new VectorSpaceModel(-1, 128));
-        assertThrows(NullPointerException.class, () -> new VectorSpaceModel(1000, (ComponentModel[]) null));
-        assertThrows(IllegalArgumentException.class, () -> new VectorSpaceModel(1000, new GaussianComponentModel[0]));
+        assertThrows(NullPointerException.class, () -> new VectorSpaceModel(1000, (ScalarModel[]) null));
+        assertThrows(IllegalArgumentException.class, () -> new VectorSpaceModel(1000, new NormalScalarModel[0]));
     }
 
     @Test
-    void testComponentModelBounds() {
+    void testScalarModelBounds() {
         VectorSpaceModel model = new VectorSpaceModel(1000, 128);
-        assertThrows(IndexOutOfBoundsException.class, () -> model.componentModel(-1));
-        assertThrows(IndexOutOfBoundsException.class, () -> model.componentModel(128));
+        assertThrows(IndexOutOfBoundsException.class, () -> model.scalarModel(-1));
+        assertThrows(IndexOutOfBoundsException.class, () -> model.scalarModel(128));
     }
 
     @Test
-    void testComponentModelsCopy() {
-        GaussianComponentModel[] original = GaussianComponentModel.uniform(0.0, 1.0, 4);
+    void testScalarModelsCopy() {
+        NormalScalarModel[] original = NormalScalarModel.uniformScalar(0.0, 1.0, 4);
         VectorSpaceModel model = new VectorSpaceModel(100, original);
 
-        ComponentModel[] retrieved = model.componentModels();
+        ScalarModel[] retrieved = model.scalarModels();
         assertNotSame(original, retrieved);
         assertEquals(original.length, retrieved.length);
     }

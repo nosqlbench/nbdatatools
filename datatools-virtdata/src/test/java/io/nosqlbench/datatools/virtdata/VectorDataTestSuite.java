@@ -24,10 +24,10 @@ import org.junit.platform.suite.api.Suite;
 /// This suite runs all unit tests for the vector generation functionality.
 @Suite
 @SelectClasses({
-    GaussianComponentModelTest.class,
+    NormalScalarModelTest.class,
     VectorSpaceModelTest.class,
-    InverseGaussianCDFTest.class,
-    TruncatedGaussianSamplerTest.class,
+    InverseNormalCDFTest.class,
+    TruncatedNormalSamplerTest.class,
     StratifiedSamplerTest.class,
     VectorGenTest.class,
     VectorGenFactoryTest.class,

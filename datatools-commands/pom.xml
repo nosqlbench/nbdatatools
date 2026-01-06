@@ -58,6 +58,11 @@
       <artifactId>datatools-status-api</artifactId>
       <version>${revision}</version>
     </dependency>
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>datatools-vshapes</artifactId>
+      <version>${revision}</version>
+    </dependency>
 
     <dependency>
       <groupId>io.nosqlbench</groupId>

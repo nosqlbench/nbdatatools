@@ -17,8 +17,8 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.GaussianComponentModel;
-import io.nosqlbench.vshapes.model.UniformComponentModel;
+import io.nosqlbench.vshapes.model.NormalScalarModel;
+import io.nosqlbench.vshapes.model.UniformScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import org.junit.jupiter.api.Test;
 
@@ -45,17 +45,17 @@ public class DatasetModelExtractorTest {
             }
         }
 
-        DatasetModelExtractor extractor = DatasetModelExtractor.gaussianOnly();
-        VectorSpaceModel model = extractor.extract(data);
+        DatasetModelExtractor extractor = DatasetModelExtractor.normalOnly();
+        VectorSpaceModel model = extractor.extractVectorModel(data);
 
         assertNotNull(model);
         assertEquals(dimensions, model.dimensions());
         assertEquals(DatasetModelExtractor.DEFAULT_UNIQUE_VECTORS, model.uniqueVectors());
-        assertTrue(model.isAllGaussian());
+        assertTrue(model.isAllNormal());
 
         // Verify extracted parameters are close to true values
         for (int d = 0; d < dimensions; d++) {
-            GaussianComponentModel component = (GaussianComponentModel) model.componentModel(d);
+            NormalScalarModel component = (NormalScalarModel) model.scalarModel(d);
             assertEquals(trueMeans[d], component.getMean(), 0.2);
             assertEquals(trueStdDevs[d], component.getStdDev(), 0.2);
         }
@@ -121,11 +121,11 @@ public class DatasetModelExtractorTest {
     }
 
     @Test
-    void testGaussianOnlyExtractor() {
-        DatasetModelExtractor extractor = DatasetModelExtractor.gaussianOnly();
+    void testNormalOnlyExtractor() {
+        DatasetModelExtractor extractor = DatasetModelExtractor.normalOnly();
         assertNull(extractor.getSelector());
         assertNotNull(extractor.getForcedFitter());
-        assertEquals("gaussian", extractor.getForcedFitter().getModelType());
+        assertEquals("normal", extractor.getForcedFitter().getModelType());
     }
 
     @Test
@@ -133,11 +133,11 @@ public class DatasetModelExtractorTest {
         DatasetModelExtractor extractor = DatasetModelExtractor.uniformOnly();
         float[][] data = generateUniformData(100, 3, new Random(12345));
 
-        VectorSpaceModel model = extractor.extract(data);
+        VectorSpaceModel model = extractor.extractVectorModel(data);
 
         assertNotNull(model);
         for (int d = 0; d < model.dimensions(); d++) {
-            assertTrue(model.componentModel(d) instanceof UniformComponentModel,
+            assertTrue(model.scalarModel(d) instanceof UniformScalarModel,
                 "Uniform-only extractor should produce uniform models");
         }
     }
@@ -188,13 +188,13 @@ public class DatasetModelExtractorTest {
     @Test
     void testExtractNullDataThrows() {
         DatasetModelExtractor extractor = new DatasetModelExtractor();
-        assertThrows(IllegalArgumentException.class, () -> extractor.extract(null));
+        assertThrows(IllegalArgumentException.class, () -> extractor.extractVectorModel(null));
     }
 
     @Test
     void testExtractEmptyDataThrows() {
         DatasetModelExtractor extractor = new DatasetModelExtractor();
-        assertThrows(IllegalArgumentException.class, () -> extractor.extract(new float[0][]));
+        assertThrows(IllegalArgumentException.class, () -> extractor.extractVectorModel(new float[0][]));
     }
 
     @Test
@@ -204,7 +204,7 @@ public class DatasetModelExtractorTest {
             {1f, 2f, 3f},
             {4f, 5f}  // Different length
         };
-        assertThrows(IllegalArgumentException.class, () -> extractor.extract(jagged));
+        assertThrows(IllegalArgumentException.class, () -> extractor.extractVectorModel(jagged));
     }
 
     @Test
@@ -216,7 +216,7 @@ public class DatasetModelExtractorTest {
         assertEquals(customUniqueVectors, extractor.getUniqueVectors());
 
         float[][] data = generateGaussianData(100, 3, new Random(12345));
-        VectorSpaceModel model = extractor.extract(data);
+        VectorSpaceModel model = extractor.extractVectorModel(data);
 
         assertEquals(customUniqueVectors, model.uniqueVectors());
     }

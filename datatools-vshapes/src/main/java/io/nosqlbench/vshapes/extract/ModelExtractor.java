@@ -27,7 +27,7 @@ import io.nosqlbench.vshapes.model.VectorSpaceModel;
  *
  * <p>ModelExtractor corresponds to the second-order tensor level (VectorModel):
  * <ul>
- *   <li>{@link ScalarModelFitter} - Fits ScalarModels to per-dimension data</li>
+ *   <li>{@link ComponentModelFitter} - Fits ScalarModels to per-dimension data</li>
  *   <li><b>ModelExtractor</b> - Extracts VectorModels from multi-dimensional data</li>
  * </ul>
  *
@@ -50,12 +50,8 @@ import io.nosqlbench.vshapes.model.VectorSpaceModel;
  * <h2>Usage</h2>
  *
  * <pre>{@code
- * // From float[][] data
  * ModelExtractor extractor = new DatasetModelExtractor();
- * VectorModel model = extractor.extractVectorModel(vectorData);
- *
- * // Or use the legacy method
- * VectorSpaceModel vsm = extractor.extract(vectorData);
+ * VectorSpaceModel model = extractor.extractVectorModel(vectorData);
  * }</pre>
  *
  * <h2>Implementation Notes</h2>
@@ -74,21 +70,6 @@ import io.nosqlbench.vshapes.model.VectorSpaceModel;
 public interface ModelExtractor {
 
     /**
-     * Extracts a vector model from the given data.
-     *
-     * <p>This is the preferred method using the tensor model terminology.
-     * Each row represents a vector, and each column represents a dimension.
-     * The data array should have shape [numVectors][numDimensions].
-     *
-     * @param data the vector data with shape [numVectors][numDimensions]
-     * @return the extracted vector model
-     * @throws IllegalArgumentException if data is null, empty, or jagged
-     */
-    default VectorModel extractVectorModel(float[][] data) {
-        return extract(data);
-    }
-
-    /**
      * Extracts a vector space model from the given data.
      *
      * <p>Each row represents a vector, and each column represents a dimension.
@@ -97,10 +78,8 @@ public interface ModelExtractor {
      * @param data the vector data with shape [numVectors][numDimensions]
      * @return the extracted vector space model
      * @throws IllegalArgumentException if data is null, empty, or jagged
-     * @deprecated Use {@link #extractVectorModel(float[][])} instead
      */
-    @Deprecated(since = "2.0", forRemoval = true)
-    VectorSpaceModel extract(float[][] data);
+    VectorSpaceModel extractVectorModel(float[][] data);
 
     /**
      * Extracts a vector space model from pre-transposed data.
@@ -133,13 +112,27 @@ public interface ModelExtractor {
      * @param dimensionStats per-dimension statistics
      * @param fitResults per-dimension fit results (if best-fit selection was used)
      * @param extractionTimeMs time taken for extraction in milliseconds
+     * @param allFitsData optional detailed fit data for all model types (for fit quality tables)
      */
     record ExtractionResult(
         VectorSpaceModel model,
         DimensionStatistics[] dimensionStats,
         ComponentModelFitter.FitResult[] fitResults,
-        long extractionTimeMs
+        long extractionTimeMs,
+        AllFitsData allFitsData
     ) {
+        /**
+         * Creates an ExtractionResult without all-fits data (backwards compatible).
+         */
+        public ExtractionResult(
+            VectorSpaceModel model,
+            DimensionStatistics[] dimensionStats,
+            ComponentModelFitter.FitResult[] fitResults,
+            long extractionTimeMs
+        ) {
+            this(model, dimensionStats, fitResults, extractionTimeMs, null);
+        }
+
         /**
          * Returns the number of dimensions in the extracted model.
          */
@@ -152,6 +145,13 @@ public interface ModelExtractor {
          */
         public long numVectors() {
             return dimensionStats.length > 0 ? dimensionStats[0].count() : 0;
+        }
+
+        /**
+         * Returns whether this result includes detailed fit data for all model types.
+         */
+        public boolean hasAllFitsData() {
+            return allFitsData != null;
         }
 
         /**
@@ -173,6 +173,80 @@ public interface ModelExtractor {
             }
 
             return sb.toString();
+        }
+    }
+
+    /**
+     * Contains all fit scores for all dimensions and all model types.
+     *
+     * <p>This data structure enables generating fit quality comparison tables
+     * without recomputing the fits.
+     *
+     * @param modelTypes list of model type names (column headers)
+     * @param fitScores 2D array of scores: fitScores[dimension][modelTypeIndex]
+     * @param bestFitIndices best model type index per dimension
+     * @param sparklines Unicode sparkline histograms per dimension (may be null)
+     */
+    record AllFitsData(
+        java.util.List<String> modelTypes,
+        double[][] fitScores,
+        int[] bestFitIndices,
+        String[] sparklines
+    ) {
+        /**
+         * Creates AllFitsData without sparklines.
+         */
+        public AllFitsData(
+            java.util.List<String> modelTypes,
+            double[][] fitScores,
+            int[] bestFitIndices
+        ) {
+            this(modelTypes, fitScores, bestFitIndices, null);
+        }
+
+        /**
+         * Returns the number of dimensions.
+         */
+        public int numDimensions() {
+            return fitScores.length;
+        }
+
+        /**
+         * Returns the number of model types evaluated.
+         */
+        public int numModelTypes() {
+            return modelTypes.size();
+        }
+
+        /**
+         * Gets the fit score for a specific dimension and model type.
+         */
+        public double getScore(int dimension, int modelTypeIndex) {
+            return fitScores[dimension][modelTypeIndex];
+        }
+
+        /**
+         * Gets the best model type name for a dimension.
+         */
+        public String getBestModelType(int dimension) {
+            int idx = bestFitIndices[dimension];
+            return (idx >= 0 && idx < modelTypes.size()) ? modelTypes.get(idx) : "unknown";
+        }
+
+        /**
+         * Gets the sparkline for a dimension, or empty string if not available.
+         */
+        public String getSparkline(int dimension) {
+            return (sparklines != null && dimension < sparklines.length)
+                ? sparklines[dimension]
+                : "";
+        }
+
+        /**
+         * Returns whether sparklines are available.
+         */
+        public boolean hasSparklines() {
+            return sparklines != null && sparklines.length > 0;
         }
     }
 }

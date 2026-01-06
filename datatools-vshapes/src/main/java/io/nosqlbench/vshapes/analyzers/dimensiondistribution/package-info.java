@@ -35,7 +35,7 @@
 ///  └───────────┘              └──────────────┘              └──────────────┘
 ///        │                          │                             │
 ///        ▼                          ▼                             ▼
-///   Vector values              Welford's +                  ComponentModel
+///   Vector values              Welford's +                  ScalarModel
 ///   per dimension              Reservoir                    per dimension
 /// ```
 ///

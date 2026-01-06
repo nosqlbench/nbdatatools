@@ -81,29 +81,39 @@ package io.nosqlbench.vshapes.model;
 ///
 /// ScalarModel is a pure data description. It holds distribution
 /// parameters but does not know how to generate samples. Sampling is
-/// handled by ScalarSampler implementations in the virtdata module,
+/// handled by ComponentSampler implementations in the virtdata module,
 /// where each sampler binds to its specific model type.
 ///
 /// ## Implementations
 ///
 /// | Model Type | Distribution | Parameters |
 /// |------------|--------------|------------|
-/// | [GaussianScalarModel] | Normal N(μ, σ²) | mean, stdDev, [lower, upper] |
-/// | [UniformScalarModel] | Uniform | lower, upper |
-/// | [EmpiricalScalarModel] | Histogram-based | binEdges, cdf |
-/// | [CompositeScalarModel] | Mixture | models, weights |
+/// | {@link NormalScalarModel} | Normal N(μ, σ²) | mean, stdDev, [lower, upper] |
+/// | {@link UniformScalarModel} | Uniform | lower, upper |
+/// | {@link EmpiricalScalarModel} | Histogram-based | binEdges, cdf |
+/// | {@link CompositeScalarModel} | Mixture | models, weights |
 ///
 /// @see VectorModel
 /// @see MatrixModel
-public interface ScalarModel {
+/// @see TensorModel
+public interface ScalarModel extends TensorModel {
 
-    /**
-     * Returns the model type identifier for serialization.
-     *
-     * <p>This string is used in JSON serialization to identify the
-     * concrete implementation type, enabling polymorphic deserialization.
-     *
-     * @return the model type identifier (e.g., "gaussian", "uniform", "empirical")
-     */
+    /// Returns the model shape of this model.
+    ///
+    /// ScalarModels are always [ModelShape#SCALAR] (order 0).
+    ///
+    /// @return [ModelShape#SCALAR]
+    @Override
+    default ModelShape getModelShape() {
+        return ModelShape.SCALAR;
+    }
+
+    /// Returns the model type identifier for serialization.
+    ///
+    /// This string is used in JSON serialization to identify the
+    /// concrete implementation type, enabling polymorphic deserialization.
+    ///
+    /// @return the model type identifier (e.g., "normal", "uniform", "empirical")
+    @Override
     String getModelType();
 }

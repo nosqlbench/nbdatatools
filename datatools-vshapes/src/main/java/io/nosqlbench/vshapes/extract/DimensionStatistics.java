@@ -48,7 +48,7 @@ import java.util.Objects;
  * DimensionStatistics stats = DimensionStatistics.compute(dimensionData);
  *
  * // Use for model fitting
- * GaussianComponentModel model = new GaussianComponentModel(stats.mean(), stats.stdDev());
+ * NormalScalarModel model = new NormalScalarModel(stats.mean(), stats.stdDev());
  * }</pre>
  *
  * @see ComponentModelFitter

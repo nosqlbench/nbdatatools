@@ -17,9 +17,9 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.ComponentModel;
-import io.nosqlbench.vshapes.model.GaussianComponentModel;
-import io.nosqlbench.vshapes.model.UniformComponentModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
+import io.nosqlbench.vshapes.model.NormalScalarModel;
+import io.nosqlbench.vshapes.model.UniformScalarModel;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -49,7 +49,7 @@ public class BestFitSelectorTest {
     }
 
     @Test
-    void testSelectBestForGaussianData() {
+    void testSelectBestForNormalData() {
         Random random = new Random(12345);
         float[] values = new float[10000];
         for (int i = 0; i < values.length; i++) {
@@ -57,12 +57,12 @@ public class BestFitSelectorTest {
         }
 
         BestFitSelector selector = BestFitSelector.parametricOnly();
-        ComponentModel best = selector.selectBest(values);
+        ScalarModel best = selector.selectBest(values);
 
         assertNotNull(best);
-        // Gaussian data should fit Gaussian model best
-        assertTrue(best instanceof GaussianComponentModel,
-            "Gaussian data should select Gaussian model, got: " + best.getModelType());
+        // Normal data should fit normal model best
+        assertTrue(best instanceof NormalScalarModel,
+            "Normal data should select normal model, got: " + best.getModelType());
     }
 
     @Test
@@ -74,11 +74,11 @@ public class BestFitSelectorTest {
         }
 
         BestFitSelector selector = BestFitSelector.parametricOnly();
-        ComponentModel best = selector.selectBest(values);
+        ScalarModel best = selector.selectBest(values);
 
         assertNotNull(best);
         // Uniform data should fit Uniform model best
-        assertTrue(best instanceof UniformComponentModel,
+        assertTrue(best instanceof UniformScalarModel,
             "Uniform data should select Uniform model, got: " + best.getModelType());
     }
 
@@ -132,7 +132,7 @@ public class BestFitSelectorTest {
 
         assertNotNull(summary);
         assertTrue(summary.contains("Fit Summary:"));
-        assertTrue(summary.contains("gaussian"));
+        assertTrue(summary.contains("normal"));
         assertTrue(summary.contains("uniform"));
         assertTrue(summary.contains("empirical"));
         assertTrue(summary.contains("(BEST)"));
@@ -174,7 +174,7 @@ public class BestFitSelectorTest {
             new EmpiricalModelFitter()
         ), 0.5);  // High penalty
 
-        ComponentModel best = withPenalty.selectBest(values);
+        ScalarModel best = withPenalty.selectBest(values);
         // With high penalty, uniform should be preferred
         assertEquals("uniform", best.getModelType());
     }

@@ -17,7 +17,7 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.UniformComponentModel;
+import io.nosqlbench.vshapes.model.UniformScalarModel;
 
 import java.util.Objects;
 
@@ -47,7 +47,7 @@ import java.util.Objects;
  *   <li>There's no central tendency (no mean-seeking behavior)</li>
  * </ul>
  *
- * @see UniformComponentModel
+ * @see UniformScalarModel
  * @see ComponentModelFitter
  */
 public final class UniformModelFitter implements ComponentModelFitter {
@@ -101,7 +101,7 @@ public final class UniformModelFitter implements ComponentModelFitter {
         double lower = min - extension;
         double upper = max + extension;
 
-        UniformComponentModel model = new UniformComponentModel(lower, upper);
+        UniformScalarModel model = new UniformScalarModel(lower, upper);
 
         // Compute goodness-of-fit using K-S statistic
         double goodnessOfFit = computeKolmogorovSmirnov(values, lower, upper);
@@ -111,7 +111,7 @@ public final class UniformModelFitter implements ComponentModelFitter {
 
     @Override
     public String getModelType() {
-        return UniformComponentModel.MODEL_TYPE;
+        return UniformScalarModel.MODEL_TYPE;
     }
 
     @Override

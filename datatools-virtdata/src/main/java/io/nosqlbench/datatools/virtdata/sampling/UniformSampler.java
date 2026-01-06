@@ -17,7 +17,7 @@
 
 package io.nosqlbench.datatools.virtdata.sampling;
 
-import io.nosqlbench.vshapes.model.UniformComponentModel;
+import io.nosqlbench.vshapes.model.UniformScalarModel;
 
 /// Sampler for Uniform distributions, bound at construction.
 ///
@@ -31,7 +31,7 @@ public final class UniformSampler implements ComponentSampler {
     /// Creates a sampler bound to the given Uniform model.
     ///
     /// @param model the Uniform component model
-    public UniformSampler(UniformComponentModel model) {
+    public UniformSampler(UniformScalarModel model) {
         this.lower = model.getLower();
         this.range = model.getRange();
     }

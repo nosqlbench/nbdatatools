@@ -63,8 +63,8 @@ package io.nosqlbench.vshapes.model;
 /// ┌─────────────────────────────────────────────────────────────────────┐
 /// │ PER-DIMENSION SCALAR MODELS                                         │
 /// │                                                                     │
-/// │   scalarModel(0): GaussianScalarModel(μ₀=0.12, σ₀=0.03)             │
-/// │   scalarModel(1): GaussianScalarModel(μ₁=-0.05, σ₁=0.02)            │
+/// │   scalarModel(0): NormalScalarModel(μ₀=0.12, σ₀=0.03)               │
+/// │   scalarModel(1): NormalScalarModel(μ₁=-0.05, σ₁=0.02)              │
 /// │   scalarModel(2): UniformScalarModel(lower₂=-1.0, upper₂=1.0)       │
 /// │   ...                                                               │
 /// │   scalarModel(M-1): EmpiricalScalarModel(histogram)                 │
@@ -104,15 +104,26 @@ package io.nosqlbench.vshapes.model;
 ///
 /// | ScalarModel Type | Distribution | Use Case |
 /// |------------------|--------------|----------|
-/// | [GaussianScalarModel] | Normal N(μ, σ²) | Most real-world embeddings |
-/// | [UniformScalarModel] | Uniform [a, b] | Bounded synthetic data |
-/// | [EmpiricalScalarModel] | Histogram-based | Exact match to source data |
-/// | [CompositeScalarModel] | Mixture | Multi-modal distributions |
+/// | {@link NormalScalarModel} | Normal N(μ, σ²) | Most real-world embeddings |
+/// | {@link UniformScalarModel} | Uniform [a, b] | Bounded synthetic data |
+/// | {@link EmpiricalScalarModel} | Histogram-based | Exact match to source data |
+/// | {@link CompositeScalarModel} | Mixture | Multi-modal distributions |
 ///
 /// @see ScalarModel
 /// @see MatrixModel
 /// @see VectorSpaceModel
-public interface VectorModel {
+/// @see TensorModel
+public interface VectorModel extends TensorModel {
+
+    /// Returns the model shape of this model.
+    ///
+    /// VectorModels are always [ModelShape#VECTOR] (order 1).
+    ///
+    /// @return [ModelShape#VECTOR]
+    @Override
+    default ModelShape getModelShape() {
+        return ModelShape.VECTOR;
+    }
 
     /**
      * Returns the number of unique vectors in the space.
@@ -152,4 +163,13 @@ public interface VectorModel {
      * @return a defensive copy of the scalar models array
      */
     ScalarModel[] scalarModels();
+
+    /// Returns the model type identifier for serialization.
+    ///
+    /// This string is used in JSON serialization to identify the
+    /// concrete implementation type, enabling polymorphic deserialization.
+    ///
+    /// @return the model type identifier (e.g., "vector_space")
+    @Override
+    String getModelType();
 }

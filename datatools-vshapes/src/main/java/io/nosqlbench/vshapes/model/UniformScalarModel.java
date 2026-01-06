@@ -17,11 +17,18 @@ package io.nosqlbench.vshapes.model;
  * under the License.
  */
 
+import com.google.gson.annotations.SerializedName;
+
+import java.util.Objects;
+
 /**
  * Uniform distribution scalar model over a bounded range [lower, upper].
  *
- * <p>This class is functionally identical to {@link UniformComponentModel}.
- * It provides the preferred naming convention for the tensor model hierarchy.
+ * <h2>Purpose</h2>
+ *
+ * <p>This scalar model generates values uniformly distributed over the
+ * interval [lower, upper]. Each value in this range has equal probability
+ * of being sampled.
  *
  * <h2>Tensor Hierarchy</h2>
  *
@@ -42,6 +49,10 @@ package io.nosqlbench.vshapes.model;
  *   <li><b>CDF</b>: (x - lower) / (upper - lower) for x in [lower, upper]</li>
  * </ul>
  *
+ * <h2>Sampling</h2>
+ *
+ * <p>Uses simple linear interpolation: sample(u) = lower + u * (upper - lower)
+ *
  * <h2>Usage</h2>
  *
  * <pre>{@code
@@ -50,13 +61,29 @@ package io.nosqlbench.vshapes.model;
  *
  * // Uniform over [-1, 1]
  * UniformScalarModel unitBounded = UniformScalarModel.unitBounded();
+ *
+ * // Sample a value
+ * double value = model.sample(0.5);  // Returns 0.5 (midpoint)
  * }</pre>
  *
  * @see ScalarModel
  * @see VectorModel
- * @see UniformComponentModel
+ * @see VectorSpaceModel
  */
-public final class UniformScalarModel extends UniformComponentModel {
+@ModelType(UniformScalarModel.MODEL_TYPE)
+public class UniformScalarModel implements ScalarModel {
+
+    public static final String MODEL_TYPE = "uniform";
+
+    @SerializedName("lower")
+    private final double lower;
+
+    @SerializedName("upper")
+    private final double upper;
+
+    private final transient double range;
+    private final transient double mean;
+    private final transient double stdDev;
 
     /**
      * Constructs a uniform scalar model over [lower, upper].
@@ -66,12 +93,86 @@ public final class UniformScalarModel extends UniformComponentModel {
      * @throws IllegalArgumentException if lower >= upper
      */
     public UniformScalarModel(double lower, double upper) {
-        super(lower, upper);
+        if (lower >= upper) {
+            throw new IllegalArgumentException("Lower bound must be less than upper: " + lower + " >= " + upper);
+        }
+        this.lower = lower;
+        this.upper = upper;
+        this.range = upper - lower;
+        this.mean = (lower + upper) / 2.0;
+        this.stdDev = range / Math.sqrt(12.0);
+    }
+
+    @Override
+    public String getModelType() {
+        return MODEL_TYPE;
+    }
+
+    /**
+     * Returns the mean of this uniform distribution.
+     * @return (lower + upper) / 2
+     */
+    public double getMean() {
+        return mean;
+    }
+
+    /**
+     * Returns the standard deviation of this uniform distribution.
+     * @return (upper - lower) / sqrt(12)
+     */
+    public double getStdDev() {
+        return stdDev;
+    }
+
+    /**
+     * Computes the probability density function (PDF) at a given value.
+     * @param x the value at which to evaluate the PDF
+     * @return 1/range if x is in [lower, upper], 0 otherwise
+     */
+    public double pdf(double x) {
+        if (x < lower || x > upper) {
+            return 0.0;
+        }
+        return 1.0 / range;
+    }
+
+    /**
+     * Computes the cumulative distribution function (CDF) at a given value.
+     * @param x the value at which to evaluate the CDF
+     * @return the cumulative probability P(X ≤ x)
+     */
+    public double cdf(double x) {
+        if (x < lower) return 0.0;
+        if (x > upper) return 1.0;
+        return (x - lower) / range;
+    }
+
+    /**
+     * Returns the lower bound of this uniform distribution.
+     * @return the lower bound
+     */
+    public double getLower() {
+        return lower;
+    }
+
+    /**
+     * Returns the upper bound of this uniform distribution.
+     * @return the upper bound
+     */
+    public double getUpper() {
+        return upper;
+    }
+
+    /**
+     * Returns the range (upper - lower) of this uniform distribution.
+     * @return the range
+     */
+    public double getRange() {
+        return range;
     }
 
     /**
      * Creates a uniform model over [0, 1].
-     *
      * @return a UniformScalarModel for the unit interval
      */
     public static UniformScalarModel zeroOne() {
@@ -80,7 +181,6 @@ public final class UniformScalarModel extends UniformComponentModel {
 
     /**
      * Creates a uniform model over [-1, 1].
-     *
      * @return a UniformScalarModel for the symmetric unit interval
      */
     public static UniformScalarModel unitBounded() {
@@ -105,7 +205,21 @@ public final class UniformScalarModel extends UniformComponentModel {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof UniformScalarModel)) return false;
+        UniformScalarModel that = (UniformScalarModel) o;
+        return Double.compare(that.lower, lower) == 0 &&
+               Double.compare(that.upper, upper) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(lower, upper);
+    }
+
+    @Override
     public String toString() {
-        return "UniformScalarModel[lower=" + getLower() + ", upper=" + getUpper() + "]";
+        return "UniformScalarModel[lower=" + lower + ", upper=" + upper + "]";
     }
 }
