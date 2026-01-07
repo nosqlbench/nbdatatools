@@ -19,6 +19,7 @@ package io.nosqlbench.vshapes.extract;
 
 import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
+import io.nosqlbench.vshapes.trace.StateObserver;
 
 /**
  * Extracts a {@link VectorSpaceModel} from observed vector data by fitting
@@ -75,6 +76,7 @@ public final class DatasetModelExtractor implements ModelExtractor {
     private final long uniqueVectors;
     private final ComponentModelFitter forcedFitter;
     private final boolean collectAllFits;
+    private volatile StateObserver observer = StateObserver.NOOP;
 
     /**
      * Creates an extractor with default settings (automatic model selection).
@@ -180,8 +182,12 @@ public final class DatasetModelExtractor implements ModelExtractor {
         ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[numDimensions];
 
         for (int d = 0; d < numDimensions; d++) {
+            observer.onDimensionStart(d);
+
             float[] dimensionData = transposedData[d];
             stats[d] = DimensionStatistics.compute(d, dimensionData);
+
+            observer.onAccumulatorUpdate(d, stats[d]);
 
             ComponentModelFitter.FitResult result;
             if (forcedFitter != null) {
@@ -192,6 +198,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
             fitResults[d] = result;
             components[d] = result.model();
+
+            observer.onDimensionComplete(d, result.model());
         }
 
         long extractionTime = System.currentTimeMillis() - startTime;
@@ -232,8 +240,13 @@ public final class DatasetModelExtractor implements ModelExtractor {
         }
 
         for (int d = 0; d < numDimensions; d++) {
+            observer.onDimensionStart(d);
+
             float[] dimensionData = transposed[d];
             stats[d] = DimensionStatistics.compute(d, dimensionData);
+
+            // Notify observer of accumulated statistics
+            observer.onAccumulatorUpdate(d, stats[d]);
 
             ComponentModelFitter.FitResult result;
             if (forcedFitter != null) {
@@ -253,6 +266,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
             fitResults[d] = result;
             components[d] = result.model();
+
+            observer.onDimensionComplete(d, result.model());
         }
 
         if (collectAllFits && modelTypes != null) {
@@ -291,6 +306,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
         ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[numDimensions];
 
         for (int d = 0; d < numDimensions; d++) {
+            observer.onDimensionStart(d);
+
             if (progressCallback != null) {
                 double progress = (d + 1.0) / numDimensions;
                 progressCallback.onProgress(progress, String.format("Fitting dimension %d/%d", d + 1, numDimensions));
@@ -298,6 +315,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
             float[] dimensionData = transposed[d];
             stats[d] = DimensionStatistics.compute(d, dimensionData);
+
+            observer.onAccumulatorUpdate(d, stats[d]);
 
             ComponentModelFitter.FitResult result;
             if (forcedFitter != null) {
@@ -308,6 +327,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
             fitResults[d] = result;
             components[d] = result.model();
+
+            observer.onDimensionComplete(d, result.model());
         }
 
         long extractionTime = System.currentTimeMillis() - startTime;
@@ -409,5 +430,17 @@ public final class DatasetModelExtractor implements ModelExtractor {
      */
     public ComponentModelFitter getForcedFitter() {
         return forcedFitter;
+    }
+
+    @Override
+    public void setObserver(StateObserver observer) {
+        this.observer = (observer != null) ? observer : StateObserver.NOOP;
+    }
+
+    /**
+     * Returns the current state observer.
+     */
+    public StateObserver getObserver() {
+        return observer;
     }
 }

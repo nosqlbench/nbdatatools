@@ -38,6 +38,10 @@ import io.nosqlbench.vshapes.extract.ParallelDatasetModelExtractor;
 import io.nosqlbench.vshapes.extract.UniformModelFitter;
 import io.nosqlbench.vshapes.extract.VirtualThreadModelExtractor;
 import io.nosqlbench.vshapes.extract.DimensionFitReport;
+import io.nosqlbench.vshapes.checkpoint.CheckpointManager;
+import io.nosqlbench.vshapes.checkpoint.CheckpointState;
+import io.nosqlbench.vshapes.trace.NdjsonTraceObserver;
+import io.nosqlbench.vshapes.trace.StateObserver;
 import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
@@ -334,6 +338,31 @@ public class CMD_analyze_profile implements Callable<Integer> {
             "Only used when --multimodal is enabled.")
     private int maxModes = 3;
 
+    @CommandLine.Option(names = {"--checkpoint-dir"},
+        description = "Directory for checkpoint files. When specified, progress is saved " +
+            "periodically so that processing can be resumed if interrupted.")
+    private Path checkpointDir;
+
+    @CommandLine.Option(names = {"--checkpoint-interval"},
+        description = "Number of dimensions to process between checkpoints (default: 100). " +
+            "Lower values provide more frequent saves but may impact performance.")
+    private int checkpointInterval = 100;
+
+    @CommandLine.Option(names = {"--resume"},
+        description = "Resume from the latest checkpoint in the checkpoint directory. " +
+            "Requires --checkpoint-dir to be specified.")
+    private boolean resumeFromCheckpoint = false;
+
+    @CommandLine.Option(names = {"--trace-state"},
+        description = "Write extraction state trace to NDJSON file. Each line is a JSON object " +
+            "representing an event (dimension_start, accumulator_update, dimension_complete).")
+    private Path traceStatePath;
+
+    @CommandLine.Option(names = {"--max-memory"},
+        description = "Maximum memory to use for vector data in bytes (e.g., 4g, 2048m). " +
+            "Overrides auto-detection. Used to partition large datasets that exceed heap size.")
+    private String maxMemorySpec;
+
     @Override
     public Integer call() {
         try {
@@ -366,6 +395,41 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 return 1;
             }
 
+            // Validate checkpoint options
+            if (resumeFromCheckpoint && checkpointDir == null) {
+                logger.error("--resume requires --checkpoint-dir to be specified");
+                System.err.println("Error: --resume requires --checkpoint-dir to be specified");
+                return 1;
+            }
+
+            // Handle checkpoint resume
+            CheckpointState resumeState = null;
+            if (resumeFromCheckpoint && checkpointDir != null) {
+                try {
+                    Path latestCheckpoint = CheckpointManager.findLatestCheckpoint(checkpointDir);
+                    if (latestCheckpoint != null) {
+                        resumeState = CheckpointManager.load(latestCheckpoint);
+                        System.out.printf("Resuming from checkpoint: %s%n", latestCheckpoint.getFileName());
+                        System.out.printf("  Progress: %d/%d dimensions (%.1f%%)%n",
+                            resumeState.completedDimensions(),
+                            resumeState.totalDimensions(),
+                            resumeState.progressPercent());
+                    } else {
+                        System.out.println("No checkpoint found in directory, starting fresh.");
+                    }
+                } catch (CheckpointManager.CheckpointException e) {
+                    logger.error("Failed to load checkpoint: {}", e.getMessage());
+                    System.err.println("Error loading checkpoint: " + e.getMessage());
+                    return 1;
+                }
+            }
+
+            // Create checkpoint directory if needed
+            if (checkpointDir != null && !Files.exists(checkpointDir)) {
+                Files.createDirectories(checkpointDir);
+                System.out.printf("Created checkpoint directory: %s%n", checkpointDir);
+            }
+
             // Display compute mode capabilities
             printComputeCapabilities();
 
@@ -376,6 +440,10 @@ public class CMD_analyze_profile implements Callable<Integer> {
             System.out.printf("  Compute strategy: %s (%s)%n", computeStrategy, computeStrategy.getDescription());
             if (computeStrategy != ComputeStrategy.FAST) {
                 System.out.printf("  Model type: %s%n", modelType);
+            }
+            if (checkpointDir != null) {
+                System.out.printf("  Checkpoint directory: %s%n", checkpointDir);
+                System.out.printf("  Checkpoint interval: every %d dimensions%n", checkpointInterval);
             }
 
             VectorSpaceModel model;
@@ -504,6 +572,19 @@ public class CMD_analyze_profile implements Callable<Integer> {
             // Create extractor
             ModelExtractor extractor = createExtractor(dimensions);
 
+            // Set up state observer if trace file is specified
+            NdjsonTraceObserver traceObserver = null;
+            if (traceStatePath != null) {
+                try {
+                    traceObserver = new NdjsonTraceObserver(traceStatePath);
+                    extractor.setObserver(traceObserver);
+                    System.out.printf("  State tracing enabled: %s%n", traceStatePath);
+                } catch (java.io.IOException e) {
+                    logger.error("Failed to open trace file", e);
+                    System.err.println("Warning: Could not open trace file: " + e.getMessage());
+                }
+            }
+
             // Extract model with progress display
             long startTime = System.currentTimeMillis();
             System.out.printf("  Fitting %d dimensions...%n", dimensions);
@@ -529,8 +610,16 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 model = applyEmpiricalOverrides(model, data, dimensions);
             }
 
-            // Shutdown parallel extractors
+            // Shutdown parallel extractors and close trace observer
             shutdownExtractor(extractor);
+            if (traceObserver != null) {
+                try {
+                    traceObserver.close();
+                    System.out.printf("  State trace written to: %s%n", traceStatePath);
+                } catch (java.io.IOException e) {
+                    logger.warn("Failed to close trace file", e);
+                }
+            }
 
             // Print model summary
             printModelSummary(model);

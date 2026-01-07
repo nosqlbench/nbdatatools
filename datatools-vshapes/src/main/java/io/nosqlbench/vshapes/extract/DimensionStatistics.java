@@ -62,7 +62,8 @@ public final class DimensionStatistics {
     private final double max;
     private final double mean;
     private final double variance;
-    private final double stdDev;
+    /// Computed from variance - transient to avoid redundant JSON serialization.
+    private transient Double stdDev;
     private final double skewness;
     private final double kurtosis;
 
@@ -244,8 +245,12 @@ public final class DimensionStatistics {
 
     /**
      * Returns the population standard deviation.
+     * Computed lazily from variance if needed (e.g., after deserialization).
      */
     public double stdDev() {
+        if (stdDev == null) {
+            stdDev = Math.sqrt(variance);
+        }
         return stdDev;
     }
 
@@ -315,5 +320,107 @@ public final class DimensionStatistics {
         return String.format(
             "DimensionStatistics[dim=%d, n=%d, range=[%.4f, %.4f], mean=%.4f, stdDev=%.4f, skew=%.4f, kurt=%.4f]",
             dimension, count, min, max, mean, stdDev, skewness, kurtosis);
+    }
+
+    /**
+     * Combines two DimensionStatistics using parallel Welford's algorithm.
+     *
+     * <p>This operation is algebraically sound: combining statistics produces
+     * numerically equivalent results to computing statistics over all values at once.
+     *
+     * <h2>Algorithm</h2>
+     *
+     * <p>For statistics A and B with counts nA and nB:
+     * <pre>{@code
+     * nAB = nA + nB
+     * δ = meanB - meanA
+     * meanAB = meanA + δ * nB / nAB
+     *
+     * varianceAB = (nA * varA + nB * varB + δ² * nA * nB / nAB) / nAB
+     * }</pre>
+     *
+     * <h2>Algebraic Properties</h2>
+     *
+     * <ul>
+     *   <li><b>Associativity:</b> combine(A, combine(B, C)) == combine(combine(A, B), C)</li>
+     *   <li><b>Commutativity:</b> combine(A, B) ≈ combine(B, A) (up to floating-point precision)</li>
+     * </ul>
+     *
+     * @param other the statistics to combine with
+     * @return a new DimensionStatistics with combined values
+     * @throws IllegalArgumentException if dimensions don't match
+     */
+    public DimensionStatistics combine(DimensionStatistics other) {
+        if (this.dimension != other.dimension) {
+            throw new IllegalArgumentException(
+                "Cannot combine statistics for different dimensions: " +
+                this.dimension + " vs " + other.dimension);
+        }
+
+        if (this.count == 0) {
+            return other;
+        }
+        if (other.count == 0) {
+            return this;
+        }
+
+        long nA = this.count;
+        long nB = other.count;
+        long nAB = nA + nB;
+
+        double delta = other.mean - this.mean;
+        double delta2 = delta * delta;
+        double delta3 = delta2 * delta;
+        double delta4 = delta2 * delta2;
+
+        double nA_d = (double) nA;
+        double nB_d = (double) nB;
+        double nAB_d = (double) nAB;
+
+        // Combined mean
+        double combinedMean = this.mean + delta * nB_d / nAB_d;
+
+        // Combined variance (using M2 = variance * n)
+        double m2A = this.variance * nA_d;
+        double m2B = other.variance * nB_d;
+        double m2AB = m2A + m2B + delta2 * nA_d * nB_d / nAB_d;
+        double combinedVariance = m2AB / nAB_d;
+
+        // Combined skewness (using M3 = skewness * stdDev^3 * n)
+        double stdDevA = this.stdDev;
+        double stdDevB = other.stdDev;
+        double m3A = this.skewness * stdDevA * stdDevA * stdDevA * nA_d;
+        double m3B = other.skewness * stdDevB * stdDevB * stdDevB * nB_d;
+        double m3AB = m3A + m3B
+            + delta3 * nA_d * nB_d * (nA_d - nB_d) / (nAB_d * nAB_d)
+            + 3.0 * delta * (nA_d * m2B - nB_d * m2A) / nAB_d;
+
+        double combinedStdDev = Math.sqrt(combinedVariance);
+        double combinedSkewness = combinedStdDev > 0
+            ? (m3AB / nAB_d) / (combinedStdDev * combinedStdDev * combinedStdDev)
+            : 0;
+
+        // Combined kurtosis (using M4 = kurtosis * variance^2 * n)
+        double m4A = this.kurtosis * this.variance * this.variance * nA_d;
+        double m4B = other.kurtosis * other.variance * other.variance * nB_d;
+        double m4AB = m4A + m4B
+            + delta4 * nA_d * nB_d * (nA_d * nA_d - nA_d * nB_d + nB_d * nB_d) / (nAB_d * nAB_d * nAB_d)
+            + 6.0 * delta2 * (nA_d * nA_d * m2B + nB_d * nB_d * m2A) / (nAB_d * nAB_d)
+            + 4.0 * delta * (nA_d * m3B - nB_d * m3A) / nAB_d;
+
+        double combinedKurtosis = combinedVariance > 0
+            ? (m4AB / nAB_d) / (combinedVariance * combinedVariance)
+            : 3;
+
+        return new DimensionStatistics(
+            this.dimension,
+            nAB,
+            Math.min(this.min, other.min),
+            Math.max(this.max, other.max),
+            combinedMean,
+            combinedVariance,
+            combinedSkewness,
+            combinedKurtosis
+        );
     }
 }

@@ -17,6 +17,7 @@ package io.nosqlbench.vshapes.model;
  * under the License.
  */
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for Pearson distribution ScalarModel implementations.
  */
+@Tag("unit")
 public class PearsonScalarModelsTest {
 
     // ===== BetaScalarModel Tests (Type I/II) =====

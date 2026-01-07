@@ -23,11 +23,14 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
+import com.google.gson.internal.Streams;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 
 import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -171,9 +174,6 @@ public final class ScalarModelTypeAdapterFactory implements TypeAdapterFactory {
             return null;
         }
 
-        // Get the delegate adapter for the actual type
-        TypeAdapter<T> delegate = gson.getDelegateAdapter(this, type);
-
         return new TypeAdapter<T>() {
             @Override
             public void write(JsonWriter out, T value) throws IOException {
@@ -190,8 +190,21 @@ public final class ScalarModelTypeAdapterFactory implements TypeAdapterFactory {
                     typeName = model.getModelType();
                 }
 
-                // Serialize the object first to get its fields
-                JsonElement tree = delegate.toJsonTree(value);
+                // Get the delegate adapter for the ACTUAL concrete type
+                TypeAdapter<T> concreteDelegate = (TypeAdapter<T>) gson.getDelegateAdapter(
+                    ScalarModelTypeAdapterFactory.this,
+                    TypeToken.get(value.getClass())
+                );
+
+                // Serialize to intermediate string with lenient mode to handle Infinity/NaN
+                StringWriter stringWriter = new StringWriter();
+                JsonWriter lenientWriter = new JsonWriter(stringWriter);
+                lenientWriter.setLenient(true);
+                concreteDelegate.write(lenientWriter, value);
+                lenientWriter.close();
+
+                // Parse back to JsonElement
+                JsonElement tree = JsonParser.parseString(stringWriter.toString());
 
                 if (tree.isJsonObject()) {
                     JsonObject obj = tree.getAsJsonObject();
@@ -207,9 +220,23 @@ public final class ScalarModelTypeAdapterFactory implements TypeAdapterFactory {
                         }
                     }
 
-                    gson.toJson(result, out);
+                    // Write with lenient mode enabled for Infinity/NaN support
+                    boolean wasLenient = out.isLenient();
+                    out.setLenient(true);
+                    try {
+                        Streams.write(result, out);
+                    } finally {
+                        out.setLenient(wasLenient);
+                    }
                 } else {
-                    delegate.write(out, value);
+                    // Write directly with lenient mode
+                    boolean wasLenient = out.isLenient();
+                    out.setLenient(true);
+                    try {
+                        concreteDelegate.write(out, value);
+                    } finally {
+                        out.setLenient(wasLenient);
+                    }
                 }
             }
 
@@ -238,12 +265,16 @@ public final class ScalarModelTypeAdapterFactory implements TypeAdapterFactory {
                         "Known types: " + typeToClass.keySet());
                 }
 
-                // Deserialize using the concrete type's adapter
+                // Deserialize using the concrete type's adapter with lenient mode
+                // (fromJsonTree doesn't support lenient mode, so we serialize to string and re-parse)
                 TypeAdapter<? extends ScalarModel> targetAdapter =
                     gson.getDelegateAdapter(ScalarModelTypeAdapterFactory.this,
                                             TypeToken.get(targetClass));
 
-                return (T) targetAdapter.fromJsonTree(obj);
+                String jsonString = obj.toString();
+                JsonReader lenientReader = new JsonReader(new StringReader(jsonString));
+                lenientReader.setLenient(true);
+                return (T) targetAdapter.read(lenientReader);
             }
         };
     }

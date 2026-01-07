@@ -17,6 +17,7 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Tests for {@link FitTableFormatter} ensuring correct column alignment.
  */
+@Tag("unit")
 public class FitTableFormatterTest {
 
     @Test

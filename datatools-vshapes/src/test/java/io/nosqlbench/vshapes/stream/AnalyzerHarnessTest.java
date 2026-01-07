@@ -22,6 +22,7 @@ import io.nosqlbench.vshapes.analyzers.dimensionstatistics.DimensionStatisticsAn
 import io.nosqlbench.vshapes.analyzers.dimensionstatistics.DimensionStatisticsModel;
 import io.nosqlbench.vshapes.extract.DimensionStatistics;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -33,6 +34,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("unit")
+@Tag("integration")
 public class AnalyzerHarnessTest {
 
     @Test

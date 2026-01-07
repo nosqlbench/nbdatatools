@@ -25,68 +25,60 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Selects the best-fitting distribution type for each dimension.
- *
- * <h2>Purpose</h2>
- *
- * <p>Given observed data for a dimension, this class fits multiple distribution
- * types and selects the one with the best goodness-of-fit score. This allows
- * automatic model selection based on the actual data characteristics.
- *
- * <h2>Selection Algorithm</h2>
- *
- * <pre>{@code
- * For each dimension:
- *   1. Compute dimension statistics
- *   2. For each fitter in the candidate list:
- *      a. Fit the model to data
- *      b. Compute goodness-of-fit score
- *   3. Select the model with the lowest (best) score
- * }</pre>
- *
- * <h2>Default Fitters</h2>
- *
- * <p>By default, the selector considers:
- * <ol>
- *   <li>Normal distribution (Pearson Type 0)</li>
- *   <li>Uniform distribution</li>
- *   <li>Empirical (histogram) distribution</li>
- * </ol>
- *
- * <h2>Usage</h2>
- *
- * <pre>{@code
- * BestFitSelector selector = BestFitSelector.defaultSelector();
- * ScalarModel bestModel = selector.selectBest(dimensionData);
- *
- * // Or get all fit results for comparison
- * List<FitResult> allFits = selector.fitAll(dimensionData);
- * }</pre>
- *
- * @see ComponentModelFitter
- * @see DatasetModelExtractor
- */
+/// Selects the best-fitting distribution type for each dimension.
+///
+/// ## Purpose
+///
+/// Given observed data for a dimension, this class fits multiple distribution
+/// types and selects the one with the best goodness-of-fit score. This allows
+/// automatic model selection based on the actual data characteristics.
+///
+/// ## Selection Algorithm
+///
+/// ```
+/// For each dimension:
+///   1. Compute dimension statistics
+///   2. For each fitter in the candidate list:
+///      a. Fit the model to data
+///      b. Compute goodness-of-fit score
+///   3. Select the model with the lowest (best) score
+/// ```
+///
+/// ## Default Fitters
+///
+/// By default, the selector considers:
+/// 1. Normal distribution (Pearson Type 0)
+/// 2. Uniform distribution
+/// 3. Empirical (histogram) distribution
+///
+/// ## Usage
+///
+/// ```java
+/// BestFitSelector selector = BestFitSelector.defaultSelector();
+/// ScalarModel bestModel = selector.selectBest(dimensionData);
+///
+/// // Or get all fit results for comparison
+/// List<FitResult> allFits = selector.fitAll(dimensionData);
+/// ```
+///
+/// @see ComponentModelFitter
+/// @see DatasetModelExtractor
 public final class BestFitSelector {
 
     private final List<ComponentModelFitter> fitters;
     private final double empiricalPenalty;
 
-    /**
-     * Creates a selector with specified fitters.
-     *
-     * @param fitters the list of fitters to consider
-     */
+    /// Creates a selector with specified fitters.
+    ///
+    /// @param fitters the list of fitters to consider
     public BestFitSelector(List<ComponentModelFitter> fitters) {
         this(fitters, 0.1);
     }
 
-    /**
-     * Creates a selector with specified fitters and empirical penalty.
-     *
-     * @param fitters the list of fitters to consider
-     * @param empiricalPenalty additional penalty for empirical models (to prefer parametric)
-     */
+    /// Creates a selector with specified fitters and empirical penalty.
+    ///
+    /// @param fitters the list of fitters to consider
+    /// @param empiricalPenalty additional penalty for empirical models (to prefer parametric)
     public BestFitSelector(List<ComponentModelFitter> fitters, double empiricalPenalty) {
         Objects.requireNonNull(fitters, "fitters cannot be null");
         if (fitters.isEmpty()) {
@@ -96,11 +88,9 @@ public final class BestFitSelector {
         this.empiricalPenalty = empiricalPenalty;
     }
 
-    /**
-     * Creates a selector with the default set of fitters.
-     *
-     * @return a BestFitSelector with Normal, Uniform, and Empirical fitters
-     */
+    /// Creates a selector with the default set of fitters.
+    ///
+    /// @return a BestFitSelector with Normal, Uniform, and Empirical fitters
     public static BestFitSelector defaultSelector() {
         return new BestFitSelector(List.of(
             new NormalModelFitter(),
@@ -109,11 +99,9 @@ public final class BestFitSelector {
         ));
     }
 
-    /**
-     * Creates a selector with only parametric fitters (no empirical).
-     *
-     * @return a BestFitSelector with Normal and Uniform fitters only
-     */
+    /// Creates a selector with only parametric fitters (no empirical).
+    ///
+    /// @return a BestFitSelector with Normal and Uniform fitters only
     public static BestFitSelector parametricOnly() {
         return new BestFitSelector(List.of(
             new NormalModelFitter(),
@@ -121,32 +109,26 @@ public final class BestFitSelector {
         ));
     }
 
-    /**
-     * Creates a selector for bounded/unit interval data.
-     *
-     * <p>This selector is appropriate for data constrained to a finite range
-     * such as [-1, 1] or [0, 1]. It includes only distributions that are
-     * naturally bounded or have meaningful interpretation in bounded ranges:
-     *
-     * <ul>
-     *   <li><b>Normal</b> - Useful for central tendency, even when truncated</li>
-     *   <li><b>Beta</b> - Flexible bounded distribution, can model many shapes</li>
-     *   <li><b>Uniform</b> - Flat distribution across the range</li>
-     * </ul>
-     *
-     * <p>Heavy-tailed distributions (Gamma, StudentT, InverseGamma, BetaPrime)
-     * are excluded because:
-     * <ol>
-     *   <li>Their distinguishing features (heavy tails) are truncated in bounded ranges</li>
-     *   <li>They become indistinguishable from bounded distributions when constrained</li>
-     *   <li>Testing them on bounded data introduces artificial ambiguity</li>
-     * </ol>
-     *
-     * <p>Use {@link #fullPearsonSelector()} for unbounded or semi-bounded data
-     * where heavy-tail distributions are appropriate.
-     *
-     * @return a BestFitSelector with Normal, Beta, and Uniform fitters
-     */
+    /// Creates a selector for bounded/unit interval data.
+    ///
+    /// This selector is appropriate for data constrained to a finite range
+    /// such as [-1, 1] or [0, 1]. It includes only distributions that are
+    /// naturally bounded or have meaningful interpretation in bounded ranges:
+    ///
+    /// - **Normal** - Useful for central tendency, even when truncated
+    /// - **Beta** - Flexible bounded distribution, can model many shapes
+    /// - **Uniform** - Flat distribution across the range
+    ///
+    /// Heavy-tailed distributions (Gamma, StudentT, InverseGamma, BetaPrime)
+    /// are excluded because:
+    /// 1. Their distinguishing features (heavy tails) are truncated in bounded ranges
+    /// 2. They become indistinguishable from bounded distributions when constrained
+    /// 3. Testing them on bounded data introduces artificial ambiguity
+    ///
+    /// Use [#fullPearsonSelector()] for unbounded or semi-bounded data
+    /// where heavy-tail distributions are appropriate.
+    ///
+    /// @return a BestFitSelector with Normal, Beta, and Uniform fitters
     public static BestFitSelector boundedDataSelector() {
         return new BestFitSelector(List.of(
             new NormalModelFitter(),
@@ -155,14 +137,12 @@ public final class BestFitSelector {
         ));
     }
 
-    /**
-     * Creates a selector for bounded data with empirical fallback.
-     *
-     * <p>Same as {@link #boundedDataSelector()} but includes an empirical
-     * distribution fallback for cases where parametric models don't fit well.
-     *
-     * @return a BestFitSelector with Normal, Beta, Uniform, and Empirical fitters
-     */
+    /// Creates a selector for bounded data with empirical fallback.
+    ///
+    /// Same as [#boundedDataSelector()] but includes an empirical
+    /// distribution fallback for cases where parametric models don't fit well.
+    ///
+    /// @return a BestFitSelector with Normal, Beta, Uniform, and Empirical fitters
     public static BestFitSelector boundedDataWithEmpirical() {
         return new BestFitSelector(List.of(
             new NormalModelFitter(),
@@ -172,22 +152,18 @@ public final class BestFitSelector {
         ));
     }
 
-    /**
-     * Creates a Pearson distribution system selector.
-     *
-     * <p>Includes fitters for:
-     * <ul>
-     *   <li>Normal (Type 0)</li>
-     *   <li>Beta (Type I/II)</li>
-     *   <li>Gamma (Type III)</li>
-     *   <li>Student's t (Type VII)</li>
-     *   <li>Uniform (special case)</li>
-     * </ul>
-     *
-     * <p>Note: Types IV, V, and VI are less common and can be added via custom selector.
-     *
-     * @return a BestFitSelector with Pearson distribution fitters
-     */
+    /// Creates a Pearson distribution system selector.
+    ///
+    /// Includes fitters for:
+    /// - Normal (Type 0)
+    /// - Beta (Type I/II)
+    /// - Gamma (Type III)
+    /// - Student's t (Type VII)
+    /// - Uniform (special case)
+    ///
+    /// Note: Types IV, V, and VI are less common and can be added via custom selector.
+    ///
+    /// @return a BestFitSelector with Pearson distribution fitters
     public static BestFitSelector pearsonSelector() {
         return new BestFitSelector(List.of(
             new NormalModelFitter(),
@@ -198,11 +174,9 @@ public final class BestFitSelector {
         ));
     }
 
-    /**
-     * Creates a full Pearson selector including empirical fallback.
-     *
-     * @return a BestFitSelector with all Pearson fitters plus empirical
-     */
+    /// Creates a full Pearson selector including empirical fallback.
+    ///
+    /// @return a BestFitSelector with all Pearson fitters plus empirical
     public static BestFitSelector pearsonWithEmpirical() {
         return new BestFitSelector(List.of(
             new NormalModelFitter(),
@@ -214,23 +188,19 @@ public final class BestFitSelector {
         ));
     }
 
-    /**
-     * Creates a comprehensive Pearson selector with all distribution types.
-     *
-     * <p>Includes fitters for all Pearson types:
-     * <ul>
-     *   <li>Normal (Type 0)</li>
-     *   <li>Beta (Type I/II)</li>
-     *   <li>Gamma (Type III)</li>
-     *   <li>Pearson IV (Type IV)</li>
-     *   <li>Inverse Gamma (Type V)</li>
-     *   <li>Beta Prime (Type VI)</li>
-     *   <li>Student's t (Type VII)</li>
-     *   <li>Uniform (special case)</li>
-     * </ul>
-     *
-     * @return a BestFitSelector with all Pearson distribution fitters
-     */
+    /// Creates a comprehensive Pearson selector with all distribution types.
+    ///
+    /// Includes fitters for all Pearson types:
+    /// - Normal (Type 0)
+    /// - Beta (Type I/II)
+    /// - Gamma (Type III)
+    /// - Pearson IV (Type IV)
+    /// - Inverse Gamma (Type V)
+    /// - Beta Prime (Type VI)
+    /// - Student's t (Type VII)
+    /// - Uniform (special case)
+    ///
+    /// @return a BestFitSelector with all Pearson distribution fitters
     public static BestFitSelector fullPearsonSelector() {
         return new BestFitSelector(List.of(
             new NormalModelFitter(),
@@ -244,27 +214,23 @@ public final class BestFitSelector {
         ));
     }
 
-    /**
-     * Creates a selector for bounded data with multimodal detection.
-     *
-     * <p>This selector first attempts to detect multi-modal distributions
-     * and fit composite (mixture) models. If data is unimodal, it falls
-     * back to standard bounded distribution fitting.
-     *
-     * <p>Includes fitters for:
-     * <ul>
-     *   <li>Normal (truncated)</li>
-     *   <li>Beta</li>
-     *   <li>Uniform</li>
-     *   <li>Composite (mixture of above) - NEW</li>
-     *   <li>Empirical (fallback)</li>
-     * </ul>
-     *
-     * <p>Composite models are preferred over empirical when data is multimodal,
-     * as they provide a more interpretable parametric representation.
-     *
-     * @return a BestFitSelector with multimodal awareness
-     */
+    /// Creates a selector for bounded data with multimodal detection.
+    ///
+    /// This selector first attempts to detect multi-modal distributions
+    /// and fit composite (mixture) models. If data is unimodal, it falls
+    /// back to standard bounded distribution fitting.
+    ///
+    /// Includes fitters for:
+    /// - Normal (truncated)
+    /// - Beta
+    /// - Uniform
+    /// - Composite (mixture of above) - NEW
+    /// - Empirical (fallback)
+    ///
+    /// Composite models are preferred over empirical when data is multimodal,
+    /// as they provide a more interpretable parametric representation.
+    ///
+    /// @return a BestFitSelector with multimodal awareness
     public static BestFitSelector multimodalAwareSelector() {
         // Component selector for fitting each mode (no composite or empirical to avoid recursion)
         BestFitSelector componentSelector = boundedDataSelector();
@@ -280,14 +246,12 @@ public final class BestFitSelector {
         );
     }
 
-    /**
-     * Creates a Pearson selector with multimodal detection.
-     *
-     * <p>Combines the full Pearson distribution family with multimodal
-     * detection. Each mode can be fit with any Pearson distribution type.
-     *
-     * @return a BestFitSelector with full Pearson family and multimodal support
-     */
+    /// Creates a Pearson selector with multimodal detection.
+    ///
+    /// Combines the full Pearson distribution family with multimodal
+    /// detection. Each mode can be fit with any Pearson distribution type.
+    ///
+    /// @return a BestFitSelector with full Pearson family and multimodal support
     public static BestFitSelector pearsonMultimodalSelector() {
         // Component selector using full Pearson family for each mode
         BestFitSelector componentSelector = pearsonSelector();
@@ -305,47 +269,39 @@ public final class BestFitSelector {
         );
     }
 
-    /**
-     * Classifies the distribution type using the Pearson criterion.
-     *
-     * <p>This method uses skewness and kurtosis from the data to determine
-     * the most appropriate Pearson distribution type.
-     *
-     * @param values the observed values
-     * @return the classified PearsonType
-     */
+    /// Classifies the distribution type using the Pearson criterion.
+    ///
+    /// This method uses skewness and kurtosis from the data to determine
+    /// the most appropriate Pearson distribution type.
+    ///
+    /// @param values the observed values
+    /// @return the classified PearsonType
     public static PearsonType classifyPearsonType(float[] values) {
         DimensionStatistics stats = DimensionStatistics.compute(0, values);
         return PearsonClassifier.classify(stats.skewness(), stats.kurtosis());
     }
 
-    /**
-     * Gets detailed Pearson classification result.
-     *
-     * @param values the observed values
-     * @return the classification result with β₁, β₂, and κ values
-     */
+    /// Gets detailed Pearson classification result.
+    ///
+    /// @param values the observed values
+    /// @return the classification result with β₁, β₂, and κ values
     public static PearsonClassifier.ClassificationResult classifyPearsonDetailed(float[] values) {
         DimensionStatistics stats = DimensionStatistics.compute(0, values);
         return PearsonClassifier.classifyDetailed(stats.skewness(), stats.kurtosis());
     }
 
-    /**
-     * Selects the best-fitting model for the given data.
-     *
-     * @param values the observed values for one dimension
-     * @return the best-fitting component model
-     */
+    /// Selects the best-fitting model for the given data.
+    ///
+    /// @param values the observed values for one dimension
+    /// @return the best-fitting component model
     public ScalarModel selectBest(float[] values) {
         return selectBestResult(values).model();
     }
 
-    /**
-     * Selects the best-fitting model and returns the full result.
-     *
-     * @param values the observed values for one dimension
-     * @return the FitResult for the best model
-     */
+    /// Selects the best-fitting model and returns the full result.
+    ///
+    /// @param values the observed values for one dimension
+    /// @return the FitResult for the best model
     public FitResult selectBestResult(float[] values) {
         Objects.requireNonNull(values, "values cannot be null");
         if (values.length == 0) {
@@ -356,13 +312,11 @@ public final class BestFitSelector {
         return selectBestResult(stats, values);
     }
 
-    /**
-     * Selects the best-fitting model using pre-computed statistics.
-     *
-     * @param stats pre-computed dimension statistics
-     * @param values the observed values
-     * @return the FitResult for the best model
-     */
+    /// Selects the best-fitting model using pre-computed statistics.
+    ///
+    /// @param stats pre-computed dimension statistics
+    /// @param values the observed values
+    /// @return the FitResult for the best model
     public FitResult selectBestResult(DimensionStatistics stats, float[] values) {
         List<FitResult> results = fitAll(stats, values);
 
@@ -386,24 +340,20 @@ public final class BestFitSelector {
         return best;
     }
 
-    /**
-     * Fits all candidate models and returns all results.
-     *
-     * @param values the observed values for one dimension
-     * @return list of FitResults from all fitters
-     */
+    /// Fits all candidate models and returns all results.
+    ///
+    /// @param values the observed values for one dimension
+    /// @return list of FitResults from all fitters
     public List<FitResult> fitAll(float[] values) {
         DimensionStatistics stats = DimensionStatistics.compute(0, values);
         return fitAll(stats, values);
     }
 
-    /**
-     * Fits all candidate models using pre-computed statistics.
-     *
-     * @param stats pre-computed dimension statistics
-     * @param values the observed values
-     * @return list of FitResults from all fitters
-     */
+    /// Fits all candidate models using pre-computed statistics.
+    ///
+    /// @param stats pre-computed dimension statistics
+    /// @param values the observed values
+    /// @return list of FitResults from all fitters
     public List<FitResult> fitAll(DimensionStatistics stats, float[] values) {
         List<FitResult> results = new ArrayList<>();
 
@@ -419,16 +369,14 @@ public final class BestFitSelector {
         return results;
     }
 
-    /**
-     * Selects the best model while also returning all fit scores.
-     *
-     * <p>This method is useful when you need both the best model AND
-     * all fit scores for comparison/reporting (e.g., fit quality tables).
-     *
-     * @param stats pre-computed dimension statistics
-     * @param values the observed values
-     * @return result containing best fit, all scores, and best index
-     */
+    /// Selects the best model while also returning all fit scores.
+    ///
+    /// This method is useful when you need both the best model AND
+    /// all fit scores for comparison/reporting (e.g., fit quality tables).
+    ///
+    /// @param stats pre-computed dimension statistics
+    /// @param values the observed values
+    /// @return result containing best fit, all scores, and best index
     public SelectionWithAllFits selectBestWithAllFits(DimensionStatistics stats, float[] values) {
         double[] allScores = new double[fitters.size()];
         int bestIndex = -1;
@@ -459,32 +407,26 @@ public final class BestFitSelector {
         return new SelectionWithAllFits(bestResult, allScores, bestIndex);
     }
 
-    /**
-     * Result containing the best fit selection along with all fit scores.
-     *
-     * @param bestFit the best-fitting model result
-     * @param allScores goodness-of-fit scores for all fitters (indexed by fitter order)
-     * @param bestIndex index of the best fitter in the fitters list
-     */
+    /// Result containing the best fit selection along with all fit scores.
+    ///
+    /// @param bestFit the best-fitting model result
+    /// @param allScores goodness-of-fit scores for all fitters (indexed by fitter order)
+    /// @param bestIndex index of the best fitter in the fitters list
     public record SelectionWithAllFits(
         FitResult bestFit,
         double[] allScores,
         int bestIndex
     ) {}
 
-    /**
-     * Returns the list of fitters used by this selector.
-     */
+    /// Returns the list of fitters used by this selector.
     public List<ComponentModelFitter> getFitters() {
         return new ArrayList<>(fitters);
     }
 
-    /**
-     * Computes a summary of fit results for debugging/analysis.
-     *
-     * @param values the observed values
-     * @return a formatted string describing all fit results
-     */
+    /// Computes a summary of fit results for debugging/analysis.
+    ///
+    /// @param values the observed values
+    /// @return a formatted string describing all fit results
     public String summarizeFits(float[] values) {
         List<FitResult> results = fitAll(values);
         StringBuilder sb = new StringBuilder();

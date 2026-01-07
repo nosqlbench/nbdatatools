@@ -143,7 +143,8 @@ import java.util.concurrent.locks.ReentrantLock;
 /// @see DimensionStatistics
 final class OnlineAccumulator {
 
-    private final ReentrantLock lock = new ReentrantLock();
+    /// Lock is transient - not serialized. Re-created on first access after deserialization.
+    private transient ReentrantLock lock;
     private final float[] reservoir;
     private final int reservoirSize;
 
@@ -163,6 +164,19 @@ final class OnlineAccumulator {
     OnlineAccumulator(int reservoirSize) {
         this.reservoirSize = reservoirSize;
         this.reservoir = new float[reservoirSize];
+        this.lock = new ReentrantLock();
+    }
+
+    /// Returns the lock, lazily initializing if necessary (e.g., after deserialization).
+    private ReentrantLock getLock() {
+        if (lock == null) {
+            synchronized (this) {
+                if (lock == null) {
+                    lock = new ReentrantLock();
+                }
+            }
+        }
+        return lock;
     }
 
     /// Accepts a new value into the accumulator.
@@ -172,7 +186,7 @@ final class OnlineAccumulator {
     ///
     /// @param value the value to accumulate
     void accept(float value) {
-        lock.lock();
+        getLock().lock();
         try {
             count++;
             double delta = value - mean;
@@ -202,7 +216,7 @@ final class OnlineAccumulator {
             }
             reservoirCount++;
         } finally {
-            lock.unlock();
+            getLock().unlock();
         }
     }
 
@@ -211,7 +225,7 @@ final class OnlineAccumulator {
     /// @param dimension the dimension index for the statistics
     /// @return computed statistics for the dimension
     DimensionStatistics toStatistics(int dimension) {
-        lock.lock();
+        getLock().lock();
         try {
             if (count == 0) {
                 return new DimensionStatistics(dimension, 0, 0, 0, 0, 0, 0, 3);
@@ -230,7 +244,7 @@ final class OnlineAccumulator {
 
             return new DimensionStatistics(dimension, count, min, max, mean, variance, skewness, kurtosis);
         } finally {
-            lock.unlock();
+            getLock().unlock();
         }
     }
 
@@ -239,14 +253,124 @@ final class OnlineAccumulator {
     /// @return array of sampled values (may be smaller than reservoir size
     ///         if fewer values were seen)
     float[] getSamples() {
-        lock.lock();
+        getLock().lock();
         try {
             int size = (int) Math.min(reservoirCount, reservoirSize);
             float[] result = new float[size];
             System.arraycopy(reservoir, 0, result, 0, size);
             return result;
         } finally {
-            lock.unlock();
+            getLock().unlock();
         }
+    }
+
+    /// Returns the current count of accumulated values.
+    long getCount() {
+        getLock().lock();
+        try {
+            return count;
+        } finally {
+            getLock().unlock();
+        }
+    }
+
+    /// Combines this accumulator with another using parallel Welford's algorithm.
+    ///
+    /// This operation is algebraically sound: combining accumulators produces
+    /// numerically equivalent results to processing all values in a single accumulator.
+    ///
+    /// For the reservoir, samples are drawn from both reservoirs with probability
+    /// proportional to their original counts, maintaining approximately uniform sampling.
+    ///
+    /// # Algebraic Properties
+    ///
+    /// - **Associativity:** combine(A, combine(B, C)) == combine(combine(A, B), C)
+    /// - **Mean/Variance:** Exact combination using Welford's parallel formulas
+    /// - **Reservoir:** Approximately uniform sampling from combined population
+    ///
+    /// @param other the accumulator to combine with
+    /// @return a new accumulator with combined statistics and merged reservoir
+    OnlineAccumulator combine(OnlineAccumulator other) {
+        getLock().lock();
+        try {
+            other.getLock().lock();
+            try {
+                OnlineAccumulator result = new OnlineAccumulator(this.reservoirSize);
+
+                if (this.count == 0) {
+                    copyTo(other, result);
+                    return result;
+                }
+
+                if (other.count == 0) {
+                    copyTo(this, result);
+                    return result;
+                }
+
+                long nA = this.count;
+                long nB = other.count;
+                long nAB = nA + nB;
+
+                double delta = other.mean - this.mean;
+                double delta2 = delta * delta;
+                double delta3 = delta2 * delta;
+                double delta4 = delta2 * delta2;
+
+                double nA_d = (double) nA;
+                double nB_d = (double) nB;
+                double nAB_d = (double) nAB;
+
+                // Combined statistics
+                result.mean = this.mean + delta * nB_d / nAB_d;
+                result.count = nAB;
+                result.m2 = this.m2 + other.m2 + delta2 * nA_d * nB_d / nAB_d;
+                result.m3 = this.m3 + other.m3
+                    + delta3 * nA_d * nB_d * (nA_d - nB_d) / (nAB_d * nAB_d)
+                    + 3.0 * delta * (nA_d * other.m2 - nB_d * this.m2) / nAB_d;
+                result.m4 = this.m4 + other.m4
+                    + delta4 * nA_d * nB_d * (nA_d * nA_d - nA_d * nB_d + nB_d * nB_d) / (nAB_d * nAB_d * nAB_d)
+                    + 6.0 * delta2 * (nA_d * nA_d * other.m2 + nB_d * nB_d * this.m2) / (nAB_d * nAB_d)
+                    + 4.0 * delta * (nA_d * other.m3 - nB_d * this.m3) / nAB_d;
+                result.min = Math.min(this.min, other.min);
+                result.max = Math.max(this.max, other.max);
+
+                // Merge reservoirs with weighted sampling
+                int sizeA = (int) Math.min(this.reservoirCount, this.reservoirSize);
+                int sizeB = (int) Math.min(other.reservoirCount, other.reservoirSize);
+                double pA = (double) nA / nAB;
+
+                int resultSize = Math.min(this.reservoirSize, sizeA + sizeB);
+                result.reservoirCount = this.reservoirCount + other.reservoirCount;
+
+                for (int i = 0; i < resultSize; i++) {
+                    if (sizeA > 0 && (sizeB == 0 || ThreadLocalRandom.current().nextDouble() < pA)) {
+                        int idx = ThreadLocalRandom.current().nextInt(sizeA);
+                        result.reservoir[i] = this.reservoir[idx];
+                    } else if (sizeB > 0) {
+                        int idx = ThreadLocalRandom.current().nextInt(sizeB);
+                        result.reservoir[i] = other.reservoir[idx];
+                    }
+                }
+
+                return result;
+            } finally {
+                other.getLock().unlock();
+            }
+        } finally {
+            getLock().unlock();
+        }
+    }
+
+    private void copyTo(OnlineAccumulator source, OnlineAccumulator dest) {
+        dest.count = source.count;
+        dest.mean = source.mean;
+        dest.m2 = source.m2;
+        dest.m3 = source.m3;
+        dest.m4 = source.m4;
+        dest.min = source.min;
+        dest.max = source.max;
+        dest.reservoirCount = source.reservoirCount;
+        int size = (int) Math.min(source.reservoirCount, source.reservoirSize);
+        System.arraycopy(source.reservoir, 0, dest.reservoir, 0, size);
     }
 }

@@ -17,12 +17,16 @@ package io.nosqlbench.vshapes.stream;
  * under the License.
  */
 
+import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.vshapes.VectorSpace;
+import io.nosqlbench.vshapes.io.VectorFileIOVectorSpace;
 
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * DataSource implementation backed by a {@link VectorSpace}.
@@ -70,6 +74,38 @@ public final class VectorSpaceDataSource implements DataSource {
             vectorSpace.getDimension(),
             additionalParameters
         );
+    }
+
+    /**
+     * Creates a data source from a vector file using VectorFileIO.
+     *
+     * <p>This factory method uses VectorFileIO for efficient file-backed access,
+     * supporting memory-mapped I/O when available. The returned DataSource
+     * should be closed when no longer needed to release file handles.
+     *
+     * @param path the path to the vector file
+     * @param fileType the file type/encoding
+     * @return a new VectorSpaceDataSource backed by VectorFileIO
+     * @throws IllegalArgumentException if the file cannot be opened
+     */
+    public static VectorSpaceDataSource fromFile(Path path, FileType fileType) {
+        VectorFileIOVectorSpace vectorSpace = VectorFileIOVectorSpace.open(path, fileType);
+        return new VectorSpaceDataSource(vectorSpace);
+    }
+
+    /**
+     * Attempts to create a data source from a vector file using VectorFileIO.
+     *
+     * <p>This method provides graceful fallback support. If VectorFileIO services
+     * are not available, returns empty instead of throwing.
+     *
+     * @param path the path to the vector file
+     * @param fileType the file type/encoding
+     * @return an Optional containing the DataSource, or empty if unavailable
+     */
+    public static Optional<VectorSpaceDataSource> tryFromFile(Path path, FileType fileType) {
+        return VectorFileIOVectorSpace.tryOpen(path, fileType)
+            .map(VectorSpaceDataSource::new);
     }
 
     @Override

@@ -17,12 +17,14 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("unit")
 public class DimensionStatisticsTest {
 
     @Test

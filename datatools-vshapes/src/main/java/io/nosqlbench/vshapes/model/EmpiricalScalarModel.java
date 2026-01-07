@@ -77,7 +77,8 @@ public class EmpiricalScalarModel implements ScalarModel {
     @SerializedName("cdf")
     private final double[] cdf;           // binCount + 1 cumulative probabilities
 
-    private final transient int binCount;
+    /// Computed from binEdges.length - transient to avoid redundant JSON serialization.
+    private transient Integer binCount;
 
     @SerializedName("min")
     private final double min;
@@ -235,9 +236,10 @@ public class EmpiricalScalarModel implements ScalarModel {
         }
 
         // Find the bin
-        double binWidth = (max - min) / binCount;
+        int count = getBinCount();
+        double binWidth = (max - min) / count;
         int bin = (int) ((x - min) / binWidth);
-        if (bin >= binCount) bin = binCount - 1;
+        if (bin >= count) bin = count - 1;
         if (bin < 0) bin = 0;
 
         // PDF is (cdf[bin+1] - cdf[bin]) / binWidth
@@ -254,9 +256,10 @@ public class EmpiricalScalarModel implements ScalarModel {
         if (x >= max) return 1.0;
 
         // Find the bin
-        double binWidth = (max - min) / binCount;
+        int count = getBinCount();
+        double binWidth = (max - min) / count;
         int bin = (int) ((x - min) / binWidth);
-        if (bin >= binCount) bin = binCount - 1;
+        if (bin >= count) bin = count - 1;
         if (bin < 0) bin = 0;
 
         // Linear interpolation within the bin
@@ -269,9 +272,13 @@ public class EmpiricalScalarModel implements ScalarModel {
 
     /**
      * Returns the number of bins in the histogram.
+     * Computed lazily from binEdges if needed (e.g., after deserialization).
      * @return the bin count
      */
     public int getBinCount() {
+        if (binCount == null) {
+            binCount = binEdges.length - 1;
+        }
         return binCount;
     }
 
@@ -325,6 +332,6 @@ public class EmpiricalScalarModel implements ScalarModel {
 
     @Override
     public String toString() {
-        return "EmpiricalScalarModel[bins=" + binCount + ", range=[" + min + ", " + max + "]]";
+        return "EmpiricalScalarModel[bins=" + getBinCount() + ", range=[" + min + ", " + max + "]]";
     }
 }

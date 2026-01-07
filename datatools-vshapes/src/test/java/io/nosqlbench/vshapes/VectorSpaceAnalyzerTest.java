@@ -20,6 +20,7 @@ package io.nosqlbench.vshapes;
 import io.nosqlbench.vshapes.measures.HubnessMeasure;
 import io.nosqlbench.vshapes.measures.LIDMeasure;
 import io.nosqlbench.vshapes.measures.MarginMeasure;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -27,6 +28,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("unit")
 public class VectorSpaceAnalyzerTest {
 
     @TempDir

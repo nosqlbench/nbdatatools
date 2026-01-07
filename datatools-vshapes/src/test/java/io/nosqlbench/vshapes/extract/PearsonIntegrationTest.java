@@ -18,6 +18,7 @@ package io.nosqlbench.vshapes.extract;
  */
 
 import io.nosqlbench.vshapes.model.*;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Integration tests for the Pearson distribution system.
  * Tests that data generated from known distributions is correctly classified.
  */
+@Tag("integration")
 public class PearsonIntegrationTest {
 
     private static final int SAMPLE_SIZE = 10000;

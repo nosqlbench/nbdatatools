@@ -17,6 +17,7 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Tests for {@link DimensionFitReport}.
  */
+@Tag("unit")
 public class DimensionFitReportTest {
 
     @Test

@@ -18,6 +18,7 @@ package io.nosqlbench.vshapes.extract;
  */
 
 import io.nosqlbench.vshapes.model.*;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -35,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>Parameter estimation is accurate for known distributions</li>
  * </ol>
  */
+@Tag("accuracy")
+@Tag("unit")
 public class FitterNumericalAccuracyTest {
 
     private static final int SAMPLE_SIZE = 10000;

@@ -17,6 +17,7 @@ package io.nosqlbench.vshapes;
  * under the License.
  */
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Tests for the ComputeMode detection utility.
  */
+@Tag("unit")
 public class ComputeModeTest {
 
     @Test

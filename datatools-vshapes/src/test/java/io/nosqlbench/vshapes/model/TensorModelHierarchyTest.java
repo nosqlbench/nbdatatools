@@ -17,6 +17,7 @@ package io.nosqlbench.vshapes.model;
  * under the License.
  */
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>New *ScalarModel classes work correctly</li>
  * </ul>
  */
+@Tag("unit")
 class TensorModelHierarchyTest {
 
     // ===== ScalarModel Interface Tests =====
