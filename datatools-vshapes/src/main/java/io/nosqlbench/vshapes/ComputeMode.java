@@ -156,6 +156,9 @@ public final class ComputeMode {
     private static final int javaVersion;
     private static final int preferredVectorBits;
 
+    // Error message if Panama should be available but isn't enabled
+    private static final String panamaNotEnabledError;
+
     // The effective mode for this JVM instance
     private static final Mode effectiveMode;
 
@@ -182,19 +185,43 @@ public final class ComputeMode {
         // Check Panama availability
         boolean panama = false;
         int vectorBits = 0;
+        String panamaError = null;
         try {
             Class<?> floatVectorClass = Class.forName("jdk.incubator.vector.FloatVector");
+            // Also load VectorSpecies interface for proper method resolution
+            Class<?> vectorSpeciesClass = Class.forName("jdk.incubator.vector.VectorSpecies");
             if (javaVersion >= 25) {
                 // Get preferred species to determine actual vector width
-                Object speciesPreferred = floatVectorClass.getMethod("SPECIES_PREFERRED").invoke(null);
-                vectorBits = (int) speciesPreferred.getClass().getMethod("vectorBitSize").invoke(speciesPreferred);
+                // SPECIES_PREFERRED is a static final field, not a method
+                Object speciesPreferred = floatVectorClass.getField("SPECIES_PREFERRED").get(null);
+                // Call vectorBitSize() on the public VectorSpecies interface, not the internal implementation
+                vectorBits = (int) vectorSpeciesClass.getMethod("vectorBitSize").invoke(speciesPreferred);
                 panama = true;
             }
         } catch (Exception e) {
-            // Panama not available
+            // Panama not available - check if it SHOULD be available
+            if (javaVersion >= 25 && cpuFlagsInitialized && (hasAVX || hasAVX2 || hasAVX512F)) {
+                // Java supports Panama and CPU has AVX, but Panama module not enabled
+                String bestAvx = hasAVX512F ? "AVX-512F" : (hasAVX2 ? "AVX2" : "AVX");
+                panamaError = String.format(
+                    "Panama Vector API not enabled but should be available!%n%n" +
+                    "Your system supports SIMD acceleration:%n" +
+                    "  • Java version: %d (Panama supported)%n" +
+                    "  • CPU SIMD capability: %s%n%n" +
+                    "To enable Panama Vector API, add this JVM option:%n" +
+                    "  --add-modules jdk.incubator.vector%n%n" +
+                    "Example:%n" +
+                    "  java --add-modules jdk.incubator.vector -jar your-app.jar%n%n" +
+                    "Or set JAVA_TOOL_OPTIONS environment variable:%n" +
+                    "  export JAVA_TOOL_OPTIONS=\"--add-modules jdk.incubator.vector\"%n%n" +
+                    "Without Panama, vector operations will use scalar fallback (~%dx slower).",
+                    javaVersion, bestAvx, hasAVX512F ? 16 : (hasAVX2 ? 8 : 4)
+                );
+            }
         }
         panamaAvailable = panama;
         preferredVectorBits = vectorBits;
+        panamaNotEnabledError = panamaError;
 
         // Determine effective mode
         effectiveMode = determineEffectiveMode();
@@ -260,6 +287,46 @@ public final class ComputeMode {
     /// @return true if Panama Vector API can be used
     public static boolean isPanamaAvailable() {
         return panamaAvailable;
+    }
+
+    /// Validates that Panama is enabled when it should be available.
+    ///
+    /// This method checks if:
+    /// 1. CPU supports AVX instructions (detected from /proc/cpuinfo)
+    /// 2. Java version is 25+ (supports Panama Vector API)
+    /// 3. But Panama is not actually enabled
+    ///
+    /// If all conditions are met, this indicates the user forgot to add the
+    /// required JVM option to enable the incubator module.
+    ///
+    /// This validation can be bypassed by setting the system property:
+    /// {@code -Dcompute.panama.validation.skip=true}
+    ///
+    /// @throws IllegalStateException if Panama should be available but isn't enabled
+    public static void validatePanamaEnabled() {
+        // Allow bypassing validation via system property (for testing or explicit scalar mode)
+        if (Boolean.getBoolean("compute.panama.validation.skip")) {
+            return;
+        }
+        if (panamaNotEnabledError != null) {
+            throw new IllegalStateException(panamaNotEnabledError);
+        }
+    }
+
+    /// Returns whether Panama should be enabled but isn't.
+    ///
+    /// Use this for warning messages instead of throwing an error.
+    ///
+    /// @return true if Panama could be enabled but the JVM option is missing
+    public static boolean isPanamaMisconfigured() {
+        return panamaNotEnabledError != null;
+    }
+
+    /// Returns the error message explaining how to enable Panama, or null if not applicable.
+    ///
+    /// @return error message or null if Panama is properly configured (either enabled or not needed)
+    public static String getPanamaMisconfigurationMessage() {
+        return panamaNotEnabledError;
     }
 
     /// Returns whether AVX-512F (Foundation) instructions are available on this CPU.

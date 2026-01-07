@@ -126,14 +126,22 @@ public final class EmpiricalModelFitter implements ComponentModelFitter {
      *
      * <p>Uses Sturges' rule as a baseline, but clamps to reasonable bounds
      * to avoid too few or too many bins.
+     *
+     * <p>Bin count constraints:
+     * <ul>
+     *   <li>Minimum: 10 bins (ensures minimal fidelity)</li>
+     *   <li>Maximum: 100 bins (limits model complexity and JSON size)</li>
+     * </ul>
      */
     private int computeOptimalBinCount(int n) {
         // Sturges' rule: ceil(log2(n)) + 1
         int sturges = (int) Math.ceil(Math.log(n) / Math.log(2)) + 1;
 
-        // Clamp to reasonable range
+        // Clamp to reasonable range [10, 100]
+        // - Minimum 10 bins ensures minimal fidelity
+        // - Maximum 100 bins limits complexity while maintaining accuracy
         int minBins = 10;
-        int maxBins = Math.min(1000, n / 10);  // At least 10 samples per bin
+        int maxBins = 100;
 
         return Math.max(minBins, Math.min(maxBins, sturges));
     }

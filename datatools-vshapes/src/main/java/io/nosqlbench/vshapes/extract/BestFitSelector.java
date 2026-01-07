@@ -122,6 +122,57 @@ public final class BestFitSelector {
     }
 
     /**
+     * Creates a selector for bounded/unit interval data.
+     *
+     * <p>This selector is appropriate for data constrained to a finite range
+     * such as [-1, 1] or [0, 1]. It includes only distributions that are
+     * naturally bounded or have meaningful interpretation in bounded ranges:
+     *
+     * <ul>
+     *   <li><b>Normal</b> - Useful for central tendency, even when truncated</li>
+     *   <li><b>Beta</b> - Flexible bounded distribution, can model many shapes</li>
+     *   <li><b>Uniform</b> - Flat distribution across the range</li>
+     * </ul>
+     *
+     * <p>Heavy-tailed distributions (Gamma, StudentT, InverseGamma, BetaPrime)
+     * are excluded because:
+     * <ol>
+     *   <li>Their distinguishing features (heavy tails) are truncated in bounded ranges</li>
+     *   <li>They become indistinguishable from bounded distributions when constrained</li>
+     *   <li>Testing them on bounded data introduces artificial ambiguity</li>
+     * </ol>
+     *
+     * <p>Use {@link #fullPearsonSelector()} for unbounded or semi-bounded data
+     * where heavy-tail distributions are appropriate.
+     *
+     * @return a BestFitSelector with Normal, Beta, and Uniform fitters
+     */
+    public static BestFitSelector boundedDataSelector() {
+        return new BestFitSelector(List.of(
+            new NormalModelFitter(),
+            new BetaModelFitter(),
+            new UniformModelFitter()
+        ));
+    }
+
+    /**
+     * Creates a selector for bounded data with empirical fallback.
+     *
+     * <p>Same as {@link #boundedDataSelector()} but includes an empirical
+     * distribution fallback for cases where parametric models don't fit well.
+     *
+     * @return a BestFitSelector with Normal, Beta, Uniform, and Empirical fitters
+     */
+    public static BestFitSelector boundedDataWithEmpirical() {
+        return new BestFitSelector(List.of(
+            new NormalModelFitter(),
+            new BetaModelFitter(),
+            new UniformModelFitter(),
+            new EmpiricalModelFitter()
+        ));
+    }
+
+    /**
      * Creates a Pearson distribution system selector.
      *
      * <p>Includes fitters for:
@@ -191,6 +242,67 @@ public final class BestFitSelector {
             new StudentTModelFitter(),
             new UniformModelFitter()
         ));
+    }
+
+    /**
+     * Creates a selector for bounded data with multimodal detection.
+     *
+     * <p>This selector first attempts to detect multi-modal distributions
+     * and fit composite (mixture) models. If data is unimodal, it falls
+     * back to standard bounded distribution fitting.
+     *
+     * <p>Includes fitters for:
+     * <ul>
+     *   <li>Normal (truncated)</li>
+     *   <li>Beta</li>
+     *   <li>Uniform</li>
+     *   <li>Composite (mixture of above) - NEW</li>
+     *   <li>Empirical (fallback)</li>
+     * </ul>
+     *
+     * <p>Composite models are preferred over empirical when data is multimodal,
+     * as they provide a more interpretable parametric representation.
+     *
+     * @return a BestFitSelector with multimodal awareness
+     */
+    public static BestFitSelector multimodalAwareSelector() {
+        // Component selector for fitting each mode (no composite or empirical to avoid recursion)
+        BestFitSelector componentSelector = boundedDataSelector();
+        return new BestFitSelector(
+            List.of(
+                new NormalModelFitter(),
+                new BetaModelFitter(),
+                new UniformModelFitter(),
+                new CompositeModelFitter(componentSelector),
+                new EmpiricalModelFitter()
+            ),
+            0.15  // Higher penalty for empirical when composite is available
+        );
+    }
+
+    /**
+     * Creates a Pearson selector with multimodal detection.
+     *
+     * <p>Combines the full Pearson distribution family with multimodal
+     * detection. Each mode can be fit with any Pearson distribution type.
+     *
+     * @return a BestFitSelector with full Pearson family and multimodal support
+     */
+    public static BestFitSelector pearsonMultimodalSelector() {
+        // Component selector using full Pearson family for each mode
+        BestFitSelector componentSelector = pearsonSelector();
+        return new BestFitSelector(
+            List.of(
+                new NormalModelFitter(),
+                new BetaModelFitter(),
+                new GammaModelFitter(),
+                new StudentTModelFitter(),
+                new UniformModelFitter(),
+                new CompositeModelFitter(componentSelector),
+                new EmpiricalModelFitter()
+            ),
+            0.15
+        );
     }
 
     /**

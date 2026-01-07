@@ -24,12 +24,23 @@ import io.nosqlbench.vshapes.model.BetaPrimeScalarModel;
  *
  * <p>Uses the relationship: if X ~ Beta(α, β), then X/(1-X) ~ BetaPrime(α, β).
  * The quantile function is computed by transforming the Beta quantile.
+ *
+ * <p><b>Implementation note:</b> The transform x/(1-x) grows exponentially as x→1,
+ * so we use a conservative upper bound for u to avoid extreme outliers that would
+ * distort the distribution's statistical properties (especially kurtosis). The
+ * upper bound is chosen to produce values consistent with random sampling behavior.
  */
 public final class BetaPrimeSampler implements ComponentSampler {
 
     private final double alpha;  // α
     private final double beta;   // β
     private final double scale;  // σ
+
+    // Upper bound for u - much tighter than other samplers due to x/(1-x) explosion
+    // For stratified sampling to match random sampling behavior, we need conservative bounds
+    // 2e-4 balances tail coverage with avoiding extreme outliers (~15-25x mean max)
+    private static final double U_UPPER_BOUND = 1.0 - 2e-4;
+    private static final double U_LOWER_BOUND = 2e-7;
 
     // Pre-computed for efficiency
     private final double logBeta;
@@ -48,8 +59,8 @@ public final class BetaPrimeSampler implements ComponentSampler {
 
     @Override
     public double sample(double u) {
-        // Clamp u to valid range
-        u = Math.max(1e-10, Math.min(1 - 1e-10, u));
+        // Clamp u to valid range - use tighter upper bound to avoid extreme outliers
+        u = Math.max(U_LOWER_BOUND, Math.min(U_UPPER_BOUND, u));
 
         // If X ~ Beta(α, β), then Y = X/(1-X) ~ BetaPrime(α, β)
         // So F_BP^{-1}(u) = x/(1-x) where x = F_Beta^{-1}(u)
