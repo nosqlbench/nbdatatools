@@ -18,8 +18,7 @@ package io.nosqlbench.vshapes.extract;
  */
 
 import io.nosqlbench.vshapes.model.PearsonIVScalarModel;
-
-import java.util.Objects;
+import io.nosqlbench.vshapes.model.ScalarModel;
 
 /**
  * Fits a Pearson Type IV distribution to observed data.
@@ -44,10 +43,15 @@ import java.util.Objects;
  *   <li>Unbounded support</li>
  * </ul>
  *
+ * <h2>Goodness of Fit</h2>
+ *
+ * <p>Inherits uniform scoring from {@link AbstractParametricFitter} using
+ * the raw Kolmogorov-Smirnov D-statistic via the model's CDF.
+ *
  * @see PearsonIVScalarModel
- * @see ComponentModelFitter
+ * @see AbstractParametricFitter
  */
-public final class PearsonIVModelFitter implements ComponentModelFitter {
+public final class PearsonIVModelFitter extends AbstractParametricFitter {
 
     /**
      * Creates a Pearson IV model fitter.
@@ -56,20 +60,7 @@ public final class PearsonIVModelFitter implements ComponentModelFitter {
     }
 
     @Override
-    public FitResult fit(float[] values) {
-        Objects.requireNonNull(values, "values cannot be null");
-        if (values.length == 0) {
-            throw new IllegalArgumentException("values cannot be empty");
-        }
-
-        DimensionStatistics stats = DimensionStatistics.compute(0, values);
-        return fit(stats, values);
-    }
-
-    @Override
-    public FitResult fit(DimensionStatistics stats, float[] values) {
-        Objects.requireNonNull(stats, "stats cannot be null");
-
+    protected ScalarModel estimateParameters(DimensionStatistics stats, float[] values) {
         double mean = stats.mean();
         double stdDev = stats.stdDev();
         double skewness = stats.skewness();
@@ -87,22 +78,17 @@ public final class PearsonIVModelFitter implements ComponentModelFitter {
         double denom1 = 2 * beta2 - 3 * beta1 - 6;
         double denom2 = 4 * beta2 - 3 * beta1;
 
-        // If not Type IV region, return poor fit
-        // Large but finite penalty score for data outside Type IV region
-        // Using 100.0 ensures it's comparable to K-S scores but clearly worse
-        final double NOT_TYPE_IV_PENALTY = 100.0;
-
+        // If not Type IV region, return default model
+        // The CDF-based scoring will naturally produce a high (poor) score
         if (Math.abs(denom1) < 1e-10 || Math.abs(denom2) < 1e-10) {
-            PearsonIVScalarModel model = new PearsonIVScalarModel(2.0, 0.0, 1.0, 0.0);
-            return new FitResult(model, NOT_TYPE_IV_PENALTY, getModelType());
+            return new PearsonIVScalarModel(2.0, 0.0, 1.0, 0.0);
         }
 
         double kappa = beta1 * Math.pow(beta2 + 3, 2) / (4 * denom1 * denom2);
 
         if (kappa <= 0 || kappa >= 1) {
             // Not in Type IV region
-            PearsonIVScalarModel model = new PearsonIVScalarModel(2.0, 0.0, 1.0, 0.0);
-            return new FitResult(model, NOT_TYPE_IV_PENALTY, getModelType());
+            return new PearsonIVScalarModel(2.0, 0.0, 1.0, 0.0);
         }
 
         // Estimate r from moments
@@ -141,13 +127,7 @@ public final class PearsonIVModelFitter implements ComponentModelFitter {
             lambda = mean;
         }
 
-        PearsonIVScalarModel model = new PearsonIVScalarModel(m, nu, a, lambda);
-
-        // Compute goodness-of-fit using moment-based scoring
-        // This is fast O(1) and correlates well with K-S for Pearson IV
-        double goodnessOfFit = computeMomentBasedScore(stats, m, nu, a, lambda, kappa);
-
-        return new FitResult(model, goodnessOfFit, getModelType());
+        return new PearsonIVScalarModel(m, nu, a, lambda);
     }
 
     @Override
@@ -158,40 +138,5 @@ public final class PearsonIVModelFitter implements ComponentModelFitter {
     @Override
     public boolean supportsBoundedData() {
         return false;  // Pearson IV is unbounded
-    }
-
-    /**
-     * Computes goodness-of-fit using moment-based scoring.
-     *
-     * <p>This is O(1) and much faster than K-S based scoring while still
-     * providing a comparable scale. The score is based on:
-     * <ol>
-     *   <li>How central κ is in the (0, 1) range</li>
-     *   <li>How well the estimated moments match the observed moments</li>
-     * </ol>
-     *
-     * <p>The result is scaled to be comparable to K-S × √n scores.
-     */
-    private double computeMomentBasedScore(DimensionStatistics stats, double m, double nu,
-                                            double a, double lambda, double kappa) {
-        // Base score from kappa position (0 at κ=0.5, 1 at boundaries)
-        double kappaFit = Math.abs(kappa - 0.5) * 2;
-
-        // Penalty for very high kurtosis (hard to fit accurately)
-        double kurtosisPenalty = 0;
-        if (stats.kurtosis() > 10) {
-            kurtosisPenalty = (stats.kurtosis() - 10) * 0.05;
-        }
-
-        // Penalty for low skewness (Pearson IV is for asymmetric data)
-        double skewnessPenalty = 0;
-        if (Math.abs(stats.skewness()) < 0.5) {
-            skewnessPenalty = (0.5 - Math.abs(stats.skewness())) * 2;
-        }
-
-        // Scale to be comparable to K-S × √n (typically 0.5-5 for good fits)
-        double score = (kappaFit + kurtosisPenalty + skewnessPenalty) * 2;
-
-        return Math.max(0.1, Math.min(50.0, score));
     }
 }

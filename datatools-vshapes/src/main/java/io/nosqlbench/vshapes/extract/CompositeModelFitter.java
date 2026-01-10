@@ -17,6 +17,7 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.extract.EMClusterer.EMResult;
 import io.nosqlbench.vshapes.extract.ModeDetector.ModeDetectionResult;
 import io.nosqlbench.vshapes.model.BetaScalarModel;
 import io.nosqlbench.vshapes.model.CompositeScalarModel;
@@ -71,11 +72,19 @@ import java.util.List;
  */
 public final class CompositeModelFitter implements ComponentModelFitter {
 
+    /// Clustering strategy for assigning data points to components.
+    public enum ClusteringStrategy {
+        /// Hard clustering: assign each point to nearest mode (fast, simple)
+        HARD,
+        /// EM clustering: soft probabilistic assignment (more accurate for overlapping modes)
+        EM
+    }
+
     /** Model type identifier */
     public static final String MODEL_TYPE = "composite";
 
     /** Default maximum number of components */
-    private static final int DEFAULT_MAX_COMPONENTS = 3;
+    private static final int DEFAULT_MAX_COMPONENTS = 4;
 
     /** Minimum data points per mode to fit a distribution */
     private static final int MIN_POINTS_PER_MODE = 50;
@@ -89,44 +98,70 @@ public final class CompositeModelFitter implements ComponentModelFitter {
     private final BestFitSelector componentSelector;
     private final int maxComponents;
     private final double maxCdfDeviation;
+    private final ClusteringStrategy clusteringStrategy;
 
     /**
      * Creates a composite fitter using the default bounded data selector for components.
+     * Uses EM clustering by default.
      */
     public CompositeModelFitter() {
-        this(BestFitSelector.boundedDataSelector(), DEFAULT_MAX_COMPONENTS, MAX_CDF_DEVIATION);
+        this(BestFitSelector.boundedDataSelector(), DEFAULT_MAX_COMPONENTS, MAX_CDF_DEVIATION, ClusteringStrategy.EM);
     }
 
     /**
      * Creates a composite fitter with a custom component selector.
+     * Uses EM clustering by default.
      *
      * @param componentSelector selector for fitting each mode's distribution
      */
     public CompositeModelFitter(BestFitSelector componentSelector) {
-        this(componentSelector, DEFAULT_MAX_COMPONENTS, MAX_CDF_DEVIATION);
+        this(componentSelector, DEFAULT_MAX_COMPONENTS, MAX_CDF_DEVIATION, ClusteringStrategy.EM);
     }
 
     /**
      * Creates a composite fitter with full configuration.
      *
      * @param componentSelector selector for fitting each mode's distribution
-     * @param maxComponents maximum number of components (1-3)
+     * @param maxComponents maximum number of components (2-4)
      */
     public CompositeModelFitter(BestFitSelector componentSelector, int maxComponents) {
-        this(componentSelector, maxComponents, MAX_CDF_DEVIATION);
+        this(componentSelector, maxComponents, MAX_CDF_DEVIATION, ClusteringStrategy.EM);
     }
 
     /**
      * Creates a composite fitter with full configuration including CDF validation threshold.
      *
      * @param componentSelector selector for fitting each mode's distribution
-     * @param maxComponents maximum number of components (1-3)
+     * @param maxComponents maximum number of components (2-4)
      * @param maxCdfDeviation maximum K-S distance between composite and empirical CDF
      */
     public CompositeModelFitter(BestFitSelector componentSelector, int maxComponents, double maxCdfDeviation) {
+        this(componentSelector, maxComponents, maxCdfDeviation, ClusteringStrategy.EM);
+    }
+
+    /**
+     * Creates a composite fitter with full configuration including clustering strategy.
+     *
+     * @param componentSelector selector for fitting each mode's distribution
+     * @param maxComponents maximum number of components (2-4)
+     * @param maxCdfDeviation maximum K-S distance between composite and empirical CDF
+     * @param clusteringStrategy the clustering strategy to use (HARD or EM)
+     */
+    public CompositeModelFitter(BestFitSelector componentSelector, int maxComponents,
+                                 double maxCdfDeviation, ClusteringStrategy clusteringStrategy) {
         this.componentSelector = componentSelector;
-        this.maxComponents = Math.max(2, Math.min(maxComponents, 3));
+        this.maxComponents = Math.max(2, Math.min(maxComponents, 4));
         this.maxCdfDeviation = maxCdfDeviation;
+        this.clusteringStrategy = clusteringStrategy;
+    }
+
+    /**
+     * Returns the clustering strategy being used.
+     *
+     * @return the clustering strategy
+     */
+    public ClusteringStrategy getClusteringStrategy() {
+        return clusteringStrategy;
     }
 
     @Override
@@ -160,8 +195,25 @@ public final class CompositeModelFitter implements ComponentModelFitter {
             throw new IllegalStateException("Data is not multimodal - composite model not appropriate");
         }
 
-        // Step 2: Segment data by mode
-        float[][] modeData = segmentByMode(values, modeResult.peakLocations());
+        // Step 2: Segment data by mode using configured clustering strategy
+        float[][] modeData;
+        double[] finalWeights;
+
+        if (clusteringStrategy == ClusteringStrategy.EM) {
+            // Use EM clustering for soft assignment
+            EMClusterer clusterer = new EMClusterer(values, modeResult.peakLocations());
+            EMResult emResult = clusterer.fit();
+
+            // Convert soft assignments to hard segmentation for component fitting
+            modeData = EMClusterer.segmentByMaxResponsibility(emResult.responsibilities(), values);
+
+            // Use EM-computed weights (more accurate than mode detection weights)
+            finalWeights = emResult.weights();
+        } else {
+            // Use hard clustering (nearest mode assignment)
+            modeData = segmentByMode(values, modeResult.peakLocations());
+            finalWeights = modeResult.modeWeights();
+        }
 
         // Check that each mode has enough data
         for (int i = 0; i < modeData.length; i++) {
@@ -189,7 +241,7 @@ public final class CompositeModelFitter implements ComponentModelFitter {
         // Step 4: Create composite model
         CompositeScalarModel composite = new CompositeScalarModel(
             components,
-            modeResult.modeWeights()
+            finalWeights
         );
 
         // Step 5: CDF sanity check - validate composite matches empirical

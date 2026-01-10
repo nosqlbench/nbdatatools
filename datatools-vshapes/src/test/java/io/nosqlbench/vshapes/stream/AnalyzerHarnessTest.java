@@ -197,22 +197,24 @@ public class AnalyzerHarnessTest {
 
     @Test
     void testDataspaceShape() {
-        DataspaceShape shape = new DataspaceShape(1000, 128, Map.of("source", "test"));
+        DataspaceShape shape = new DataspaceShape(1000, 128);
 
         assertEquals(1000, shape.cardinality());
         assertEquals(128, shape.dimensionality());
-        assertEquals("test", shape.getStringParameter("source", ""));
-        assertEquals(42, shape.getIntParameter("missing", 42));
+        assertEquals(DataLayout.ROW_MAJOR, shape.layout());
+        assertTrue(shape.isRowMajor());
+        assertFalse(shape.isColumnar());
     }
 
     @Test
-    void testDataspaceShapeWithParameter() {
+    void testDataspaceShapeWithLayout() {
         DataspaceShape shape = new DataspaceShape(100, 10);
-        DataspaceShape updated = shape.withParameter("key", "value");
+        DataspaceShape columnar = shape.withLayout(DataLayout.COLUMNAR);
 
-        assertFalse(shape.hasParameter("key"));
-        assertTrue(updated.hasParameter("key"));
-        assertEquals("value", updated.getStringParameter("key", ""));
+        assertEquals(DataLayout.ROW_MAJOR, shape.layout());
+        assertEquals(DataLayout.COLUMNAR, columnar.layout());
+        assertTrue(columnar.isColumnar());
+        assertFalse(columnar.isRowMajor());
     }
 
     @Test
@@ -588,7 +590,10 @@ public class AnalyzerHarnessTest {
 
         @Override
         public void accept(float[][] chunk, long startIndex) {
-            count.addAndGet(chunk.length);
+            // Columnar format: chunk[dimension][vectorIndex]
+            // Vector count is chunk[0].length
+            int vectorCount = chunk.length > 0 ? chunk[0].length : 0;
+            count.addAndGet(vectorCount);
         }
 
         @Override
@@ -609,9 +614,10 @@ public class AnalyzerHarnessTest {
 
         @Override
         public void accept(float[][] chunk, long startIndex) {
+            // Columnar format: chunk[dimension][vectorIndex]
             double localSum = 0;
-            for (float[] vector : chunk) {
-                for (float v : vector) {
+            for (float[] dimValues : chunk) {
+                for (float v : dimValues) {
                     localSum += v;
                 }
             }
@@ -642,7 +648,9 @@ public class AnalyzerHarnessTest {
 
         @Override
         public void accept(float[][] chunk, long startIndex) {
-            if (count.addAndGet(chunk.length) > failAfter) {
+            // Columnar format: chunk[dimension][vectorIndex]
+            int vectorCount = chunk.length > 0 ? chunk[0].length : 0;
+            if (count.addAndGet(vectorCount) > failAfter) {
                 throw new RuntimeException("Intentional failure after " + failAfter + " vectors");
             }
         }

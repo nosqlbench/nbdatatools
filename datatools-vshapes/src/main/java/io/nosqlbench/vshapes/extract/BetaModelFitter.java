@@ -18,8 +18,7 @@ package io.nosqlbench.vshapes.extract;
  */
 
 import io.nosqlbench.vshapes.model.BetaScalarModel;
-
-import java.util.Objects;
+import io.nosqlbench.vshapes.model.ScalarModel;
 
 /**
  * Fits a Beta distribution to observed data - Pearson Type I/II.
@@ -36,14 +35,17 @@ import java.util.Objects;
  *
  * <h2>Goodness of Fit</h2>
  *
- * <p>Uses the Kolmogorov-Smirnov test statistic. Lower values indicate better fit.
+ * <p>Inherits uniform scoring from {@link AbstractParametricFitter} using
+ * the raw Kolmogorov-Smirnov D-statistic via the model's CDF.
  *
  * @see BetaScalarModel
- * @see ComponentModelFitter
+ * @see AbstractParametricFitter
  */
-public final class BetaModelFitter implements ComponentModelFitter {
+public final class BetaModelFitter extends AbstractParametricFitter {
 
     private final double boundaryExtension;
+    private final Double explicitLowerBound;
+    private final Double explicitUpperBound;
 
     /**
      * Creates a Beta model fitter with default settings.
@@ -63,28 +65,51 @@ public final class BetaModelFitter implements ComponentModelFitter {
                 "Boundary extension must be in [0, 0.5], got: " + boundaryExtension);
         }
         this.boundaryExtension = boundaryExtension;
+        this.explicitLowerBound = null;
+        this.explicitUpperBound = null;
+    }
+
+    /**
+     * Creates a Beta model fitter with explicit bounds.
+     *
+     * <p>This is useful for normalized vectors where the bounds are known
+     * to be [-1, 1] regardless of the observed data range.
+     *
+     * @param lowerBound explicit lower bound
+     * @param upperBound explicit upper bound
+     */
+    public BetaModelFitter(double lowerBound, double upperBound) {
+        this.boundaryExtension = 0.0;
+        this.explicitLowerBound = lowerBound;
+        this.explicitUpperBound = upperBound;
+    }
+
+    /**
+     * Creates a Beta model fitter configured for L2-normalized vectors.
+     *
+     * <p>Normalized vectors have values bounded in [-1, 1], so this
+     * creates a fitter with explicit bounds.
+     *
+     * @return a fitter configured for normalized vector data
+     */
+    public static BetaModelFitter forNormalizedVectors() {
+        return new BetaModelFitter(-1.0, 1.0);
     }
 
     @Override
-    public FitResult fit(float[] values) {
-        Objects.requireNonNull(values, "values cannot be null");
-        if (values.length == 0) {
-            throw new IllegalArgumentException("values cannot be empty");
+    protected ScalarModel estimateParameters(DimensionStatistics stats, float[] values) {
+        // Use explicit bounds if provided, otherwise estimate from data
+        double lower;
+        double upper;
+        if (explicitLowerBound != null && explicitUpperBound != null) {
+            lower = explicitLowerBound;
+            upper = explicitUpperBound;
+        } else {
+            double range = stats.max() - stats.min();
+            double extension = range * boundaryExtension;
+            lower = stats.min() - extension;
+            upper = stats.max() + extension;
         }
-
-        DimensionStatistics stats = DimensionStatistics.compute(0, values);
-        return fit(stats, values);
-    }
-
-    @Override
-    public FitResult fit(DimensionStatistics stats, float[] values) {
-        Objects.requireNonNull(stats, "stats cannot be null");
-
-        // Estimate bounds with optional extension
-        double range = stats.max() - stats.min();
-        double extension = range * boundaryExtension;
-        double lower = stats.min() - extension;
-        double upper = stats.max() + extension;
         double adjustedRange = upper - lower;
 
         // Standardize data to [0, 1]
@@ -103,7 +128,7 @@ public final class BetaModelFitter implements ComponentModelFitter {
             // Use statistics directly
             double meanStd = (stats.mean() - lower) / adjustedRange;
             double varStd = stats.variance() / (adjustedRange * adjustedRange);
-            return fitFromMoments(meanStd, varStd, lower, upper, stats);
+            return estimateFromMoments(meanStd, varStd, lower, upper);
         }
 
         double meanStd = sumStd / n;
@@ -127,16 +152,11 @@ public final class BetaModelFitter implements ComponentModelFitter {
         alpha = Math.max(alpha, 0.1);
         beta = Math.max(beta, 0.1);
 
-        BetaScalarModel model = new BetaScalarModel(alpha, beta, lower, upper);
-
-        // Compute goodness-of-fit using Kolmogorov-Smirnov-like statistic
-        double goodnessOfFit = computeKolmogorovSmirnov(values, alpha, beta, lower, upper);
-
-        return new FitResult(model, goodnessOfFit, getModelType());
+        return new BetaScalarModel(alpha, beta, lower, upper);
     }
 
-    private FitResult fitFromMoments(double meanStd, double varStd,
-                                      double lower, double upper, DimensionStatistics stats) {
+    private ScalarModel estimateFromMoments(double meanStd, double varStd,
+                                             double lower, double upper) {
         varStd = Math.max(varStd, 1e-10);
         double common = (meanStd * (1 - meanStd) / varStd) - 1;
         if (common <= 0) common = 1.0;
@@ -144,9 +164,7 @@ public final class BetaModelFitter implements ComponentModelFitter {
         double alpha = Math.max(meanStd * common, 0.1);
         double beta = Math.max((1 - meanStd) * common, 0.1);
 
-        BetaScalarModel model = new BetaScalarModel(alpha, beta, lower, upper);
-        // Without raw values, return a default goodness-of-fit
-        return new FitResult(model, 0.5, getModelType());
+        return new BetaScalarModel(alpha, beta, lower, upper);
     }
 
     @Override
@@ -159,73 +177,4 @@ public final class BetaModelFitter implements ComponentModelFitter {
         return true;
     }
 
-    /**
-     * Computes a Kolmogorov-Smirnov-like statistic for beta distribution.
-     */
-    private double computeKolmogorovSmirnov(float[] values, double alpha, double beta,
-                                             double lower, double upper) {
-        int n = values.length;
-        float[] sorted = values.clone();
-        java.util.Arrays.sort(sorted);
-
-        double range = upper - lower;
-        double maxD = 0;
-
-        for (int i = 0; i < n; i++) {
-            double x = (sorted[i] - lower) / range;
-            x = Math.max(0.001, Math.min(0.999, x));
-
-            // Approximate beta CDF using regularized incomplete beta function
-            // For simplicity, use a polynomial approximation for common cases
-            double empiricalCdf = (double) (i + 1) / n;
-            double theoreticalCdf = approximateBetaCDF(x, alpha, beta);
-
-            double d = Math.abs(empiricalCdf - theoreticalCdf);
-            maxD = Math.max(maxD, d);
-        }
-
-        // Scale by sqrt(n) for KS statistic
-        return maxD * Math.sqrt(n);
-    }
-
-    /**
-     * Approximates the beta CDF using a simple numerical integration.
-     */
-    private double approximateBetaCDF(double x, double alpha, double beta) {
-        // Simple numerical integration using trapezoidal rule
-        int steps = 100;
-        double sum = 0;
-        double dx = x / steps;
-
-        for (int i = 1; i < steps; i++) {
-            double t = i * dx;
-            sum += Math.pow(t, alpha - 1) * Math.pow(1 - t, beta - 1);
-        }
-        sum += 0.5 * (Math.pow(dx, alpha - 1) * Math.pow(1 - dx, beta - 1));
-        sum += 0.5 * (Math.pow(x, alpha - 1) * Math.pow(1 - x, beta - 1));
-        sum *= dx;
-
-        // Normalize by beta function B(alpha, beta)
-        double betaFunc = gammaApprox(alpha) * gammaApprox(beta) / gammaApprox(alpha + beta);
-        return sum / betaFunc;
-    }
-
-    /**
-     * Simple gamma function approximation using Stirling's formula.
-     */
-    private double gammaApprox(double x) {
-        if (x < 0.5) {
-            return Math.PI / (Math.sin(Math.PI * x) * gammaApprox(1 - x));
-        }
-        x -= 1;
-        double g = 0.99999999999980993;
-        double[] c = {676.5203681218851, -1259.1392167224028, 771.32342877765313,
-                      -176.61502916214059, 12.507343278686905, -0.13857109526572012,
-                      9.9843695780195716e-6, 1.5056327351493116e-7};
-        for (int i = 0; i < 8; i++) {
-            g += c[i] / (x + i + 1);
-        }
-        double t = x + 7.5;
-        return Math.sqrt(2 * Math.PI) * Math.pow(t, x + 0.5) * Math.exp(-t) * g;
-    }
 }

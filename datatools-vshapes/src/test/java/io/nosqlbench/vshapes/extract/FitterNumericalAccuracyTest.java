@@ -372,6 +372,43 @@ public class FitterNumericalAccuracyTest {
         }
     }
 
+    @Test
+    void testGammaFitterWithAndWithoutLocationDetection() {
+        Random rng = new Random(SEED);
+        double trueShape = 3.0;
+        double trueScale = 2.0;
+
+        float[] data = generateGammaData(rng, trueShape, trueScale, SAMPLE_SIZE);
+
+        // Test with location detection enabled (default)
+        GammaModelFitter fitterWithLocation = new GammaModelFitter(true);
+        ComponentModelFitter.FitResult resultWithLocation = fitterWithLocation.fit(data);
+        GammaScalarModel modelWithLocation = (GammaScalarModel) resultWithLocation.model();
+
+        // Test with location detection disabled
+        GammaModelFitter fitterNoLocation = new GammaModelFitter(false);
+        ComponentModelFitter.FitResult resultNoLocation = fitterNoLocation.fit(data);
+        GammaScalarModel modelNoLocation = (GammaScalarModel) resultNoLocation.model();
+
+        // Both should produce reasonable fits (GoF < 0.02 for good fits)
+        assertTrue(resultWithLocation.goodnessOfFit() < 0.02,
+            "Gamma with location detection should have good fit");
+        assertTrue(resultNoLocation.goodnessOfFit() < 0.02,
+            "Gamma without location detection should have good fit");
+
+        // For true Gamma(shape, scale) data with no location shift,
+        // the fitter without location detection should be at least as good
+        // (location detection may slightly hurt the fit by incorrectly inferring shift)
+        assertTrue(resultNoLocation.goodnessOfFit() <= resultWithLocation.goodnessOfFit() + 0.005,
+            "Gamma without location detection should fit at least as well as with");
+
+        // Parameter accuracy should be reasonable
+        assertEquals(trueShape, modelNoLocation.getShape(), 0.5,
+            "Shape estimate should be within 0.5 of true value");
+        assertEquals(trueScale, modelNoLocation.getScale(), 0.5,
+            "Scale estimate should be within 0.5 of true value");
+    }
+
     private float[] generateStudentTData(Random rng, double df, double location, double scale, int n) {
         float[] data = new float[n];
         for (int i = 0; i < n; i++) {

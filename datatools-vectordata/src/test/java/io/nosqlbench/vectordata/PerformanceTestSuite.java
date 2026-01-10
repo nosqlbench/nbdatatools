@@ -18,7 +18,9 @@ package io.nosqlbench.vectordata;
  */
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.platform.suite.api.ConfigurationParameter;
 import org.junit.platform.suite.api.IncludeTags;
 import org.junit.platform.suite.api.SelectPackages;
 import org.junit.platform.suite.api.Suite;
@@ -43,8 +45,10 @@ import org.junit.platform.suite.api.Suite;
 /// | `mvn test -Pperformance,accuracy`    |  ✓   |      ✓      |    ✓     |
 /// | `mvn test -Palltests`                |  ✓   |      ✓      |    ✓     |
 @Suite
+@Tag("performance")  // Tag the suite itself so it's excluded with -DexcludedGroups=performance
 @SelectPackages("io.nosqlbench.vectordata")
 @IncludeTags("performance")
+@ConfigurationParameter(key = "junit.platform.suite.allowEmpty", value = "true")
 @ExtendWith(JettyFileServerExtension.class)
 public class PerformanceTestSuite {
     // This class is just a container for the suite annotations

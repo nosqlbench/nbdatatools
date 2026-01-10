@@ -17,9 +17,8 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.UniformScalarModel;
-
-import java.util.Objects;
 
 /**
  * Fits a uniform distribution to observed data.
@@ -34,9 +33,8 @@ import java.util.Objects;
  *
  * <h2>Goodness of Fit</h2>
  *
- * <p>Uses the Kolmogorov-Smirnov (K-S) test statistic comparing the empirical
- * CDF to the uniform CDF. The K-S statistic measures the maximum deviation
- * between the two CDFs.
+ * <p>Inherits uniform scoring from {@link AbstractParametricFitter} using
+ * the raw Kolmogorov-Smirnov D-statistic via the model's CDF.
  *
  * <h2>When to Use</h2>
  *
@@ -48,11 +46,13 @@ import java.util.Objects;
  * </ul>
  *
  * @see UniformScalarModel
- * @see ComponentModelFitter
+ * @see AbstractParametricFitter
  */
-public final class UniformModelFitter implements ComponentModelFitter {
+public final class UniformModelFitter extends AbstractParametricFitter {
 
     private final double boundaryExtension;
+    private final Double explicitLowerBound;
+    private final Double explicitUpperBound;
 
     /**
      * Creates a uniform model fitter with default boundary extension.
@@ -71,22 +71,43 @@ public final class UniformModelFitter implements ComponentModelFitter {
             throw new IllegalArgumentException("boundaryExtension must be in [0, 0.5]");
         }
         this.boundaryExtension = boundaryExtension;
+        this.explicitLowerBound = null;
+        this.explicitUpperBound = null;
+    }
+
+    /**
+     * Creates a uniform model fitter with explicit bounds.
+     *
+     * <p>This is useful for normalized vectors where the bounds are known
+     * to be [-1, 1] regardless of the observed data range.
+     *
+     * @param lowerBound explicit lower bound
+     * @param upperBound explicit upper bound
+     */
+    public UniformModelFitter(double lowerBound, double upperBound) {
+        this.boundaryExtension = 0.0;
+        this.explicitLowerBound = lowerBound;
+        this.explicitUpperBound = upperBound;
+    }
+
+    /**
+     * Creates a uniform model fitter configured for L2-normalized vectors.
+     *
+     * <p>Normalized vectors have values bounded in [-1, 1], so this
+     * creates a fitter with explicit bounds.
+     *
+     * @return a fitter configured for normalized vector data
+     */
+    public static UniformModelFitter forNormalizedVectors() {
+        return new UniformModelFitter(-1.0, 1.0);
     }
 
     @Override
-    public FitResult fit(float[] values) {
-        Objects.requireNonNull(values, "values cannot be null");
-        if (values.length == 0) {
-            throw new IllegalArgumentException("values cannot be empty");
+    protected ScalarModel estimateParameters(DimensionStatistics stats, float[] values) {
+        // Use explicit bounds if provided
+        if (explicitLowerBound != null && explicitUpperBound != null) {
+            return new UniformScalarModel(explicitLowerBound, explicitUpperBound);
         }
-
-        DimensionStatistics stats = DimensionStatistics.compute(0, values);
-        return fit(stats, values);
-    }
-
-    @Override
-    public FitResult fit(DimensionStatistics stats, float[] values) {
-        Objects.requireNonNull(stats, "stats cannot be null");
 
         double min = stats.min();
         double max = stats.max();
@@ -101,12 +122,7 @@ public final class UniformModelFitter implements ComponentModelFitter {
         double lower = min - extension;
         double upper = max + extension;
 
-        UniformScalarModel model = new UniformScalarModel(lower, upper);
-
-        // Compute goodness-of-fit using K-S statistic
-        double goodnessOfFit = computeKolmogorovSmirnov(values, lower, upper);
-
-        return new FitResult(model, goodnessOfFit, getModelType());
+        return new UniformScalarModel(lower, upper);
     }
 
     @Override
@@ -117,53 +133,5 @@ public final class UniformModelFitter implements ComponentModelFitter {
     @Override
     public boolean supportsBoundedData() {
         return true;
-    }
-
-    /**
-     * Computes the Kolmogorov-Smirnov test statistic for uniform distribution.
-     *
-     * <p>The K-S statistic is the maximum absolute difference between the
-     * empirical CDF and the theoretical uniform CDF.
-     *
-     * <p>Lower values indicate better fit. Critical values (approximate):
-     * <ul>
-     *   <li>&lt; 1.36/sqrt(n): acceptable fit (p &gt; 0.05)</li>
-     *   <li>&lt; 1.63/sqrt(n): marginal fit (p &gt; 0.01)</li>
-     * </ul>
-     */
-    private double computeKolmogorovSmirnov(float[] values, double lower, double upper) {
-        int n = values.length;
-
-        // Sort a copy of the values
-        float[] sorted = values.clone();
-        java.util.Arrays.sort(sorted);
-
-        double range = upper - lower;
-        if (range <= 0) {
-            return Double.MAX_VALUE;
-        }
-
-        double maxDiff = 0;
-
-        for (int i = 0; i < n; i++) {
-            // Empirical CDF at this point
-            double empiricalCDF = (i + 1.0) / n;
-
-            // Theoretical uniform CDF
-            double theoreticalCDF = (sorted[i] - lower) / range;
-            theoreticalCDF = Math.max(0, Math.min(1, theoreticalCDF));
-
-            // Also check just before this point
-            double empiricalCDFBefore = (double) i / n;
-
-            double diff1 = Math.abs(empiricalCDF - theoreticalCDF);
-            double diff2 = Math.abs(empiricalCDFBefore - theoreticalCDF);
-
-            maxDiff = Math.max(maxDiff, Math.max(diff1, diff2));
-        }
-
-        // Return the D statistic scaled by sqrt(n) for comparison
-        // This makes it comparable across different sample sizes
-        return maxDiff * Math.sqrt(n);
     }
 }

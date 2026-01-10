@@ -18,44 +18,79 @@ package io.nosqlbench.vectordata.layoutv2;
  */
 
 
+import io.nosqlbench.vectordata.layout.SourceType;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
 
-/// Represents a data source with a path and a window defining which portions of the data to include.
+/// Represents a data source with a path, window, and type.
+///
+/// ## Source Types
+///
+/// Sources can be either file-backed (xvec) or generator-backed (virtdata):
+/// - [SourceType#XVEC] - reads from .fvec/.ivec files
+/// - [SourceType#VIRTDATA] - generates vectors from a model JSON file
+///
+/// ## Type Inference
+///
+/// When the type is not explicitly specified:
+/// - Paths ending in `.json` are inferred as [SourceType#VIRTDATA]
+/// - All other paths default to [SourceType#XVEC]
+///
+/// @see SourceType
 public class DSSource {
   /// The path to the data source
   public String path;
   /// The window defining which portions of the data to include
   public DSWindow window;
+  /// The type of source (xvec or virtdata)
+  public SourceType type;
 
   /// Creates an empty data source with no path or window.
   public DSSource() {
   }
 
   /// Creates a data source with the specified path and a window that includes all data.
+  /// The type is inferred from the path extension.
   /// @param path The path to the data source
   public DSSource(String path) {
     this.path = path;
     this.window = DSWindow.ALL;
+    this.type = SourceType.inferFromPath(path);
   }
 
   /// Creates a data source with the specified path and window.
+  /// The type is inferred from the path extension.
   /// @param path The path to the data source
   /// @param window The window defining which portions of the data to include
   public DSSource(String path, DSWindow window) {
     this.path = path;
     this.window = window;
+    this.type = SourceType.inferFromPath(path);
+  }
+
+  /// Creates a data source with the specified path, window, and type.
+  /// @param path The path to the data source
+  /// @param window The window defining which portions of the data to include
+  /// @param type The source type (xvec or virtdata)
+  public DSSource(String path, DSWindow window, SourceType type) {
+    this.path = path;
+    this.window = window;
+    this.type = type != null ? type : SourceType.inferFromPath(path);
   }
 
   /// Returns a string representation of this data source.
   /// @return A string representation of this data source
   @Override
   public String toString() {
-    return new StringJoiner(", ", DSSource.class.getSimpleName() + "[", "]").add(
-        "path='" + path + "'").add("window='" + window + "'").toString();
+    return new StringJoiner(", ", DSSource.class.getSimpleName() + "[", "]")
+        .add("type=" + type)
+        .add("path='" + path + "'")
+        .add("window='" + window + "'")
+        .toString();
   }
 
   /// Sets the window for this data source.
@@ -82,7 +117,9 @@ public class DSSource {
       return false;
 
     DSSource dsSource = (DSSource) o;
-    return Objects.equals(path, dsSource.path) && Objects.equals(window, dsSource.window);
+    return Objects.equals(path, dsSource.path)
+        && Objects.equals(window, dsSource.window)
+        && type == dsSource.type;
   }
 
   /// Returns a hash code for this data source.
@@ -91,6 +128,7 @@ public class DSSource {
   public int hashCode() {
     int result = Objects.hashCode(path);
     result = 31 * result + Objects.hashCode(window);
+    result = 31 * result + Objects.hashCode(type);
     return result;
   }
 
@@ -104,6 +142,24 @@ public class DSSource {
   /// @return The window
   public DSWindow getWindow() {
     return this.window;
+  }
+
+  /// Gets the source type.
+  /// @return The source type (xvec or virtdata)
+  public SourceType getType() {
+    return this.type;
+  }
+
+  /// Returns true if this is a virtdata (generator-backed) source.
+  /// @return true if type is VIRTDATA
+  public boolean isVirtdata() {
+    return type == SourceType.VIRTDATA;
+  }
+
+  /// Returns true if this is an xvec (file-backed) source.
+  /// @return true if type is XVEC
+  public boolean isXvec() {
+    return type == SourceType.XVEC;
   }
 
   /// Creates a DSSource from a map of data.
@@ -122,8 +178,22 @@ public class DSSource {
     } else if (data instanceof Map<?, ?>) {
       Map<?, ?> m = (Map<?, ?>) data;
       String path = (String) m.get("path");
+      if (path == null) {
+        path = (String) m.get("source"); // alternate key
+      }
       DSWindow window = DSWindow.fromData(m.get("window"));
-      return new DSSource(path, window);
+
+      // Parse type if specified, otherwise infer from path
+      SourceType type = null;
+      Object typeObj = m.get("type");
+      if (typeObj instanceof String) {
+        type = SourceType.fromString((String) typeObj);
+      }
+      if (type == null) {
+        type = SourceType.inferFromPath(path);
+      }
+
+      return new DSSource(path, window, type);
     } else {
       throw new RuntimeException("invalid source format:" + data);
     }

@@ -116,7 +116,7 @@ public class DatasetModelExtractorTest {
         }
 
         DatasetModelExtractor extractor = new DatasetModelExtractor();
-        VectorSpaceModel model = extractor.extractFromTransposed(transposed);
+        VectorSpaceModel model = extractor.extractFromTransposed(transposed).model();
 
         assertNotNull(model);
         assertEquals(dimensions, model.dimensions());

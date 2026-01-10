@@ -35,7 +35,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("accuracy")
 public class DistributionConfusionDiagnosticTest {
 
-    private static final int SAMPLE_SIZE = 100_000;
+    // Reduced from 100K to 50K - still provides high statistical power while cutting runtime in half
+    private static final int SAMPLE_SIZE = 50_000;
     private static final long SEED = 42L;
 
     @Test
@@ -103,6 +104,10 @@ public class DistributionConfusionDiagnosticTest {
         } else {
             System.out.println("BetaPrime correctly identified");
         }
+
+        // Enforce correct classification
+        assertEquals("beta_prime", best.getModelType(),
+            "BetaPrime data should be classified as beta_prime");
     }
 
     @Test
@@ -180,6 +185,11 @@ public class DistributionConfusionDiagnosticTest {
         }
 
         System.out.printf("\nAccuracy: %d/%d (%.1f%%)%n", correct, types.length, 100.0 * correct / types.length);
+
+        // Enforce 100% accuracy - all distribution types must be correctly identified
+        assertEquals(types.length, correct,
+            "All distribution types should be correctly identified. " +
+            "If this fails, check BestFitSelector's simplicity threshold logic.");
     }
 
     // Data generation helpers

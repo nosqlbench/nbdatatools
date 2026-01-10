@@ -95,6 +95,12 @@ public final class StatisticalTestSuite {
 
     /**
      * Comprehensive accuracy result for a single dimension.
+     *
+     * @param dimension the dimension index
+     * @param modelType the type of model fitted
+     * @param ksTest Kolmogorov-Smirnov test result
+     * @param moments moment comparison results
+     * @param qqCorrelation Q-Q plot correlation coefficient
      */
     public record DimensionAccuracy(
         int dimension,

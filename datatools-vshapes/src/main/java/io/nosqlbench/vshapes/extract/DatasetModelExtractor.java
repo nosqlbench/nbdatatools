@@ -171,7 +171,7 @@ public final class DatasetModelExtractor implements ModelExtractor {
     }
 
     @Override
-    public VectorSpaceModel extractFromTransposed(float[][] transposedData) {
+    public ExtractionResult extractFromTransposed(float[][] transposedData) {
         validateTransposedData(transposedData);
 
         long startTime = System.currentTimeMillis();
@@ -180,6 +180,22 @@ public final class DatasetModelExtractor implements ModelExtractor {
         ScalarModel[] components = new ScalarModel[numDimensions];
         DimensionStatistics[] stats = new DimensionStatistics[numDimensions];
         ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[numDimensions];
+
+        // For all-fits collection
+        AllFitsData allFitsData = null;
+        double[][] allFitScores = null;
+        int[] bestFitIndices = null;
+        String[] sparklines = null;
+        java.util.List<String> modelTypes = null;
+
+        if (collectAllFits && selector != null) {
+            modelTypes = selector.getFitters().stream()
+                .map(ComponentModelFitter::getModelType)
+                .toList();
+            allFitScores = new double[numDimensions][modelTypes.size()];
+            bestFitIndices = new int[numDimensions];
+            sparklines = new String[numDimensions];
+        }
 
         for (int d = 0; d < numDimensions; d++) {
             observer.onDimensionStart(d);
@@ -192,6 +208,13 @@ public final class DatasetModelExtractor implements ModelExtractor {
             ComponentModelFitter.FitResult result;
             if (forcedFitter != null) {
                 result = forcedFitter.fit(stats[d], dimensionData);
+            } else if (collectAllFits) {
+                BestFitSelector.SelectionWithAllFits selection =
+                    selector.selectBestWithAllFits(stats[d], dimensionData);
+                result = selection.bestFit();
+                allFitScores[d] = selection.allScores();
+                bestFitIndices[d] = selection.bestIndex();
+                sparklines[d] = Sparkline.generate(dimensionData, Sparkline.DEFAULT_WIDTH);
             } else {
                 result = selector.selectBestResult(stats[d], dimensionData);
             }
@@ -202,9 +225,14 @@ public final class DatasetModelExtractor implements ModelExtractor {
             observer.onDimensionComplete(d, result.model());
         }
 
+        if (collectAllFits && modelTypes != null) {
+            allFitsData = new AllFitsData(modelTypes, allFitScores, bestFitIndices, sparklines);
+        }
+
         long extractionTime = System.currentTimeMillis() - startTime;
 
-        return new VectorSpaceModel(uniqueVectors, components);
+        VectorSpaceModel model = new VectorSpaceModel(uniqueVectors, components);
+        return new ExtractionResult(model, stats, fitResults, extractionTime, allFitsData);
     }
 
     @Override
@@ -339,6 +367,94 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
         VectorSpaceModel model = new VectorSpaceModel(uniqueVectors, components);
         return new ExtractionResult(model, stats, fitResults, extractionTime);
+    }
+
+    /**
+     * Extracts from pre-transposed data with progress reporting.
+     *
+     * <p>When data is already in column-major format, this avoids the transpose step.
+     *
+     * @param transposedData data in format {@code [dimensions][vectorCount]}
+     * @param progressCallback callback invoked with progress (0.0 to 1.0)
+     * @return the extraction result
+     */
+    public ExtractionResult extractFromTransposedWithProgress(float[][] transposedData,
+            ProgressCallback progressCallback) {
+        validateTransposedData(transposedData);
+
+        long startTime = System.currentTimeMillis();
+
+        int numDimensions = transposedData.length;
+
+        if (progressCallback != null) {
+            progressCallback.onProgress(0.0, "Processing transposed data...");
+        }
+
+        ScalarModel[] components = new ScalarModel[numDimensions];
+        DimensionStatistics[] stats = new DimensionStatistics[numDimensions];
+        ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[numDimensions];
+
+        // For all-fits collection
+        AllFitsData allFitsData = null;
+        double[][] allFitScores = null;
+        int[] bestFitIndices = null;
+        String[] sparklines = null;
+        java.util.List<String> modelTypes = null;
+
+        if (collectAllFits && selector != null) {
+            modelTypes = selector.getFitters().stream()
+                .map(ComponentModelFitter::getModelType)
+                .toList();
+            allFitScores = new double[numDimensions][modelTypes.size()];
+            bestFitIndices = new int[numDimensions];
+            sparklines = new String[numDimensions];
+        }
+
+        for (int d = 0; d < numDimensions; d++) {
+            observer.onDimensionStart(d);
+
+            if (progressCallback != null) {
+                double progress = (d + 1.0) / numDimensions;
+                progressCallback.onProgress(progress, String.format("Fitting dimension %d/%d", d + 1, numDimensions));
+            }
+
+            float[] dimensionData = transposedData[d];
+            stats[d] = DimensionStatistics.compute(d, dimensionData);
+
+            observer.onAccumulatorUpdate(d, stats[d]);
+
+            ComponentModelFitter.FitResult result;
+            if (forcedFitter != null) {
+                result = forcedFitter.fit(stats[d], dimensionData);
+            } else if (collectAllFits) {
+                BestFitSelector.SelectionWithAllFits selection =
+                    selector.selectBestWithAllFits(stats[d], dimensionData);
+                result = selection.bestFit();
+                allFitScores[d] = selection.allScores();
+                bestFitIndices[d] = selection.bestIndex();
+                sparklines[d] = Sparkline.generate(dimensionData, Sparkline.DEFAULT_WIDTH);
+            } else {
+                result = selector.selectBestResult(stats[d], dimensionData);
+            }
+
+            fitResults[d] = result;
+            components[d] = result.model();
+
+            observer.onDimensionComplete(d, result.model());
+        }
+
+        if (collectAllFits && modelTypes != null) {
+            allFitsData = new AllFitsData(modelTypes, allFitScores, bestFitIndices, sparklines);
+        }
+
+        long extractionTime = System.currentTimeMillis() - startTime;
+
+        if (progressCallback != null) {
+            progressCallback.onProgress(1.0, "Extraction complete");
+        }
+
+        VectorSpaceModel model = new VectorSpaceModel(uniqueVectors, components);
+        return new ExtractionResult(model, stats, fitResults, extractionTime, allFitsData);
     }
 
     /**

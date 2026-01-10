@@ -138,12 +138,25 @@ public final class VectorFileIOVectorSpace implements VectorSpace, Closeable {
     }
 
     @Override
-    public float[][] getAllVectors() {
-        float[][] allVectors = new float[vectorCount][];
-        for (int i = 0; i < vectorCount; i++) {
-            allVectors[i] = getVector(i);
+    public float[][] getVectors(int startIndex, int endIndex) {
+        if (startIndex < 0 || endIndex > vectorCount || startIndex > endIndex) {
+            throw new IndexOutOfBoundsException(
+                "Range [" + startIndex + ", " + endIndex + ") out of bounds for size " + vectorCount);
         }
-        return allVectors;
+        // Use the underlying array's bulk read capabilities via subList().toArray()
+        // This leverages optimized getRange() implementations in readers like UniformFvecReader
+        Object[] raw = vectorArray.subList(startIndex, endIndex).toArray();
+        float[][] result = new float[raw.length][];
+        for (int i = 0; i < raw.length; i++) {
+            float[] vec = (float[]) raw[i];
+            result[i] = vec != null ? Arrays.copyOf(vec, vec.length) : null;
+        }
+        return result;
+    }
+
+    @Override
+    public float[][] getAllVectors() {
+        return getVectors(0, vectorCount);
     }
 
     @Override

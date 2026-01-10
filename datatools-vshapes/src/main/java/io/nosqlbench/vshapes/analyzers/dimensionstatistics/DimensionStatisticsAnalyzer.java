@@ -36,14 +36,14 @@ import io.nosqlbench.vshapes.stream.StreamingAnalyzer;
 /// │                    DIMENSION STATISTICS ANALYSIS                        │
 /// └─────────────────────────────────────────────────────────────────────────┘
 ///
-///   Source Vectors                                   Statistics Output
-///  ┌─────────────────┐                              ┌──────────────────────┐
-///  │ v₀ = [x₀,y₀,z₀] │                              │ dim[0]: μ, σ, γ, κ   │
-///  │ v₁ = [x₁,y₁,z₁] │  ─────► Analyze ─────►       │ dim[1]: μ, σ, γ, κ   │
-///  │ v₂ = [x₂,y₂,z₂] │                              │ dim[2]: μ, σ, γ, κ   │
-///  │       ...       │                              │   ...                │
-///  │ vₙ = [xₙ,yₙ,zₙ] │                              │ dim[M]: μ, σ, γ, κ   │
-///  └─────────────────┘                              └──────────────────────┘
+///   Columnar Input                                   Statistics Output
+///  ┌─────────────────────────────┐                  ┌──────────────────────┐
+///  │ chunk[0] = [x₀,x₁,x₂,...xₙ] │                  │ dim[0]: μ, σ, γ, κ   │
+///  │ chunk[1] = [y₀,y₁,y₂,...yₙ] │  ──► Analyze ──► │ dim[1]: μ, σ, γ, κ   │
+///  │ chunk[2] = [z₀,z₁,z₂,...zₙ] │                  │ dim[2]: μ, σ, γ, κ   │
+///  │       ...                   │                  │   ...                │
+///  │ chunk[M] = [...]            │                  │ dim[M]: μ, σ, γ, κ   │
+///  └─────────────────────────────┘                  └──────────────────────┘
 ///
 ///   where: μ = mean, σ = stdDev, γ = skewness, κ = kurtosis
 /// ```
@@ -177,19 +177,18 @@ public final class DimensionStatisticsAnalyzer implements StreamingAnalyzer<Dime
         }
     }
 
-    /// Processes a chunk of vectors.
+    /// Processes a columnar chunk of vectors.
     ///
-    /// Each vector's components are distributed to the corresponding
-    /// dimension accumulators.
+    /// The chunk is in columnar format: `chunk[dimension][vectorIndex]`.
+    /// Each `chunk[d]` contains all values for dimension `d` in this chunk,
+    /// enabling efficient batch processing.
     ///
-    /// @param chunk the vectors to process
+    /// @param chunk columnar data, shape `[dimensions][vectorsInChunk]`
     /// @param startIndex the global index of the first vector in the chunk
     @Override
     public void accept(float[][] chunk, long startIndex) {
-        for (float[] vector : chunk) {
-            for (int d = 0; d < vector.length; d++) {
-                accumulators[d].accept(vector[d]);
-            }
+        for (int d = 0; d < chunk.length; d++) {
+            accumulators[d].acceptAll(chunk[d]);
         }
     }
 

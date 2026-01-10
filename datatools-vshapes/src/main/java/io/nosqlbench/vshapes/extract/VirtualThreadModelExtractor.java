@@ -202,8 +202,10 @@ public final class VirtualThreadModelExtractor implements ModelExtractor {
     }
 
     @Override
-    public VectorSpaceModel extractFromTransposed(float[][] transposedData) {
+    public ExtractionResult extractFromTransposed(float[][] transposedData) {
         validateTransposedData(transposedData);
+
+        long startTime = System.currentTimeMillis();
 
         int numDimensions = transposedData.length;
         int numVectors = transposedData[0].length;
@@ -214,11 +216,54 @@ public final class VirtualThreadModelExtractor implements ModelExtractor {
         // Compute effective microbatch size
         int effectiveBatchSize = Math.min(microbatchSize, optimalMicrobatchSize(numDimensions));
 
-        // Process dimensions using virtual threads
-        ScalarModel[] components = processWithVirtualThreads(
+        // Process dimensions using virtual threads (with stats)
+        BatchResult[] batchResults = processWithVirtualThreadsAndStats(
             transposedData, numDimensions, numVectors, effectiveBatchSize);
 
-        return new VectorSpaceModel(uniqueVectors, components);
+        // Assemble results
+        ScalarModel[] components = new ScalarModel[numDimensions];
+        DimensionStatistics[] stats = new DimensionStatistics[numDimensions];
+        ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[numDimensions];
+
+        // For all-fits collection
+        AllFitsData allFitsData = null;
+        java.util.List<String> modelTypes = null;
+        double[][] allFitScores = null;
+        int[] bestFitIndices = null;
+        String[] sparklines = null;
+
+        if (collectAllFits && selector != null) {
+            modelTypes = selector.getFitters().stream()
+                .map(ComponentModelFitter::getModelType)
+                .toList();
+            allFitScores = new double[numDimensions][modelTypes.size()];
+            bestFitIndices = new int[numDimensions];
+            sparklines = new String[numDimensions];
+        }
+
+        for (BatchResult batch : batchResults) {
+            for (int i = 0; i < batch.components.length; i++) {
+                int dim = batch.startDim + i;
+                components[dim] = batch.components[i];
+                stats[dim] = batch.stats[i];
+                fitResults[dim] = batch.fitResults[i];
+
+                if (collectAllFits && batch.allScores != null) {
+                    allFitScores[dim] = batch.allScores[i];
+                    bestFitIndices[dim] = batch.bestIndices[i];
+                    sparklines[dim] = batch.sparklines != null ? batch.sparklines[i] : "";
+                }
+            }
+        }
+
+        if (collectAllFits && modelTypes != null) {
+            allFitsData = new AllFitsData(modelTypes, allFitScores, bestFitIndices, sparklines);
+        }
+
+        long extractionTime = System.currentTimeMillis() - startTime;
+
+        VectorSpaceModel model = new VectorSpaceModel(uniqueVectors, components);
+        return new ExtractionResult(model, stats, fitResults, extractionTime, allFitsData);
     }
 
     @Override

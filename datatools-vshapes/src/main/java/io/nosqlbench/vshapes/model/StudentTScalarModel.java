@@ -361,6 +361,88 @@ public class StudentTScalarModel implements ScalarModel {
         return models;
     }
 
+    /**
+     * Computes the cumulative distribution function (CDF) at a given value.
+     *
+     * <p>The CDF is computed using the relationship to the incomplete beta function.
+     *
+     * @param x the value at which to evaluate the CDF
+     * @return the cumulative probability P(X ≤ x), in range [0, 1]
+     */
+    @Override
+    public double cdf(double x) {
+        double t = (x - location) / scale;
+        double df = degreesOfFreedom;
+        double z = df / (df + t * t);
+        double beta = regularizedIncompleteBeta(z, df / 2, 0.5);
+
+        if (t > 0) {
+            return 1.0 - beta / 2;
+        } else {
+            return beta / 2;
+        }
+    }
+
+    private static double regularizedIncompleteBeta(double x, double a, double b) {
+        if (x <= 0) return 0;
+        if (x >= 1) return 1;
+
+        double bt = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) +
+                             a * Math.log(x) + b * Math.log(1 - x));
+
+        if (x < (a + 1) / (a + b + 2)) {
+            return bt * betaContinuedFraction(x, a, b) / a;
+        } else {
+            return 1.0 - bt * betaContinuedFraction(1 - x, b, a) / b;
+        }
+    }
+
+    private static double betaContinuedFraction(double x, double a, double b) {
+        double qab = a + b;
+        double qap = a + 1;
+        double qam = a - 1;
+        double c = 1;
+        double d = 1 - qab * x / qap;
+        if (Math.abs(d) < 1e-30) d = 1e-30;
+        d = 1 / d;
+        double h = d;
+
+        for (int m = 1; m <= 100; m++) {
+            int m2 = 2 * m;
+            double aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+            d = 1 + aa * d;
+            if (Math.abs(d) < 1e-30) d = 1e-30;
+            c = 1 + aa / c;
+            if (Math.abs(c) < 1e-30) c = 1e-30;
+            d = 1 / d;
+            h *= d * c;
+
+            aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+            d = 1 + aa * d;
+            if (Math.abs(d) < 1e-30) d = 1e-30;
+            c = 1 + aa / c;
+            if (Math.abs(c) < 1e-30) c = 1e-30;
+            d = 1 / d;
+            double del = d * c;
+            h *= del;
+            if (Math.abs(del - 1) < 1e-10) break;
+        }
+        return h;
+    }
+
+    private static double logGamma(double x) {
+        double[] cof = {76.18009172947146, -86.50532032941677, 24.01409824083091,
+                        -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5};
+        double y = x;
+        double tmp = x + 5.5;
+        tmp -= (x + 0.5) * Math.log(tmp);
+        double ser = 1.000000000190015;
+        for (int j = 0; j < 6; j++) {
+            ser += cof[j] / ++y;
+        }
+        return -tmp + Math.log(2.5066282746310005 * ser / x);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

@@ -28,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Random;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 /**
  * Diagnostic tests for sampler accuracy issues.
  *
@@ -37,7 +39,8 @@ import java.util.Random;
 @Tag("accuracy")
 public class SamplerAccuracyDiagnosticTest {
 
-    private static final int SAMPLE_SIZE = 100_000;
+    // Reduced from 100K to 25K for faster CI while maintaining diagnostic utility
+    private static final int SAMPLE_SIZE = 25_000;
     private static final long SEED = 42L;
 
     @Test
@@ -118,6 +121,10 @@ public class SamplerAccuracyDiagnosticTest {
             System.out.printf("K-S between random and sampler: %.4f (critical: %.4f)%n",
                 ks.statistic(), ks.criticalValue());
         }
+
+        // Require random-generated data to be correctly classified
+        assertEquals("beta_prime", randomBest.getModelType(),
+            "Random-generated BetaPrime data should be classified as beta_prime");
     }
 
     @Test
@@ -140,6 +147,7 @@ public class SamplerAccuracyDiagnosticTest {
         };
 
         int matches = 0;
+        int randomCorrect = 0;
         for (Object[] config : configs) {
             String typeName = (String) config[0];
             ScalarModel model = (ScalarModel) config[1];
@@ -161,13 +169,24 @@ public class SamplerAccuracyDiagnosticTest {
             boolean match = randomBest.getModelType().equals(samplerBest.getModelType());
             if (match) matches++;
 
+            // Check if random data is correctly classified (allow uniform→beta equivalence)
+            boolean randomIsCorrect = typeName.equals(randomBest.getModelType()) ||
+                (typeName.equals("uniform") && randomBest.getModelType().equals("beta"));
+            if (randomIsCorrect) randomCorrect++;
+
             System.out.printf("%-15s %-15s %-15s %s%n",
                 typeName, randomBest.getModelType(), samplerBest.getModelType(),
                 match ? "YES" : "NO **");
         }
 
-        System.out.printf("\nAccuracy: %d/%d (%.1f%%)%n", matches, configs.length,
+        System.out.printf("\nRandom/Sampler match rate: %d/%d (%.1f%%)%n", matches, configs.length,
             100.0 * matches / configs.length);
+        System.out.printf("Random classification accuracy: %d/%d (%.1f%%)%n", randomCorrect, configs.length,
+            100.0 * randomCorrect / configs.length);
+
+        // Enforce 100% random classification accuracy
+        assertEquals(configs.length, randomCorrect,
+            "All distribution types should be correctly classified from random data");
     }
 
     private float[] generateRandomData(Random rng, String type, int n) {

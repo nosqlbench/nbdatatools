@@ -328,7 +328,7 @@ public final class DimensionStatistics {
      * <p>This operation is algebraically sound: combining statistics produces
      * numerically equivalent results to computing statistics over all values at once.
      *
-     * <h2>Algorithm</h2>
+     * <p><b>Algorithm:</b>
      *
      * <p>For statistics A and B with counts nA and nB:
      * <pre>{@code
@@ -339,7 +339,7 @@ public final class DimensionStatistics {
      * varianceAB = (nA * varA + nB * varB + δ² * nA * nB / nAB) / nAB
      * }</pre>
      *
-     * <h2>Algebraic Properties</h2>
+     * <p><b>Algebraic Properties:</b>
      *
      * <ul>
      *   <li><b>Associativity:</b> combine(A, combine(B, C)) == combine(combine(A, B), C)</li>

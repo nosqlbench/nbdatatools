@@ -87,20 +87,19 @@ import io.nosqlbench.vshapes.stream.StreamingAnalyzer;
 ///
 /// ## Phase 2: Chunk Processing
 ///
-/// Each chunk of vectors is distributed to dimension accumulators:
+/// Chunks are received in **columnar format** `[dimensions][vectorsInChunk]`:
 ///
 /// ```text
-/// Chunk: float[1000][128]
+/// Columnar Chunk: float[128][1000]
 ///
-///   vector[0] ──┬── dim[0] ──▶ accumulator[0].accept(value)
-///               ├── dim[1] ──▶ accumulator[1].accept(value)
-///               ├── dim[2] ──▶ accumulator[2].accept(value)
-///               │      ...
-///               └── dim[127]─▶ accumulator[127].accept(value)
-///
-///   vector[1] ──┬── dim[0] ──▶ accumulator[0].accept(value)
-///               │     ...
+///   chunk[0] = [v₀.x₀, v₁.x₀, v₂.x₀, ...] ──▶ accumulator[0].acceptAll(chunk[0])
+///   chunk[1] = [v₀.x₁, v₁.x₁, v₂.x₁, ...] ──▶ accumulator[1].acceptAll(chunk[1])
+///   chunk[2] = [v₀.x₂, v₁.x₂, v₂.x₂, ...] ──▶ accumulator[2].acceptAll(chunk[2])
+///      ...
+///   chunk[127]= [v₀.x₁₂₇, v₁.x₁₂₇, ...  ] ──▶ accumulator[127].acceptAll(chunk[127])
 /// ```
+///
+/// This columnar layout enables cache-efficient per-dimension processing.
 ///
 /// ## Phase 3: Distribution Fitting
 ///
@@ -278,18 +277,20 @@ public final class DimensionDistributionAnalyzer implements StreamingAnalyzer<Ve
         }
     }
 
-    /// Processes a chunk of vectors.
+    /// Processes a columnar chunk of vectors.
     ///
-    /// Each vector's components are distributed to the corresponding
-    /// dimension accumulators.
+    /// The chunk is in columnar format: `chunk[dimension][vectorIndex]`.
+    /// Each `chunk[d]` contains all values for dimension `d` in this chunk,
+    /// enabling cache-efficient per-dimension processing.
     ///
-    /// @param chunk the vectors to process
+    /// @param chunk columnar data, shape `[dimensions][vectorsInChunk]`
     /// @param startIndex the global index of the first vector in the chunk
     @Override
     public void accept(float[][] chunk, long startIndex) {
-        for (float[] vector : chunk) {
-            for (int d = 0; d < vector.length; d++) {
-                accumulators[d].accept(vector[d]);
+        for (int d = 0; d < chunk.length; d++) {
+            float[] dimValues = chunk[d];
+            for (int i = 0; i < dimValues.length; i++) {
+                accumulators[d].accept(dimValues[i]);
             }
         }
     }

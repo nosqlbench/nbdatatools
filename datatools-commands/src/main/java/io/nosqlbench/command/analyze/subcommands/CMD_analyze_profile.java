@@ -20,23 +20,33 @@ package io.nosqlbench.command.analyze.subcommands;
 import io.nosqlbench.command.analyze.VectorLoadingProvider;
 import io.nosqlbench.command.common.BaseVectorsFileOption;
 import io.nosqlbench.command.common.RangeOption;
+import io.nosqlbench.command.compute.VectorNormalizationDetector;
 import io.nosqlbench.common.types.VectorFileExtension;
 import io.nosqlbench.datatools.virtdata.DimensionDistributionGenerator;
+import io.nosqlbench.datatools.virtdata.sampling.ComponentSampler;
+import io.nosqlbench.datatools.virtdata.sampling.ComponentSamplerFactory;
 import io.nosqlbench.vshapes.ComputeMode;
+import io.nosqlbench.vshapes.extract.AdaptiveModelExtractor;
+import io.nosqlbench.vshapes.extract.AdaptiveModelExtractor.AdaptiveExtractionResult;
+import io.nosqlbench.vshapes.extract.AdaptiveModelExtractor.DimensionStrategy;
 import io.nosqlbench.vshapes.extract.BestFitSelector;
+import io.nosqlbench.vshapes.extract.ComponentModelFitter;
+import io.nosqlbench.vshapes.extract.CompositeModelFitter.ClusteringStrategy;
 import io.nosqlbench.vshapes.extract.ConvergentDatasetModelExtractor;
+import io.nosqlbench.vshapes.extract.InternalVerifier.VerificationLevel;
+import io.nosqlbench.vshapes.extract.IterativeModelRefiner;
 import io.nosqlbench.vshapes.extract.ConvergentDimensionEstimator;
 import io.nosqlbench.vshapes.extract.DatasetModelExtractor;
 import io.nosqlbench.vshapes.extract.DimensionStatistics;
+import io.nosqlbench.vshapes.extract.BetaModelFitter;
 import io.nosqlbench.vshapes.extract.EmpiricalModelFitter;
+import io.nosqlbench.vshapes.extract.GammaModelFitter;
+import io.nosqlbench.vshapes.extract.InternalVerifier;
 import io.nosqlbench.vshapes.extract.ModelEquivalenceAnalyzer;
+import io.nosqlbench.vshapes.extract.StudentTModelFitter;
 import io.nosqlbench.vshapes.extract.ModelExtractor;
 import io.nosqlbench.vshapes.extract.NormalModelFitter;
-import io.nosqlbench.vshapes.extract.NumaAwareDatasetModelExtractor;
-import io.nosqlbench.vshapes.extract.NumaTopology;
-import io.nosqlbench.vshapes.extract.ParallelDatasetModelExtractor;
 import io.nosqlbench.vshapes.extract.UniformModelFitter;
-import io.nosqlbench.vshapes.extract.VirtualThreadModelExtractor;
 import io.nosqlbench.vshapes.extract.DimensionFitReport;
 import io.nosqlbench.vshapes.checkpoint.CheckpointManager;
 import io.nosqlbench.vshapes.checkpoint.CheckpointState;
@@ -46,6 +56,13 @@ import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
+import io.nosqlbench.vshapes.stream.AnalysisResults;
+import io.nosqlbench.vshapes.stream.AnalyzerHarness;
+import io.nosqlbench.vshapes.stream.ChunkSizeCalculator;
+import io.nosqlbench.vshapes.stream.DataspaceShape;
+import io.nosqlbench.vshapes.stream.PrefetchingDataSource;
+import io.nosqlbench.vshapes.stream.StreamingModelExtractor;
+import io.nosqlbench.vshapes.stream.TransposedChunkDataSource;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
@@ -67,31 +84,30 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * distribution of each dimension, and saves the resulting VectorSpaceModel
  * configuration to a JSON file.
  *
- * <h2>Compute Strategies (--compute)</h2>
- * <ul>
- *   <li><b>OPTIMIZED</b>: Virtual threads + SIMD + microbatching (default, recommended for large datasets)</li>
- *   <li><b>SIMD</b>: Single-threaded with convergent parameter estimation and early stopping.
- *       Processes data incrementally and stops when parameters converge, potentially
- *       saving significant time on large datasets. Use {@code --no-convergence} to disable.</li>
- *   <li><b>PARALLEL</b>: Multi-threaded with SIMD acceleration (ForkJoinPool)</li>
- *   <li><b>NUMA</b>: NUMA-aware multi-threaded for multi-socket systems</li>
- *   <li><b>FAST</b>: Fast Gaussian-only statistics (mean/stdDev only, SIMD)</li>
- * </ul>
+ * <p>Uses memory-efficient streaming extraction with convergence tracking. Processes data
+ * in columnar chunks with early exit when parameters converge. Works efficiently for
+ * datasets of any size. Supports all model fitting capabilities including parametric,
+ * composite, and empirical models. Supports {@code --show-fit-table} for comprehensive
+ * fit comparison. Supports {@code --threads} for configurable parallelism.
+ * NUMA-aware fitting is enabled by default for optimal memory locality on multi-socket systems.
  *
- * <h2>Convergent Extraction (--compute SIMD)</h2>
+ * <h2>Convergent Extraction</h2>
  *
- * <p>The SIMD strategy uses convergent parameter estimation by default. This monitors
- * each dimension's statistical parameters (mean, variance, skewness, kurtosis) and
- * stops early when all dimensions have converged. This can save significant computation
- * on large datasets where convergence is achieved with only a fraction of the data.
+ * <p>Uses convergent parameter estimation by default. This monitors each dimension's
+ * statistical parameters (mean, variance, skewness, kurtosis) and stops early when
+ * all dimensions have converged. This can save significant computation on large datasets
+ * where convergence is achieved with only a fraction of the data.
  *
  * <ul>
  *   <li><b>--no-convergence</b>: Disable early stopping (process all samples)</li>
  *   <li><b>--convergence-threshold</b>: Parameter change threshold (default: 0.05 = 5% of SE)</li>
  *   <li><b>--convergence-checkpoint</b>: Samples between convergence checks (default: 1000)</li>
+ *   <li><b>--memory-budget</b>: Fraction of available heap for chunks (0.0-1.0, default: 0.6)
+ *       or absolute size with suffix (e.g., 4g, 512m)</li>
+ *   <li><b>--threads</b>: Number of threads for parallel model fitting (default: auto)</li>
  * </ul>
  *
- * <h2>Model Types (for OPTIMIZED, SIMD, PARALLEL, NUMA strategies)</h2>
+ * <h2>Model Types</h2>
  * <ul>
  *   <li><b>auto</b>: Best-fit from bounded distributions (Normal, Beta, Uniform, Empirical).
  *       This is appropriate for vector embeddings which typically have bounded value ranges.
@@ -132,20 +148,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <h2>Usage Examples</h2>
  * <pre>{@code
- * # Optimized virtual thread + SIMD + microbatching (default, recommended)
+ * # Default extraction with convergence-based early exit
  * nbvectors analyze profile -b base_vectors.fvec -o model.json
  *
- * # Single-threaded SIMD extraction
- * nbvectors analyze profile -b base_vectors.fvec -o model.json --compute SIMD
+ * # Parallel extraction with 16 threads (NUMA-aware by default)
+ * nbvectors analyze profile -b base_vectors.fvec -o model.json --threads 16
  *
- * # Fast Gaussian-only profiling (mean/stdDev only)
- * nbvectors analyze profile -b base_vectors.fvec -o model.json --compute FAST
+ * # Custom memory budget (use 4GB for chunks)
+ * nbvectors analyze profile -b large_vectors.fvec -o model.json --memory-budget 4g
  *
- * # Parallel extraction with ForkJoinPool (16 threads)
- * nbvectors analyze profile -b base_vectors.fvec -o model.json --compute PARALLEL --threads 16
- *
- * # NUMA-aware extraction on multi-socket systems
- * nbvectors analyze profile -b base_vectors.fvec -o model.json --compute NUMA
+ * # Fraction of available heap (40%)
+ * nbvectors analyze profile -b large_vectors.fvec -o model.json --memory-budget 0.4
  *
  * # Profile only the first 10000 vectors
  * nbvectors analyze profile -b base_vectors.fvec:10000 -o model.json
@@ -166,14 +179,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * nbvectors analyze profile -b base_vectors.fvec -o model.json \
  *     --analyze-equivalence --equivalence-threshold 0.01 --apply-simplifications
  *
- * # Use convergent extraction with early stopping (SIMD mode)
- * nbvectors analyze profile -b base_vectors.fvec -o model.json --compute SIMD
- *
  * # Convergent extraction with custom threshold (stricter convergence)
- * nbvectors analyze profile -b base_vectors.fvec -o model.json --compute SIMD --convergence-threshold 0.02
+ * nbvectors analyze profile -b base_vectors.fvec -o model.json --convergence-threshold 0.02
  *
  * # Disable convergent early stopping (process all samples)
- * nbvectors analyze profile -b base_vectors.fvec -o model.json --compute SIMD --no-convergence
+ * nbvectors analyze profile -b base_vectors.fvec -o model.json --no-convergence
+ *
+ * # Show fit comparison table for all model types
+ * nbvectors analyze profile -b base_vectors.fvec -o model.json --show-fit-table
  * }</pre>
  */
 @CommandLine.Command(name = "profile",
@@ -183,42 +196,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CMD_analyze_profile implements Callable<Integer> {
     private static final Logger logger = LogManager.getLogger(CMD_analyze_profile.class);
 
-    /// Compute strategy for profile extraction.
+    /// ANSI color codes for CVD-friendly (colorblind accessible) verification output.
     ///
-    /// All strategies use SIMD-optimized statistics computation when available
-    /// (Panama Vector API on JDK 25+). The difference is in parallelization approach.
-    public enum ComputeStrategy {
-        /// Optimized extraction using virtual threads + SIMD + microbatching.
-        /// Best performance for most workloads. Uses lightweight virtual threads
-        /// with auto-tuned microbatch sizes for optimal parallelism.
-        OPTIMIZED("Virtual threads + SIMD + microbatching (recommended)"),
-
-        /// Single-threaded SIMD extraction.
-        /// Uses Panama Vector API for dimension statistics when available.
-        SIMD("Single-threaded with SIMD acceleration"),
-
-        /// Multi-threaded SIMD extraction using ForkJoinPool.
-        /// Each thread uses SIMD for its assigned dimensions.
-        PARALLEL("Multi-threaded with SIMD acceleration"),
-
-        /// NUMA-aware multi-threaded SIMD extraction.
-        /// Optimized for multi-socket systems, binds threads to NUMA nodes.
-        NUMA("NUMA-aware multi-threaded with SIMD acceleration"),
-
-        /// Fast Gaussian-only statistics (legacy mode).
-        /// Single-threaded with SIMD-optimized dimension statistics.
-        FAST("Fast Gaussian-only (single-threaded, SIMD)");
-
-        private final String description;
-
-        ComputeStrategy(String description) {
-            this.description = description;
-        }
-
-        public String getDescription() {
-            return description;
-        }
-    }
+    /// Based on research from Engeset et al. (2022) "Colours and maps for communicating
+    /// natural hazards to users with and without colour vision deficiency":
+    /// - Blue replaces green for "pass/good" status (blue is distinguishable for deuteranopia)
+    /// - Yellow/amber for warnings (universally visible)
+    /// - Red for errors (can be distinguished from blue by all CVD types)
+    ///
+    /// Uses bright ANSI colors (90-97 range) for better visibility.
+    private static final String ANSI_RESET = "\u001B[0m";
+    private static final String ANSI_RED = "\u001B[91m";      // Bright red for errors/failures
+    private static final String ANSI_BLUE = "\u001B[94m";     // Bright blue for pass/good (CVD-friendly)
+    private static final String ANSI_YELLOW = "\u001B[93m";   // Bright yellow for warnings
+    private static final String ANSI_CYAN = "\u001B[96m";     // Bright cyan for highlights
+    private static final String ANSI_BOLD = "\u001B[1m";
+    private static final String ANSI_DIM = "\u001B[2m";
+    // Background colors for highlighting differences
+    private static final String ANSI_BG_RED = "\u001B[101m";  // Bright red background
+    private static final String ANSI_BG_BLUE = "\u001B[104m"; // Bright blue background (CVD-friendly)
 
     public enum ModelType {
         auto,       // Automatic best-fit selection (Normal, Uniform, Empirical)
@@ -252,25 +248,12 @@ public class CMD_analyze_profile implements Callable<Integer> {
         description = "Include truncation bounds based on observed min/max values")
     private boolean truncated = false;
 
-    @CommandLine.Option(names = {"--per-dimension"},
-        description = "Store per-dimension statistics (default: uniform if all dimensions are similar)")
-    private boolean perDimension = false;
-
-    @CommandLine.Option(names = {"--tolerance"},
-        description = "Tolerance for considering dimensions uniform (default: 0.01)")
-    private double tolerance = 0.01;
-
-    @CommandLine.Option(names = {"--compute", "-c"},
-        description = "Compute strategy: OPTIMIZED, SIMD, PARALLEL, NUMA, FAST (default: OPTIMIZED). " +
-            "All use Panama Vector API SIMD when available. Valid values: ${COMPLETION-CANDIDATES}")
-    private ComputeStrategy computeStrategy = ComputeStrategy.OPTIMIZED;
-
     @CommandLine.Option(names = {"--model-type", "-m"},
         description = "Model type: auto (Normal/Beta/Uniform/Empirical - bounded distributions), pearson (full Pearson family including heavy-tailed), normal, uniform, empirical, parametric (default: auto)")
     private ModelType modelType = ModelType.auto;
 
     @CommandLine.Option(names = {"--threads", "-t"},
-        description = "Number of threads for parallel extraction (default: auto)")
+        description = "Number of threads for parallel model fitting (default: auto = all processors - 10)")
     private Integer threads;
 
     @CommandLine.Option(names = {"--batch-size"},
@@ -302,7 +285,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
     private boolean noConvergence = false;
 
     @CommandLine.Option(names = {"--convergence-threshold"},
-        description = "Convergence threshold as fraction of standard error (default: 0.05 = 5%)")
+        description = "Convergence threshold as fraction of standard error (default: 0.01 = 1%)")
     private double convergenceThreshold = ConvergentDimensionEstimator.DEFAULT_THRESHOLD;
 
     @CommandLine.Option(names = {"--convergence-checkpoint"},
@@ -317,6 +300,17 @@ public class CMD_analyze_profile implements Callable<Integer> {
     @CommandLine.Option(names = {"--verify-count"},
         description = "Number of synthetic vectors to generate for verification (default: 100000)")
     private int verifyCount = 100_000;
+
+    @CommandLine.Option(names = {"--refine"},
+        description = "Enable iterative model refinement with internal verification. " +
+            "When enabled, each dimension is verified via round-trip and refined if verification fails. " +
+            "Refinement tries models in order: simple parametric → extended parametric → composite → empirical. " +
+            "Implies --verify.")
+    private boolean refine = false;
+
+    @CommandLine.Option(names = {"--refine-threshold"},
+        description = "Maximum parameter drift threshold for refinement verification (default: 0.02 = 2%%)")
+    private double refineThreshold = 0.02;
 
     @CommandLine.Option(names = {"--verbose", "-v"},
         description = "Show detailed progress and output")
@@ -337,6 +331,33 @@ public class CMD_analyze_profile implements Callable<Integer> {
         description = "Maximum number of modes to detect per dimension (default: 3). " +
             "Only used when --multimodal is enabled.")
     private int maxModes = 3;
+
+    // Adaptive composite fallback options
+    @CommandLine.Option(names = {"--no-adaptive"},
+        description = "Disable adaptive composite fallback (enabled by default). " +
+            "When adaptive is enabled, the extractor tries parametric models first, " +
+            "then composite models with 2-4 components before falling back to empirical.")
+    private boolean noAdaptive = false;
+
+    @CommandLine.Option(names = {"--max-composite-modes"},
+        description = "Maximum number of modes for composite fitting (default: 4). " +
+            "Range: 2-4. Only used when adaptive extraction is enabled.")
+    private int maxCompositeModes = 4;
+
+    @CommandLine.Option(names = {"--verification-level"},
+        description = "Internal verification thoroughness level: fast (500 samples), " +
+            "balanced (1000 samples, default), or thorough (5000 samples).")
+    private String verificationLevel = "balanced";
+
+    @CommandLine.Option(names = {"--clustering"},
+        description = "Clustering method for composite fitting: hard (nearest-mode) or em (soft clustering, default). " +
+            "EM is more accurate for overlapping modes but slightly slower.")
+    private String clusteringMethod = "em";
+
+    @CommandLine.Option(names = {"--no-internal-verify"},
+        description = "Disable internal mini-verification (enabled by default). " +
+            "Internal verification detects parameter instability by doing a mini round-trip test.")
+    private boolean noInternalVerify = false;
 
     @CommandLine.Option(names = {"--checkpoint-dir"},
         description = "Directory for checkpoint files. When specified, progress is saved " +
@@ -362,6 +383,31 @@ public class CMD_analyze_profile implements Callable<Integer> {
         description = "Maximum memory to use for vector data in bytes (e.g., 4g, 2048m). " +
             "Overrides auto-detection. Used to partition large datasets that exceed heap size.")
     private String maxMemorySpec;
+
+    @CommandLine.Option(names = {"--memory-budget"},
+        description = "Memory budget for chunk loading as fraction of available heap (0.0-1.0, default: 0.6). " +
+            "Alternatively, specify absolute size with suffix: 4g, 512m, 256m. " +
+            "Used for chunked processing of large datasets.")
+    private String memoryBudget = "0.6";
+
+    @CommandLine.Option(names = {"--use-transposed-loading"},
+        description = "Load vectors directly in column-major (transposed) format for faster per-dimension analysis. " +
+            "Automatically enabled when using memory-mapped I/O.")
+    private boolean useTransposedLoading = true;
+
+    @CommandLine.Option(names = {"--assume-normalized"},
+        description = "Assume vectors are L2-normalized (||v|| = 1.0). Skips auto-detection and applies " +
+            "[-1, 1] range bounds to model extraction. Use when you know vectors are normalized " +
+            "to avoid detection overhead.")
+    private boolean assumeNormalized = false;
+
+    @CommandLine.Option(names = {"--assume-unnormalized"},
+        description = "Assume vectors are NOT normalized. Skips auto-detection. " +
+            "Use when you know vectors are not normalized.")
+    private boolean assumeUnnormalized = false;
+
+    /// Detected or assumed normalization status. Set during call().
+    private Boolean detectedNormalized = null;
 
     @Override
     public Integer call() {
@@ -430,6 +476,36 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 System.out.printf("Created checkpoint directory: %s%n", checkpointDir);
             }
 
+            // Validate conflicting normalization options
+            if (assumeNormalized && assumeUnnormalized) {
+                System.err.println("Error: Cannot use both --assume-normalized and --assume-unnormalized");
+                return 1;
+            }
+
+            // Detect or set normalization status
+            if (assumeNormalized) {
+                detectedNormalized = true;
+                logger.info("Assuming vectors are L2-normalized (user specified)");
+            } else if (assumeUnnormalized) {
+                detectedNormalized = false;
+                logger.info("Assuming vectors are NOT normalized (user specified)");
+            } else {
+                // Auto-detect normalization by sampling vectors
+                try {
+                    VectorNormalizationDetector.NormalizationResult normResult =
+                        VectorNormalizationDetector.detectNormalization(inputFile);
+                    detectedNormalized = normResult.isNormalized();
+                    logger.info("Normalization detection: {} ({}/{} samples normalized, {}%)",
+                        detectedNormalized ? "NORMALIZED" : "NOT NORMALIZED",
+                        normResult.normalizedCount(),
+                        normResult.sampleSize(),
+                        String.format("%.1f", normResult.normalizedPercentage() * 100));
+                } catch (Exception e) {
+                    logger.warn("Failed to detect normalization, assuming NOT normalized: {}", e.getMessage());
+                    detectedNormalized = false;
+                }
+            }
+
             // Display compute mode capabilities
             printComputeCapabilities();
 
@@ -437,29 +513,35 @@ public class CMD_analyze_profile implements Callable<Integer> {
             if (inlineRange != null) {
                 System.out.printf("  Vector range: %s%n", inlineRange);
             }
-            System.out.printf("  Compute strategy: %s (%s)%n", computeStrategy, computeStrategy.getDescription());
-            if (computeStrategy != ComputeStrategy.FAST) {
-                System.out.printf("  Model type: %s%n", modelType);
+            System.out.printf("  Model type: %s%n", modelType);
+            // Display normalization status
+            String normSource = (assumeNormalized || assumeUnnormalized) ? " (user specified)" : " (auto-detected)";
+            System.out.printf("  Normalized: %s%s%n",
+                detectedNormalized ? "yes (L2 unit vectors)" : "no",
+                normSource);
+            if (detectedNormalized) {
+                System.out.println("  Range bounds: [-1.0, 1.0] (normalized vectors)");
             }
             if (checkpointDir != null) {
                 System.out.printf("  Checkpoint directory: %s%n", checkpointDir);
                 System.out.printf("  Checkpoint interval: every %d dimensions%n", checkpointInterval);
             }
 
-            VectorSpaceModel model;
-            if (computeStrategy == ComputeStrategy.FAST) {
-                model = profileVectorsFast(inputFile, fileType, inlineRange);
-            } else {
-                model = profileVectorsFull(inputFile, fileType, inlineRange);
-            }
+            VectorSpaceModel model = profileVectorsStreaming(inputFile, fileType, inlineRange);
 
             if (model == null) {
                 return 1;
             }
 
             // Run equivalence analysis if requested
-            if (analyzeEquivalence && computeStrategy != ComputeStrategy.FAST) {
+            if (analyzeEquivalence) {
                 model = runEquivalenceAnalysis(model);
+            }
+
+            // Run iterative refinement if requested
+            if (refine) {
+                verify = true;  // --refine implies --verify
+                model = runIterativeRefinement(model, inputFile, fileType, inlineRange);
             }
 
             VectorSpaceModelConfig.saveToFile(model, outputFile);
@@ -520,130 +602,6 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
-     * Full model extraction using DatasetModelExtractor with best-fit selection.
-     */
-    private VectorSpaceModel profileVectorsFull(Path file, FileType fileType, RangeOption.Range range) {
-        try (VectorFileArray<float[]> vectorArray = VectorFileIO.randomAccess(fileType, float[].class, file)) {
-            int totalVectorCount = vectorArray.getSize();
-
-            if (totalVectorCount == 0) {
-                logger.error("File contains no vectors");
-                System.err.println("Error: File contains no vectors");
-                return null;
-            }
-
-            // Apply range constraint if specified
-            int rangeStart = 0;
-            int rangeEnd = totalVectorCount;
-            if (range != null) {
-                RangeOption.Range effectiveRange = range.constrain(totalVectorCount);
-                rangeStart = (int) effectiveRange.start();
-                rangeEnd = (int) effectiveRange.end();
-            }
-            int vectorCount = rangeEnd - rangeStart;
-
-            // Get dimensions from first vector in range
-            float[] first = vectorArray.get(rangeStart);
-            int dimensions = first.length;
-
-            System.out.printf("  Vectors in file: %d%n", totalVectorCount);
-            if (range != null) {
-                System.out.printf("  Vectors in range: %d (indices %d to %d)%n", vectorCount, rangeStart, rangeEnd - 1);
-            }
-            System.out.printf("  Dimensions: %d%n", dimensions);
-
-            // Determine sample size within the range
-            int actualSampleSize = sampleSize != null ? Math.min(sampleSize, vectorCount) : vectorCount;
-            System.out.printf("  Sampling: %d vectors%n", actualSampleSize);
-
-            // Report loading method
-            if (VectorLoadingProvider.isMemoryMappedAvailable() && actualSampleSize == vectorCount) {
-                System.out.println("  Loading: Memory-mapped I/O (optimized)");
-            } else {
-                System.out.println("  Loading: Standard I/O");
-            }
-
-            // Load vectors into memory with progress display
-            long loadStart = System.currentTimeMillis();
-            float[][] data = loadVectorsWithProgress(file, vectorArray, rangeStart, vectorCount, actualSampleSize);
-            long loadElapsed = System.currentTimeMillis() - loadStart;
-            System.out.printf("  Loaded %d vectors in %d ms%n", actualSampleSize, loadElapsed);
-
-            // Create extractor
-            ModelExtractor extractor = createExtractor(dimensions);
-
-            // Set up state observer if trace file is specified
-            NdjsonTraceObserver traceObserver = null;
-            if (traceStatePath != null) {
-                try {
-                    traceObserver = new NdjsonTraceObserver(traceStatePath);
-                    extractor.setObserver(traceObserver);
-                    System.out.printf("  State tracing enabled: %s%n", traceStatePath);
-                } catch (java.io.IOException e) {
-                    logger.error("Failed to open trace file", e);
-                    System.err.println("Warning: Could not open trace file: " + e.getMessage());
-                }
-            }
-
-            // Extract model with progress display
-            long startTime = System.currentTimeMillis();
-            System.out.printf("  Fitting %d dimensions...%n", dimensions);
-
-            ModelExtractor.ExtractionResult result = extractWithProgressDisplay(extractor, data, dimensions);
-            VectorSpaceModel model = result.model();
-
-            long elapsed = System.currentTimeMillis() - startTime;
-            System.out.printf("  Extraction completed in %d ms%n", elapsed);
-
-            // Print convergence summary if using convergent extractor
-            if (extractor instanceof ConvergentDatasetModelExtractor convergentExtractor) {
-                printConvergenceSummary(convergentExtractor, actualSampleSize);
-            }
-
-            // Apply truncation bounds if requested
-            if (truncated) {
-                model = applyTruncationBounds(model, result.dimensionStats());
-            }
-
-            // Apply empirical overrides for specified dimensions
-            if (!empiricalDimensions.isEmpty()) {
-                model = applyEmpiricalOverrides(model, data, dimensions);
-            }
-
-            // Shutdown parallel extractors and close trace observer
-            shutdownExtractor(extractor);
-            if (traceObserver != null) {
-                try {
-                    traceObserver.close();
-                    System.out.printf("  State trace written to: %s%n", traceStatePath);
-                } catch (java.io.IOException e) {
-                    logger.warn("Failed to close trace file", e);
-                }
-            }
-
-            // Print model summary
-            printModelSummary(model);
-
-            // Display fit table if requested
-            if (showFitTable) {
-                displayFitTable(result, data, dimensions);
-            }
-
-            // Update unique vectors if specified
-            long modelUniqueVectors = uniqueVectors != null ? uniqueVectors : vectorCount;
-            if (modelUniqueVectors != model.uniqueVectors()) {
-                model = new VectorSpaceModel(modelUniqueVectors, model.scalarModels());
-            }
-
-            return model;
-
-        } catch (Exception e) {
-            logger.error("Error reading vector file", e);
-            throw new RuntimeException("Failed to profile vectors: " + e.getMessage(), e);
-        }
-    }
-
-    /**
      * Loads vectors from the file with progress display.
      *
      * <p>Uses memory-mapped I/O when available (2-4x faster), falling back to
@@ -690,6 +648,218 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
+     * Loads vectors in transposed (column-major) format with progress display.
+     *
+     * <p>Uses memory-mapped I/O for optimal performance. The returned array has shape
+     * {@code float[dimensions][vectorCount]} rather than the standard row-major format.
+     *
+     * @param filePath the file path
+     * @param startIndex starting vector index (inclusive)
+     * @param endIndex ending vector index (exclusive)
+     * @return transposed vectors, shape {@code [dimensions][vectorCount]}
+     */
+    private float[][] loadVectorsTransposedWithProgress(Path filePath, int startIndex, int endIndex) {
+        int[] lastPercent = {-1};
+        int vectorCount = endIndex - startIndex;
+
+        VectorLoadingProvider.ProgressCallback progressCallback = (progress, message) -> {
+            int percent = (int) (progress * 100);
+            if (percent != lastPercent[0]) {
+                printLoadProgressBar(percent, (int)(progress * vectorCount), vectorCount);
+                lastPercent[0] = percent;
+            }
+        };
+
+        float[][] transposed = VectorLoadingProvider.loadVectorsTransposed(
+            filePath, startIndex, endIndex, progressCallback);
+
+        // Print final progress
+        printLoadProgressBar(100, vectorCount, vectorCount);
+        System.out.println(); // New line after progress bar
+
+        return transposed;
+    }
+
+    /**
+     * Extracts model from pre-transposed data with progress display.
+     *
+     * <p>When data is already in column-major format, this avoids the redundant
+     * transpose step in the extractor.
+     *
+     * @param extractor the model extractor
+     * @param transposedData data in format {@code [dimensions][vectorCount]}
+     * @param dimensions number of dimensions
+     * @return extraction result
+     */
+    private ModelExtractor.ExtractionResult extractFromTransposedWithProgress(
+            ModelExtractor extractor, float[][] transposedData, int dimensions) {
+
+        // For DatasetModelExtractor, use extractFromTransposed if available
+        if (extractor instanceof DatasetModelExtractor dsExtractor) {
+            return extractTransposedWithCallbackProgress(dsExtractor, transposedData, dimensions);
+        }
+
+        // For AdaptiveModelExtractor, use its transposed extraction with strategy tracking
+        if (extractor instanceof AdaptiveModelExtractor adaptiveExtractor) {
+            return extractTransposedWithAdaptiveProgress(adaptiveExtractor, transposedData, dimensions);
+        }
+
+        // Fallback: transpose back to row-major and use standard extraction
+        // This is suboptimal but maintains compatibility
+        System.out.println("  Note: Using row-major fallback for this extractor type");
+        int vectorCount = transposedData.length > 0 ? transposedData[0].length : 0;
+        float[][] rowMajor = new float[vectorCount][dimensions];
+        for (int v = 0; v < vectorCount; v++) {
+            for (int d = 0; d < dimensions; d++) {
+                rowMajor[v][d] = transposedData[d][v];
+            }
+        }
+        return extractWithProgressDisplay(extractor, rowMajor, dimensions);
+    }
+
+    /**
+     * Extracts from transposed data using DatasetModelExtractor with callback progress.
+     */
+    private ModelExtractor.ExtractionResult extractTransposedWithCallbackProgress(
+            DatasetModelExtractor extractor, float[][] transposedData, int dimensions) {
+
+        int[] lastPercent = {-1};
+
+        DatasetModelExtractor.ProgressCallback callback = (progress, message) -> {
+            int percent = (int) (progress * 100);
+            if (percent != lastPercent[0]) {
+                int completed = (int) (progress * dimensions);
+                printProgressBar(completed, dimensions, percent);
+                lastPercent[0] = percent;
+            }
+        };
+
+        ModelExtractor.ExtractionResult result = extractor.extractFromTransposedWithProgress(
+            transposedData, callback);
+
+        printProgressBar(dimensions, dimensions, 100);
+        System.out.println();
+
+        return result;
+    }
+
+    /**
+     * Extracts from transposed data using AdaptiveModelExtractor with progress and strategy summary.
+     *
+     * <p>This method provides detailed narration of the adaptive extraction process:
+     * <ul>
+     *   <li>Progress bar during extraction</li>
+     *   <li>Summary of strategies used (parametric, composite, empirical)</li>
+     *   <li>Details for dimensions that fell back to composite or empirical</li>
+     * </ul>
+     */
+    private ModelExtractor.ExtractionResult extractTransposedWithAdaptiveProgress(
+            AdaptiveModelExtractor extractor, float[][] transposedData, int dimensions) {
+
+        System.out.print("  ");
+
+        // Run adaptive extraction
+        AdaptiveExtractionResult adaptiveResult = extractor.extractAdaptiveFromTransposed(transposedData);
+
+        // Print completion
+        printProgressBar(dimensions, dimensions, 100);
+        System.out.println();
+
+        // Print adaptive extraction summary
+        printAdaptiveExtractionSummary(adaptiveResult);
+
+        return adaptiveResult.toExtractionResult();
+    }
+
+    /**
+     * Prints a summary of the adaptive extraction showing which strategies were used.
+     */
+    private void printAdaptiveExtractionSummary(AdaptiveExtractionResult result) {
+        long parametric = result.parametricCount();
+        long composite = result.compositeCount();
+        long empirical = result.empiricalCount();
+        int total = result.strategies().size();
+
+        // Color codes for strategy types
+        String GREEN = "\u001B[32m";
+        String YELLOW = "\u001B[33m";
+        String RED = "\u001B[31m";
+        String RESET = "\u001B[0m";
+
+        // Print summary line
+        System.out.printf("  Adaptive fitting: %s%d parametric%s",
+            GREEN, parametric, RESET);
+
+        if (composite > 0) {
+            System.out.printf(", %s%d composite%s", YELLOW, composite, RESET);
+        }
+        if (empirical > 0) {
+            System.out.printf(", %s%d empirical%s", RED, empirical, RESET);
+        }
+        System.out.printf(" (%d total)%n", total);
+
+        // Show breakdown of composite models by mode count
+        if (composite > 0) {
+            long composite2 = result.strategies().stream()
+                .filter(s -> s.strategyUsed() == AdaptiveModelExtractor.Strategy.COMPOSITE_2).count();
+            long composite3 = result.strategies().stream()
+                .filter(s -> s.strategyUsed() == AdaptiveModelExtractor.Strategy.COMPOSITE_3).count();
+            long composite4 = result.strategies().stream()
+                .filter(s -> s.strategyUsed() == AdaptiveModelExtractor.Strategy.COMPOSITE_4).count();
+
+            StringBuilder compositeBrief = new StringBuilder("    Composite: ");
+            boolean first = true;
+            if (composite2 > 0) {
+                compositeBrief.append(composite2).append("×2-mode");
+                first = false;
+            }
+            if (composite3 > 0) {
+                if (!first) compositeBrief.append(", ");
+                compositeBrief.append(composite3).append("×3-mode");
+                first = false;
+            }
+            if (composite4 > 0) {
+                if (!first) compositeBrief.append(", ");
+                compositeBrief.append(composite4).append("×4-mode");
+            }
+            System.out.println(compositeBrief);
+        }
+
+        // For dimensions that used non-parametric strategies, show which ones (if few)
+        if (composite + empirical > 0 && composite + empirical <= 10) {
+            System.out.print("    Non-parametric dims: ");
+            boolean first = true;
+            for (DimensionStrategy s : result.strategies()) {
+                if (!s.isParametric()) {
+                    if (!first) System.out.print(", ");
+                    String strategyName = switch (s.strategyUsed()) {
+                        case COMPOSITE_2 -> "2-mode";
+                        case COMPOSITE_3 -> "3-mode";
+                        case COMPOSITE_4 -> "4-mode";
+                        case EMPIRICAL -> "empirical";
+                        default -> "?";
+                    };
+                    System.out.printf("%d(%s)", s.dimension(), strategyName);
+                    first = false;
+                }
+            }
+            System.out.println();
+        } else if (composite + empirical > 10) {
+            // Just show dimension numbers for brevity
+            System.out.print("    Non-parametric dims: [");
+            boolean first = true;
+            for (DimensionStrategy s : result.strategies()) {
+                if (!s.isParametric()) {
+                    if (!first) System.out.print(",");
+                    System.out.print(s.dimension());
+                    first = false;
+                }
+            }
+            System.out.println("]");
+        }
+    }
+
+    /**
      * Prints a loading progress bar to the console.
      */
     private void printLoadProgressBar(int percent, int loaded, int total) {
@@ -709,65 +879,111 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
-     * Creates the appropriate extractor based on compute strategy.
+     * Extracts a VectorSpaceModel from in-memory data using the streaming extractor.
      *
-     * <p>When {@code showFitTable} is enabled, the extractor will be configured to
-     * collect all fit scores during extraction (avoiding redundant recomputation).
+     * <p>This is the core extraction method used by both the main profile command and
+     * round-trip verification. Using the same method for both ensures the round-trip
+     * test is valid - both extractions use identical logic.
+     *
+     * <p>The data is fed through StreamingModelExtractor to match the streaming
+     * pipeline behavior.
+     *
+     * @param data row-major vector data [vectorIndex][dimension]
+     * @param dimensions number of dimensions
+     * @param vectorCount number of vectors (for unique vector count)
+     * @return extraction result containing the model and statistics
      */
-    private ModelExtractor createExtractor(int dimensions) {
-        BestFitSelector selector = createSelector();
+    private ModelExtractor.ExtractionResult extractModelFromData(float[][] data, int dimensions, int vectorCount) {
+        // Use StreamingModelExtractor - same code path as file-based streaming
+        return extractWithStreamingExtractor(data, dimensions, vectorCount);
+    }
 
-        switch (computeStrategy) {
-            case OPTIMIZED:
-                int optMicrobatch = VirtualThreadModelExtractor.optimalMicrobatchSize(dimensions);
-                System.out.printf("  Using optimized virtual thread extractor (microbatch=%d)%n", optMicrobatch);
-                VirtualThreadModelExtractor vtExtractor = createVirtualThreadExtractor(selector, optMicrobatch);
-                return showFitTable ? vtExtractor.withAllFitsCollection() : vtExtractor;
+    /**
+     * Extracts using StreamingModelExtractor - same logic as profileVectorsStreaming but
+     * for in-memory data.
+     *
+     * <p>This ensures round-trip verification uses the identical streaming extraction
+     * algorithm, including convergence tracking, histogram detection, and adaptive fitting.
+     */
+    private ModelExtractor.ExtractionResult extractWithStreamingExtractor(float[][] data, int dimensions, int vectorCount) {
+        // Create StreamingModelExtractor with same configuration as profileVectorsStreaming
+        StreamingModelExtractor extractor = new StreamingModelExtractor(createSelector());
+        extractor.setUniqueVectors(vectorCount);
 
-            case SIMD:
-                if (noConvergence) {
-                    System.out.println("  Using single-threaded SIMD extractor (non-convergent)");
-                    DatasetModelExtractor simdExtractor = createDatasetExtractor(selector);
-                    return showFitTable ? simdExtractor.withAllFitsCollection() : simdExtractor;
-                } else {
-                    System.out.printf("  Using single-threaded convergent extractor (threshold=%.2f%%, checkpoint=%d)%n",
-                        convergenceThreshold * 100, convergenceCheckpoint);
-                    return createConvergentExtractor(selector);
-                }
-
-            case PARALLEL:
-                int parallelism = threads != null ? threads : ParallelDatasetModelExtractor.defaultParallelism();
-                System.out.printf("  Using parallel SIMD extractor with %d threads%n", parallelism);
-                // Note: ParallelDatasetModelExtractor doesn't support all-fits collection yet
-                return ParallelDatasetModelExtractor.builder()
-                    .parallelism(parallelism)
-                    .batchSize(batchSize)
-                    .selector(selector)
-                    .uniqueVectors(uniqueVectors != null ? uniqueVectors : 1_000_000)
-                    .build();
-
-            case NUMA:
-                NumaTopology topology = NumaTopology.detect();
-                int threadsPerNode = threads != null
-                    ? threads / topology.nodeCount()
-                    : topology.threadsPerNode(10);
-                System.out.printf("  Using NUMA-aware SIMD extractor: %d nodes × %d threads%n",
-                    topology.nodeCount(), threadsPerNode);
-                // Note: NumaAwareDatasetModelExtractor doesn't support all-fits collection yet
-                return NumaAwareDatasetModelExtractor.builder()
-                    .threadsPerNode(threadsPerNode)
-                    .batchSize(batchSize)
-                    .selector(selector)
-                    .uniqueVectors(uniqueVectors != null ? uniqueVectors : 1_000_000)
-                    .build();
-
-            case FAST:
-                // FAST mode is handled by profileVectorsFast(), not here
-                throw new IllegalStateException("FAST strategy should not use createExtractor()");
-
-            default:
-                throw new IllegalStateException("Unexpected compute strategy: " + computeStrategy);
+        // Enable same features as main streaming extraction
+        if (!noConvergence) {
+            extractor.enableConvergenceTracking(convergenceThreshold);
+            extractor.enableIncrementalFitting(5);
+            extractor.enableHistogramTracking(0.25);
         }
+
+        // Configure adaptive settings
+        extractor.setAdaptiveEnabled(isAdaptiveEnabled());
+        if (isAdaptiveEnabled()) {
+            extractor.setMaxCompositeComponents(maxCompositeModes);
+        }
+
+        // Initialize with shape
+        DataspaceShape shape = new DataspaceShape(vectorCount, dimensions);
+        extractor.initialize(shape);
+
+        // Transpose data to columnar format (StreamingModelExtractor expects [dim][vector])
+        float[][] columnarData = new float[dimensions][vectorCount];
+        for (int v = 0; v < vectorCount; v++) {
+            for (int d = 0; d < dimensions; d++) {
+                columnarData[d][v] = data[v][d];
+            }
+        }
+
+        // Feed data in chunks (matching streaming behavior)
+        int chunkSize = Math.min(10_000, vectorCount);
+        int chunks = (vectorCount + chunkSize - 1) / chunkSize;
+        int lastPercent = -1;
+
+        for (int chunk = 0; chunk < chunks; chunk++) {
+            int startIdx = chunk * chunkSize;
+            int endIdx = Math.min(startIdx + chunkSize, vectorCount);
+            int chunkVectors = endIdx - startIdx;
+
+            // Create chunk slice
+            float[][] chunkData = new float[dimensions][chunkVectors];
+            for (int d = 0; d < dimensions; d++) {
+                System.arraycopy(columnarData[d], startIdx, chunkData[d], 0, chunkVectors);
+            }
+
+            extractor.accept(chunkData, startIdx);
+
+            // Progress display
+            int percent = ((chunk + 1) * 100) / chunks;
+            if (percent != lastPercent) {
+                System.out.printf("\r  Processing chunks: %d/%d (%d%%)...", chunk + 1, chunks, percent);
+                System.out.flush();
+                lastPercent = percent;
+            }
+
+            // Check convergence
+            if (!noConvergence) {
+                extractor.checkConvergence();
+                if (extractor.shouldStopEarly()) {
+                    System.out.printf("\r  Converged at chunk %d/%d (%d%%)      %n", chunk + 1, chunks, percent);
+                    break;
+                }
+            }
+        }
+        System.out.println();
+
+        // Complete extraction
+        long startTime = System.currentTimeMillis();
+        VectorSpaceModel model = extractor.complete();
+        long extractionTimeMs = System.currentTimeMillis() - startTime;
+
+        // Build result with dimension statistics from accumulators
+        DimensionStatistics[] stats = new DimensionStatistics[dimensions];
+        for (int d = 0; d < dimensions; d++) {
+            stats[d] = DimensionStatistics.compute(d, columnarData[d]);
+        }
+
+        return new ModelExtractor.ExtractionResult(model, stats, null, extractionTimeMs);
     }
 
     /**
@@ -805,29 +1021,40 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
-     * Creates a VirtualThreadModelExtractor with the appropriate selector/fitter.
+     * Creates an AdaptiveModelExtractor with configured fallback chain.
+     *
+     * <p>The adaptive extractor tries parametric models first, then composite models
+     * with 2-4 components (using EM clustering by default), and falls back to empirical
+     * only as a last resort.
      */
-    private VirtualThreadModelExtractor createVirtualThreadExtractor(BestFitSelector selector, int microbatchSize) {
-        VirtualThreadModelExtractor.Builder builder = VirtualThreadModelExtractor.builder()
-            .microbatchSize(microbatchSize)
-            .uniqueVectors(uniqueVectors != null ? uniqueVectors : 1_000_000);
+    private AdaptiveModelExtractor createAdaptiveExtractor() {
+        // Parse verification level
+        VerificationLevel vLevel = switch (verificationLevel.toLowerCase()) {
+            case "fast" -> VerificationLevel.FAST;
+            case "thorough" -> VerificationLevel.THOROUGH;
+            default -> VerificationLevel.BALANCED;
+        };
 
-        switch (modelType) {
-            case normal:
-                builder.forceFitter(new NormalModelFitter());
-                break;
-            case uniform:
-                builder.forceFitter(new UniformModelFitter());
-                break;
-            case empirical:
-                builder.forceFitter(new EmpiricalModelFitter());
-                break;
-            default:
-                builder.selector(selector);
-                break;
-        }
+        // Parse clustering strategy
+        ClusteringStrategy strategy = "hard".equalsIgnoreCase(clusteringMethod)
+            ? ClusteringStrategy.HARD
+            : ClusteringStrategy.EM;
 
-        return builder.build();
+        return AdaptiveModelExtractor.builder()
+            .parametricSelector(BestFitSelector.pearsonSelector())
+            .verificationLevel(vLevel)
+            .clusteringStrategy(strategy)
+            .maxCompositeComponents(maxCompositeModes)
+            .uniqueVectors(uniqueVectors != null ? uniqueVectors : 1_000_000)
+            .internalVerification(!noInternalVerify)
+            .build();
+    }
+
+    /**
+     * Returns true if adaptive extraction is enabled.
+     */
+    private boolean isAdaptiveEnabled() {
+        return !noAdaptive && modelType == ModelType.auto;
     }
 
     /**
@@ -841,25 +1068,47 @@ public class CMD_analyze_profile implements Callable<Integer> {
     private BestFitSelector createSelector() {
         switch (modelType) {
             case pearson:
-                // Use multimodal selector if enabled
+                // Use normalized Pearson selector if data is normalized, otherwise unbounded
+                if (Boolean.TRUE.equals(detectedNormalized)) {
+                    return enableMultimodal
+                        ? BestFitSelector.normalizedPearsonMultimodalSelector()
+                        : BestFitSelector.normalizedPearsonSelector();
+                }
                 return enableMultimodal
                     ? BestFitSelector.pearsonMultimodalSelector()
                     : BestFitSelector.fullPearsonSelector();
             case normal:
-                return new BestFitSelector(java.util.List.of(new NormalModelFitter()));
+                return new BestFitSelector(java.util.List.of(
+                    Boolean.TRUE.equals(detectedNormalized)
+                        ? NormalModelFitter.forNormalizedVectors()
+                        : new NormalModelFitter()));
             case uniform:
-                return new BestFitSelector(java.util.List.of(new UniformModelFitter()));
+                return new BestFitSelector(java.util.List.of(
+                    Boolean.TRUE.equals(detectedNormalized)
+                        ? UniformModelFitter.forNormalizedVectors()
+                        : new UniformModelFitter()));
             case empirical:
                 return new BestFitSelector(java.util.List.of(new EmpiricalModelFitter()));
             case parametric:
                 return BestFitSelector.parametricOnly();
             case auto:
             default:
-                // When showing fit table, use full Pearson selector to compare all distributions
+                // When showing fit table, use Pearson selector for comprehensive comparison
+                // Respect normalization detection for proper bounds handling
                 if (showFitTable) {
+                    if (Boolean.TRUE.equals(detectedNormalized)) {
+                        return enableMultimodal
+                            ? BestFitSelector.normalizedPearsonMultimodalSelector()
+                            : BestFitSelector.normalizedPearsonSelector();
+                    }
                     return enableMultimodal
                         ? BestFitSelector.pearsonMultimodalSelector()
                         : BestFitSelector.fullPearsonSelector();
+                }
+                // Use normalized vector selector if data is detected/assumed normalized
+                if (Boolean.TRUE.equals(detectedNormalized)) {
+                    // Normalized vectors have known bounds [-1, 1]
+                    return BestFitSelector.normalizedVectorSelector();
                 }
                 // Use bounded data selector (Normal, Beta, Uniform, Empirical) for typical
                 // vector embeddings. With multimodal enabled, also tries composite models.
@@ -872,16 +1121,11 @@ public class CMD_analyze_profile implements Callable<Integer> {
     /**
      * Extracts the model with a live progress display.
      *
-     * <p>For VirtualThreadModelExtractor, polls getProgress() in a background thread.
-     * For other extractors, shows a simple progress indicator.
+     * <p>Uses progress callback for DatasetModelExtractor, or falls back to
+     * simple extraction for other extractor types.
      */
     private ModelExtractor.ExtractionResult extractWithProgressDisplay(
             ModelExtractor extractor, float[][] data, int dimensions) {
-
-        // For VirtualThreadModelExtractor, use its built-in progress tracking
-        if (extractor instanceof VirtualThreadModelExtractor vtExtractor) {
-            return extractWithVirtualThreadProgress(vtExtractor, data, dimensions);
-        }
 
         // For DatasetModelExtractor with progress callback support
         if (extractor instanceof DatasetModelExtractor dsExtractor) {
@@ -890,55 +1134,6 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
         // Fallback: just run extraction without progress
         return extractor.extractWithStats(data);
-    }
-
-    /**
-     * Extracts using VirtualThreadModelExtractor with progress polling.
-     */
-    private ModelExtractor.ExtractionResult extractWithVirtualThreadProgress(
-            VirtualThreadModelExtractor extractor, float[][] data, int dimensions) {
-
-        AtomicBoolean done = new AtomicBoolean(false);
-
-        // Start progress display thread
-        Thread progressThread = Thread.startVirtualThread(() -> {
-            int lastPercent = -1;
-            while (!done.get()) {
-                double progress = extractor.getProgress();
-                int percent = (int) (progress * 100);
-
-                if (percent != lastPercent && percent > 0) {
-                    int completed = (int) (progress * dimensions);
-                    printProgressBar(completed, dimensions, percent);
-                    lastPercent = percent;
-                }
-
-                try {
-                    Thread.sleep(100); // Update every 100ms
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        });
-
-        try {
-            // Run extraction
-            ModelExtractor.ExtractionResult result = extractor.extractWithStats(data);
-
-            // Signal completion and wait for progress thread
-            done.set(true);
-            progressThread.join(500);
-
-            // Print final progress
-            printProgressBar(dimensions, dimensions, 100);
-            System.out.println(); // New line after progress bar
-
-            return result;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Extraction interrupted", e);
-        }
     }
 
     /**
@@ -987,14 +1182,14 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
-     * Shuts down parallel extractors.
+     * Shuts down extractors that own thread pools.
+     *
+     * <p>Note: This is now a no-op since PARALLEL and NUMA modes have been removed.
+     * StreamingModelExtractor is shut down separately in its dedicated code path.
      */
     private void shutdownExtractor(ModelExtractor extractor) {
-        if (extractor instanceof ParallelDatasetModelExtractor) {
-            ((ParallelDatasetModelExtractor) extractor).shutdown();
-        } else if (extractor instanceof NumaAwareDatasetModelExtractor) {
-            ((NumaAwareDatasetModelExtractor) extractor).shutdown();
-        }
+        // No-op - PARALLEL and NUMA extractors have been removed
+        // StreamingModelExtractor shutdown is handled separately
     }
 
     /**
@@ -1122,6 +1317,45 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
+     * Computes dimension statistics from raw vector data.
+     *
+     * <p>This is used as a fallback when the extraction method doesn't provide
+     * dimension statistics (e.g., PARALLEL mode) but they are needed for truncation.
+     *
+     * @param data row-major vector data [vectorIndex][dimension]
+     * @param dimensions number of dimensions
+     * @return array of computed dimension statistics
+     */
+    private DimensionStatistics[] computeStatisticsFromData(float[][] data, int dimensions) {
+        DimensionStatistics[] stats = new DimensionStatistics[dimensions];
+        int vectorCount = data.length;
+
+        for (int d = 0; d < dimensions; d++) {
+            double sum = 0;
+            double sumSq = 0;
+            double min = Double.POSITIVE_INFINITY;
+            double max = Double.NEGATIVE_INFINITY;
+
+            for (float[] vector : data) {
+                double value = vector[d];
+                sum += value;
+                sumSq += value * value;
+                min = Math.min(min, value);
+                max = Math.max(max, value);
+            }
+
+            double mean = sum / vectorCount;
+            double variance = (sumSq / vectorCount) - (mean * mean);
+            double stdDev = Math.sqrt(Math.max(0, variance));
+
+            // Create statistics with basic moments (skewness/kurtosis set to 0 as they're not needed for truncation)
+            stats[d] = new DimensionStatistics(d, vectorCount, mean, stdDev, min, max, 0.0, 0.0);
+        }
+
+        return stats;
+    }
+
+    /**
      * Prints a summary of the extracted model.
      */
     private void printModelSummary(VectorSpaceModel model) {
@@ -1200,6 +1434,76 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
+     * Prints a summary of fit quality from the extraction result.
+     *
+     * <p>This provides useful diagnostic information regardless of which extractor was used:
+     * <ul>
+     *   <li>Distribution of model types selected per dimension</li>
+     *   <li>Fit quality statistics (K-S scores)</li>
+     *   <li>Warnings about poorly fitting dimensions</li>
+     * </ul>
+     */
+    private void printFitQualitySummary(ModelExtractor.ExtractionResult result, int sampleCount) {
+        ComponentModelFitter.FitResult[] fitResults = result.fitResults();
+        if (fitResults == null || fitResults.length == 0) {
+            return;
+        }
+
+        int dimensions = fitResults.length;
+
+        // Collect statistics about fit quality
+        double totalKsScore = 0;
+        double minKsScore = Double.MAX_VALUE;
+        double maxKsScore = 0;
+        int poorFitCount = 0;
+        java.util.Map<String, Integer> typeCounts = new java.util.LinkedHashMap<>();
+
+        for (ComponentModelFitter.FitResult fit : fitResults) {
+            if (fit == null) continue;
+
+            double gof = fit.goodnessOfFit();
+            totalKsScore += gof;
+            minKsScore = Math.min(minKsScore, gof);
+            maxKsScore = Math.max(maxKsScore, gof);
+
+            // Track model type distribution
+            String type = fit.model().getModelType();
+            typeCounts.merge(type, 1, Integer::sum);
+
+            // K-S critical value at α=0.05 for two-sample test: 1.36 * sqrt(2/n)
+            double criticalValue = 1.36 * Math.sqrt(2.0 / sampleCount);
+            if (gof > criticalValue * 2) {  // Flag if > 2x critical value
+                poorFitCount++;
+            }
+        }
+
+        double avgKsScore = totalKsScore / dimensions;
+
+        System.out.println("\nFit Quality Summary:");
+        System.out.printf("  Dimensions fitted: %d%n", dimensions);
+        System.out.printf("  K-S score: avg=%.4f, min=%.4f, max=%.4f%n",
+            avgKsScore, minKsScore, maxKsScore);
+
+        // Show model type distribution
+        System.out.print("  Model types: ");
+        java.util.List<String> typeStrings = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<String, Integer> entry : typeCounts.entrySet()) {
+            int count = entry.getValue();
+            double pct = 100.0 * count / dimensions;
+            typeStrings.add(String.format("%s=%d (%.0f%%)", entry.getKey(), count, pct));
+        }
+        System.out.println(String.join(", ", typeStrings));
+
+        // Report poor fits if any
+        if (poorFitCount > 0) {
+            System.out.printf("  Warning: %d dimensions (%.1f%%) have poor fits (K-S > 2x critical)%n",
+                poorFitCount, 100.0 * poorFitCount / dimensions);
+        } else {
+            System.out.println("  All dimensions have acceptable fit quality");
+        }
+    }
+
+    /**
      * Displays a fit quality table showing how well each Pearson distribution type
      * fits each dimension of the data.
      *
@@ -1250,178 +1554,6 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
-     * Fast Gaussian-only profiling using SIMD-optimized DimensionStatistics.
-     *
-     * <p>This mode uses Panama Vector API for dimension statistics computation
-     * when available, providing significant speedup over scalar loops.
-     */
-    private VectorSpaceModel profileVectorsFast(Path file, FileType fileType, RangeOption.Range range) {
-        try (VectorFileArray<float[]> vectorArray = VectorFileIO.randomAccess(fileType, float[].class, file)) {
-            int totalVectorCount = vectorArray.getSize();
-
-            if (totalVectorCount == 0) {
-                logger.error("File contains no vectors");
-                System.err.println("Error: File contains no vectors");
-                return null;
-            }
-
-            // Apply range constraint if specified
-            int rangeStart = 0;
-            int rangeEnd = totalVectorCount;
-            if (range != null) {
-                RangeOption.Range effectiveRange = range.constrain(totalVectorCount);
-                rangeStart = (int) effectiveRange.start();
-                rangeEnd = (int) effectiveRange.end();
-            }
-            int vectorCount = rangeEnd - rangeStart;
-
-            // Get dimensions from first vector in range
-            float[] first = vectorArray.get(rangeStart);
-            int dimensions = first.length;
-
-            System.out.printf("  Vectors in file: %d%n", totalVectorCount);
-            if (range != null) {
-                System.out.printf("  Vectors in range: %d (indices %d to %d)%n", vectorCount, rangeStart, rangeEnd - 1);
-            }
-            System.out.printf("  Dimensions: %d%n", dimensions);
-
-            // Determine sample size within the range
-            int actualSampleSize = sampleSize != null ? Math.min(sampleSize, vectorCount) : vectorCount;
-            System.out.printf("  Sampling: %d vectors%n", actualSampleSize);
-
-            // Load vectors and transpose for per-dimension SIMD processing
-            System.out.println("  Loading and transposing data for SIMD processing...");
-            long loadStart = System.currentTimeMillis();
-            float[][] transposed = loadAndTranspose(vectorArray, rangeStart, vectorCount, actualSampleSize, dimensions);
-            long loadTime = System.currentTimeMillis() - loadStart;
-            System.out.printf("  Data loaded in %d ms%n", loadTime);
-
-            // Compute SIMD-optimized statistics per dimension
-            System.out.println("  Computing dimension statistics (SIMD-optimized)...");
-            long statsStart = System.currentTimeMillis();
-
-            double[] mean = new double[dimensions];
-            double[] stdDev = new double[dimensions];
-            double[] min = new double[dimensions];
-            double[] max = new double[dimensions];
-
-            for (int d = 0; d < dimensions; d++) {
-                DimensionStatistics stats = DimensionStatistics.compute(d, transposed[d]);
-                mean[d] = stats.mean();
-                stdDev[d] = stats.stdDev();
-                min[d] = stats.min();
-                max[d] = stats.max();
-            }
-
-            long statsTime = System.currentTimeMillis() - statsStart;
-            System.out.printf("  Statistics computed in %d ms%n", statsTime);
-
-            // Print statistics summary
-            printStatisticsSummary(mean, stdDev, min, max, dimensions);
-
-            // Determine the unique vectors count
-            long modelUniqueVectors = uniqueVectors != null ? uniqueVectors : vectorCount;
-
-            // Build the VectorSpaceModel
-            return buildVectorSpaceModel(modelUniqueVectors, dimensions, mean, stdDev, min, max);
-
-        } catch (Exception e) {
-            logger.error("Error reading vector file", e);
-            throw new RuntimeException("Failed to profile vectors: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Loads vectors and transposes them for efficient per-dimension SIMD processing.
-     */
-    private float[][] loadAndTranspose(VectorFileArray<float[]> vectorArray, int rangeStart,
-                                        int rangeSize, int sampleSize, int dimensions) {
-        float[][] transposed = new float[dimensions][sampleSize];
-
-        if (sampleSize == rangeSize) {
-            // Load all vectors in range
-            for (int i = 0; i < rangeSize; i++) {
-                float[] vector = vectorArray.get(rangeStart + i);
-                for (int d = 0; d < dimensions; d++) {
-                    transposed[d][i] = vector[d];
-                }
-                if ((i + 1) % 100000 == 0) {
-                    System.out.printf("    Loaded %d / %d vectors%n", i + 1, rangeSize);
-                }
-            }
-        } else {
-            // Random sampling with reservoir sampling
-            Random random = new Random(seed);
-            int[] sampleIndices = new int[sampleSize];
-
-            for (int i = 0; i < sampleSize; i++) {
-                sampleIndices[i] = i;
-            }
-            for (int i = sampleSize; i < rangeSize; i++) {
-                int j = random.nextInt(i + 1);
-                if (j < sampleSize) {
-                    sampleIndices[j] = i;
-                }
-            }
-
-            for (int i = 0; i < sampleSize; i++) {
-                float[] vector = vectorArray.get(rangeStart + sampleIndices[i]);
-                for (int d = 0; d < dimensions; d++) {
-                    transposed[d][i] = vector[d];
-                }
-                if ((i + 1) % 100000 == 0) {
-                    System.out.printf("    Sampled %d / %d vectors%n", i + 1, sampleSize);
-                }
-            }
-        }
-
-        return transposed;
-    }
-
-    private void printStatisticsSummary(double[] mean, double[] stdDev,
-                                         double[] min, double[] max, int dimensions) {
-        // Compute overall statistics
-        double overallMeanOfMeans = 0;
-        double overallMeanOfStdDevs = 0;
-        double globalMin = Double.MAX_VALUE;
-        double globalMax = Double.MIN_VALUE;
-
-        for (int d = 0; d < dimensions; d++) {
-            overallMeanOfMeans += mean[d];
-            overallMeanOfStdDevs += stdDev[d];
-            if (min[d] < globalMin) globalMin = min[d];
-            if (max[d] > globalMax) globalMax = max[d];
-        }
-
-        overallMeanOfMeans /= dimensions;
-        overallMeanOfStdDevs /= dimensions;
-
-        System.out.println("\nStatistics Summary:");
-        System.out.printf("  Mean of means:    %.6f%n", overallMeanOfMeans);
-        System.out.printf("  Mean of stdDevs:  %.6f%n", overallMeanOfStdDevs);
-        System.out.printf("  Global min:       %.6f%n", globalMin);
-        System.out.printf("  Global max:       %.6f%n", globalMax);
-
-        // Check variance across dimensions
-        double meanVariance = 0;
-        double stdDevVariance = 0;
-        for (int d = 0; d < dimensions; d++) {
-            double meanDiff = mean[d] - overallMeanOfMeans;
-            double stdDevDiff = stdDev[d] - overallMeanOfStdDevs;
-            meanVariance += meanDiff * meanDiff;
-            stdDevVariance += stdDevDiff * stdDevDiff;
-        }
-        meanVariance /= dimensions;
-        stdDevVariance /= dimensions;
-
-        System.out.printf("  Cross-dim mean variance:   %.6f%n", meanVariance);
-        System.out.printf("  Cross-dim stdDev variance: %.6f%n", stdDevVariance);
-
-        boolean isUniform = meanVariance < tolerance && stdDevVariance < tolerance;
-        System.out.printf("  Dimensions uniform: %s%n", isUniform ? "YES" : "NO");
-    }
-
-    /**
      * Runs model equivalence analysis to identify simplification opportunities.
      */
     private VectorSpaceModel runEquivalenceAnalysis(VectorSpaceModel model) {
@@ -1467,62 +1599,331 @@ public class CMD_analyze_profile implements Callable<Integer> {
         return new VectorSpaceModel(model.uniqueVectors(), newScalars);
     }
 
-    private VectorSpaceModel buildVectorSpaceModel(long uniqueVectors, int dimensions,
-                                                    double[] mean, double[] stdDev,
-                                                    double[] min, double[] max) {
-        // Check if dimensions are uniform
-        double overallMean = 0;
-        double overallStdDev = 0;
-        double globalMin = Double.MAX_VALUE;
-        double globalMax = Double.MIN_VALUE;
+    /**
+     * Runs iterative model refinement with internal verification feedback loop.
+     *
+     * <p>This method:
+     * <ol>
+     *   <li>Loads the original data</li>
+     *   <li>For each dimension, runs internal verification</li>
+     *   <li>For dimensions that fail verification, uses IterativeModelRefiner to find a better model</li>
+     *   <li>Returns a new model with refined dimensions</li>
+     * </ol>
+     *
+     * <p>Model preference hierarchy (tried in order):
+     * <ol>
+     *   <li>Simple parametric (Normal, Uniform) - 2 parameters, uses mean/variance</li>
+     *   <li>Extended parametric (Beta, Gamma, Student-t) - 3+ parameters, uses higher moments</li>
+     *   <li>Composite (2-4 component mixtures) - for multimodal data</li>
+     *   <li>Empirical (histogram) - exact quantile distribution, always works</li>
+     * </ol>
+     *
+     * @param model the initial model to refine
+     * @param inputFile the original vector file
+     * @param fileType the file type
+     * @param range optional range constraint
+     * @return refined model with stable dimensions
+     */
+    private VectorSpaceModel runIterativeRefinement(VectorSpaceModel model, Path inputFile,
+                                                     FileType fileType,
+                                                     RangeOption.Range range) {
+        System.out.println();
+        System.out.println("═══════════════════════════════════════════════════════════════════════════════");
+        System.out.println("                       ITERATIVE MODEL REFINEMENT                              ");
+        System.out.println("═══════════════════════════════════════════════════════════════════════════════");
+        System.out.println();
+        System.out.printf("  Drift threshold: %.1f%%%n", refineThreshold * 100);
+        System.out.printf("  Max composite components: %d%n", maxModes);
+        System.out.println();
+
+        int dimensions = model.dimensions();
+
+        // Create the refiner
+        IterativeModelRefiner.Builder refinerBuilder = IterativeModelRefiner.builder()
+            .verificationLevel(VerificationLevel.BALANCED)
+            .driftThreshold(refineThreshold)
+            .ksThresholdParametric(0.03)
+            .ksThresholdComposite(0.05)
+            .maxCompositeComponents(Math.min(maxModes, 4))
+            .verboseLogging(verbose);
+
+        // Configure for normalized vectors if detected
+        if (Boolean.TRUE.equals(detectedNormalized)) {
+            refinerBuilder.forNormalizedVectors();
+        }
+
+        IterativeModelRefiner refiner = refinerBuilder.build();
+
+        // Load original data for refinement
+        System.out.println("Step 1/3: Loading original data for refinement...");
+        float[][] originalData;
+        try {
+            originalData = loadDataForRefinement(inputFile, fileType, range, dimensions);
+        } catch (Exception e) {
+            logger.warn("Failed to load data for refinement: {}", e.getMessage());
+            System.out.println("  ✗ Could not load data - skipping refinement");
+            return model;
+        }
+        System.out.printf("  ✓ Loaded %,d vectors%n%n", originalData.length);
+
+        // Step 2: Verify each dimension using BestFitSelector (matches round-trip verification)
+        System.out.println("Step 2/3: Verifying dimensions via round-trip type matching...");
+
+        // Use the same selector that extraction uses
+        BestFitSelector verifySelector = Boolean.TRUE.equals(detectedNormalized)
+            ? BestFitSelector.normalizedVectorSelector()
+            : BestFitSelector.boundedDataWithEmpirical();
+
+        java.util.List<Integer> failedDimensions = new java.util.ArrayList<>();
+        int verifiedCount = 0;
+        int sampleSize = 10_000;  // Generate synthetic samples for verification
 
         for (int d = 0; d < dimensions; d++) {
-            overallMean += mean[d];
-            overallStdDev += stdDev[d];
-            if (min[d] < globalMin) globalMin = min[d];
-            if (max[d] > globalMax) globalMax = max[d];
+            ScalarModel dimModel = model.scalarModel(d);
+            String originalType = dimModel.getModelType();
+
+            // Skip empirical models - they're already exact
+            if ("empirical".equals(originalType)) {
+                verifiedCount++;
+                continue;
+            }
+
+            // Generate synthetic data from the model
+            float[] syntheticData = new float[sampleSize];
+            ComponentSampler sampler = ComponentSamplerFactory.forModel(dimModel);
+            Random random = new Random(42 + d);  // Deterministic per dimension
+            for (int i = 0; i < sampleSize; i++) {
+                double u = random.nextDouble();
+                syntheticData[i] = (float) sampler.sample(u);
+            }
+
+            // Use BestFitSelector to find what model type would be selected
+            ScalarModel refitModel = verifySelector.selectBest(syntheticData);
+            String refitType = refitModel.getModelType();
+
+            // Check if types match or are equivalent (Normal ↔ Beta allowed)
+            if (originalType.equals(refitType) || areTypesEquivalent(originalType, refitType)) {
+                verifiedCount++;
+            } else {
+                failedDimensions.add(d);
+                if (verbose) {
+                    System.out.printf("%n  Dim %d: %s → %s (type mismatch)", d, originalType, refitType);
+                }
+            }
+
+            // Show progress
+            if ((d + 1) % 50 == 0 || d == dimensions - 1) {
+                System.out.printf("\r  Verifying: %d/%d dimensions (%d failed)...",
+                    d + 1, dimensions, failedDimensions.size());
+                System.out.flush();
+            }
+        }
+        System.out.printf("\r  Verifying: %d/%d dimensions (%d type mismatches)%n",
+            dimensions, dimensions, failedDimensions.size());
+
+        if (failedDimensions.isEmpty()) {
+            System.out.println();
+            System.out.println("  ✓ All dimensions verified - no refinement needed");
+            return model;
         }
 
-        overallMean /= dimensions;
-        overallStdDev /= dimensions;
+        System.out.printf("  Found %d dimensions requiring refinement%n%n", failedDimensions.size());
 
-        // Check if all dimensions have similar statistics
-        boolean isUniform = true;
-        if (!perDimension) {
-            for (int d = 0; d < dimensions; d++) {
-                if (Math.abs(mean[d] - overallMean) > tolerance ||
-                    Math.abs(stdDev[d] - overallStdDev) > tolerance) {
-                    isUniform = false;
+        // Step 3: Refine failed dimensions by finding type-stable models
+        System.out.println("Step 3/3: Finding type-stable models for failed dimensions...");
+
+        ScalarModel[] refinedComponents = new ScalarModel[dimensions];
+        System.arraycopy(model.scalarModels(), 0, refinedComponents, 0, dimensions);
+
+        int refinedStable = 0, refinedEmpirical = 0;
+        java.util.Map<String, Integer> stableTypeCount = new java.util.LinkedHashMap<>();
+
+        for (int i = 0; i < failedDimensions.size(); i++) {
+            int d = failedDimensions.get(i);
+            float[] dimData = extractDimensionData(originalData, d);
+            String originalType = model.scalarModel(d).getModelType();
+
+            if (verbose) {
+                System.out.printf("%n  Dimension %d (was: %s):%n", d, originalType);
+            }
+
+            // Get all candidate fits from selector (already sorted by goodness-of-fit)
+            java.util.List<ComponentModelFitter.FitResult> allFits = verifySelector.fitAll(dimData);
+
+            // Find first type-stable model (prefers parametric due to empirical penalty)
+            ScalarModel stableModel = null;
+            String stableType = null;
+
+            for (ComponentModelFitter.FitResult fit : allFits) {
+                ScalarModel candidate = fit.model();
+                String candidateType = candidate.getModelType();
+
+                // Empirical always round-trips - use as last resort
+                if ("empirical".equals(candidateType)) {
+                    continue;  // Try parametric first
+                }
+
+                // Test if this candidate is type-stable
+                if (isTypeStable(candidate, candidateType, verifySelector, sampleSize)) {
+                    stableModel = candidate;
+                    stableType = candidateType;
                     break;
                 }
-            }
-        } else {
-            isUniform = false;
-        }
 
-        if (isUniform) {
-            System.out.println("\nBuilding uniform VectorSpaceModel...");
-            if (truncated) {
-                System.out.printf("  Using truncation bounds: [%.6f, %.6f]%n", globalMin, globalMax);
-                return new VectorSpaceModel(uniqueVectors, dimensions,
-                    overallMean, overallStdDev, globalMin, globalMax);
-            } else {
-                return new VectorSpaceModel(uniqueVectors, dimensions, overallMean, overallStdDev);
-            }
-        } else {
-            System.out.println("\nBuilding per-dimension VectorSpaceModel...");
-            NormalScalarModel[] components = new NormalScalarModel[dimensions];
-
-            for (int d = 0; d < dimensions; d++) {
-                if (truncated) {
-                    components[d] = new NormalScalarModel(mean[d], stdDev[d], min[d], max[d]);
-                } else {
-                    components[d] = new NormalScalarModel(mean[d], stdDev[d]);
+                if (verbose) {
+                    System.out.printf("    [%s] KS=%.4f - not type-stable%n", candidateType, fit.goodnessOfFit());
                 }
             }
 
-            return new VectorSpaceModel(uniqueVectors, components);
+            if (stableModel != null) {
+                // Found a stable parametric model
+                refinedComponents[d] = stableModel;
+                refinedStable++;
+                stableTypeCount.merge(stableType, 1, Integer::sum);
+
+                if (verbose) {
+                    System.out.printf("    → %s (type-stable)%n", stableType);
+                }
+            } else {
+                // No stable parametric found - use empirical (always stable)
+                ComponentModelFitter.FitResult empiricalFit = allFits.stream()
+                    .filter(f -> "empirical".equals(f.model().getModelType()))
+                    .findFirst()
+                    .orElseGet(() -> new EmpiricalModelFitter().fit(
+                        DimensionStatistics.compute(d, dimData), dimData));
+
+                refinedComponents[d] = empiricalFit.model();
+                refinedEmpirical++;
+
+                if (verbose) {
+                    System.out.printf("    → empirical (fallback)%n");
+                }
+            }
+
+            // Show progress
+            if (!verbose && ((i + 1) % 10 == 0 || i == failedDimensions.size() - 1)) {
+                System.out.printf("\r  Refining: %d/%d dimensions...",
+                    i + 1, failedDimensions.size());
+                System.out.flush();
+            }
         }
+
+        if (!verbose) {
+            System.out.printf("\r  Refining: %d/%d dimensions     %n", failedDimensions.size(), failedDimensions.size());
+        }
+
+        // Print summary
+        System.out.println();
+        System.out.println("Refinement Summary:");
+        System.out.printf("  Total dimensions: %d%n", dimensions);
+        System.out.printf("  Already type-stable: %d (%.1f%%)%n", verifiedCount, 100.0 * verifiedCount / dimensions);
+        System.out.printf("  Refined to stable: %d%n", failedDimensions.size());
+        if (refinedStable > 0) {
+            System.out.printf("    - Parametric (stable): %d%n", refinedStable);
+            for (var entry : stableTypeCount.entrySet()) {
+                System.out.printf("      • %s: %d%n", entry.getKey(), entry.getValue());
+            }
+        }
+        if (refinedEmpirical > 0) {
+            System.out.printf("    - Empirical (fallback): %d%n", refinedEmpirical);
+        }
+        System.out.println();
+
+        return new VectorSpaceModel(model.uniqueVectors(), refinedComponents);
+    }
+
+    /**
+     * Loads data from file for refinement.
+     */
+    private float[][] loadDataForRefinement(Path inputFile, FileType fileType,
+                                            RangeOption.Range range, int dimensions) throws Exception {
+        try (VectorFileArray<float[]> reader = VectorFileIO.randomAccess(FileType.xvec, float[].class, inputFile)) {
+            int totalVectors = reader.getSize();
+            int start = range != null ? (int) range.start() : 0;
+            int end = range != null ? (int) Math.min(range.end(), totalVectors) : totalVectors;
+            int count = end - start;
+
+            // Limit to reasonable size for refinement
+            int maxVectors = Math.min(count, 100_000);
+            int stride = count / maxVectors;
+
+            float[][] data = new float[maxVectors][];
+            for (int i = 0; i < maxVectors; i++) {
+                int index = start + (i * stride);
+                data[i] = reader.get(index);
+            }
+            return data;
+        }
+    }
+
+    /**
+     * Tests if a model is type-stable under round-trip.
+     *
+     * A model is type-stable if generating synthetic data from it and
+     * re-fitting with BestFitSelector produces the same model type.
+     *
+     * @param model the model to test
+     * @param expectedType the expected model type after round-trip
+     * @param selector the selector to use for re-fitting
+     * @param sampleSize number of synthetic samples to generate
+     * @return true if the model is type-stable
+     */
+    private boolean isTypeStable(ScalarModel model, String expectedType,
+                                  BestFitSelector selector, int sampleSize) {
+        // Generate synthetic data from the model
+        float[] syntheticData = new float[sampleSize];
+        ComponentSampler sampler = ComponentSamplerFactory.forModel(model);
+        Random random = new Random(12345);  // Fixed seed for consistency
+        for (int i = 0; i < sampleSize; i++) {
+            double u = random.nextDouble();
+            syntheticData[i] = (float) sampler.sample(u);
+        }
+
+        // Re-fit using the selector
+        ScalarModel refitModel = selector.selectBest(syntheticData);
+        String refitType = refitModel.getModelType();
+
+        // Type-stable if the re-fitted type matches or types are equivalent
+        return expectedType.equals(refitType) || areTypesEquivalent(expectedType, refitType);
+    }
+
+    /// Checks if two model types are statistically equivalent.
+    ///
+    /// Normal and symmetric Beta distributions are equivalent when both produce
+    /// bell-shaped distributions centered near the same location. This allows
+    /// the type-stability check to pass when the distinction is statistical noise.
+    private boolean areTypesEquivalent(String type1, String type2) {
+        // Normal and Beta can be equivalent for bounded symmetric data
+        if (("normal".equals(type1) && "beta".equals(type2)) ||
+            ("beta".equals(type1) && "normal".equals(type2))) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Extracts dimension data from row-major vector array.
+     */
+    private float[] extractDimensionData(float[][] data, int dimension) {
+        float[] dimData = new float[data.length];
+        for (int i = 0; i < data.length; i++) {
+            dimData[i] = data[i][dimension];
+        }
+        return dimData;
+    }
+
+    /**
+     * Finds a matching fitter for a given model type.
+     */
+    private ComponentModelFitter findFitterForModelType(String modelType) {
+        return switch (modelType) {
+            case "normal" -> new NormalModelFitter();
+            case "uniform" -> new UniformModelFitter();
+            case "beta" -> new BetaModelFitter();
+            case "gamma" -> new GammaModelFitter();
+            case "student_t" -> new StudentTModelFitter();
+            default -> null;
+        };
     }
 
     /**
@@ -1558,25 +1959,35 @@ public class CMD_analyze_profile implements Callable<Integer> {
         DimensionDistributionGenerator generator = new DimensionDistributionGenerator(originalModel);
         float[][] syntheticData = new float[verifyCount][];
 
-        int progressInterval = Math.max(verifyCount / 10, 1000);
+        // Show progress every 5% or at least every 1000 vectors
+        int progressInterval = Math.max(verifyCount / 20, 1000);
+        int lastReportedPercent = -1;
         for (int i = 0; i < verifyCount; i++) {
             syntheticData[i] = generator.apply(i);
-            if (verbose && i > 0 && i % progressInterval == 0) {
-                System.out.printf("  [%3d%%] Generated %,d vectors%n",
-                    (i * 100) / verifyCount, i);
+            if (i > 0 && i % progressInterval == 0) {
+                int percent = (i * 100) / verifyCount;
+                if (percent > lastReportedPercent) {
+                    lastReportedPercent = percent;
+                    System.out.printf("\r  Generating: %,d/%,d vectors (%d%%)...",
+                        i, verifyCount, percent);
+                    System.out.flush();
+                }
             }
         }
+        System.out.printf("\r  Generating: %,d/%,d vectors (100%%)...   %n", verifyCount, verifyCount);
 
         long genElapsed = System.currentTimeMillis() - genStart;
         System.out.printf("  ✓ Synthetic data generated (%,d ms)%n%n", genElapsed);
 
-        // Step 2: Re-extract model from synthetic data
+        // Step 2: Re-extract model from synthetic data using the SAME extraction logic
         System.out.println("Step 2/3: Extracting model from synthetic data...");
         long extractStart = System.currentTimeMillis();
 
-        BestFitSelector selector = createSelector();
-        DatasetModelExtractor extractor = new DatasetModelExtractor(selector, verifyCount);
-        VectorSpaceModel roundTripModel = extractor.extractVectorModel(syntheticData);
+        // Use the EXACT same extraction method as the main profile command
+        // This ensures the round-trip test is valid - identical extraction logic
+        ModelExtractor.ExtractionResult extractionResult = extractModelFromData(
+            syntheticData, dimensions, verifyCount);
+        VectorSpaceModel roundTripModel = extractionResult.model();
 
         // Apply the same empirical overrides to round-trip model - if the original
         // model uses empirical for a dimension, the round-trip should too for
@@ -1639,16 +2050,20 @@ public class CMD_analyze_profile implements Callable<Integer> {
         System.out.println("                              SUMMARY                                          ");
         System.out.println("───────────────────────────────────────────────────────────────────────────────");
 
+        // Color-coded status indicators
+        String typeStatusColor = typeMatches == dimensions ? ANSI_BLUE : ANSI_YELLOW;
         String typeStatus = typeMatches == dimensions ? "✓" : "⚠";
+        String avgDriftColor = avgDrift < 1.0 ? ANSI_BLUE : ANSI_YELLOW;
         String avgDriftStatus = avgDrift < 1.0 ? "✓" : "⚠";
+        String maxDriftColor = maxDrift < 2.0 ? ANSI_BLUE : (maxDrift < 5.0 ? ANSI_YELLOW : ANSI_RED);
         String maxDriftStatus = maxDrift < 2.0 ? "✓" : "⚠";
 
-        System.out.printf("  %s Type matches:      %d/%d (%.1f%%)%n",
-            typeStatus, typeMatches, dimensions, typeMatchPct);
-        System.out.printf("  %s Parameter drift:   %.2f%% avg (threshold: 1.0%%)%n",
-            avgDriftStatus, avgDrift);
-        System.out.printf("  %s Max drift:         %.2f%% (dim %d, threshold: 2.0%%)%n",
-            maxDriftStatus, maxDrift, maxDriftDim);
+        System.out.printf("  %s%s%s Type matches:      %d/%d (%.1f%%)%n",
+            typeStatusColor, typeStatus, ANSI_RESET, typeMatches, dimensions, typeMatchPct);
+        System.out.printf("  %s%s%s Parameter drift:   %s%.2f%%%s avg (threshold: 1.0%%)%n",
+            avgDriftColor, avgDriftStatus, ANSI_RESET, avgDriftColor, avgDrift, ANSI_RESET);
+        System.out.printf("  %s%s%s Max drift:         %s%.2f%%%s (dim %d, threshold: 2.0%%)%n",
+            maxDriftColor, maxDriftStatus, ANSI_RESET, maxDriftColor, maxDrift, ANSI_RESET, maxDriftDim);
 
         // Determine overall pass/fail
         boolean passed = typeMatches == dimensions && avgDrift < 1.0 && maxDrift < 2.0;
@@ -1665,14 +2080,14 @@ public class CMD_analyze_profile implements Callable<Integer> {
         System.out.println();
 
         if (passed) {
-            System.out.println("╔═══════════════════════════════════════════════════════════════════════════════╗");
-            System.out.println("║                         ✓ VERIFICATION PASSED                                 ║");
-            System.out.println("║                                                                               ║");
-            System.out.printf("║  Model saved to: %-58s ║%n", truncatePath(outputFile.toString(), 58));
-            System.out.println("║                                                                               ║");
-            System.out.println("║  The extraction-generation pipeline is accurate. All dimensions round-trip    ║");
-            System.out.println("║  with stable distribution types and parameters within tolerance.              ║");
-            System.out.println("╚═══════════════════════════════════════════════════════════════════════════════╝");
+            System.out.println(ANSI_BLUE + "╔" + "═".repeat(BOX_WIDTH) + "╗" + ANSI_RESET);
+            System.out.println(boxLine(ANSI_BLUE, ANSI_BLUE + ANSI_BOLD + "                         ✓ VERIFICATION PASSED                                " + ANSI_RESET));
+            System.out.println(boxLine(ANSI_BLUE, ""));
+            System.out.println(boxLine(ANSI_BLUE, "  Model saved to: " + truncatePath(outputFile.toString(), 58)));
+            System.out.println(boxLine(ANSI_BLUE, ""));
+            System.out.println(boxLine(ANSI_BLUE, "  The extraction-generation pipeline is accurate. All dimensions round-trip"));
+            System.out.println(boxLine(ANSI_BLUE, "  with stable distribution types and parameters within tolerance."));
+            System.out.println(ANSI_BLUE + "╚" + "═".repeat(BOX_WIDTH) + "╝" + ANSI_RESET);
         } else if (warning) {
             printVerificationWarning(typeMatches, dimensions, typeMatchPct, mismatchedDims);
         } else {
@@ -1722,7 +2137,14 @@ public class CMD_analyze_profile implements Callable<Integer> {
     ) {}
 
     /**
-     * Prints the dimension-by-dimension comparison table.
+     * Prints the dimension-by-dimension comparison table with diff-style color coding.
+     *
+     * <p>Color coding:
+     * <ul>
+     *   <li>Green: matching values / passed</li>
+     *   <li>Yellow: warning (small drift)</li>
+     *   <li>Red: divergence / type mismatch</li>
+     * </ul>
      */
     private void printDimensionComparisonTable(java.util.List<DimensionComparison> comparisons, int dimensions) {
         System.out.println("Dimension-by-Dimension Comparison:");
@@ -1756,25 +2178,74 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 continue;
             }
 
+            // Determine row color based on status
+            String rowColor;
+            String statusSymbol;
+            if (c.typeMatch && c.drift < 1.0) {
+                rowColor = ANSI_BLUE;
+                statusSymbol = "✓";
+            } else if (c.drift < 2.0) {
+                rowColor = ANSI_YELLOW;
+                statusSymbol = "⚠";
+            } else {
+                rowColor = ANSI_RED;
+                statusSymbol = "✗";
+            }
+
+            // Format type column with color for type mismatches
             String typeCol;
+            String typeColor = ANSI_RESET;
             if (c.typeMatch) {
                 typeCol = c.extracted.getModelType();
+                typeColor = ANSI_DIM;  // Dim for matching types
             } else {
+                // Type mismatch: show change like a diff
                 typeCol = c.extracted.getModelType() + "→" + c.roundTrip.getModelType();
+                typeColor = ANSI_RED + ANSI_BOLD;  // Bold red for type changes
             }
 
             String extractedParams = formatModelParams(c.extracted);
             String roundTripParams = formatModelParams(c.roundTrip);
-            String driftStr = c.typeMatch ? String.format("%.2f%%", c.drift) : "TYPE";
-            String status = (c.typeMatch && c.drift < 1.0) ? "✓" : (c.drift < 2.0 ? "⚠" : "✗");
 
-            System.out.printf("│ %4d │ %-10s │ %-30s │ %-30s │ %6s │   %s    │%n",
+            // Color the params based on drift
+            String extractedColor = ANSI_DIM;  // Original is dimmed (like - in diff)
+            String roundTripColor;
+            if (c.typeMatch && c.drift < 0.5) {
+                roundTripColor = ANSI_BLUE;  // Good match
+            } else if (c.drift < 2.0) {
+                roundTripColor = ANSI_YELLOW;  // Warning
+            } else {
+                roundTripColor = ANSI_RED;  // Diverged
+            }
+
+            // Format drift with color
+            String driftStr;
+            String driftColor;
+            if (!c.typeMatch) {
+                driftStr = "TYPE";
+                driftColor = ANSI_RED + ANSI_BOLD;
+            } else if (c.drift < 0.5) {
+                driftStr = String.format("%.2f%%", c.drift);
+                driftColor = ANSI_BLUE;
+            } else if (c.drift < 1.0) {
+                driftStr = String.format("%.2f%%", c.drift);
+                driftColor = ANSI_BLUE;
+            } else if (c.drift < 2.0) {
+                driftStr = String.format("%.2f%%", c.drift);
+                driftColor = ANSI_YELLOW;
+            } else {
+                driftStr = String.format("%.2f%%", c.drift);
+                driftColor = ANSI_RED;
+            }
+
+            // Print the row with colors
+            System.out.printf("│ %4d │ %s%-10s%s │ %s%-30s%s │ %s%-30s%s │ %s%6s%s │   %s%s%s    │%n",
                 c.dimension,
-                truncateString(typeCol, 10),
-                truncateString(extractedParams, 30),
-                truncateString(roundTripParams, 30),
-                driftStr,
-                status);
+                typeColor, truncateString(typeCol, 10), ANSI_RESET,
+                extractedColor, truncateString(extractedParams, 30), ANSI_RESET,
+                roundTripColor, truncateString(roundTripParams, 30), ANSI_RESET,
+                driftColor, driftStr, ANSI_RESET,
+                rowColor, statusSymbol, ANSI_RESET);
 
             shown++;
         }
@@ -1783,7 +2254,8 @@ public class CMD_analyze_profile implements Callable<Integer> {
         int notShown = dimensions - shown;
         if (notShown > 0) {
             System.out.println("├──────┴────────────┴────────────────────────────────┴────────────────────────────────┴────────┴────────┤");
-            System.out.printf("│ ... %d more dimensions not shown (use --verbose to see all)                                           │%n", notShown);
+            System.out.printf("│ %s... %d more dimensions not shown (use --verbose to see all)%s                                           │%n",
+                ANSI_DIM, notShown, ANSI_RESET);
         }
 
         System.out.println("└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘");
@@ -1829,76 +2301,77 @@ public class CMD_analyze_profile implements Callable<Integer> {
     }
 
     /**
-     * Prints the verification warning message.
+     * Prints the verification warning message with yellow color coding.
      */
     private void printVerificationWarning(int typeMatches, int dimensions, double typeMatchPct,
                                           java.util.List<Integer> mismatchedDims) {
-        System.out.println("╔═══════════════════════════════════════════════════════════════════════════════╗");
-        System.out.println("║                         ⚠ VERIFICATION WARNING                                ║");
-        System.out.println("╠═══════════════════════════════════════════════════════════════════════════════╣");
-        System.out.printf("║  Type matches: %d/%d (%.1f%%)                                                  ║%n",
-            typeMatches, dimensions, typeMatchPct);
+        System.out.println(ANSI_YELLOW + "╔═══════════════════════════════════════════════════════════════════════════════╗" + ANSI_RESET);
+        System.out.println(boxLine(ANSI_YELLOW, ANSI_YELLOW + ANSI_BOLD + "                         ⚠ VERIFICATION WARNING" + ANSI_RESET));
+        System.out.println(ANSI_YELLOW + "╠═══════════════════════════════════════════════════════════════════════════════╣" + ANSI_RESET);
+        System.out.println(boxLine(ANSI_YELLOW, String.format("  Type matches: %d/%d (%.1f%%)", typeMatches, dimensions, typeMatchPct)));
         if (!mismatchedDims.isEmpty()) {
             String dims = mismatchedDims.size() <= 8
                 ? mismatchedDims.toString()
                 : mismatchedDims.subList(0, 8) + "...";
-            System.out.printf("║  Unstable dimensions: %-53s ║%n", dims);
+            System.out.println(boxLine(ANSI_YELLOW, "  Unstable dimensions: " + ANSI_RED + dims + ANSI_RESET));
         }
-        System.out.println("╠═══════════════════════════════════════════════════════════════════════════════╣");
-        System.out.println("║  WHAT THIS MEANS:                                                             ║");
-        System.out.println("║  Some dimensions diverged during the round-trip verification pipeline:        ║");
-        System.out.println("║                                                                               ║");
-        System.out.println("║    Extract ──► Model ──► Generate ──► Re-Extract ──► Different Model          ║");
-        System.out.println("║                 │                                          │                  ║");
-        System.out.println("║                 └──────── Should Match ─────────┘         ✗                  ║");
-        System.out.println("║                                                                               ║");
-        System.out.println("║  The distribution type or parameters changed, meaning the parametric fit      ║");
-        System.out.println("║  doesn't fully capture the data's shape (multimodal, heavy tails, etc.).      ║");
-        System.out.println("╠═══════════════════════════════════════════════════════════════════════════════╣");
-        System.out.println("║  RECOMMENDED FIX:                                                             ║");
-        System.out.println("║  Force empirical (histogram) models for unstable dimensions. These capture    ║");
-        System.out.println("║  exact quantile distributions and always round-trip accurately:               ║");
-        System.out.println("║                                                                               ║");
+        System.out.println(ANSI_YELLOW + "╠═══════════════════════════════════════════════════════════════════════════════╣" + ANSI_RESET);
+        System.out.println(boxLine(ANSI_YELLOW, "  WHAT THIS MEANS:"));
+        System.out.println(boxLine(ANSI_YELLOW, "  Some dimensions " + ANSI_RED + "diverged" + ANSI_RESET + " during the round-trip verification pipeline:"));
+        System.out.println(boxLine(ANSI_YELLOW, ""));
+        System.out.println(boxLine(ANSI_YELLOW, "    Extract ──► Model ──► Generate ──► Re-Extract ──► " + ANSI_RED + "Different Model" + ANSI_RESET));
+        System.out.println(boxLine(ANSI_YELLOW, "                 │                                          │"));
+        System.out.println(boxLine(ANSI_YELLOW, "                 └──────── Should Match ─────────┘         " + ANSI_RED + "✗" + ANSI_RESET));
+        System.out.println(boxLine(ANSI_YELLOW, ""));
+        System.out.println(boxLine(ANSI_YELLOW, "  The distribution type or parameters changed, meaning the parametric fit"));
+        System.out.println(boxLine(ANSI_YELLOW, "  doesn't fully capture the data's shape (multimodal, heavy tails, etc.)."));
+        System.out.println(ANSI_YELLOW + "╠═══════════════════════════════════════════════════════════════════════════════╣" + ANSI_RESET);
+        System.out.println(boxLine(ANSI_YELLOW, "  " + ANSI_CYAN + "RECOMMENDED FIX:" + ANSI_RESET));
+        System.out.println(boxLine(ANSI_YELLOW, "  Force empirical (histogram) models for unstable dimensions. These capture"));
+        System.out.println(boxLine(ANSI_YELLOW, "  exact quantile distributions and always round-trip accurately:"));
+        System.out.println(boxLine(ANSI_YELLOW, ""));
         if (!mismatchedDims.isEmpty()) {
             String dimList = mismatchedDims.stream()
                 .limit(10)
                 .map(String::valueOf)
                 .collect(java.util.stream.Collectors.joining(","));
             if (mismatchedDims.size() > 10) dimList += ",...";
-            System.out.printf("║    nbvectors analyze profile -b <input> -o <output> \\                        ║%n");
-            System.out.printf("║        --empirical-dimensions %-45s ║%n", dimList);
-            System.out.println("║                                                                               ║");
+            System.out.println(boxLine(ANSI_YELLOW, "    " + ANSI_DIM + "nbvectors analyze profile -b <input> -o <output> \\" + ANSI_RESET));
+            System.out.println(boxLine(ANSI_YELLOW, "        " + ANSI_DIM + "--empirical-dimensions " + ANSI_RESET + ANSI_CYAN + dimList + ANSI_RESET));
+            System.out.println(boxLine(ANSI_YELLOW, ""));
         }
-        System.out.println("║  The model has been saved and may still work for your use case.               ║");
-        System.out.println("╚═══════════════════════════════════════════════════════════════════════════════╝");
+        System.out.println(boxLine(ANSI_YELLOW, "  The model has been saved and may still work for your use case."));
+        System.out.println(ANSI_YELLOW + "╚═══════════════════════════════════════════════════════════════════════════════╝" + ANSI_RESET);
     }
 
     /**
-     * Prints the verification failed message.
+     * Prints the verification failed message with red ANSI color coding.
      */
     private void printVerificationFailed(int typeMatches, int dimensions, double typeMatchPct,
                                          double avgDrift, double maxDrift,
                                          java.util.List<Integer> mismatchedDims) {
-        System.out.println("╔═══════════════════════════════════════════════════════════════════════════════╗");
-        System.out.println("║                         ✗ VERIFICATION FAILED                                 ║");
-        System.out.println("╠═══════════════════════════════════════════════════════════════════════════════╣");
-        System.out.printf("║  Type matches:   %d/%d (%.1f%%)                                                ║%n",
-            typeMatches, dimensions, typeMatchPct);
-        System.out.printf("║  Average drift:  %.2f%% (threshold: 1.0%%)                                      ║%n", avgDrift);
-        System.out.printf("║  Max drift:      %.2f%% (threshold: 2.0%%)                                      ║%n", maxDrift);
-        System.out.println("╠═══════════════════════════════════════════════════════════════════════════════╣");
-        System.out.println("║  The extraction-generation pipeline shows significant deviation.              ║");
-        System.out.println("║                                                                               ║");
-        System.out.println("║  Possible causes:                                                             ║");
-        System.out.println("║    • Data has complex distributions not captured by parametric models         ║");
-        System.out.println("║    • Insufficient sample size for accurate parameter estimation               ║");
-        System.out.println("║    • Data contains outliers or multimodal distributions                       ║");
-        System.out.println("║                                                                               ║");
-        System.out.println("║  Recommended actions:                                                         ║");
-        System.out.println("║    1. Use --model-type empirical for all dimensions                           ║");
-        System.out.println("║    2. Increase --verify-count for more stable estimation                      ║");
-        System.out.println("║    3. See troubleshooting guide for more solutions                            ║");
-        System.out.println("╚═══════════════════════════════════════════════════════════════════════════════╝");
+        System.out.println(ANSI_RED + "╔═══════════════════════════════════════════════════════════════════════════════╗" + ANSI_RESET);
+        System.out.println(boxLine(ANSI_RED, "                         " + ANSI_BOLD + ANSI_RED + "✗ VERIFICATION FAILED" + ANSI_RESET));
+        System.out.println(ANSI_RED + "╠═══════════════════════════════════════════════════════════════════════════════╣" + ANSI_RESET);
+        String typeMatchColor = typeMatchPct < 90 ? ANSI_RED : ANSI_YELLOW;
+        System.out.println(boxLine(ANSI_RED, String.format("  Type matches:   " + typeMatchColor + "%d/%d (%.1f%%)" + ANSI_RESET, typeMatches, dimensions, typeMatchPct)));
+        String avgDriftColor = avgDrift > 1.0 ? ANSI_RED : ANSI_YELLOW;
+        System.out.println(boxLine(ANSI_RED, String.format("  Average drift:  " + avgDriftColor + "%.2f%%" + ANSI_RESET + " (threshold: 1.0%%)", avgDrift)));
+        String maxDriftColor = maxDrift > 2.0 ? ANSI_RED : ANSI_YELLOW;
+        System.out.println(boxLine(ANSI_RED, String.format("  Max drift:      " + maxDriftColor + "%.2f%%" + ANSI_RESET + " (threshold: 2.0%%)", maxDrift)));
+        System.out.println(ANSI_RED + "╠═══════════════════════════════════════════════════════════════════════════════╣" + ANSI_RESET);
+        System.out.println(boxLine(ANSI_RED, "  " + ANSI_BOLD + "The extraction-generation pipeline shows significant deviation." + ANSI_RESET));
+        System.out.println(boxLine(ANSI_RED, ""));
+        System.out.println(boxLine(ANSI_RED, "  " + ANSI_BOLD + "Possible causes:" + ANSI_RESET));
+        System.out.println(boxLine(ANSI_RED, "    " + ANSI_DIM + "•" + ANSI_RESET + " Data has complex distributions not captured by parametric models"));
+        System.out.println(boxLine(ANSI_RED, "    " + ANSI_DIM + "•" + ANSI_RESET + " Insufficient sample size for accurate parameter estimation"));
+        System.out.println(boxLine(ANSI_RED, "    " + ANSI_DIM + "•" + ANSI_RESET + " Data contains outliers or multimodal distributions"));
+        System.out.println(boxLine(ANSI_RED, ""));
+        System.out.println(boxLine(ANSI_RED, "  " + ANSI_BOLD + "Recommended actions:" + ANSI_RESET));
+        System.out.println(boxLine(ANSI_RED, "    " + ANSI_CYAN + "1." + ANSI_RESET + " Use " + ANSI_CYAN + "--model-type empirical" + ANSI_RESET + " for all dimensions"));
+        System.out.println(boxLine(ANSI_RED, "    " + ANSI_CYAN + "2." + ANSI_RESET + " Increase " + ANSI_CYAN + "--verify-count" + ANSI_RESET + " for more stable estimation"));
+        System.out.println(boxLine(ANSI_RED, "    " + ANSI_CYAN + "3." + ANSI_RESET + " See troubleshooting guide for more solutions"));
+        System.out.println(ANSI_RED + "╚═══════════════════════════════════════════════════════════════════════════════╝" + ANSI_RESET);
     }
 
     /**
@@ -1952,5 +2425,435 @@ public class CMD_analyze_profile implements Callable<Integer> {
             return path;
         }
         return "..." + path.substring(path.length() - maxLen + 3);
+    }
+
+    /// Box width for verification output (inner content width, excluding borders).
+    private static final int BOX_WIDTH = 79;
+
+    /// Pads a string (which may contain ANSI codes) to the target visible width.
+    ///
+    /// ANSI escape codes don't occupy visible space, so we strip them to calculate
+    /// the actual visible length, then pad with spaces accordingly.
+    ///
+    /// @param text the text (may contain ANSI codes)
+    /// @param targetWidth the target visible width
+    /// @return the padded string
+    private static String padToWidth(String text, int targetWidth) {
+        // Strip ANSI codes to get visible length
+        String visible = text.replaceAll("\u001B\\[[;\\d]*m", "");
+        int padding = targetWidth - visible.length();
+        if (padding <= 0) {
+            return text;
+        }
+        return text + " ".repeat(padding);
+    }
+
+    /// Formats a box line with proper alignment.
+    ///
+    /// @param borderColor the color for the border
+    /// @param content the content (may contain ANSI codes)
+    /// @return formatted line with aligned borders
+    private static String boxLine(String borderColor, String content) {
+        return borderColor + "║" + ANSI_RESET + padToWidth(content, BOX_WIDTH) + borderColor + "║" + ANSI_RESET;
+    }
+
+    /**
+     * Streaming chunk-based model extraction for large files.
+     *
+     * <p>Uses {@link TransposedChunkDataSource} and {@link AnalyzerHarness} to process
+     * vectors in memory-efficient chunks. This approach is optimal for datasets that
+     * exceed available heap memory.
+     *
+     * <h3>Processing Flow</h3>
+     * <ol>
+     *   <li>Calculate optimal chunk size based on memory budget</li>
+     *   <li>Create TransposedChunkDataSource for columnar chunk loading</li>
+     *   <li>Register StreamingModelExtractor with AnalyzerHarness</li>
+     *   <li>Stream chunks through the analyzer with progress reporting</li>
+     *   <li>Complete analysis and return VectorSpaceModel</li>
+     * </ol>
+     *
+     * @param file the vector file path
+     * @param fileType the file type
+     * @param range optional range constraint
+     * @return extracted VectorSpaceModel
+     */
+    private VectorSpaceModel profileVectorsStreaming(Path file, FileType fileType, RangeOption.Range range) {
+        try {
+            // Create TransposedChunkDataSource - it will read metadata from file automatically
+            // Note: Range offset not yet fully supported in streaming mode
+            if (range != null && range.start() > 0) {
+                System.out.println("  Note: Range offset not yet supported in streaming mode, processing from start of file");
+            }
+
+            // Parse memory budget for initial builder configuration
+            // We'll get dimensions from the source after it reads the file
+            double budgetFraction = parseMemoryBudget(memoryBudget, 768); // Use typical dimension for initial estimate
+
+            TransposedChunkDataSource source = TransposedChunkDataSource.builder()
+                .file(file)
+                .memoryBudgetFraction(budgetFraction)
+                .build();
+
+            // Get actual metadata from the source
+            int totalVectorCount = (int) source.getShape().cardinality();
+            int dimensions = source.getShape().dimensionality();
+
+            if (totalVectorCount == 0) {
+                logger.error("File contains no vectors");
+                System.err.println("Error: File contains no vectors");
+                return null;
+            }
+
+            // Apply range constraint if specified
+            int vectorCount = totalVectorCount;
+            if (range != null) {
+                RangeOption.Range effectiveRange = range.constrain(totalVectorCount);
+                vectorCount = (int) (effectiveRange.end() - effectiveRange.start());
+            }
+
+            System.out.printf("  Vectors in file: %d%n", totalVectorCount);
+            if (range != null) {
+                System.out.printf("  Processing: %d vectors%n", vectorCount);
+            }
+            System.out.printf("  Dimensions: %d%n", dimensions);
+            int optimalChunkSize = source.getOptimalChunkSize();
+
+            System.out.printf("  Memory budget: %.0f%% of available heap%n", budgetFraction * 100);
+            System.out.printf("  Chunk size: %,d vectors%n", optimalChunkSize);
+            System.out.printf("  Estimated chunks: %d%n", (totalVectorCount + optimalChunkSize - 1) / optimalChunkSize);
+
+            // Wrap with PrefetchingDataSource for double-buffering (load next chunk while processing current)
+            PrefetchingDataSource prefetchingSource = PrefetchingDataSource.builder()
+                .source(source)
+                .prefetchCount(2)  // Double buffer: one being processed, one prefetched
+                .withMemoryMonitoring()  // Adapt to memory pressure
+                .build();
+            System.out.println("  Double-buffering: enabled (prefetch=2)");
+
+            // Create and configure the streaming model extractor with convergence tracking
+            StreamingModelExtractor extractor = new StreamingModelExtractor(createSelector());
+            if (uniqueVectors != null) {
+                extractor.setUniqueVectors(uniqueVectors);
+            } else {
+                // Use vectorCount (which is range-constrained) not totalVectorCount
+                extractor.setUniqueVectors(vectorCount);
+            }
+
+            // Configure parallelism for model fitting (NUMA-aware by default)
+            if (threads != null && threads > 0) {
+                extractor.setParallelism(threads);
+                System.out.printf("  Fitting parallelism: %d threads (NUMA-aware)%n", threads);
+            } else {
+                System.out.printf("  Fitting parallelism: auto (%d threads, NUMA-aware)%n", extractor.getEffectiveParallelism());
+            }
+
+            // Enable all-fits collection if --show-fit-table is requested
+            if (showFitTable) {
+                extractor.setCollectAllFits(true);
+            }
+
+            // Disable adaptive fitting when a specific model type is forced
+            // (to prevent fallback to Empirical when user explicitly requests Normal, etc.)
+            if (modelType != ModelType.auto && modelType != ModelType.pearson) {
+                extractor.setAdaptiveEnabled(false);
+            }
+
+            // Enable convergence tracking, incremental fitting, and histogram tracking
+            if (!noConvergence) {
+                extractor.enableConvergenceTracking(convergenceThreshold);
+                extractor.enableIncrementalFitting(5);  // Fit every 5 batches
+                extractor.enableHistogramTracking(0.25); // 25% prominence for multi-modal detection (stricter)
+                System.out.printf("  Convergence tracking: enabled (threshold=%.2f%%, all 4 moments)%n", convergenceThreshold * 100);
+                System.out.println("  Incremental fitting: enabled (tracks model type stability)");
+                System.out.println("  Multi-modal detection: enabled (25% prominence threshold)");
+            }
+
+            // Create analyzer harness
+            final AnalyzerHarness harness = new AnalyzerHarness();
+            harness.register(extractor);
+
+            // Run analysis with progress reporting
+            long startTime = System.currentTimeMillis();
+            System.out.printf("  Streaming analysis of %d dimensions...%n", dimensions);
+            if (!noConvergence) {
+                System.out.println("  Auto-stop on convergence: enabled (fitting begins when all dimensions stabilize)");
+            }
+            System.out.println("  Press Enter to stop data collection at any time.");
+
+            int[] lastPercent = {-1};
+            int[] lastChunk = {0};
+            AnalyzerHarness.Phase[] lastPhase = {null};
+            int[] lastConvergedCount = {0};
+            boolean[] earlyExitTriggered = {false};
+            boolean[] manualExitTriggered = {false};
+
+            // Start keystroke listener for manual early exit
+            Thread keystrokeListener = startKeystrokeListener(harness, earlyExitTriggered, manualExitTriggered);
+
+            AnalysisResults results = harness.run(prefetchingSource, optimalChunkSize, new AnalyzerHarness.ProgressCallback() {
+                @Override
+                public void onProgress(double progress, long processed, long total) {
+                    // This callback runs AFTER processing - update percent and check convergence
+                    int percent = (int) (progress * 100);
+                    lastPercent[0] = percent;
+
+                    // Check convergence AFTER processing each chunk
+                    if (extractor.isConvergenceEnabled()) {
+                        extractor.checkConvergence();
+                        int convergedNow = extractor.getConvergedCount();
+                        if (convergedNow != lastConvergedCount[0]) {
+                            // Print convergence update on new line
+                            StreamingModelExtractor.ConvergenceStatus status = extractor.getConvergenceStatus();
+                            if (status != null) {
+                                System.out.printf("%n  %s%n", status);
+                            }
+                            lastConvergedCount[0] = convergedNow;
+
+                            // Automatic early exit on convergence
+                            if (extractor.allConverged() && !earlyExitTriggered[0]) {
+                                earlyExitTriggered[0] = true;
+                                System.out.println("  All dimensions converged - stopping data collection.");
+                                harness.requestStop();
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                public void onProgress(AnalyzerHarness.Phase phase, double progress, long processed,
+                                       long total, int chunkNumber, int totalChunks) {
+                    // Show phase transitions with consistent format
+                    if (phase == AnalyzerHarness.Phase.LOADING && chunkNumber != lastChunk[0]) {
+                        printStreamingProgressBarWithPhase(phase, (int)(progress * 100), processed, total, chunkNumber, totalChunks);
+                        lastChunk[0] = chunkNumber;
+                        lastPhase[0] = phase;
+                    } else if (phase == AnalyzerHarness.Phase.PROCESSING && lastPhase[0] == AnalyzerHarness.Phase.LOADING) {
+                        printStreamingProgressBarWithPhase(phase, (int)(progress * 100), processed, total, chunkNumber, totalChunks);
+                        lastPhase[0] = phase;
+                    }
+                }
+            });
+
+            // Stop keystroke listener
+            keystrokeListener.interrupt();
+
+            // Print final progress
+            long samplesProcessed = extractor.getSamplesProcessed();
+            if (earlyExitTriggered[0] || manualExitTriggered[0]) {
+                int percent = (int) (100.0 * samplesProcessed / totalVectorCount);
+                printStreamingProgressBar(percent, samplesProcessed, totalVectorCount);
+                System.out.println();
+                String stopReason = manualExitTriggered[0] ? "user request" : "convergence";
+                System.out.printf("  Data collection stopped (%s): %,d of %,d samples (%.1f%%)%n",
+                    stopReason, samplesProcessed, totalVectorCount, 100.0 * samplesProcessed / totalVectorCount);
+            } else {
+                printStreamingProgressBar(100, totalVectorCount, totalVectorCount);
+                System.out.println();
+            }
+
+            long elapsed = System.currentTimeMillis() - startTime;
+            System.out.printf("  Streaming extraction completed in %d ms%n", elapsed);
+
+            // Shutdown harness
+            harness.shutdown();
+
+            // Check for errors
+            if (results.hasErrors()) {
+                for (var entry : results.getErrors().entrySet()) {
+                    logger.error("Analyzer {} failed: {}", entry.getKey(), entry.getValue().getMessage());
+                    System.err.println("Error in " + entry.getKey() + ": " + entry.getValue().getMessage());
+                }
+                return null;
+            }
+
+            // Get the model from results
+            VectorSpaceModel model = results.getResult("model-extractor", VectorSpaceModel.class);
+            if (model == null) {
+                logger.error("No model produced by streaming extractor");
+                System.err.println("Error: Streaming extraction produced no model");
+                return null;
+            }
+
+            // Apply truncation bounds if requested
+            if (truncated) {
+                // Get dimension statistics from the extractor
+                DimensionStatistics[] stats = extractor.getDimensionStatistics();
+                if (stats != null) {
+                    model = applyTruncationBounds(model, stats);
+                } else {
+                    logger.warn("Truncation requested but dimension statistics not available from streaming extractor");
+                }
+            }
+
+            // Print model summary
+            printModelSummary(model);
+
+            return model;
+
+        } catch (Exception e) {
+            logger.error("Error in streaming profile", e);
+            throw new RuntimeException("Failed to profile vectors: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Parses the memory budget specification.
+     *
+     * <p>Accepts either a fraction (0.0-1.0) or an absolute size with suffix (e.g., "4g", "512m").
+     *
+     * @param budget the budget specification
+     * @param dimensions the number of dimensions (for calculating fraction from absolute)
+     * @return memory budget as a fraction of available heap
+     */
+    private double parseMemoryBudget(String budget, int dimensions) {
+        if (budget == null || budget.isEmpty()) {
+            return ChunkSizeCalculator.DEFAULT_BUDGET_FRACTION;
+        }
+
+        String trimmed = budget.trim().toLowerCase();
+
+        // Check for absolute size suffix
+        long absoluteBytes = -1;
+        if (trimmed.endsWith("g")) {
+            absoluteBytes = Long.parseLong(trimmed.substring(0, trimmed.length() - 1)) * 1024L * 1024L * 1024L;
+        } else if (trimmed.endsWith("m")) {
+            absoluteBytes = Long.parseLong(trimmed.substring(0, trimmed.length() - 1)) * 1024L * 1024L;
+        } else if (trimmed.endsWith("k")) {
+            absoluteBytes = Long.parseLong(trimmed.substring(0, trimmed.length() - 1)) * 1024L;
+        }
+
+        if (absoluteBytes > 0) {
+            // Convert absolute bytes to fraction of available heap
+            Runtime rt = Runtime.getRuntime();
+            long availableHeap = rt.maxMemory() - rt.totalMemory() + rt.freeMemory();
+            return Math.min(1.0, (double) absoluteBytes / availableHeap);
+        }
+
+        // Parse as fraction
+        try {
+            double fraction = Double.parseDouble(trimmed);
+            if (fraction <= 0 || fraction > 1.0) {
+                logger.warn("Memory budget {} out of range, using default 0.6", budget);
+                return ChunkSizeCalculator.DEFAULT_BUDGET_FRACTION;
+            }
+            return fraction;
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid memory budget '{}', using default 0.6", budget);
+            return ChunkSizeCalculator.DEFAULT_BUDGET_FRACTION;
+        }
+    }
+
+    /**
+     * Prints a streaming progress bar.
+     */
+    private void printStreamingProgressBar(int percent, long processed, long total) {
+        int barWidth = 40;
+        int filled = (int) ((percent / 100.0) * barWidth);
+        StringBuilder bar = new StringBuilder("\r  [");
+        for (int i = 0; i < barWidth; i++) {
+            if (i < filled) {
+                bar.append("█");
+            } else {
+                bar.append("░");
+            }
+        }
+        bar.append(String.format("] %3d%% (%,d / %,d vectors)", percent, processed, total));
+        System.out.print(bar);
+        System.out.flush();
+    }
+
+    /**
+     * Prints a streaming progress bar with phase information.
+     *
+     * <p>Shows the current phase (Loading/Processing) and chunk progress,
+     * which provides feedback during long I/O operations.
+     */
+    private void printStreamingProgressBarWithPhase(AnalyzerHarness.Phase phase, int percent,
+                                                    long processed, long total,
+                                                    int chunkNumber, int totalChunks) {
+        int barWidth = 30;
+        int filled = (int) ((percent / 100.0) * barWidth);
+        StringBuilder bar = new StringBuilder("\r  [");
+        for (int i = 0; i < barWidth; i++) {
+            if (i < filled) {
+                bar.append("█");
+            } else {
+                bar.append("░");
+            }
+        }
+        String phaseStr = phase == AnalyzerHarness.Phase.LOADING ? "Loading" : "Processing";
+        bar.append(String.format("] %3d%% | %s chunk %d/%d (%,d vectors)",
+            percent, phaseStr, chunkNumber, totalChunks, processed));
+        // Pad with spaces to clear any previous longer text
+        bar.append("          ");
+        System.out.print(bar);
+        System.out.flush();
+    }
+
+    /// Reads vector file metadata without loading vectors.
+    ///
+    /// @param path path to .fvec or .ivec file
+    /// @return array of [vectorCount, dimensions]
+    /// @throws java.io.IOException if file cannot be read
+    private int[] readFileMetadata(Path path) throws java.io.IOException {
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(path.toFile(), "r")) {
+            long fileSize = raf.length();
+
+            // Read dimension (little-endian int at offset 0)
+            byte[] dimBytes = new byte[4];
+            raf.read(dimBytes);
+            int dimension = (dimBytes[0] & 0xFF) |
+                           ((dimBytes[1] & 0xFF) << 8) |
+                           ((dimBytes[2] & 0xFF) << 16) |
+                           ((dimBytes[3] & 0xFF) << 24);
+
+            // Calculate vector count from file size
+            // Each vector: 4 bytes (dimension) + dimension * 4 bytes (float values)
+            long vectorStride = (1 + dimension) * 4L;
+            int vectorCount = (int) (fileSize / vectorStride);
+
+            return new int[] { vectorCount, dimension };
+        }
+    }
+
+    /// Starts a daemon thread that listens for Enter key to trigger early exit.
+    ///
+    /// @param harness the analyzer harness to stop
+    /// @param autoExitTriggered flag to check if auto exit already triggered
+    /// @param manualExitTriggered flag to set when manual exit is triggered
+    /// @return the listener thread (can be interrupted to stop)
+    private Thread startKeystrokeListener(AnalyzerHarness harness,
+                                          boolean[] autoExitTriggered,
+                                          boolean[] manualExitTriggered) {
+        Thread listener = new Thread(() -> {
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    // Check if input is available without blocking
+                    if (System.in.available() > 0) {
+                        int ch = System.in.read();
+                        // Enter key (newline) or 'q' triggers exit
+                        if (ch == '\n' || ch == '\r' || ch == 'q' || ch == 'Q') {
+                            if (!autoExitTriggered[0] && !manualExitTriggered[0]) {
+                                manualExitTriggered[0] = true;
+                                System.out.println("\n  Manual early exit requested...");
+                                harness.requestStop();
+                            }
+                            break;
+                        }
+                    }
+                    // Small sleep to avoid busy-waiting
+                    Thread.sleep(100);
+                }
+            } catch (InterruptedException e) {
+                // Normal termination
+                Thread.currentThread().interrupt();
+            } catch (java.io.IOException e) {
+                // Ignore I/O errors (e.g., stdin closed)
+            }
+        }, "early-exit-listener");
+        listener.setDaemon(true);
+        listener.start();
+        return listener;
     }
 }

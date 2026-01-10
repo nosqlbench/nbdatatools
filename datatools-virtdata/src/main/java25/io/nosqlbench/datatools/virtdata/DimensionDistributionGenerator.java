@@ -23,8 +23,6 @@ import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import jdk.incubator.vector.*;
 
-import java.util.function.LongFunction;
-
 /**
  * Panama Vector API optimized dimension distribution generator.
  *
@@ -40,7 +38,9 @@ import java.util.function.LongFunction;
  *
  * <p>SIMD species selection is centralized via {@link LocalSpecies}.
  */
-public class DimensionDistributionGenerator implements LongFunction<float[]> {
+@GeneratorName("dimension-distribution")
+@ModelType(VectorSpaceModel.class)
+public class DimensionDistributionGenerator implements VectorGenerator<VectorSpaceModel> {
 
     private static final VectorSpecies<Double> SPECIES = LocalSpecies.doubleSpecies();
     private static final int LANES = SPECIES.length();
@@ -62,19 +62,47 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     private static final double L4 = 0.20012028055456;
     private static final double LN2 = 0.6931471805599453;
 
-    private final VectorSpaceModel model;
-    private final int dimensions;
-    private final long uniqueVectors;
-    private final ComponentSampler[] samplers;
-    private final boolean allNormal;
-    private final double[] means;
-    private final double[] stdDevs;
+    private VectorSpaceModel model;
+    private int dimensions;
+    private long uniqueVectors;
+    private ComponentSampler[] samplers;
+    private boolean allNormal;
+    private double[] means;
+    private double[] stdDevs;
+
+    /** Tracks whether this generator has been initialized. */
+    private boolean initialized = false;
+
+    /**
+     * Default constructor for ServiceLoader discovery.
+     * Must call {@link #initialize(VectorSpaceModel)} before use.
+     */
+    public DimensionDistributionGenerator() {
+    }
 
     /**
      * Constructs a Panama-optimized dimension distribution generator.
      * @param model the vector space model defining N, M, and per-component distributions
      */
     public DimensionDistributionGenerator(VectorSpaceModel model) {
+        initialize(model);
+    }
+
+    @Override
+    public String getGeneratorType() {
+        return "dimension-distribution";
+    }
+
+    @Override
+    public String getDescription() {
+        return "Panama Vector API optimized generator using per-dimension distribution sampling with SIMD";
+    }
+
+    @Override
+    public void initialize(VectorSpaceModel model) {
+        if (this.initialized) {
+            throw new IllegalStateException("Generator already initialized");
+        }
         this.model = model;
         this.dimensions = model.dimensions();
         this.uniqueVectors = model.uniqueVectors();
@@ -92,6 +120,12 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
                 stdDevs[d] = normals[d].getStdDev();
             }
         }
+        this.initialized = true;
+    }
+
+    @Override
+    public boolean isInitialized() {
+        return initialized;
     }
 
     @Override
@@ -104,6 +138,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     /**
      * Generates a vector into an existing array using SIMD when all components are normal.
      */
+    @Override
     public void generateInto(long ordinal, float[] target, int offset) {
         long normalizedOrdinal = normalizeOrdinal(ordinal);
 
@@ -147,6 +182,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     /**
      * Generates a vector as double precision.
      */
+    @Override
     public double[] applyAsDouble(long ordinal) {
         double[] result = new double[dimensions];
         generateIntoDouble(ordinal, result, 0);
@@ -156,6 +192,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     /**
      * Generates a vector into an existing double array using SIMD when all components are normal.
      */
+    @Override
     public void generateIntoDouble(long ordinal, double[] target, int offset) {
         long normalizedOrdinal = normalizeOrdinal(ordinal);
 
@@ -192,6 +229,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     /**
      * Generates a batch of vectors.
      */
+    @Override
     public float[][] generateBatch(long startOrdinal, int count) {
         float[][] result = new float[count][dimensions];
         float[] flat = generateFlatBatch(startOrdinal, count);
@@ -204,6 +242,7 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
     /**
      * Generates a flat batch of vectors using SIMD optimization when all components are normal.
      */
+    @Override
     public float[] generateFlatBatch(long startOrdinal, int count) {
         float[] result = new float[count * dimensions];
 
@@ -367,14 +406,17 @@ public class DimensionDistributionGenerator implements LongFunction<float[]> {
         return x.mul(invSqrt);
     }
 
+    @Override
     public VectorSpaceModel model() {
         return model;
     }
 
+    @Override
     public int dimensions() {
         return dimensions;
     }
 
+    @Override
     public long uniqueVectors() {
         return uniqueVectors;
     }

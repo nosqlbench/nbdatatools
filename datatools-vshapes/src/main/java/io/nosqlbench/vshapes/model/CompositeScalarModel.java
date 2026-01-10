@@ -161,6 +161,24 @@ public class CompositeScalarModel implements ScalarModel {
         return components.length;
     }
 
+    /**
+     * Computes the cumulative distribution function (CDF) at a given value.
+     *
+     * <p>For a mixture model, the CDF is the weighted sum of component CDFs:
+     * F(x) = Σ wᵢ Fᵢ(x)
+     *
+     * @param x the value at which to evaluate the CDF
+     * @return the cumulative probability P(X ≤ x), in range [0, 1]
+     */
+    @Override
+    public double cdf(double x) {
+        double sum = 0;
+        for (int i = 0; i < components.length; i++) {
+            sum += weights[i] * components[i].cdf(x);
+        }
+        return sum;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

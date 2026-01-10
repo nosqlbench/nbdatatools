@@ -37,6 +37,10 @@ public class AccuracyReport {
 
     /**
      * Geometric accuracy metrics for vector space properties.
+     *
+     * @param distanceDistributionKS KS test for pairwise distance distribution
+     * @param cosineDistributionKS KS test for cosine similarity distribution
+     * @param normDistributionKS KS test for vector norm distribution
      */
     public record GeometricMetrics(
         StatisticalTestSuite.TestResult distanceDistributionKS,
@@ -52,6 +56,17 @@ public class AccuracyReport {
 
     /**
      * Aggregate metrics across all dimensions.
+     *
+     * @param meanKSStatistic mean KS statistic across dimensions
+     * @param maxKSStatistic maximum KS statistic across dimensions
+     * @param meanMeanError mean error in distribution means
+     * @param meanVarianceRelError mean relative error in variances
+     * @param meanSkewnessError mean error in skewness
+     * @param meanKurtosisError mean error in kurtosis
+     * @param meanQQCorrelation mean Q-Q correlation coefficient
+     * @param dimensionsPassed number of dimensions that passed all tests
+     * @param dimensionsFailed number of dimensions that failed any test
+     * @param totalDimensions total number of dimensions analyzed
      */
     public record AggregateMetrics(
         double meanKSStatistic,
@@ -81,6 +96,8 @@ public class AccuracyReport {
 
     /**
      * Creates a new builder for AccuracyReport.
+     *
+     * @return a new Builder instance
      */
     public static Builder builder() {
         return new Builder();
@@ -88,6 +105,8 @@ public class AccuracyReport {
 
     /**
      * Computes aggregate metrics from dimension results.
+     *
+     * @return aggregate metrics across all dimensions
      */
     public AggregateMetrics computeAggregateMetrics() {
         if (dimensionResults.isEmpty()) {

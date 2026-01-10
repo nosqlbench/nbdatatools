@@ -67,9 +67,9 @@ public interface ModelExtractor {
     /// Extracts a vector space model from the given data.
     ///
     /// Each row represents a vector, and each column represents a dimension.
-    /// The data array should have shape [numVectors][numDimensions].
+    /// The data array should have shape `[numVectors][numDimensions]`.
     ///
-    /// @param data the vector data with shape [numVectors][numDimensions]
+    /// @param data the vector data with shape `[numVectors][numDimensions]`
     /// @return the extracted vector space model
     /// @throws IllegalArgumentException if data is null, empty, or jagged
     VectorSpaceModel extractVectorModel(float[][] data);
@@ -78,19 +78,19 @@ public interface ModelExtractor {
     ///
     /// This variant accepts data organized by dimension rather than by vector,
     /// which can be more efficient when data is already in columnar format.
-    /// The data array should have shape [numDimensions][numVectors].
+    /// The data array should have shape `[numDimensions][numVectors]`.
     ///
-    /// @param transposedData dimension-organized data with shape [numDimensions][numVectors]
-    /// @return the extracted vector space model
+    /// @param transposedData dimension-organized data with shape `[numDimensions][numVectors]`
+    /// @return the extraction result with model and statistics
     /// @throws IllegalArgumentException if data is null, empty, or jagged
-    VectorSpaceModel extractFromTransposed(float[][] transposedData);
+    ExtractionResult extractFromTransposed(float[][] transposedData);
 
     /// Creates an extraction result with detailed statistics.
     ///
     /// This method is useful when you need access to per-dimension statistics
     /// and fit quality metrics in addition to the model itself.
     ///
-    /// @param data the vector data with shape [numVectors][numDimensions]
+    /// @param data the vector data with shape `[numVectors][numDimensions]`
     /// @return the extraction result with model and statistics
     ExtractionResult extractWithStats(float[][] data);
 
@@ -172,7 +172,7 @@ public interface ModelExtractor {
     /// without recomputing the fits.
     ///
     /// @param modelTypes list of model type names (column headers)
-    /// @param fitScores 2D array of scores: fitScores[dimension][modelTypeIndex]
+    /// @param fitScores 2D array of scores: `fitScores[dimension][modelTypeIndex]`
     /// @param bestFitIndices best model type index per dimension
     /// @param sparklines Unicode sparkline histograms per dimension (may be null)
     record AllFitsData(

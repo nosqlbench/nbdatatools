@@ -116,4 +116,28 @@ public interface ScalarModel extends TensorModel {
     /// @return the model type identifier (e.g., "normal", "uniform", "empirical")
     @Override
     String getModelType();
+
+    /// Computes the cumulative distribution function (CDF) at a given value.
+    ///
+    /// The CDF gives the probability P(X ≤ x) for a random variable X
+    /// following this distribution.
+    ///
+    /// ## Purpose
+    ///
+    /// The CDF method enables uniform goodness-of-fit scoring across all
+    /// distribution types. By requiring every ScalarModel to provide its
+    /// theoretical CDF, the model fitting framework can use a single
+    /// scoring algorithm (Kolmogorov-Smirnov D-statistic) for all models.
+    ///
+    /// ## Contract
+    ///
+    /// Implementations must satisfy:
+    /// - Return values in [0, 1]
+    /// - Be monotonically non-decreasing
+    /// - Approach 0 as x → -∞ (or lower bound)
+    /// - Approach 1 as x → +∞ (or upper bound)
+    ///
+    /// @param x the value at which to evaluate the CDF
+    /// @return the cumulative probability P(X ≤ x), in range [0, 1]
+    double cdf(double x);
 }

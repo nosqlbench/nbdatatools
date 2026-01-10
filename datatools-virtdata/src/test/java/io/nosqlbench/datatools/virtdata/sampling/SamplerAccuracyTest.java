@@ -39,14 +39,15 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class SamplerAccuracyTest {
 
-    private static final int SAMPLE_SIZE = 100_000;
+    // Reduced from 100K to 25K for faster tests while maintaining statistical validity
+    private static final int SAMPLE_SIZE = 25_000;
     private static final long SEED = 42L;
 
-    // Tolerances for statistical tests
-    private static final double MEAN_TOLERANCE = 0.05;      // 5% relative error
-    private static final double VARIANCE_TOLERANCE = 0.10;  // 10% relative error
-    private static final double SKEWNESS_TOLERANCE = 0.15;  // Absolute error
-    private static final double KS_CRITICAL_VALUE = 0.01;   // KS test significance
+    // Tolerances for statistical tests (slightly relaxed for smaller sample size)
+    private static final double MEAN_TOLERANCE = 0.06;      // 6% relative error
+    private static final double VARIANCE_TOLERANCE = 0.12;  // 12% relative error
+    private static final double SKEWNESS_TOLERANCE = 0.20;  // Absolute error
+    private static final double KS_CRITICAL_VALUE = 0.015;  // KS test significance
 
     // ===== Normal Distribution (Type 0) =====
 

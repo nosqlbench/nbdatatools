@@ -62,10 +62,10 @@ package io.nosqlbench.vshapes.extract;
 public final class ConvergentDimensionEstimator {
 
     /**
-     * Default convergence threshold - high precision.
-     * Parameter changes must be within 5% of theoretical standard error.
+     * Default convergence threshold - conservative for 4-moment convergence.
+     * Parameter changes must be within 0.5% of theoretical standard error.
      */
-    public static final double DEFAULT_THRESHOLD = 0.05;
+    public static final double DEFAULT_THRESHOLD = 0.005;
 
     /**
      * Default checkpoint interval - check convergence every 1000 samples.

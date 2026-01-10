@@ -197,8 +197,10 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
     }
 
     @Override
-    public VectorSpaceModel extractFromTransposed(float[][] transposedData) {
+    public ExtractionResult extractFromTransposed(float[][] transposedData) {
         validateTransposedData(transposedData);
+
+        long startTime = System.currentTimeMillis();
 
         int numDimensions = transposedData.length;
         int numVectors = transposedData[0].length;
@@ -207,7 +209,11 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
         this.dimensionsCompleted.set(0);
 
         ScalarModel[] components = processNumaPartitioned(transposedData, numDimensions, numVectors);
-        return new VectorSpaceModel(uniqueVectors, components);
+
+        long extractionTime = System.currentTimeMillis() - startTime;
+
+        VectorSpaceModel model = new VectorSpaceModel(uniqueVectors, components);
+        return new ExtractionResult(model, null, null, extractionTime);
     }
 
     @Override

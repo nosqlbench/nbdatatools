@@ -17,20 +17,48 @@ package io.nosqlbench.vshapes.stream;
  * under the License.
  */
 
-/// Interface for streaming analyzers that process vectors in chunks and produce a model.
+/// Interface for streaming analyzers that process vectors in columnar chunks.
 ///
 /// ## Purpose
 ///
-/// Implementations of this interface analyze vector data streamed in chunks,
+/// Implementations of this interface analyze vector data streamed in columnar chunks,
 /// accumulating state across chunks, and finally producing a model of type `M`.
 /// This enables efficient processing of large datasets without loading everything
 /// into memory at once.
+///
+/// ## Columnar Data Format
+///
+/// All chunks are provided in **column-major (columnar) format**:
+/// ```
+/// chunk[dimensionIndex][vectorIndex]
+/// ```
+///
+/// This layout is optimal for per-dimension analysis because:
+/// - Each `chunk[d]` is a contiguous array of all values for dimension `d`
+/// - Sequential iteration through a dimension is cache-friendly
+/// - SIMD operations can be applied to contiguous dimension arrays
+///
+/// ```text
+/// ┌─────────────────────────────────────────────────────────────┐
+/// │                    COLUMNAR CHUNK LAYOUT                    │
+/// └─────────────────────────────────────────────────────────────┘
+///
+///   chunk[0] = [v0.dim0, v1.dim0, v2.dim0, ..., vN.dim0]  ← dimension 0
+///   chunk[1] = [v0.dim1, v1.dim1, v2.dim1, ..., vN.dim1]  ← dimension 1
+///   chunk[2] = [v0.dim2, v1.dim2, v2.dim2, ..., vN.dim2]  ← dimension 2
+///   ...
+///   chunk[D] = [v0.dimD, v1.dimD, v2.dimD, ..., vN.dimD]  ← dimension D
+///
+///   where:
+///     chunk.length = number of dimensions
+///     chunk[d].length = number of vectors in this chunk
+/// ```
 ///
 /// ## Lifecycle
 ///
 /// ```
 /// 1. initialize(shape)     - Called once with dataspace shape
-/// 2. accept(chunk, index)  - Called multiple times with chunks of vectors
+/// 2. accept(chunk, index)  - Called multiple times with columnar chunks
 /// 3. complete()            - Called once to finalize and return the model
 /// ```
 ///
@@ -41,30 +69,46 @@ package io.nosqlbench.vshapes.stream;
 /// Use appropriate synchronization (locks, atomic variables, concurrent data structures)
 /// to protect internal state.
 ///
-/// ## Usage with AnalyzerHarness
+/// ## Accumulator Pattern
+///
+/// A typical implementation maintains per-dimension accumulators:
 ///
 /// ```java
 /// public class MyAnalyzer implements StreamingAnalyzer<MyModel> {
-///     private final AtomicLong count = new AtomicLong();
-///     private DataspaceShape shape;
+///     private StreamingDimensionAccumulator[] accumulators;
+///     private ReentrantLock[] locks;
 ///
 ///     @Override
 ///     public String getAnalyzerType() { return "my-analyzer"; }
 ///
 ///     @Override
 ///     public void initialize(DataspaceShape shape) {
-///         this.shape = shape;
+///         int dims = shape.dimensionality();
+///         accumulators = new StreamingDimensionAccumulator[dims];
+///         locks = new ReentrantLock[dims];
+///         for (int d = 0; d < dims; d++) {
+///             accumulators[d] = new StreamingDimensionAccumulator(d);
+///             locks[d] = new ReentrantLock();
+///         }
 ///     }
 ///
 ///     @Override
 ///     public void accept(float[][] chunk, long startIndex) {
-///         count.addAndGet(chunk.length);
-///         // Process vectors...
+///         // chunk[d] contains all values for dimension d
+///         for (int d = 0; d < chunk.length; d++) {
+///             locks[d].lock();
+///             try {
+///                 accumulators[d].addAll(chunk[d]);
+///             } finally {
+///                 locks[d].unlock();
+///             }
+///         }
 ///     }
 ///
 ///     @Override
 ///     public MyModel complete() {
-///         return new MyModel(count.get());
+///         // Build model from accumulated statistics
+///         return new MyModel(accumulators);
 ///     }
 /// }
 /// ```
@@ -72,6 +116,7 @@ package io.nosqlbench.vshapes.stream;
 /// @param <M> the type of model produced by this analyzer
 /// @see AnalyzerHarness
 /// @see DataspaceShape
+/// @see StreamingDimensionAccumulator
 public interface StreamingAnalyzer<M> {
 
     /// Returns the unique identifier for this analyzer type.
@@ -94,19 +139,20 @@ public interface StreamingAnalyzer<M> {
     /// @param shape the shape of the dataspace (cardinality, dimensionality, parameters)
     void initialize(DataspaceShape shape);
 
-    /// Processes a chunk of vectors.
+    /// Processes a columnar chunk of vectors.
     ///
     /// Called multiple times with successive chunks of the dataset.
-    /// Each chunk is a 2D array where:
-    /// - `chunk[i]` is the i-th vector in this chunk
-    /// - `chunk[i][d]` is dimension d of vector i
-    /// - `chunk.length` may vary between calls (last chunk may be smaller)
+    /// Each chunk is a 2D array in **column-major format**:
+    /// - `chunk[d]` is a contiguous array of all values for dimension `d`
+    /// - `chunk[d][i]` is dimension `d` of vector `i` in this chunk
+    /// - `chunk.length` equals the dimensionality
+    /// - `chunk[0].length` equals the number of vectors in this chunk (may vary)
     ///
     /// **Thread Safety:** This method may be called concurrently from multiple
     /// threads. Implementations must use appropriate synchronization.
     ///
-    /// @param chunk the chunk of vectors, shape [numVectors][dimensionality]
-    /// @param startIndex the index of the first vector in this chunk within the full dataset
+    /// @param chunk columnar data, shape `[dimensionality][vectorsInChunk]`
+    /// @param startIndex the ordinal of the first vector in this chunk within the full dataset
     void accept(float[][] chunk, long startIndex);
 
     /// Finalizes processing and produces the model.

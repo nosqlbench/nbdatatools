@@ -94,8 +94,8 @@ public final class EmpiricalModelFitter implements ComponentModelFitter {
         int bins = autoBinCount ? computeOptimalBinCount(values.length) : binCount;
         EmpiricalScalarModel model = EmpiricalScalarModel.fromData(values, bins);
 
-        // Compute a smoothness-based score (lower is better)
-        double goodnessOfFit = computeSmoothnessScore(values, bins);
+        // Compute KS-based score for comparability with parametric fitters
+        double goodnessOfFit = computeKSScore(values, bins);
 
         return new FitResult(model, goodnessOfFit, getModelType());
     }
@@ -147,16 +147,30 @@ public final class EmpiricalModelFitter implements ComponentModelFitter {
     }
 
     /**
-     * Computes a smoothness score for the histogram.
+     * Base penalty for empirical models.
      *
-     * <p>A smoother histogram (less variation between adjacent bins)
-     * indicates a distribution that will generalize better. The score
-     * is based on the total variation of the histogram.
+     * <p>Since empirical models always achieve near-perfect fit (the histogram
+     * is built from the same data), we add a base penalty to prefer parametric
+     * models when both fit the data well. This penalty represents the "cost"
+     * of using a non-parametric model.
      *
-     * <p>Lower scores indicate smoother histograms.
+     * <p>The value 0.02 means: prefer a parametric model if its raw KS D-statistic
+     * is within 0.02 (2% max CDF difference) of the empirical model's fit.
      */
-    private double computeSmoothnessScore(float[] values, int bins) {
-        // Build histogram
+    private static final double EMPIRICAL_BASE_PENALTY = 0.02;
+
+    /**
+     * Computes a Kolmogorov-Smirnov-like statistic measuring fit quality.
+     *
+     * <p>Since empirical models are built from the data itself, they achieve
+     * near-perfect fit by construction. The score returned is primarily
+     * the base penalty, with a small additional term for histogram resolution.
+     *
+     * <p>This ensures empirical scores are on the same scale as other fitters
+     * (raw KS D-statistic in [0, 1] range), enabling fair comparison.
+     */
+    private double computeKSScore(float[] values, int bins) {
+        // Build histogram to measure self-fit
         float min = values[0];
         float max = values[0];
         for (float v : values) {
@@ -165,7 +179,7 @@ public final class EmpiricalModelFitter implements ComponentModelFitter {
         }
 
         if (max == min) {
-            return 0;  // All values identical, perfectly smooth
+            return EMPIRICAL_BASE_PENALTY;  // All values identical
         }
 
         int[] counts = new int[bins];
@@ -178,24 +192,44 @@ public final class EmpiricalModelFitter implements ComponentModelFitter {
             counts[bin]++;
         }
 
-        // Compute total variation (sum of absolute differences between adjacent bins)
-        double totalVariation = 0;
-        double expectedCount = (double) values.length / bins;
-
-        for (int i = 1; i < bins; i++) {
-            totalVariation += Math.abs(counts[i] - counts[i - 1]);
+        // Compute empirical CDF from histogram
+        int n = values.length;
+        double[] histCdf = new double[bins];
+        int cumulative = 0;
+        for (int i = 0; i < bins; i++) {
+            cumulative += counts[i];
+            histCdf[i] = (double) cumulative / n;
         }
 
-        // Normalize by expected count and number of bins
-        double normalizedVariation = totalVariation / (expectedCount * bins);
+        // Compute max CDF difference between raw data and histogram model
+        // This measures binning quantization error
+        float[] sorted = values.clone();
+        java.util.Arrays.sort(sorted);
 
-        // Also penalize sparse histograms (many empty bins)
-        int emptyBins = 0;
-        for (int count : counts) {
-            if (count == 0) emptyBins++;
+        double maxD = 0;
+        for (int i = 0; i < n; i++) {
+            double empiricalCdf = (double) (i + 1) / n;
+
+            // Find which bin this value falls into
+            int bin = (int) ((sorted[i] - min) / range * bins);
+            if (bin >= bins) bin = bins - 1;
+            if (bin < 0) bin = 0;
+
+            // Linear interpolation within bin for smoother CDF
+            double binStart = min + bin * range / bins;
+            double binEnd = min + (bin + 1) * range / bins;
+            double posInBin = (sorted[i] - binStart) / (binEnd - binStart);
+            posInBin = Math.max(0, Math.min(1, posInBin));
+
+            double prevCdf = bin > 0 ? histCdf[bin - 1] : 0;
+            double modelCdf = prevCdf + posInBin * (histCdf[bin] - prevCdf);
+
+            double d = Math.abs(empiricalCdf - modelCdf);
+            maxD = Math.max(maxD, d);
         }
-        double sparsityPenalty = (double) emptyBins / bins;
 
-        return normalizedVariation + sparsityPenalty;
+        // The base penalty ensures parametric models are preferred when close
+        // The maxD term is typically tiny (< 0.01) due to histogram smoothing
+        return EMPIRICAL_BASE_PENALTY + maxD;
     }
 }

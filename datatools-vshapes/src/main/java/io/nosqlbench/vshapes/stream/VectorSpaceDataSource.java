@@ -23,86 +23,73 @@ import io.nosqlbench.vshapes.io.VectorFileIOVectorSpace;
 
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 
-/**
- * DataSource implementation backed by a {@link VectorSpace}.
- *
- * <h2>Usage</h2>
- *
- * <pre>{@code
- * VectorSpace vectorSpace = loadVectorSpace();
- * DataSource source = new VectorSpaceDataSource(vectorSpace);
- *
- * // Use with harness
- * AnalyzerHarness harness = new AnalyzerHarness();
- * harness.register(myAnalyzer);
- * AnalysisResults results = harness.run(source, 1000);
- * }</pre>
- *
- * @see DataSource
- * @see VectorSpace
- */
+/// DataSource implementation backed by a [VectorSpace].
+///
+/// ## Data Layout
+///
+/// This source produces data in **row-major** format: `chunk[vectorIndex][dimensionIndex]`.
+/// Each row is one complete vector retrieved from the VectorSpace.
+///
+/// ## Usage
+///
+/// ```java
+/// VectorSpace vectorSpace = loadVectorSpace();
+/// DataSource source = new VectorSpaceDataSource(vectorSpace);
+///
+/// // Use with harness
+/// AnalyzerHarness harness = new AnalyzerHarness();
+/// harness.register(myAnalyzer);
+/// AnalysisResults results = harness.run(source, 1000);
+/// ```
+///
+/// @see DataSource
+/// @see VectorSpace
+/// @see DataLayout#ROW_MAJOR
 public final class VectorSpaceDataSource implements DataSource {
 
     private final VectorSpace vectorSpace;
     private final DataspaceShape shape;
 
-    /**
-     * Creates a data source from a VectorSpace.
-     *
-     * @param vectorSpace the vector space to wrap
-     */
+    /// Creates a data source from a VectorSpace.
+    ///
+    /// @param vectorSpace the vector space to wrap
     public VectorSpaceDataSource(VectorSpace vectorSpace) {
-        this(vectorSpace, Map.of());
-    }
-
-    /**
-     * Creates a data source with additional parameters.
-     *
-     * @param vectorSpace the vector space to wrap
-     * @param additionalParameters additional configuration parameters
-     */
-    public VectorSpaceDataSource(VectorSpace vectorSpace, Map<String, Object> additionalParameters) {
         Objects.requireNonNull(vectorSpace, "vectorSpace cannot be null");
         this.vectorSpace = vectorSpace;
         this.shape = new DataspaceShape(
             vectorSpace.getVectorCount(),
             vectorSpace.getDimension(),
-            additionalParameters
+            DataLayout.ROW_MAJOR
         );
     }
 
-    /**
-     * Creates a data source from a vector file using VectorFileIO.
-     *
-     * <p>This factory method uses VectorFileIO for efficient file-backed access,
-     * supporting memory-mapped I/O when available. The returned DataSource
-     * should be closed when no longer needed to release file handles.
-     *
-     * @param path the path to the vector file
-     * @param fileType the file type/encoding
-     * @return a new VectorSpaceDataSource backed by VectorFileIO
-     * @throws IllegalArgumentException if the file cannot be opened
-     */
+    /// Creates a data source from a vector file using VectorFileIO.
+    ///
+    /// This factory method uses VectorFileIO for efficient file-backed access,
+    /// supporting memory-mapped I/O when available. The returned DataSource
+    /// should be closed when no longer needed to release file handles.
+    ///
+    /// @param path the path to the vector file
+    /// @param fileType the file type/encoding
+    /// @return a new VectorSpaceDataSource backed by VectorFileIO
+    /// @throws IllegalArgumentException if the file cannot be opened
     public static VectorSpaceDataSource fromFile(Path path, FileType fileType) {
         VectorFileIOVectorSpace vectorSpace = VectorFileIOVectorSpace.open(path, fileType);
         return new VectorSpaceDataSource(vectorSpace);
     }
 
-    /**
-     * Attempts to create a data source from a vector file using VectorFileIO.
-     *
-     * <p>This method provides graceful fallback support. If VectorFileIO services
-     * are not available, returns empty instead of throwing.
-     *
-     * @param path the path to the vector file
-     * @param fileType the file type/encoding
-     * @return an Optional containing the DataSource, or empty if unavailable
-     */
+    /// Attempts to create a data source from a vector file using VectorFileIO.
+    ///
+    /// This method provides graceful fallback support. If VectorFileIO services
+    /// are not available, returns empty instead of throwing.
+    ///
+    /// @param path the path to the vector file
+    /// @param fileType the file type/encoding
+    /// @return an Optional containing the DataSource, or empty if unavailable
     public static Optional<VectorSpaceDataSource> tryFromFile(Path path, FileType fileType) {
         return VectorFileIOVectorSpace.tryOpen(path, fileType)
             .map(VectorSpaceDataSource::new);
@@ -126,11 +113,9 @@ public final class VectorSpaceDataSource implements DataSource {
         return () -> new ChunkIterator(chunkSize);
     }
 
-    /**
-     * Returns the underlying VectorSpace.
-     *
-     * @return the backing VectorSpace
-     */
+    /// Returns the underlying VectorSpace.
+    ///
+    /// @return the backing VectorSpace
     public VectorSpace getVectorSpace() {
         return vectorSpace;
     }
@@ -159,10 +144,8 @@ public final class VectorSpaceDataSource implements DataSource {
             int remaining = total - position;
             int size = Math.min(chunkSize, remaining);
 
-            float[][] chunk = new float[size][];
-            for (int i = 0; i < size; i++) {
-                chunk[i] = vectorSpace.getVector(position + i);
-            }
+            // Use bulk getVectors for efficient batch loading
+            float[][] chunk = vectorSpace.getVectors(position, position + size);
 
             position += size;
             return chunk;

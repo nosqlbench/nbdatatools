@@ -9,6 +9,7 @@ accuracy of vector space model extraction and synthetic data generation.
 2. [**Step-by-Step Walkthrough**](./02_walkthrough.md) - Detailed narrated example
 3. [**Understanding the Results**](./03_interpreting_results.md) - How to read the output
 4. [**Troubleshooting**](./04_troubleshooting.md) - Common issues and solutions
+5. [**Command Reference**](./05_command_reference.md) - Copy-paste ready commands
 
 ## Overview
 

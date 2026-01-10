@@ -178,11 +178,9 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
             // Prepare the buffer for reading
             buffer.flip();
 
-            // Convert bytes to float values
+            // Bulk convert bytes to float values
             float[] vector = new float[dimension];
-            for (int i = 0; i < dimension; i++) {
-                vector[i] = buffer.getFloat();
-            }
+            buffer.asFloatBuffer().get(vector);
 
             return vector;
         } catch (IOException e) {
@@ -291,11 +289,98 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
     @Override
     public Object[] toArray() {
-        Object[] result = new Object[size];
-        for (int i = 0; i < size; i++) {
-            result[i] = get(i);
+        // Use bulk read for efficiency
+        return getRange(0, size);
+    }
+
+    /// Reads a range of vectors in bulk for optimal I/O performance.
+    /// Uses microbatching to read multiple vectors per I/O operation.
+    ///
+    /// @param startIndex starting index (inclusive)
+    /// @param endIndex ending index (exclusive)
+    /// @return array of vectors in the range
+    public float[][] getRange(int startIndex, int endIndex) {
+        if (startIndex < 0 || endIndex > size || startIndex > endIndex) {
+            throw new IndexOutOfBoundsException(
+                "Range [" + startIndex + ", " + endIndex + ") out of bounds for size " + size);
         }
+
+        int count = endIndex - startIndex;
+        if (count == 0) {
+            return new float[0][];
+        }
+
+        float[][] result = new float[count][];
+
+        // Process in microbatches for efficient I/O
+        // Batch size chosen to fit in L2 cache (~256KB)
+        int batchSize = Math.max(64, Math.min(4096, 65536 / dimension));
+
+        try {
+            int processed = 0;
+            while (processed < count) {
+                int currentBatch = Math.min(batchSize, count - processed);
+                int batchStart = startIndex + processed;
+
+                // Read batch of vectors in one I/O operation
+                readVectorBatch(batchStart, currentBatch, result, processed);
+
+                processed += currentBatch;
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading vector range [" + startIndex + ", " + endIndex + ")", e);
+        }
+
         return result;
+    }
+
+    /// Reads a batch of vectors with a single I/O operation.
+    private void readVectorBatch(int startIndex, int count, float[][] dest, int destOffset) throws IOException {
+        // Calculate total bytes to read
+        long startPosition = (long) startIndex * recordSize + 4;  // Skip first dimension header
+        int bytesPerVector = dimension * 4;
+        int totalBytes = count * recordSize;
+
+        // Allocate buffer for entire batch
+        ByteBuffer buffer = ByteBuffer.allocate(totalBytes).order(ByteOrder.LITTLE_ENDIAN);
+
+        // Read entire batch in one I/O operation
+        long readPosition = (long) startIndex * recordSize;
+        CompletableFuture<Integer> readFuture = new CompletableFuture<>();
+        fileChannel.read(buffer, readPosition, null, new CompletionHandler<Integer, Void>() {
+            @Override
+            public void completed(Integer bytesRead, Void attachment) {
+                readFuture.complete(bytesRead);
+            }
+            @Override
+            public void failed(Throwable exc, Void attachment) {
+                readFuture.completeExceptionally(exc);
+            }
+        });
+
+        try {
+            int bytesRead = readFuture.get();
+            if (bytesRead != totalBytes) {
+                throw new IOException("Failed to read batch: expected " + totalBytes + " bytes, got " + bytesRead);
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            throw new IOException("Failed to read vector batch", e);
+        }
+
+        buffer.flip();
+
+        // Parse vectors from buffer
+        for (int i = 0; i < count; i++) {
+            // Skip dimension header (4 bytes)
+            buffer.getInt();
+
+            // Bulk read vector data
+            dest[destOffset + i] = new float[dimension];
+            buffer.asFloatBuffer().get(dest[destOffset + i]);
+
+            // Advance buffer position past the float data
+            buffer.position(buffer.position() + bytesPerVector);
+        }
     }
 
     @Override
@@ -451,11 +536,8 @@ public class UniformFvecReader extends ImmutableSizedReader<float[]> implements 
 
         @Override
         public Object[] toArray() {
-            Object[] result = new Object[size];
-            for (int i = 0; i < size; i++) {
-                result[i] = get(i);
-            }
-            return result;
+            // Use parent's optimized bulk getRange for efficient I/O
+            return parent.getRange(offset, offset + size);
         }
 
         @Override

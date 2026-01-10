@@ -21,10 +21,12 @@ import io.nosqlbench.command.common.OutputFileOption;
 import io.nosqlbench.command.common.RandomSeedOption;
 import io.nosqlbench.command.common.VectorSpecOption;
 import io.nosqlbench.datatools.virtdata.DimensionDistributionGenerator;
+import io.nosqlbench.datatools.virtdata.NormalizingVectorGenerator;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
 import io.nosqlbench.vshapes.model.*;
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -54,7 +56,15 @@ import java.util.concurrent.Callable;
  *   <li>{@code beta-only} - All dimensions use Beta distribution</li>
  *   <li>{@code uniform-only} - All dimensions use Uniform distribution</li>
  *   <li>{@code mixed} - Rotating mix of Normal, Beta, and Uniform</li>
+ *   <li>{@code full} - All distribution types including multimodal composites (2-4 modes)</li>
  * </ul>
+ *
+ * <h2>Multimodal Support</h2>
+ *
+ * <p>When using {@code --mix=full}, the dataset includes composite (multimodal) distributions
+ * with 2, 3, and 4 modes. Use {@code --max-modes} to control the maximum number of modes
+ * (default: 4). This is useful for testing empirical fallback thresholds in the
+ * {@code analyze profile --multimodal} command.
  *
  * <h2>Example Usage</h2>
  * <pre>{@code
@@ -63,6 +73,12 @@ import java.util.concurrent.Callable;
  *
  * # Generate with specific mix
  * nbvectors generate sketch -d 64 -n 50000 -o test.fvec --format FVEC --mix mixed
+ *
+ * # Generate full mix with multimodal distributions (up to 4 modes)
+ * nbvectors generate sketch -d 128 -n 100000 -o full_test.fvec --format FVEC --mix full --model-out ground_truth.json
+ *
+ * # Generate with limited modes (max 3)
+ * nbvectors generate sketch -d 128 -n 100000 -o test.fvec --format FVEC --mix full --max-modes 3
  * }</pre>
  */
 @CommandLine.Command(name = "sketch",
@@ -89,9 +105,14 @@ public class CMD_generate_sketch implements Callable<Integer> {
     private FileType format;
 
     @CommandLine.Option(names = {"--mix"},
-        description = "Distribution mix type: bounded (default), normal-only, beta-only, uniform-only, mixed",
+        description = "Distribution mix type: bounded (default), normal-only, beta-only, uniform-only, mixed, full",
         defaultValue = "bounded")
     private String distributionMix = "bounded";
+
+    @CommandLine.Option(names = {"--max-modes"},
+        description = "Maximum number of modes for multimodal distributions (default: 4, used with --mix=full)",
+        defaultValue = "4")
+    private int maxModes = 4;
 
     @CommandLine.Option(names = {"--model-out"},
         description = "Optional path to write the ground-truth model JSON")
@@ -111,6 +132,12 @@ public class CMD_generate_sketch implements Callable<Integer> {
         description = "Show detailed progress information")
     private boolean verbose = false;
 
+    @CommandLine.Option(names = {"--normalize", "--normalized"},
+        description = "Normalize vectors to unit length (L2 norm = 1.0). Default: true",
+        defaultValue = "true",
+        negatable = true)
+    private boolean normalize = true;
+
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
@@ -122,7 +149,8 @@ public class CMD_generate_sketch implements Callable<Integer> {
         NORMAL_ONLY,   // All truncated Normal
         BETA_ONLY,     // All Beta
         UNIFORM_ONLY,  // All Uniform
-        MIXED          // Rotating mix for verification testing
+        MIXED,         // Rotating mix for verification testing
+        FULL           // All distribution types including multimodal (1-4 modes)
     }
 
     @Override
@@ -165,7 +193,11 @@ public class CMD_generate_sketch implements Callable<Integer> {
             System.out.println("  Dimensions: " + dimension);
             System.out.println("  Vectors: " + count);
             System.out.println("  Distribution mix: " + mix);
+            if (mix == DistributionMix.FULL) {
+                System.out.println("  Max modes: " + maxModes);
+            }
             System.out.println("  Bounds: [" + lowerBound + ", " + upperBound + "]");
+            System.out.println("  Normalize: " + normalize);
             System.out.println("  Seed: " + seed);
             System.out.println();
         }
@@ -183,8 +215,14 @@ public class CMD_generate_sketch implements Callable<Integer> {
             // Create the VectorSpaceModel
             VectorSpaceModel model = new VectorSpaceModel(count, scalarModels);
 
-            // Create the generator
-            DimensionDistributionGenerator generator = new DimensionDistributionGenerator(model);
+            // Create the generator, with optional L2 normalization
+            java.util.function.LongFunction<float[]> generator;
+            DimensionDistributionGenerator baseGenerator = new DimensionDistributionGenerator(model);
+            if (normalize) {
+                generator = new NormalizingVectorGenerator(baseGenerator);
+            } else {
+                generator = baseGenerator;
+            }
 
             // Write the ground truth model if requested
             if (modelOutputPath != null) {
@@ -226,6 +264,7 @@ public class CMD_generate_sketch implements Callable<Integer> {
             System.out.printf("║  Format: %-56s ║%n", format);
             System.out.printf("║  Distribution mix: %-46s ║%n", mix);
             System.out.printf("║  Bounds: [%.2f, %.2f]                                           ║%n", lowerBound, upperBound);
+            System.out.printf("║  Normalized: %-52s ║%n", normalize ? "yes (L2 unit vectors)" : "no");
             System.out.printf("║  Seed: %-58d ║%n", seed);
             if (modelOutputPath != null) {
                 System.out.println("╠═══════════════════════════════════════════════════════════════════╣");
@@ -262,9 +301,10 @@ public class CMD_generate_sketch implements Callable<Integer> {
             case "beta_only", "beta" -> DistributionMix.BETA_ONLY;
             case "uniform_only", "uniform" -> DistributionMix.UNIFORM_ONLY;
             case "mixed" -> DistributionMix.MIXED;
+            case "full", "comprehensive", "all" -> DistributionMix.FULL;
             default -> throw new IllegalArgumentException(
                 "Unknown distribution mix: " + mixStr +
-                ". Valid options: bounded, normal-only, beta-only, uniform-only, mixed");
+                ". Valid options: bounded, normal-only, beta-only, uniform-only, mixed, full");
         };
     }
 
@@ -285,6 +325,7 @@ public class CMD_generate_sketch implements Callable<Integer> {
                 case UNIFORM_ONLY -> createUniformModel(d, paramRng);
                 case BOUNDED -> createBoundedMixModel(d, paramRng);
                 case MIXED -> createMixedModel(d, paramRng);
+                case FULL -> createFullMixModel(d, paramRng);
             };
         }
 
@@ -372,12 +413,109 @@ public class CMD_generate_sketch implements Callable<Integer> {
     }
 
     /**
+     * Creates a comprehensive mix including all distribution types and multimodal.
+     *
+     * <p>Distribution breakdown designed to test empirical fallback thresholds:
+     * <ul>
+     *   <li>~25% Normal (unimodal)</li>
+     *   <li>~20% Beta (unimodal)</li>
+     *   <li>~15% Uniform (unimodal)</li>
+     *   <li>~15% 2-mode composite</li>
+     *   <li>~15% 3-mode composite</li>
+     *   <li>~10% 4-mode composite (or up to maxModes)</li>
+     * </ul>
+     */
+    private ScalarModel createFullMixModel(int dimension, Random rng) {
+        int choice = dimension % 20;
+        if (choice < 5) {
+            // 25% Normal
+            return createNormalModel(dimension, rng);
+        } else if (choice < 9) {
+            // 20% Beta
+            return createBetaModel(dimension, rng);
+        } else if (choice < 12) {
+            // 15% Uniform
+            return createUniformModel(dimension, rng);
+        } else if (choice < 15) {
+            // 15% 2-mode composite
+            return createCompositeModel(dimension, rng, 2);
+        } else if (choice < 18) {
+            // 15% 3-mode composite
+            return createCompositeModel(dimension, rng, Math.min(3, maxModes));
+        } else {
+            // 10% 4-mode composite (or maxModes)
+            return createCompositeModel(dimension, rng, Math.min(4, maxModes));
+        }
+    }
+
+    /**
+     * Creates a composite (multimodal) model with the specified number of modes.
+     *
+     * <p>Each mode is a different distribution type (Normal, Beta, or Uniform)
+     * with well-separated peaks to ensure clear multimodality.
+     */
+    private ScalarModel createCompositeModel(int dimension, Random rng, int numModes) {
+        if (numModes < 2) {
+            // Fallback to unimodal
+            return createNormalModel(dimension, rng);
+        }
+
+        ScalarModel[] components = new ScalarModel[numModes];
+        double[] weights = new double[numModes];
+
+        double range = upperBound - lowerBound;
+        double modeSpacing = range / (numModes + 1);  // Space modes evenly
+
+        for (int m = 0; m < numModes; m++) {
+            // Position each mode at evenly spaced intervals
+            double modeCenter = lowerBound + modeSpacing * (m + 1);
+
+            // Vary the distribution type for each mode
+            int modeType = (dimension + m) % 3;
+
+            // Mode width - narrow enough to show separation
+            double modeWidth = modeSpacing * 0.3;
+
+            components[m] = switch (modeType) {
+                case 0 -> {
+                    // Normal mode
+                    double stdDev = modeWidth * (0.3 + rng.nextDouble() * 0.2);
+                    yield new NormalScalarModel(modeCenter, stdDev, lowerBound, upperBound);
+                }
+                case 1 -> {
+                    // Beta mode - map to local region
+                    double localLower = Math.max(lowerBound, modeCenter - modeWidth);
+                    double localUpper = Math.min(upperBound, modeCenter + modeWidth);
+                    // Use beta parameters that create a peak
+                    double alpha = 2.0 + rng.nextDouble() * 3.0;
+                    double beta = 2.0 + rng.nextDouble() * 3.0;
+                    yield new BetaScalarModel(alpha, beta, localLower, localUpper);
+                }
+                case 2 -> {
+                    // Uniform mode - narrow band around center
+                    double localLower = Math.max(lowerBound, modeCenter - modeWidth * 0.5);
+                    double localUpper = Math.min(upperBound, modeCenter + modeWidth * 0.5);
+                    yield new UniformScalarModel(localLower, localUpper);
+                }
+                default -> new NormalScalarModel(modeCenter, modeWidth * 0.4, lowerBound, upperBound);
+            };
+
+            // Vary weights slightly (but keep roughly equal)
+            weights[m] = 0.8 + rng.nextDouble() * 0.4;
+        }
+
+        return new CompositeScalarModel(List.of(components), weights);
+    }
+
+    /**
      * Prints a summary of the distribution types used.
      */
     private void printDistributionSummary(ScalarModel[] models) {
         int normalCount = 0;
         int betaCount = 0;
         int uniformCount = 0;
+        int compositeCount = 0;
+        int[] modeCountBreakdown = new int[5];  // Index = number of modes (2, 3, 4)
         int otherCount = 0;
 
         for (ScalarModel model : models) {
@@ -387,6 +525,12 @@ public class CMD_generate_sketch implements Callable<Integer> {
                 betaCount++;
             } else if (model instanceof UniformScalarModel) {
                 uniformCount++;
+            } else if (model instanceof CompositeScalarModel composite) {
+                compositeCount++;
+                int modes = composite.getComponentCount();
+                if (modes >= 2 && modes <= 4) {
+                    modeCountBreakdown[modes]++;
+                }
             } else {
                 otherCount++;
             }
@@ -406,6 +550,17 @@ public class CMD_generate_sketch implements Callable<Integer> {
             System.out.printf("  Uniform:            %d dimensions (%.1f%%)%n",
                 uniformCount, 100.0 * uniformCount / models.length);
         }
+        if (compositeCount > 0) {
+            System.out.printf("  Composite:          %d dimensions (%.1f%%)%n",
+                compositeCount, 100.0 * compositeCount / models.length);
+            // Show mode breakdown
+            for (int modes = 2; modes <= 4; modes++) {
+                if (modeCountBreakdown[modes] > 0) {
+                    System.out.printf("    %d-mode:          %d dimensions%n",
+                        modes, modeCountBreakdown[modes]);
+                }
+            }
+        }
         if (otherCount > 0) {
             System.out.printf("  Other:              %d dimensions (%.1f%%)%n",
                 otherCount, 100.0 * otherCount / models.length);
@@ -413,6 +568,11 @@ public class CMD_generate_sketch implements Callable<Integer> {
         System.out.println();
         System.out.println("You can now use this dataset with 'nbvectors analyze profile' to");
         System.out.println("extract and verify the model, or use it directly for testing.");
+        if (compositeCount > 0) {
+            System.out.println();
+            System.out.println("Tip: Use 'nbvectors analyze profile --multimodal' to enable");
+            System.out.println("     composite model detection for the multimodal dimensions.");
+        }
     }
 
     /**

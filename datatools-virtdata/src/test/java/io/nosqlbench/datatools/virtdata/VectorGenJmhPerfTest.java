@@ -18,6 +18,7 @@ package io.nosqlbench.datatools.virtdata;
  */
 
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
@@ -32,13 +33,18 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * JMH benchmarks comparing Panama SIMD vs Scalar implementations of VectorGen.
  * Tests both single-threaded and multi-threaded performance.
- * Run with: mvn test -DskipPerformanceTests=false
+ *
+ * <p>Run with: {@code mvn test -pl datatools-virtdata -Dtest=VectorGenJmhPerfTest}
+ *
+ * <p>This test is tagged as "performance" to allow exclusion from quick CI runs.
+ * Use {@code -DexcludedGroups=performance} to skip.
  */
+@Tag("performance")
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Benchmark)
-@Warmup(iterations = 5, time = 2)
-@Measurement(iterations = 5, time = 2)
+@Warmup(iterations = 3, time = 1)
+@Measurement(iterations = 3, time = 1)
 @Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector"})
 public class VectorGenJmhPerfTest {
 
@@ -157,6 +163,7 @@ public class VectorGenJmhPerfTest {
 
     /**
      * JUnit test that runs the JMH benchmarks.
+     * Uses reduced iterations for faster CI while still providing useful performance data.
      */
     @Test
     void runJmhBenchmarks() throws RunnerException {
@@ -167,10 +174,10 @@ public class VectorGenJmhPerfTest {
 
         Options opt = new OptionsBuilder()
             .include(VectorGenJmhPerfTest.class.getSimpleName())
-            .warmupIterations(5)
-            .warmupTime(org.openjdk.jmh.runner.options.TimeValue.seconds(2))
-            .measurementIterations(5)
-            .measurementTime(org.openjdk.jmh.runner.options.TimeValue.seconds(2))
+            .warmupIterations(3)
+            .warmupTime(org.openjdk.jmh.runner.options.TimeValue.seconds(1))
+            .measurementIterations(3)
+            .measurementTime(org.openjdk.jmh.runner.options.TimeValue.seconds(1))
             .forks(1)
             .jvmArgs("--add-modules", "jdk.incubator.vector")
             .build();

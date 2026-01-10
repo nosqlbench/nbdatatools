@@ -153,7 +153,7 @@ public class ParallelDatasetModelExtractorTest {
             }
         }
 
-        VectorSpaceModel model = extractor.extractFromTransposed(transposed);
+        VectorSpaceModel model = extractor.extractFromTransposed(transposed).model();
 
         assertNotNull(model);
         assertEquals(numDims, model.dimensions());

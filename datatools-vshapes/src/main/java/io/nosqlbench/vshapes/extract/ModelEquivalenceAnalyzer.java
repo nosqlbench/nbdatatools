@@ -603,6 +603,13 @@ public class ModelEquivalenceAnalyzer {
 
     /**
      * Moment profile for a scalar model.
+     *
+     * @param mean the mean of the distribution
+     * @param stdDev the standard deviation
+     * @param skewness the skewness (third standardized moment)
+     * @param kurtosis the kurtosis (fourth standardized moment)
+     * @param lower the lower bound of support
+     * @param upper the upper bound of support
      */
     public record MomentProfile(
         double mean,
@@ -631,6 +638,14 @@ public class ModelEquivalenceAnalyzer {
 
     /**
      * Comparison result between source model and a candidate simplification.
+     *
+     * @param candidate the candidate simplified model
+     * @param candidateProfile moment profile of the candidate
+     * @param maxCdfDifference maximum CDF difference between models
+     * @param meanCdfDifference mean CDF difference between models
+     * @param skewnessDeviation deviation in skewness from source
+     * @param kurtosisDeviation deviation in kurtosis from source
+     * @param equivalent whether the candidate is equivalent within threshold
      */
     public record ModelComparison(
         ScalarModel candidate,
@@ -707,6 +722,13 @@ public class ModelEquivalenceAnalyzer {
 
     /**
      * Summary of simplification opportunities for a vector model.
+     *
+     * @param totalDimensions total number of dimensions analyzed
+     * @param canSimplifyCount number of dimensions that can be simplified
+     * @param normalEquivalentCount dimensions equivalent to normal distribution
+     * @param uniformEquivalentCount dimensions equivalent to uniform distribution
+     * @param averageMaxCdfDifference average max CDF difference across simplifiable dims
+     * @param recommendedTypeCounts count of each recommended simplified type
      */
     public record VectorSimplificationSummary(
         int totalDimensions,

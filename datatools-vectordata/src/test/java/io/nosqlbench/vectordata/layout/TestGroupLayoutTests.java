@@ -78,4 +78,68 @@ public class TestGroupLayoutTests {
     assertThat(fs1).isEqualTo(fs2);
   }
 
+  @Test
+  public void testSourceTypeInference() {
+    // .json files should be inferred as VIRTDATA
+    assertThat(SourceType.inferFromPath("model.json")).isEqualTo(SourceType.VIRTDATA);
+    assertThat(SourceType.inferFromPath("path/to/model.JSON")).isEqualTo(SourceType.VIRTDATA);
+    assertThat(SourceType.inferFromPath("MODEL.Json")).isEqualTo(SourceType.VIRTDATA);
+
+    // All other extensions should be XVEC
+    assertThat(SourceType.inferFromPath("vectors.fvec")).isEqualTo(SourceType.XVEC);
+    assertThat(SourceType.inferFromPath("vectors.ivec")).isEqualTo(SourceType.XVEC);
+    assertThat(SourceType.inferFromPath("vectors.bvec")).isEqualTo(SourceType.XVEC);
+    assertThat(SourceType.inferFromPath(null)).isEqualTo(SourceType.XVEC);
+  }
+
+  @Test
+  public void testSourceTypeFromString() {
+    // XVEC variants
+    assertThat(SourceType.fromString("xvec")).isEqualTo(SourceType.XVEC);
+    assertThat(SourceType.fromString("XVEC")).isEqualTo(SourceType.XVEC);
+    assertThat(SourceType.fromString("file")).isEqualTo(SourceType.XVEC);
+
+    // VIRTDATA variants
+    assertThat(SourceType.fromString("virtdata")).isEqualTo(SourceType.VIRTDATA);
+    assertThat(SourceType.fromString("VIRTDATA")).isEqualTo(SourceType.VIRTDATA);
+    assertThat(SourceType.fromString("virtual")).isEqualTo(SourceType.VIRTDATA);
+    assertThat(SourceType.fromString("generator")).isEqualTo(SourceType.VIRTDATA);
+    assertThat(SourceType.fromString("model")).isEqualTo(SourceType.VIRTDATA);
+
+    // Unknown
+    assertThat(SourceType.fromString("unknown")).isNull();
+    assertThat(SourceType.fromString(null)).isNull();
+  }
+
+  @Test
+  public void testFSourceVirtdataInference() {
+    // JSON file should be inferred as VIRTDATA
+    FSource virtdataSource = new FSource("model.json", FWindow.ALL);
+    assertThat(virtdataSource.isVirtdata()).isTrue();
+    assertThat(virtdataSource.isXvec()).isFalse();
+    assertThat(virtdataSource.type()).isEqualTo(SourceType.VIRTDATA);
+
+    // Non-JSON file should be XVEC
+    FSource xvecSource = new FSource("vectors.fvec", FWindow.ALL);
+    assertThat(xvecSource.isXvec()).isTrue();
+    assertThat(xvecSource.isVirtdata()).isFalse();
+    assertThat(xvecSource.type()).isEqualTo(SourceType.XVEC);
+  }
+
+  @Test
+  public void testFSourceFromObjectWithType() {
+    // Explicit type override
+    Map<String, Object> data = Map.of(
+        "path", "vectors.fvec",
+        "type", "virtdata"
+    );
+    FSource source = FSource.fromObject(data);
+    assertThat(source.isVirtdata()).isTrue();
+
+    // JSON extension should be inferred
+    Map<String, Object> jsonData = Map.of("path", "model.json");
+    FSource jsonSource = FSource.fromObject(jsonData);
+    assertThat(jsonSource.isVirtdata()).isTrue();
+  }
+
 }

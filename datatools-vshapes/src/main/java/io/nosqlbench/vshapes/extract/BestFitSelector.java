@@ -152,6 +152,24 @@ public final class BestFitSelector {
         ));
     }
 
+    /// Creates a selector for L2-normalized vector data.
+    ///
+    /// Normalized vectors have values bounded in [-1, 1], so this creates
+    /// fitters with explicit bounds rather than detecting bounds from data.
+    /// This is appropriate for embeddings that have been L2-normalized.
+    ///
+    /// Optimized for round-trip stability by excluding Beta, which oscillates
+    /// with Normal for bell-shaped data. Uses Normal, Uniform, and Empirical.
+    ///
+    /// @return a BestFitSelector configured for normalized vector data
+    public static BestFitSelector normalizedVectorSelector() {
+        return new BestFitSelector(List.of(
+            NormalModelFitter.forNormalizedVectors(),
+            UniformModelFitter.forNormalizedVectors(),
+            new EmpiricalModelFitter()
+        ));
+    }
+
     /// Creates a Pearson distribution system selector.
     ///
     /// Includes fitters for:
@@ -214,6 +232,53 @@ public final class BestFitSelector {
         ));
     }
 
+    /// Creates a Pearson selector for normalized vector data (bounded [-1, 1]).
+    ///
+    /// Uses fitters with explicit bounds for L2-normalized embeddings.
+    /// This selector is optimized for round-trip stability by using only:
+    /// - Normal (truncated) - the expected distribution for embeddings
+    /// - Uniform - for flat dimensions
+    /// - Empirical - fallback for complex/multimodal cases
+    ///
+    /// Beta is intentionally excluded because:
+    /// 1. For bell-shaped data, Beta with high α/β is indistinguishable from Normal
+    /// 2. Beta's flexibility causes round-trip instability (normal→beta oscillation)
+    /// 3. Normal is simpler and generates faster
+    ///
+    /// Heavy-tailed distributions (Gamma, StudentT, etc.) are excluded as
+    /// they're meaningless for bounded [-1, 1] data.
+    ///
+    /// @return a BestFitSelector optimized for normalized vectors
+    public static BestFitSelector normalizedPearsonSelector() {
+        return new BestFitSelector(List.of(
+            NormalModelFitter.forNormalizedVectors(),
+            UniformModelFitter.forNormalizedVectors(),
+            new EmpiricalModelFitter()
+        ));
+    }
+
+    /// Creates a Pearson selector with multimodal support for normalized vectors.
+    ///
+    /// Combines normalized Pearson distributions with composite model fitting.
+    /// Optimized for round-trip stability by excluding Beta (which oscillates with Normal).
+    ///
+    /// For multimodal data, the CompositeModelFitter can combine Normal components,
+    /// which is more stable than using Beta for each mode.
+    ///
+    /// @return a BestFitSelector with normalized Pearson and multimodal support
+    public static BestFitSelector normalizedPearsonMultimodalSelector() {
+        BestFitSelector componentSelector = normalizedPearsonSelector();
+        return new BestFitSelector(
+            List.of(
+                NormalModelFitter.forNormalizedVectors(),
+                UniformModelFitter.forNormalizedVectors(),
+                new CompositeModelFitter(componentSelector),
+                new EmpiricalModelFitter()
+            ),
+            0.15
+        );
+    }
+
     /// Creates a selector for bounded data with multimodal detection.
     ///
     /// This selector first attempts to detect multi-modal distributions
@@ -269,6 +334,46 @@ public final class BestFitSelector {
         );
     }
 
+    /// Creates an adaptive selector with composite fallback and EM clustering.
+    ///
+    /// This selector is designed for the adaptive extraction pipeline:
+    /// 1. Tries full Pearson parametric family first
+    /// 2. Uses composite models with EM clustering for multi-modal data
+    /// 3. Falls back to empirical only as last resort
+    ///
+    /// Features:
+    /// - Full Pearson distribution types for comprehensive parametric coverage
+    /// - Composite fitting with up to 4 components
+    /// - EM clustering for accurate overlapping mode detection
+    /// - Higher empirical penalty (0.2) to strongly prefer parametric/composite
+    ///
+    /// @return a BestFitSelector optimized for adaptive extraction
+    /// @see AdaptiveModelExtractor
+    public static BestFitSelector adaptiveCompositeSelector() {
+        // Component selector for fitting each mode in composite
+        BestFitSelector componentSelector = pearsonSelector();
+        return new BestFitSelector(
+            List.of(
+                new NormalModelFitter(),
+                new BetaModelFitter(),
+                new GammaModelFitter(),
+                new PearsonIVModelFitter(),
+                new InverseGammaModelFitter(),
+                new BetaPrimeModelFitter(),
+                new StudentTModelFitter(),
+                new UniformModelFitter(),
+                new CompositeModelFitter(
+                    componentSelector,
+                    4,  // Up to 4 components
+                    0.05,  // Max CDF deviation
+                    CompositeModelFitter.ClusteringStrategy.EM
+                ),
+                new EmpiricalModelFitter()
+            ),
+            0.2  // Strong penalty for empirical to prefer parametric/composite
+        );
+    }
+
     /// Classifies the distribution type using the Pearson criterion.
     ///
     /// This method uses skewness and kurtosis from the data to determine
@@ -314,30 +419,100 @@ public final class BestFitSelector {
 
     /// Selects the best-fitting model using pre-computed statistics.
     ///
+    /// Model selection uses a two-stage process:
+    /// 1. Find the model with the lowest KS D-statistic (best fit)
+    /// 2. Apply simplicity bias: prefer simpler models when fit quality is close
+    ///
+    /// The simplicity bias ensures round-trip stability by canonically selecting
+    /// the simpler model when both Normal and Beta produce equivalent results.
+    /// This prevents oscillation between equivalent model types.
+    ///
     /// @param stats pre-computed dimension statistics
     /// @param values the observed values
     /// @return the FitResult for the best model
     public FitResult selectBestResult(DimensionStatistics stats, float[] values) {
         List<FitResult> results = fitAll(stats, values);
 
-        FitResult best = null;
-        double bestScore = Double.MAX_VALUE;
+        if (results.isEmpty()) {
+            return null;
+        }
+
+        // First pass: find the best raw score
+        FitResult rawBest = null;
+        double rawBestScore = Double.MAX_VALUE;
 
         for (FitResult result : results) {
             double score = result.goodnessOfFit();
+            if ("empirical".equals(result.modelType())) {
+                score += empiricalPenalty;
+            }
+            if (score < rawBestScore) {
+                rawBestScore = score;
+                rawBest = result;
+            }
+        }
 
-            // Apply penalty for empirical models (prefer parametric when close)
+        // Second pass: apply simplicity bias
+        // If a simpler model is within threshold of best, prefer the simpler one
+        // Use RELATIVE threshold: a model must be within X% of the best score (not absolute difference)
+        // This prevents loose thresholds from overriding good fits when scores are small
+        FitResult simplestWithinThreshold = null;
+        int simplestComplexity = Integer.MAX_VALUE;
+
+        // Compute the relative threshold: model must score <= rawBestScore * (1 + SIMPLICITY_MULTIPLIER)
+        double relativeThreshold = rawBestScore * (1.0 + SIMPLICITY_MULTIPLIER);
+
+        for (FitResult result : results) {
+            double score = result.goodnessOfFit();
             if ("empirical".equals(result.modelType())) {
                 score += empiricalPenalty;
             }
 
-            if (score < bestScore) {
-                bestScore = score;
-                best = result;
+            // Check if within relative threshold of best
+            if (score <= relativeThreshold) {
+                int complexity = getModelComplexity(result.modelType());
+                if (complexity < simplestComplexity) {
+                    simplestComplexity = complexity;
+                    simplestWithinThreshold = result;
+                }
             }
         }
 
-        return best;
+        return simplestWithinThreshold != null ? simplestWithinThreshold : rawBest;
+    }
+
+    /// Multiplier for simplicity bias: prefer simpler model if within this relative margin.
+    /// A value of 0.5 means a model is considered equivalent if its score is within 50% of the best.
+    /// For example, if the best score is 0.01, models scoring up to 0.015 are considered equivalent.
+    /// This relative threshold prevents loose margins when fits are very good (low scores)
+    /// while still allowing simplicity preference when fits are close.
+    ///
+    /// Note: For normalized vectors, the Beta distribution is excluded entirely from selectors
+    /// to avoid round-trip instability, so this threshold mainly affects unbounded data selectors.
+    private static final double SIMPLICITY_MULTIPLIER = 0.5;
+
+    /// Returns model complexity score (lower = simpler, preferred).
+    ///
+    /// Complexity is based on number of parameters and stability under round-trip:
+    /// - Normal: 2 params (μ, σ), highly stable
+    /// - Uniform: 2 params (lower, upper), stable
+    /// - Beta: 4 params (α, β, lower, upper), can oscillate with Normal
+    /// - Gamma/StudentT: 3+ params, unbounded distributions
+    /// - Empirical: many bins, always stable but not parametric
+    private static int getModelComplexity(String modelType) {
+        return switch (modelType) {
+            case "normal" -> 1;       // Simplest parametric
+            case "uniform" -> 2;      // Simple but less common
+            case "beta" -> 3;         // More parameters than Normal
+            case "gamma" -> 4;        // Unbounded tail
+            case "student_t" -> 5;    // Heavy tails
+            case "inverse_gamma" -> 6;
+            case "beta_prime" -> 7;
+            case "pearson_iv" -> 8;
+            case "composite" -> 9;    // Mixture model
+            case "empirical" -> 10;   // Fallback (but penalized separately)
+            default -> 100;           // Unknown - least preferred
+        };
     }
 
     /// Fits all candidate models and returns all results.

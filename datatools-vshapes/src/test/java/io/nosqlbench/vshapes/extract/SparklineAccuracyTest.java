@@ -45,7 +45,7 @@ public class SparklineAccuracyTest {
             uniformData[i] = (float) i / n;  // Evenly spaced 0 to 1
         }
 
-        String sparkline = Sparkline.generate(uniformData, 10);
+        String sparkline = Sparkline.generate(uniformData, 10, Sparkline.Style.BARS);
 
         // All characters should be similar height (within 2 levels)
         int minLevel = Integer.MAX_VALUE;
@@ -72,7 +72,7 @@ public class SparklineAccuracyTest {
             normalData[i] = (float) (rng.nextGaussian() * 0.15 + 0.5);
         }
 
-        String sparkline = Sparkline.generate(normalData, 12);
+        String sparkline = Sparkline.generate(normalData, 12, Sparkline.Style.BARS);
 
         // Find the peak (highest block)
         int peakIndex = -1;
@@ -108,7 +108,7 @@ public class SparklineAccuracyTest {
             }
         }
 
-        String sparkline = Sparkline.generate(bimodalData, 16);
+        String sparkline = Sparkline.generate(bimodalData, 16, Sparkline.Style.BARS);
 
         // Count local maxima (peaks)
         int peaks = countPeaks(sparkline);
@@ -128,7 +128,7 @@ public class SparklineAccuracyTest {
             skewedData[i] = (float) (-Math.log(1 - rng.nextFloat()) * 0.2);
         }
 
-        String sparkline = Sparkline.generate(skewedData, 12);
+        String sparkline = Sparkline.generate(skewedData, 12, Sparkline.Style.BARS);
 
         // Find peak
         int peakIndex = findPeakIndex(sparkline);
@@ -144,7 +144,7 @@ public class SparklineAccuracyTest {
     void constantValues_producesMiddleBlocks() {
         float[] constant = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
 
-        String sparkline = Sparkline.generate(constant, 4);
+        String sparkline = Sparkline.generate(constant, 4, Sparkline.Style.BARS);
 
         // All should be the same middle block (▄)
         for (char c : sparkline.toCharArray()) {
@@ -155,7 +155,7 @@ public class SparklineAccuracyTest {
 
     @Test
     void emptyArray_producesSpaces() {
-        String sparkline = Sparkline.generate(new float[0], 5);
+        String sparkline = Sparkline.generate(new float[0], 5, Sparkline.Style.BARS);
 
         assertEquals("     ", sparkline,
             "Empty array should produce spaces");
@@ -163,7 +163,7 @@ public class SparklineAccuracyTest {
 
     @Test
     void nullData_producesSpaces() {
-        String sparkline = Sparkline.generate((float[]) null, 5);
+        String sparkline = Sparkline.generate((float[]) null, 5, Sparkline.Style.BARS);
 
         assertEquals("     ", sparkline,
             "Null data should produce spaces");
@@ -173,7 +173,7 @@ public class SparklineAccuracyTest {
     void singleValue_producesMiddleBlocks() {
         float[] single = {42.0f};
 
-        String sparkline = Sparkline.generate(single, 3);
+        String sparkline = Sparkline.generate(single, 3, Sparkline.Style.BARS);
 
         // Single value means min == max, should produce middle blocks
         for (char c : sparkline.toCharArray()) {
@@ -230,8 +230,8 @@ public class SparklineAccuracyTest {
             data[i] = (float) rng.nextGaussian();
         }
 
-        String narrow = Sparkline.generate(data, 6);
-        String wide = Sparkline.generate(data, 24);
+        String narrow = Sparkline.generate(data, 6, Sparkline.Style.BARS);
+        String wide = Sparkline.generate(data, 24, Sparkline.Style.BARS);
 
         assertEquals(6, narrow.length());
         assertEquals(24, wide.length());

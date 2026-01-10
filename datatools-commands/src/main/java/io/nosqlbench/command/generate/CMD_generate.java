@@ -19,6 +19,7 @@ package io.nosqlbench.command.generate;
 
 
 import io.nosqlbench.command.generate.subcommands.CMD_generate_dataset;
+import io.nosqlbench.command.generate.subcommands.CMD_generate_derive;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_from_model;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_fvecExtract;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_ivecExtract;
@@ -66,7 +67,7 @@ import java.util.List;
         "and making basic base, query, and ground truth data (mktestdata).",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
-    subcommands = {CMD_generate_dataset.class, CMD_generate_from_model.class, CMD_generate_ivecShuffle.class, CMD_generate_ivecExtract.class, CMD_generate_fvecExtract.class, CMD_generate_vectors.class, CMD_generate_mktestdata.class, CMD_generate_sketch.class, CommandLine.HelpCommand.class})
+    subcommands = {CMD_generate_dataset.class, CMD_generate_derive.class, CMD_generate_from_model.class, CMD_generate_ivecShuffle.class, CMD_generate_ivecExtract.class, CMD_generate_fvecExtract.class, CMD_generate_vectors.class, CMD_generate_mktestdata.class, CMD_generate_sketch.class, CommandLine.HelpCommand.class})
 
 public class CMD_generate implements BundledCommand {
   /// Logger for this class

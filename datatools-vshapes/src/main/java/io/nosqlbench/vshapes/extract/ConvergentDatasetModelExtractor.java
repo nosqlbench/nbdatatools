@@ -112,21 +112,80 @@ public final class ConvergentDatasetModelExtractor implements ModelExtractor {
     }
 
     @Override
-    public VectorSpaceModel extractFromTransposed(float[][] transposedData) {
-        // Transpose the data and delegate
+    public ExtractionResult extractFromTransposed(float[][] transposedData) {
+        // Process transposed data directly without copying back to row-major
         if (transposedData == null || transposedData.length == 0) {
             throw new IllegalArgumentException("Data cannot be null or empty");
         }
-        int dims = transposedData.length;
-        int vectors = transposedData[0].length;
 
-        float[][] data = new float[vectors][dims];
-        for (int d = 0; d < dims; d++) {
-            for (int v = 0; v < vectors; v++) {
-                data[v][d] = transposedData[d][v];
+        long startTime = System.currentTimeMillis();
+
+        dimensions = transposedData.length;
+        int vectorCount = transposedData[0].length;
+
+        // Initialize per-dimension estimators
+        estimators = new ConvergentDimensionEstimator[dimensions];
+        for (int d = 0; d < dimensions; d++) {
+            estimators[d] = new ConvergentDimensionEstimator(d, convergenceThreshold, checkpointInterval);
+        }
+
+        // Use transposed data directly as dimension storage (zero-copy)
+        dimensionData = transposedData;
+
+        // Process vectors by iterating through vector indices
+        // Access pattern: for each vector v, process transposedData[d][v] for all d
+        samplesProcessed = 0;
+        extractionComplete = false;
+
+        for (int v = 0; v < vectorCount; v++) {
+            for (int d = 0; d < dimensions; d++) {
+                estimators[d].accept(transposedData[d][v]);
+            }
+            samplesProcessed++;
+
+            // Check for early stopping
+            if (earlyStoppingEnabled && samplesProcessed % checkpointInterval == 0) {
+                if (allDimensionsConverged()) {
+                    break;
+                }
             }
         }
-        return extractVectorModel(data);
+
+        extractionComplete = true;
+
+        // Build dimension statistics
+        DimensionStatistics[] stats = new DimensionStatistics[dimensions];
+        for (int d = 0; d < dimensions; d++) {
+            stats[d] = estimators[d].toStatistics();
+        }
+
+        // Fit models to each dimension using the transposed data directly
+        ScalarModel[] scalarModels = new ScalarModel[dimensions];
+        ComponentModelFitter.FitResult[] fitResults = new ComponentModelFitter.FitResult[dimensions];
+
+        for (int d = 0; d < dimensions; d++) {
+            // Use only the processed samples for fitting
+            float[] dimValues;
+            if (samplesProcessed < vectorCount) {
+                dimValues = new float[(int) samplesProcessed];
+                System.arraycopy(transposedData[d], 0, dimValues, 0, (int) samplesProcessed);
+            } else {
+                dimValues = transposedData[d];
+            }
+
+            ComponentModelFitter.FitResult result = selector.selectBestResult(stats[d], dimValues);
+            scalarModels[d] = result.model();
+            fitResults[d] = result;
+        }
+
+        VectorSpaceModel model = new VectorSpaceModel(
+            uniqueVectors > 0 ? uniqueVectors : samplesProcessed,
+            scalarModels
+        );
+
+        extractionTimeMs = System.currentTimeMillis() - startTime;
+
+        return new ExtractionResult(model, stats, fitResults, extractionTimeMs);
     }
 
     @Override

@@ -327,6 +327,82 @@ public class GammaScalarModel implements ScalarModel {
         return models;
     }
 
+    /**
+     * Computes the cumulative distribution function (CDF) at a given value.
+     *
+     * <p>The CDF is computed using the regularized lower incomplete gamma function P(a, x).
+     *
+     * @param x the value at which to evaluate the CDF
+     * @return the cumulative probability P(X ≤ x), in range [0, 1]
+     */
+    @Override
+    public double cdf(double x) {
+        if (x <= location) return 0.0;
+        double z = (x - location) / scale;
+        return regularizedGammaP(shape, z);
+    }
+
+    /**
+     * Computes the regularized lower incomplete gamma function P(a, x).
+     */
+    private static double regularizedGammaP(double a, double x) {
+        if (x <= 0) return 0;
+        if (x > a + 100) return 1.0;  // Asymptotic
+
+        // Use series expansion for x < a + 1, continued fraction otherwise
+        if (x < a + 1) {
+            return gammaSeries(a, x);
+        } else {
+            return 1.0 - gammaContinuedFraction(a, x);
+        }
+    }
+
+    private static double gammaSeries(double a, double x) {
+        double sum = 1.0 / a;
+        double term = sum;
+        for (int n = 1; n <= 100; n++) {
+            term *= x / (a + n);
+            sum += term;
+            if (Math.abs(term) < Math.abs(sum) * 1e-10) break;
+        }
+        return sum * Math.exp(-x + a * Math.log(x) - logGamma(a));
+    }
+
+    private static double gammaContinuedFraction(double a, double x) {
+        double b = x + 1 - a;
+        double c = 1.0 / 1e-30;
+        double d = 1.0 / b;
+        double h = d;
+
+        for (int i = 1; i <= 100; i++) {
+            double an = -i * (i - a);
+            b += 2;
+            d = an * d + b;
+            if (Math.abs(d) < 1e-30) d = 1e-30;
+            c = b + an / c;
+            if (Math.abs(c) < 1e-30) c = 1e-30;
+            d = 1.0 / d;
+            double del = d * c;
+            h *= del;
+            if (Math.abs(del - 1) < 1e-10) break;
+        }
+
+        return Math.exp(-x + a * Math.log(x) - logGamma(a)) * h;
+    }
+
+    private static double logGamma(double x) {
+        double[] cof = {76.18009172947146, -86.50532032941677, 24.01409824083091,
+                        -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5};
+        double y = x;
+        double tmp = x + 5.5;
+        tmp -= (x + 0.5) * Math.log(tmp);
+        double ser = 1.000000000190015;
+        for (int j = 0; j < 6; j++) {
+            ser += cof[j] / ++y;
+        }
+        return -tmp + Math.log(2.5066282746310005 * ser / x);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

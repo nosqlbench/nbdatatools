@@ -44,8 +44,11 @@ public class VectorLoadingProvider {
     private static final Logger logger = LogManager.getLogger(VectorLoadingProvider.class);
     private static final boolean MMAP_AVAILABLE;
 
-    // Cached MethodHandle for memory-mapped loading
+    // Cached MethodHandles for memory-mapped loading
     private static MethodHandle mmapLoadVectorsMethod;
+    private static MethodHandle mmapLoadVectorsTransposedMethod;
+    private static MethodHandle mmapLoadVectorsTransposedWithProgressMethod;
+    private static Class<?> optimizedLoaderProgressCallbackClass;
 
     static {
         boolean available = false;
@@ -62,6 +65,28 @@ public class VectorLoadingProvider {
                 int.class
             );
             mmapLoadVectorsMethod = lookup.findStatic(loaderClass, "loadVectorsMemoryMapped", loadType);
+
+            // Cache MethodHandle for loadVectorsTransposed (no progress)
+            MethodType transposedType = MethodType.methodType(
+                float[][].class,  // Returns float[][] (transposed)
+                Path.class,
+                int.class,
+                int.class
+            );
+            mmapLoadVectorsTransposedMethod = lookup.findStatic(loaderClass, "loadVectorsTransposed", transposedType);
+
+            // Cache MethodHandle for loadVectorsTransposedWithProgress
+            optimizedLoaderProgressCallbackClass = Class.forName(
+                "io.nosqlbench.command.compute.panama.OptimizedVectorLoader$ProgressCallback");
+            MethodType transposedWithProgressType = MethodType.methodType(
+                float[][].class,  // Returns float[][] (transposed)
+                Path.class,
+                int.class,
+                int.class,
+                optimizedLoaderProgressCallbackClass
+            );
+            mmapLoadVectorsTransposedWithProgressMethod = lookup.findStatic(
+                loaderClass, "loadVectorsTransposedWithProgress", transposedWithProgressType);
 
             available = true;
             logger.info("Memory-mapped vector loading ENABLED - 2-4x faster I/O");
@@ -199,6 +224,188 @@ public class VectorLoadingProvider {
      */
     public static boolean isMemoryMappedAvailable() {
         return MMAP_AVAILABLE;
+    }
+
+    /**
+     * Load vectors in transposed (column-major) format.
+     *
+     * <p>Returns data as {@code float[dimension][vectorCount]} instead of
+     * {@code float[vectorCount][dimension]}. This format is optimal for
+     * per-dimension analysis operations like statistical fitting.
+     *
+     * <p>Uses memory-mapped I/O when available (2-4x faster), falling back to
+     * standard loading with in-memory transpose otherwise.
+     *
+     * @param filePath path to the vector file
+     * @param startIndex starting vector index (inclusive)
+     * @param endIndex ending vector index (exclusive)
+     * @return transposed vectors, shape {@code [dimension][count]}
+     */
+    public static float[][] loadVectorsTransposed(Path filePath, int startIndex, int endIndex) {
+        return loadVectorsTransposed(filePath, startIndex, endIndex, null);
+    }
+
+    /**
+     * Load vectors in transposed (column-major) format with progress reporting.
+     *
+     * <p>Returns data as {@code float[dimension][vectorCount]} instead of
+     * {@code float[vectorCount][dimension]}. This format is optimal for
+     * per-dimension analysis operations like statistical fitting.
+     *
+     * <p>Uses memory-mapped I/O when available (2-4x faster), falling back to
+     * standard loading with in-memory transpose otherwise.
+     *
+     * @param filePath path to the vector file
+     * @param startIndex starting vector index (inclusive)
+     * @param endIndex ending vector index (exclusive)
+     * @param progressCallback callback for progress updates (may be null)
+     * @return transposed vectors, shape {@code [dimension][count]}
+     */
+    public static float[][] loadVectorsTransposed(
+            Path filePath,
+            int startIndex,
+            int endIndex,
+            ProgressCallback progressCallback) {
+
+        if (MMAP_AVAILABLE) {
+            try {
+                return loadVectorsTransposedMemoryMapped(filePath, startIndex, endIndex, progressCallback);
+            } catch (Throwable e) {
+                logger.warn("Memory-mapped transposed loading failed, falling back to in-memory transpose: {}",
+                    e.getMessage());
+                // Fall through to fallback
+            }
+        }
+
+        // Fallback: load row-major and transpose in memory
+        return loadVectorsTransposedFallback(filePath, startIndex, endIndex, progressCallback);
+    }
+
+    /**
+     * Load transposed vectors using memory-mapped I/O.
+     */
+    private static float[][] loadVectorsTransposedMemoryMapped(
+            Path filePath,
+            int startIndex,
+            int endIndex,
+            ProgressCallback progressCallback) throws Throwable {
+
+        if (progressCallback != null) {
+            progressCallback.onProgress(0.0, "Memory-mapping vector file (transposed)...");
+        }
+
+        long startTime = System.currentTimeMillis();
+
+        float[][] transposed;
+
+        // Try to use progress-aware method if available
+        if (mmapLoadVectorsTransposedWithProgressMethod != null && progressCallback != null) {
+            // Create a proxy callback that adapts our ProgressCallback to the loader's callback
+            Object loaderCallback = createProgressCallbackProxy(progressCallback);
+            transposed = (float[][]) mmapLoadVectorsTransposedWithProgressMethod.invoke(
+                filePath, startIndex, endIndex, loaderCallback);
+        } else {
+            // Fallback to non-progress method
+            transposed = (float[][]) mmapLoadVectorsTransposedMethod.invoke(filePath, startIndex, endIndex);
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        int vectorCount = transposed.length > 0 ? transposed[0].length : 0;
+
+        if (progressCallback != null) {
+            progressCallback.onProgress(1.0, String.format(
+                "Loaded %d vectors (transposed) via mmap in %d ms", vectorCount, elapsed));
+        }
+
+        return transposed;
+    }
+
+    /**
+     * Creates a proxy that implements OptimizedVectorLoader.ProgressCallback
+     * and delegates to our ProgressCallback.
+     */
+    private static Object createProgressCallbackProxy(ProgressCallback ourCallback) {
+        return java.lang.reflect.Proxy.newProxyInstance(
+            VectorLoadingProvider.class.getClassLoader(),
+            new Class<?>[] { optimizedLoaderProgressCallbackClass },
+            (proxy, method, args) -> {
+                if ("onProgress".equals(method.getName()) && args.length == 3) {
+                    double progress = (Double) args[0];
+                    int loaded = (Integer) args[1];
+                    int total = (Integer) args[2];
+                    ourCallback.onProgress(progress, String.format("Loaded %,d / %,d vectors", loaded, total));
+                }
+                return null;
+            }
+        );
+    }
+
+    /**
+     * Fallback: load row-major vectors and transpose in memory.
+     * Used when memory-mapped transposed loading is not available.
+     */
+    @SuppressWarnings("unchecked")
+    private static float[][] loadVectorsTransposedFallback(
+            Path filePath,
+            int startIndex,
+            int endIndex,
+            ProgressCallback progressCallback) {
+
+        if (progressCallback != null) {
+            progressCallback.onProgress(0.0, "Loading vectors (fallback mode)...");
+        }
+
+        float[][] rows;
+        try {
+            // Try to use mmap for row-major loading if available
+            if (MMAP_AVAILABLE) {
+                List<float[]> vectorList = (List<float[]>) mmapLoadVectorsMethod.invoke(filePath, startIndex, endIndex);
+                rows = vectorList.toArray(new float[0][]);
+            } else {
+                // True fallback: use VectorFileIO for standard file loading
+                logger.debug("Using VectorFileIO fallback for transposed loading");
+                try (VectorFileArray<float[]> reader = io.nosqlbench.nbdatatools.api.services.VectorFileIO.randomAccess(
+                        io.nosqlbench.nbdatatools.api.services.FileType.xvec, float[].class, filePath)) {
+                    int count = endIndex - startIndex;
+                    rows = new float[count][];
+                    for (int i = 0; i < count; i++) {
+                        rows[i] = reader.get(startIndex + i);
+                        if (progressCallback != null && i > 0 && i % Math.max(1, count / 10) == 0) {
+                            progressCallback.onProgress(0.25 * i / count,
+                                String.format("Loaded %,d / %,d vectors", i, count));
+                        }
+                    }
+                }
+            }
+        } catch (Throwable e) {
+            throw new RuntimeException("Failed to load vectors: " + e.getMessage(), e);
+        }
+
+        if (rows.length == 0) {
+            return new float[0][0];
+        }
+
+        if (progressCallback != null) {
+            progressCallback.onProgress(0.5, "Transposing vectors in memory...");
+        }
+
+        // Transpose row-major to column-major
+        int vectorCount = rows.length;
+        int dimensions = rows[0].length;
+        float[][] transposed = new float[dimensions][vectorCount];
+
+        for (int v = 0; v < vectorCount; v++) {
+            for (int d = 0; d < dimensions; d++) {
+                transposed[d][v] = rows[v][d];
+            }
+        }
+
+        if (progressCallback != null) {
+            progressCallback.onProgress(1.0, String.format(
+                "Loaded and transposed %d vectors", vectorCount));
+        }
+
+        return transposed;
     }
 
     /**

@@ -204,6 +204,64 @@ public class EmpiricalScalarModel implements ScalarModel {
         return fromData(values, binCount);
     }
 
+    /**
+     * Builds an empirical scalar model from histogram data.
+     *
+     * <p>This is more efficient than {@link #fromData(float[])} when histogram
+     * data has already been collected (e.g., during streaming analysis).
+     *
+     * @param histogramCounts the counts per bin
+     * @param min the minimum value (first bin edge)
+     * @param max the maximum value (last bin edge)
+     * @param mean the mean of the distribution
+     * @param stdDev the standard deviation of the distribution
+     * @return an EmpiricalScalarModel from the histogram
+     */
+    public static EmpiricalScalarModel fromHistogram(long[] histogramCounts, double min, double max,
+                                                      double mean, double stdDev) {
+        Objects.requireNonNull(histogramCounts, "histogramCounts cannot be null");
+        if (histogramCounts.length == 0) {
+            throw new IllegalArgumentException("histogramCounts cannot be empty");
+        }
+
+        int binCount = histogramCounts.length;
+
+        // Handle edge case where all values are the same
+        if (max <= min) {
+            max = min + 1.0;
+        }
+
+        // Build bin edges
+        double binWidth = (max - min) / binCount;
+        double[] binEdges = new double[binCount + 1];
+        for (int i = 0; i <= binCount; i++) {
+            binEdges[i] = min + i * binWidth;
+        }
+        binEdges[binCount] = max; // Ensure exact max
+
+        // Compute total count
+        long totalCount = 0;
+        for (long c : histogramCounts) {
+            totalCount += c;
+        }
+
+        if (totalCount == 0) {
+            throw new IllegalArgumentException("histogram has no counts");
+        }
+
+        // Build CDF
+        double[] cdf = new double[binCount + 1];
+        cdf[0] = 0.0;
+        long cumulative = 0;
+        for (int i = 0; i < binCount; i++) {
+            cumulative += histogramCounts[i];
+            cdf[i + 1] = (double) cumulative / totalCount;
+        }
+        cdf[binCount] = 1.0; // Ensure exact 1.0
+
+        return new EmpiricalScalarModel(binEdges, cdf, mean, stdDev);
+    }
+
     @Override
     public String getModelType() {
         return MODEL_TYPE;

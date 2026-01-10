@@ -17,10 +17,8 @@ package io.nosqlbench.vshapes.extract;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.model.NormalCDF;
 import io.nosqlbench.vshapes.model.NormalScalarModel;
-
-import java.util.Objects;
+import io.nosqlbench.vshapes.model.ScalarModel;
 
 /**
  * Fits a Normal (Gaussian) distribution to observed data - Pearson Type 0.
@@ -43,17 +41,18 @@ import java.util.Objects;
  *
  * <h2>Goodness of Fit</h2>
  *
- * <p>Uses the Anderson-Darling test statistic as the goodness-of-fit measure.
- * This test is particularly sensitive to deviations in the tails, making it
- * suitable for detecting non-normality.
+ * <p>Inherits uniform scoring from {@link AbstractParametricFitter} using
+ * the raw Kolmogorov-Smirnov D-statistic via the model's CDF.
  *
  * @see NormalScalarModel
- * @see ComponentModelFitter
+ * @see AbstractParametricFitter
  */
-public final class NormalModelFitter implements ComponentModelFitter {
+public final class NormalModelFitter extends AbstractParametricFitter {
 
     private final boolean detectTruncation;
     private final double truncationThreshold;
+    private final Double explicitLowerBound;
+    private final Double explicitUpperBound;
 
     /**
      * Creates a Normal model fitter with default settings.
@@ -71,23 +70,40 @@ public final class NormalModelFitter implements ComponentModelFitter {
     public NormalModelFitter(boolean detectTruncation, double truncationThreshold) {
         this.detectTruncation = detectTruncation;
         this.truncationThreshold = truncationThreshold;
+        this.explicitLowerBound = null;
+        this.explicitUpperBound = null;
+    }
+
+    /**
+     * Creates a Normal model fitter with explicit truncation bounds.
+     *
+     * <p>This is useful for normalized vectors where the bounds are known
+     * to be [-1, 1] regardless of the observed data range.
+     *
+     * @param lowerBound explicit lower bound for truncation
+     * @param upperBound explicit upper bound for truncation
+     */
+    public NormalModelFitter(double lowerBound, double upperBound) {
+        this.detectTruncation = true;
+        this.truncationThreshold = 0.01;
+        this.explicitLowerBound = lowerBound;
+        this.explicitUpperBound = upperBound;
+    }
+
+    /**
+     * Creates a Normal model fitter configured for L2-normalized vectors.
+     *
+     * <p>Normalized vectors have values bounded in [-1, 1], so this
+     * creates a fitter with explicit bounds.
+     *
+     * @return a fitter configured for normalized vector data
+     */
+    public static NormalModelFitter forNormalizedVectors() {
+        return new NormalModelFitter(-1.0, 1.0);
     }
 
     @Override
-    public FitResult fit(float[] values) {
-        Objects.requireNonNull(values, "values cannot be null");
-        if (values.length == 0) {
-            throw new IllegalArgumentException("values cannot be empty");
-        }
-
-        DimensionStatistics stats = DimensionStatistics.compute(0, values);
-        return fit(stats, values);
-    }
-
-    @Override
-    public FitResult fit(DimensionStatistics stats, float[] values) {
-        Objects.requireNonNull(stats, "stats cannot be null");
-
+    protected ScalarModel estimateParameters(DimensionStatistics stats, float[] values) {
         double mean = stats.mean();
         double stdDev = stats.stdDev();
 
@@ -96,22 +112,20 @@ public final class NormalModelFitter implements ComponentModelFitter {
             stdDev = 1e-10;
         }
 
-        NormalScalarModel model;
+        // Use explicit bounds if provided (e.g., for normalized vectors)
+        if (explicitLowerBound != null && explicitUpperBound != null) {
+            return new NormalScalarModel(mean, stdDev, explicitLowerBound, explicitUpperBound);
+        }
 
         if (detectTruncation && detectsTruncation(stats, values)) {
             // Create truncated normal model
             double lower = stats.min();
             double upper = stats.max();
-            model = new NormalScalarModel(mean, stdDev, lower, upper);
+            return new NormalScalarModel(mean, stdDev, lower, upper);
         } else {
             // Create unbounded normal model
-            model = new NormalScalarModel(mean, stdDev);
+            return new NormalScalarModel(mean, stdDev);
         }
-
-        // Compute goodness-of-fit using Anderson-Darling statistic
-        double goodnessOfFit = computeAndersonDarling(values, mean, stdDev);
-
-        return new FitResult(model, goodnessOfFit, getModelType());
     }
 
     @Override
@@ -172,43 +186,4 @@ public final class NormalModelFitter implements ComponentModelFitter {
         return lowerFraction > 0.02 && upperFraction > 0.02;
     }
 
-    /**
-     * Computes the Anderson-Darling test statistic.
-     *
-     * <p>Lower values indicate better fit to a normal distribution.
-     * Critical values:
-     * <ul>
-     *   <li>&lt; 0.576: very good fit (p &gt; 0.15)</li>
-     *   <li>&lt; 0.787: acceptable fit (p &gt; 0.05)</li>
-     *   <li>&gt; 1.072: poor fit (p &lt; 0.01)</li>
-     * </ul>
-     */
-    private double computeAndersonDarling(float[] values, double mean, double stdDev) {
-        int n = values.length;
-
-        // Sort a copy of the values
-        float[] sorted = values.clone();
-        java.util.Arrays.sort(sorted);
-
-        // Compute test statistic
-        double sum = 0;
-        for (int i = 0; i < n; i++) {
-            double z = (sorted[i] - mean) / stdDev;
-            double cdfZ = NormalCDF.standardNormalCDF(z);
-
-            // Clamp to avoid log(0) or log(1)
-            cdfZ = Math.max(1e-10, Math.min(1 - 1e-10, cdfZ));
-
-            double weight = 2.0 * (i + 1) - 1;
-            sum += weight * (Math.log(cdfZ) + Math.log(1 - NormalCDF.standardNormalCDF(
-                (sorted[n - 1 - i] - mean) / stdDev)));
-        }
-
-        double aSq = -n - sum / n;
-
-        // Apply small sample correction
-        aSq = aSq * (1 + 4.0 / n - 25.0 / (n * n));
-
-        return aSq;
-    }
 }

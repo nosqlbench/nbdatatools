@@ -47,6 +47,12 @@
     </dependency>
 
     <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>datatools-virtdata</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.11.0</version>
@@ -127,6 +133,19 @@
       <optional>true</optional>
     </dependency>
 
+    <!-- JMH for microbenchmarks -->
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-core</artifactId>
+      <version>1.37</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-generator-annprocess</artifactId>
+      <version>1.37</version>
+      <scope>test</scope>
+    </dependency>
 
   </dependencies>
 
@@ -278,6 +297,7 @@
                 <include>**/PerformanceTestSuite.java</include>
               </includes>
               <skip>${skipPerformanceTests}</skip>
+              <failIfNoTests>false</failIfNoTests>
               <argLine>--add-modules jdk.incubator.vector</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>

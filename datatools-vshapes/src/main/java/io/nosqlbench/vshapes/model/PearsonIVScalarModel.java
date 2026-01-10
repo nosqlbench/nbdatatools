@@ -293,6 +293,69 @@ public class PearsonIVScalarModel implements ScalarModel {
         return models;
     }
 
+    /**
+     * Computes the cumulative distribution function (CDF) at a given value.
+     *
+     * <p>The Pearson IV CDF is computed via numerical integration of the PDF.
+     *
+     * @param x the value at which to evaluate the CDF
+     * @return the cumulative probability P(X ≤ x), in range [0, 1]
+     */
+    @Override
+    public double cdf(double x) {
+        // Numerical integration using adaptive Simpson's rule
+        // Integrate from -inf to x, but use practical bounds
+        double lowerBound = lambda - 10 * a;  // Practical lower bound
+        double upperBound = x;
+
+        if (upperBound <= lowerBound) return 0.0;
+
+        // Use simple trapezoidal integration
+        int steps = 1000;
+        double h = (upperBound - lowerBound) / steps;
+        double sum = 0.5 * (pdf(lowerBound) + pdf(upperBound));
+        for (int i = 1; i < steps; i++) {
+            sum += pdf(lowerBound + i * h);
+        }
+        double result = sum * h;
+
+        // Clamp to [0, 1]
+        return Math.max(0, Math.min(1, result));
+    }
+
+    /**
+     * Computes the probability density function (PDF) at a given value.
+     */
+    private double pdf(double x) {
+        double z = (x - lambda) / a;
+        double base = 1 + z * z;
+        double exponent = -m;
+        double expTerm = -nu * Math.atan(z);
+
+        // Compute normalization constant (approximate)
+        double k = 1.0 / (a * Math.sqrt(Math.PI) * gammaRatio(m, 0.5));
+
+        return k * Math.pow(base, exponent) * Math.exp(expTerm);
+    }
+
+    private static double gammaRatio(double a, double b) {
+        // Approximate Gamma(a) / Gamma(a - b) using Stirling
+        return Math.exp(logGamma(a) - logGamma(a - b));
+    }
+
+    private static double logGamma(double x) {
+        double[] cof = {76.18009172947146, -86.50532032941677, 24.01409824083091,
+                        -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5};
+        double y = x;
+        double tmp = x + 5.5;
+        tmp -= (x + 0.5) * Math.log(tmp);
+        double ser = 1.000000000190015;
+        for (int j = 0; j < 6; j++) {
+            ser += cof[j] / ++y;
+        }
+        return -tmp + Math.log(2.5066282746310005 * ser / x);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

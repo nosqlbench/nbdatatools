@@ -19,6 +19,7 @@ package io.nosqlbench.vshapes.stream;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -38,16 +39,36 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>The harness coordinates multiple analyzers processing the same dataset:
  * <ul>
  *   <li>Reads data from a {@link DataSource} in chunks</li>
+ *   <li>Converts chunks to columnar format if needed</li>
  *   <li>Distributes each chunk to all registered analyzers concurrently</li>
  *   <li>Collects results and errors from all analyzers</li>
  *   <li>Provides progress reporting during processing</li>
  * </ul>
+ *
+ * <h2>Columnar Data Format</h2>
+ *
+ * <p>All analyzers receive data in <strong>columnar (column-major) format</strong>:
+ * <pre>{@code
+ * chunk[dimensionIndex][vectorIndex]
+ * }</pre>
+ *
+ * <p>This layout is optimal for per-dimension analysis:
+ * <ul>
+ *   <li>Each {@code chunk[d]} is a contiguous array of all values for dimension {@code d}</li>
+ *   <li>Sequential iteration is cache-friendly</li>
+ *   <li>SIMD operations can be applied to contiguous arrays</li>
+ * </ul>
+ *
+ * <p>The harness automatically converts row-major data sources to columnar format.
+ * For best performance, use {@link TransposedChunkDataSource} which provides
+ * pre-transposed columnar chunks.
  *
  * <h2>Concurrency Model</h2>
  *
  * <p>The harness uses a fork-join approach:
  * <ol>
  *   <li>Read one chunk from the data source (sequential)</li>
+ *   <li>Convert to columnar format if needed</li>
  *   <li>Submit the chunk to all analyzers in parallel</li>
  *   <li>Wait for all analyzers to complete the chunk</li>
  *   <li>Repeat until all chunks processed</li>
@@ -70,17 +91,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * // Register analyzers
  * harness.register(new StreamingModelExtractor());
- * harness.register(new StreamingStatsAnalyzer());
+ * harness.register(new DimensionStatisticsAnalyzer());
  *
- * // Run analysis
- * DataSource source = new FloatArrayDataSource(data);
- * AnalysisResults results = harness.run(source, 1000);
+ * // Run analysis with columnar data source for best performance
+ * TransposedChunkDataSource source = TransposedChunkDataSource.builder()
+ *     .file(path)
+ *     .build();
+ * AnalysisResults results = harness.run(source, source.getOptimalChunkSize());
  *
  * // Get results
  * VectorSpaceModel model = results.getResult("model-extractor", VectorSpaceModel.class);
  * }</pre>
  *
  * @see StreamingAnalyzer
+ * @see TransposedChunkDataSource
  * @see DataSource
  * @see AnalysisResults
  */
@@ -90,6 +114,7 @@ public final class AnalyzerHarness {
     private final ExecutorService executor;
     private boolean failFast = true;
     private boolean ownsExecutor = true;
+    private final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
     /**
      * Creates a harness with a default work-stealing thread pool.
@@ -207,6 +232,9 @@ public final class AnalyzerHarness {
     /**
      * Runs all registered analyzers with progress reporting.
      *
+     * <p>All chunks are delivered to analyzers in columnar format {@code [dims][vectors]}.
+     * Row-major data sources are automatically transposed.
+     *
      * @param source the data source to process
      * @param chunkSize the number of vectors per chunk
      * @param progressCallback callback for progress updates (nullable)
@@ -226,6 +254,9 @@ public final class AnalyzerHarness {
         Map<String, Throwable> errors = new ConcurrentHashMap<>();
         AtomicBoolean aborted = new AtomicBoolean(false);
 
+        // Detect if source provides columnar (transposed) chunks
+        boolean sourceIsColumnar = isColumnarDataSource(source);
+
         // Initialize all analyzers
         for (StreamingAnalyzer<?> analyzer : analyzers) {
             try {
@@ -241,12 +272,37 @@ public final class AnalyzerHarness {
         // Stream chunks to all analyzers
         long totalVectors = shape.cardinality();
         long processedVectors = 0;
+        int chunkNumber = 0;
+        int estimatedTotalChunks = (int) Math.ceil((double) totalVectors / chunkSize);
 
-        for (float[][] chunk : source.chunks(chunkSize)) {
-            if (aborted.get()) break;
+        // Use explicit iterator to report progress BEFORE each chunk load
+        Iterator<float[][]> chunkIterator = source.chunks(chunkSize).iterator();
+        while (chunkIterator.hasNext()) {
+            if (aborted.get() || stopRequested.get()) break;
 
+            chunkNumber++;
+
+            // Report loading phase BEFORE chunk is loaded (I/O happens in next())
+            if (progressCallback != null) {
+                double progress = (double) processedVectors / totalVectors;
+                progressCallback.onProgress(Phase.LOADING, progress, processedVectors,
+                    totalVectors, chunkNumber, estimatedTotalChunks);
+            }
+
+            // Load the chunk (this is where I/O happens)
+            float[][] chunk = chunkIterator.next();
+
+            // Ensure chunk is in columnar format [dims][vectors]
+            final float[][] columnarChunk = sourceIsColumnar ? chunk : toColumnar(chunk);
             final long startIndex = processedVectors;
             List<Future<?>> futures = new ArrayList<>();
+
+            // Report processing phase (chunk is loaded, about to process)
+            if (progressCallback != null) {
+                double progress = (double) processedVectors / totalVectors;
+                progressCallback.onProgress(Phase.PROCESSING, progress, processedVectors,
+                    totalVectors, chunkNumber, estimatedTotalChunks);
+            }
 
             // Submit chunk to all non-failed analyzers
             for (StreamingAnalyzer<?> analyzer : analyzers) {
@@ -255,7 +311,7 @@ public final class AnalyzerHarness {
 
                 futures.add(executor.submit(() -> {
                     try {
-                        analyzer.accept(chunk, startIndex);
+                        analyzer.accept(columnarChunk, startIndex);
                     } catch (Exception e) {
                         errors.put(type, e);
                         if (failFast) {
@@ -274,12 +330,25 @@ public final class AnalyzerHarness {
                 }
             }
 
-            processedVectors += chunk.length;
+            // For columnar chunks, vector count is chunk[0].length
+            // For row-major chunks (before transpose), vector count is chunk.length
+            processedVectors += sourceIsColumnar ? chunk[0].length : chunk.length;
 
-            // Report progress
+            // Check if any analyzer requests early stopping (e.g., convergence reached)
+            if (checkEarlyStopRequested()) {
+                break;
+            }
+
+            // Report progress after processing
             if (progressCallback != null) {
                 double progress = (double) processedVectors / totalVectors;
                 progressCallback.onProgress(progress, processedVectors, totalVectors);
+            }
+
+            // Check for early termination immediately after callback
+            // (callback may have called requestStop())
+            if (stopRequested.get()) {
+                break;
             }
         }
 
@@ -301,9 +370,65 @@ public final class AnalyzerHarness {
         return new AnalysisResults(results, errors, processingTime);
     }
 
+    /**
+     * Detects if a data source provides columnar (column-major) chunks.
+     */
+    private boolean isColumnarDataSource(DataSource source) {
+        if (source instanceof TransposedChunkDataSource) {
+            return true;
+        }
+        // Check shape for columnar flag
+        return source.getShape().isColumnar();
+    }
+
+    /**
+     * Converts a row-major chunk to columnar format.
+     *
+     * @param rowMajor data in format {@code [vectors][dims]}
+     * @return data in format {@code [dims][vectors]}
+     */
+    private float[][] toColumnar(float[][] rowMajor) {
+        if (rowMajor == null || rowMajor.length == 0) {
+            return new float[0][0];
+        }
+        int vectors = rowMajor.length;
+        int dims = rowMajor[0].length;
+        float[][] columnar = new float[dims][vectors];
+        for (int v = 0; v < vectors; v++) {
+            for (int d = 0; d < dims; d++) {
+                columnar[d][v] = rowMajor[v][d];
+            }
+        }
+        return columnar;
+    }
+
     private AnalysisResults buildResults(Map<String, Throwable> errors, long startTime) {
         long processingTime = System.currentTimeMillis() - startTime;
         return new AnalysisResults(Map.of(), errors, processingTime);
+    }
+
+    /**
+     * Checks if any registered analyzer requests early stopping.
+     *
+     * <p>This is called after each chunk is processed to allow analyzers
+     * to signal that they have gathered sufficient data (e.g., convergence reached).
+     *
+     * <p>Currently checks for {@link StreamingModelExtractor} instances
+     * that implement the {@code shouldStopEarly()} method.
+     *
+     * @return true if any analyzer requests early stopping
+     */
+    private boolean checkEarlyStopRequested() {
+        for (StreamingAnalyzer<?> analyzer : analyzers) {
+            if (analyzer instanceof StreamingModelExtractor extractor) {
+                // Call convergence check and then see if early stop is requested
+                extractor.checkConvergence();
+                if (extractor.shouldStopEarly()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -339,6 +464,36 @@ public final class AnalyzerHarness {
     }
 
     /**
+     * Requests early termination of the current analysis.
+     *
+     * <p>This method is thread-safe and can be called from any thread, including
+     * progress callbacks. The harness will complete the current chunk before stopping.
+     *
+     * @return true if stop was newly requested, false if already requested
+     */
+    public boolean requestStop() {
+        return stopRequested.compareAndSet(false, true);
+    }
+
+    /**
+     * Checks if early termination has been requested.
+     *
+     * @return true if stop has been requested
+     */
+    public boolean isStopRequested() {
+        return stopRequested.get();
+    }
+
+    /**
+     * Resets the stop request flag.
+     *
+     * <p>Call this before reusing the harness for another analysis run.
+     */
+    public void resetStopRequest() {
+        stopRequested.set(false);
+    }
+
+    /**
      * Shuts down the executor if owned by this harness.
      *
      * <p>Call this when done using the harness to release thread pool resources.
@@ -362,5 +517,43 @@ public final class AnalyzerHarness {
          * @param totalVectors total number of vectors
          */
         void onProgress(double progress, long processedVectors, long totalVectors);
+
+        /**
+         * Called to report progress with phase information.
+         *
+         * <p>Default implementation delegates to the simpler
+         * {@link #onProgress(double, long, long)} method.
+         *
+         * @param phase the current processing phase
+         * @param progress fraction complete (0.0 to 1.0)
+         * @param processedVectors number of vectors processed so far
+         * @param totalVectors total number of vectors
+         * @param chunkNumber current chunk number (1-based)
+         * @param totalChunks estimated total number of chunks
+         */
+        default void onProgress(Phase phase, double progress, long processedVectors,
+                                long totalVectors, int chunkNumber, int totalChunks) {
+            onProgress(progress, processedVectors, totalVectors);
+        }
+    }
+
+    /**
+     * Processing phases reported by the progress callback.
+     */
+    public enum Phase {
+        /**
+         * Loading data from source (I/O bound).
+         */
+        LOADING,
+
+        /**
+         * Processing loaded data through analyzers (CPU bound).
+         */
+        PROCESSING,
+
+        /**
+         * Finalizing analysis and building results.
+         */
+        COMPLETING
     }
 }

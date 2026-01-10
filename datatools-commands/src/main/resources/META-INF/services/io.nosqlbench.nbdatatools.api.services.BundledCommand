@@ -7,5 +7,6 @@ io.nosqlbench.command.compute.CMD_compute
 io.nosqlbench.command.cleanup.CMD_cleanup
 io.nosqlbench.command.catalog.CMD_catalog
 io.nosqlbench.command.analyze.CMD_analyze
+io.nosqlbench.command.info.CMD_info
 io.nosqlbench.command.version.CMD_version
 io.nosqlbench.command.vectordata.CMD_vectordata

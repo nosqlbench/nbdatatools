@@ -19,64 +19,49 @@ package io.nosqlbench.vshapes.stream;
 
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
-/**
- * DataSource implementation backed by an in-memory float[][] array.
- *
- * <h2>Usage</h2>
- *
- * <pre>{@code
- * float[][] data = loadVectors();  // [numVectors][dimensionality]
- * DataSource source = new FloatArrayDataSource(data);
- *
- * // Or with parameters
- * DataSource source = new FloatArrayDataSource(data, Map.of("source", "my-dataset"));
- *
- * // Use with harness
- * AnalyzerHarness harness = new AnalyzerHarness();
- * harness.register(myAnalyzer);
- * AnalysisResults results = harness.run(source, 1000);
- * }</pre>
- *
- * @see DataSource
- */
+/// DataSource implementation backed by an in-memory float[][] array.
+///
+/// ## Data Layout
+///
+/// This source stores data in **row-major** format: `data[vectorIndex][dimensionIndex]`.
+/// Each row is one complete vector.
+///
+/// ## Usage
+///
+/// ```java
+/// float[][] data = loadVectors();  // [numVectors][dimensionality]
+/// DataSource source = new FloatArrayDataSource(data);
+///
+/// // Use with harness
+/// AnalyzerHarness harness = new AnalyzerHarness();
+/// harness.register(myAnalyzer);
+/// AnalysisResults results = harness.run(source, 1000);
+/// ```
+///
+/// @see DataSource
+/// @see DataLayout#ROW_MAJOR
 public final class FloatArrayDataSource implements DataSource {
 
     private final float[][] data;
     private final DataspaceShape shape;
     private final String id;
 
-    /**
-     * Creates a data source from a float array.
-     *
-     * @param data the vector data, shape [numVectors][dimensionality]
-     * @throws IllegalArgumentException if data is null, empty, or jagged
-     */
+    /// Creates a data source from a float array.
+    ///
+    /// @param data the vector data, shape [numVectors][dimensionality]
+    /// @throws IllegalArgumentException if data is null, empty, or jagged
     public FloatArrayDataSource(float[][] data) {
-        this(data, Map.of(), "float-array");
+        this(data, "float-array");
     }
 
-    /**
-     * Creates a data source with additional parameters.
-     *
-     * @param data the vector data
-     * @param parameters additional configuration parameters
-     */
-    public FloatArrayDataSource(float[][] data, Map<String, Object> parameters) {
-        this(data, parameters, "float-array");
-    }
-
-    /**
-     * Creates a data source with parameters and an identifier.
-     *
-     * @param data the vector data
-     * @param parameters additional configuration parameters
-     * @param id identifier for logging/caching
-     */
-    public FloatArrayDataSource(float[][] data, Map<String, Object> parameters, String id) {
+    /// Creates a data source with an identifier.
+    ///
+    /// @param data the vector data
+    /// @param id identifier for logging/caching
+    public FloatArrayDataSource(float[][] data, String id) {
         Objects.requireNonNull(data, "data cannot be null");
         if (data.length == 0) {
             throw new IllegalArgumentException("data cannot be empty");
@@ -98,7 +83,7 @@ public final class FloatArrayDataSource implements DataSource {
         }
 
         this.data = data;
-        this.shape = new DataspaceShape(data.length, dimensionality, parameters);
+        this.shape = new DataspaceShape(data.length, dimensionality, DataLayout.ROW_MAJOR);
         this.id = id != null ? id : "float-array";
     }
 
@@ -120,14 +105,12 @@ public final class FloatArrayDataSource implements DataSource {
         return () -> new ChunkIterator(chunkSize);
     }
 
-    /**
-     * Returns the underlying data array.
-     *
-     * <p><b>Warning:</b> This returns the actual backing array, not a copy.
-     * Modifying the returned array will affect this data source.
-     *
-     * @return the backing data array
-     */
+    /// Returns the underlying data array.
+    ///
+    /// **Warning:** This returns the actual backing array, not a copy.
+    /// Modifying the returned array will affect this data source.
+    ///
+    /// @return the backing data array
     public float[][] getData() {
         return data;
     }

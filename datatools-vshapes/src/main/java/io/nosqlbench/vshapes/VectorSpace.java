@@ -61,9 +61,31 @@ public interface VectorSpace {
     float[] getVector(int index);
 
     /// Gets all vectors as a 2D array.
-    /// 
+    ///
     /// @return array where first index is vector, second is dimension
     float[][] getAllVectors();
+
+    /// Gets a range of vectors as a 2D array.
+    ///
+    /// Default implementation calls getVector() for each index.
+    /// Implementations should override for efficient bulk access.
+    ///
+    /// @param startIndex the starting index (inclusive)
+    /// @param endIndex the ending index (exclusive)
+    /// @return array where first index is vector, second is dimension
+    /// @throws IndexOutOfBoundsException if indices are out of range
+    default float[][] getVectors(int startIndex, int endIndex) {
+        if (startIndex < 0 || endIndex > getVectorCount() || startIndex > endIndex) {
+            throw new IndexOutOfBoundsException(
+                "Range [" + startIndex + ", " + endIndex + ") out of bounds for size " + getVectorCount());
+        }
+        int count = endIndex - startIndex;
+        float[][] vectors = new float[count][];
+        for (int i = 0; i < count; i++) {
+            vectors[i] = getVector(startIndex + i);
+        }
+        return vectors;
+    }
 
     /// Gets the class label for a vector, if available.
     /// This is used for measures that require ground truth labels like margin analysis.

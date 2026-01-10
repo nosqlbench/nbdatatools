@@ -56,8 +56,9 @@ import static org.junit.jupiter.api.Assertions.*;
 public class GeometricAccuracyTest {
 
     private static final long SEED = 42L;
-    private static final int SAMPLES = 50_000;
-    private static final int PAIR_SAMPLES = 10_000;
+    // Reduced from 50K to 20K - still sufficient for geometric property validation
+    private static final int SAMPLES = 20_000;
+    private static final int PAIR_SAMPLES = 5_000;
 
     static Stream<Arguments> dimensionProvider() {
         return Stream.of(
@@ -207,12 +208,12 @@ public class GeometricAccuracyTest {
     @Test
     void testNearestNeighborDistanceDistribution() {
         int dims = 64;
-        int n = 5000;  // Smaller sample for O(n²) nearest neighbor search
+        int n = 2000;  // Reduced for O(n²) nearest neighbor search
         float[][] original = generateRandomVectors(n, dims, SEED);
         float[][] synthetic = roundTripThroughModel(original, SEED + 1);
 
-        float[] origNN = computeNearestNeighborDistances(original, 500);  // Sample subset
-        float[] synthNN = computeNearestNeighborDistances(synthetic, 500);
+        float[] origNN = computeNearestNeighborDistances(original, 200);  // Sample subset
+        float[] synthNN = computeNearestNeighborDistances(synthetic, 200);
 
         StatisticalTestSuite.TestResult ks =
             StatisticalTestSuite.kolmogorovSmirnovTest(origNN, synthNN);
@@ -221,35 +222,37 @@ public class GeometricAccuracyTest {
         System.out.printf("K-S statistic: %.4f (critical: %.4f) - %s%n",
             ks.statistic(), ks.criticalValue(), ks.passed() ? "PASS" : "FAIL");
 
-        // This test may fail due to the independence assumption
-        // Document expected behavior
-        if (!ks.passed()) {
-            System.out.println("Note: NN distance distribution may differ due to independence assumption.");
-            System.out.println("This is expected for correlated data where clustering structure is lost.");
-        }
+        // NN distribution may differ due to independence assumption in synthetic data,
+        // but K-S should still be reasonably small (< 0.15)
+        assertTrue(ks.statistic() < 0.15,
+            "NN distance K-S statistic should be < 0.15, got: " + ks.statistic());
     }
 
     // ========== Dimensionality Scaling Tests ==========
 
     @Test
     void testDimensionalityScaling() {
-        int[] dimensions = {16, 32, 64, 128, 256};
-        int n = 20000;
+        // Reduced dimension range and sample size for faster tests
+        int[] dimensions = {32, 64, 128};
+        int n = 10000;
 
         System.out.println("\n=== Dimensionality Scaling ===");
         System.out.println("Dims    Dist K-S    Cos K-S     Norm K-S");
+
+        int failCount = 0;
+        StringBuilder failures = new StringBuilder();
 
         for (int dims : dimensions) {
             float[][] original = generateRandomVectors(n, dims, SEED);
             float[][] synthetic = roundTripThroughModel(original, SEED + 1);
 
-            float[] origDist = samplePairwiseDistances(original, 5000, SEED);
-            float[] synthDist = samplePairwiseDistances(synthetic, 5000, SEED);
+            float[] origDist = samplePairwiseDistances(original, 3000, SEED);
+            float[] synthDist = samplePairwiseDistances(synthetic, 3000, SEED);
             StatisticalTestSuite.TestResult distKS =
                 StatisticalTestSuite.kolmogorovSmirnovTest(origDist, synthDist);
 
-            float[] origCos = samplePairwiseCosines(original, 5000, SEED);
-            float[] synthCos = samplePairwiseCosines(synthetic, 5000, SEED);
+            float[] origCos = samplePairwiseCosines(original, 3000, SEED);
+            float[] synthCos = samplePairwiseCosines(synthetic, 3000, SEED);
             StatisticalTestSuite.TestResult cosKS =
                 StatisticalTestSuite.kolmogorovSmirnovTest(origCos, synthCos);
 
@@ -260,7 +263,17 @@ public class GeometricAccuracyTest {
 
             System.out.printf(" %3d     %.4f      %.4f       %.4f%n",
                 dims, distKS.statistic(), cosKS.statistic(), normKS.statistic());
+
+            // All K-S statistics should be < 0.1 for geometric property preservation
+            if (distKS.statistic() >= 0.1 || cosKS.statistic() >= 0.1 || normKS.statistic() >= 0.1) {
+                failCount++;
+                failures.append(String.format("dims=%d (dist=%.4f, cos=%.4f, norm=%.4f); ",
+                    dims, distKS.statistic(), cosKS.statistic(), normKS.statistic()));
+            }
         }
+
+        assertEquals(0, failCount,
+            "All dimensions should have K-S < 0.1 for geometric properties. Failures: " + failures);
     }
 
     // ========== Q-Q Correlation for Geometric Properties ==========

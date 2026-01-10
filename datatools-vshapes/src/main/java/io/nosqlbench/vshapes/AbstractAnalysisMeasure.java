@@ -68,8 +68,8 @@ public abstract class AbstractAnalysisMeasure<T> implements AnalysisMeasure<T> {
 
     @Override
     public final T compute(VectorSpace vectorSpace, Path cacheDir, Map<String, Object> dependencyResults) {
-        // Check for cached result first
-        if (hasCachedResult(cacheDir, vectorSpace)) {
+        // Check for cached result first (only if cacheDir is provided)
+        if (cacheDir != null && hasCachedResult(cacheDir, vectorSpace)) {
             T cachedResult = loadCachedResult(cacheDir, vectorSpace);
             if (cachedResult != null) {
                 return cachedResult;
@@ -79,8 +79,10 @@ public abstract class AbstractAnalysisMeasure<T> implements AnalysisMeasure<T> {
         // Compute fresh result
         T result = computeImpl(vectorSpace, cacheDir, dependencyResults);
 
-        // Cache the result
-        saveCachedResult(result, cacheDir, vectorSpace);
+        // Cache the result (only if cacheDir is provided)
+        if (cacheDir != null) {
+            saveCachedResult(result, cacheDir, vectorSpace);
+        }
 
         return result;
     }
