@@ -22,6 +22,7 @@ import io.nosqlbench.datatools.virtdata.sampling.ComponentSamplerFactory;
 import io.nosqlbench.vshapes.extract.BestFitSelector;
 import io.nosqlbench.vshapes.extract.DatasetModelExtractor;
 import io.nosqlbench.vshapes.model.BetaScalarModel;
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.UniformScalarModel;
@@ -92,9 +93,9 @@ public class PearsonSelectorVerificationTest {
         // Show type breakdown for first 9 dimensions (3 full cycles)
         System.out.println("\nFirst 9 dimensions breakdown:");
         for (int d = 0; d < 9; d++) {
-            String sourceType = allModels[d].getModelType();
-            String defaultType = defaultModel.scalarModel(d).getModelType();
-            String boundedType = boundedModel.scalarModel(d).getModelType();
+            String sourceType = getEffectiveModelType(allModels[d]);
+            String defaultType = getEffectiveModelType(defaultModel.scalarModel(d));
+            String boundedType = getEffectiveModelType(boundedModel.scalarModel(d));
             System.out.printf("  dim %2d: source=%-10s default=%-10s bounded=%-10s %s%n",
                 d, sourceType, defaultType, boundedType,
                 sourceType.equals(boundedType) ? "✓" : "");
@@ -102,20 +103,26 @@ public class PearsonSelectorVerificationTest {
 
         // The bounded selector should match significantly more types than default
         // Default can only match normal/uniform (~2/3 types ≈ 67%)
-        // Bounded should match most types, though Uniform↔Beta confusion is acceptable
         assertTrue(boundedMatches >= defaultMatches,
             String.format("Bounded selector (%d matches) should be at least as good as default (%d matches)",
                 boundedMatches, defaultMatches));
 
-        // Count "equivalent" matches (Uniform↔Beta is mathematically acceptable)
+        // STRICT CHECK: Bounded selector should achieve at least 90% DIRECT matches
+        // This is the primary quality assertion - we should NOT need equivalences
+        double boundedDirectMatchRate = (double) boundedMatches / DIMS;
+        assertTrue(boundedDirectMatchRate >= 0.90,
+            String.format("Bounded selector DIRECT match rate %.1f%% below expected 90%% - " +
+                "classification accuracy needs improvement", boundedDirectMatchRate * 100));
+
+        // Count "equivalent" matches as secondary check (Uniform↔Beta is mathematically acceptable)
         int boundedEquivalentMatches = countEquivalentMatches(allModels, boundedModel);
         System.out.printf("Bounded selector (with equivalences): %d/%d (%.1f%%)%n",
             boundedEquivalentMatches, DIMS, 100.0 * boundedEquivalentMatches / DIMS);
 
-        // With equivalences, bounded selector should achieve at least 90%
+        // With equivalences, bounded selector should achieve at least 95%
         double boundedEquivMatchRate = (double) boundedEquivalentMatches / DIMS;
-        assertTrue(boundedEquivMatchRate >= 0.90,
-            String.format("Bounded selector match rate (with equivalences) %.1f%% below expected 90%%",
+        assertTrue(boundedEquivMatchRate >= 0.95,
+            String.format("Bounded selector match rate (with equivalences) %.1f%% below expected 95%%",
                 boundedEquivMatchRate * 100));
     }
 
@@ -156,12 +163,34 @@ public class PearsonSelectorVerificationTest {
 
             // Extract model
             VectorSpaceModel recovered = extractor.extractVectorModel(data);
-            String sourceType = source.getModelType();
-            String fittedType = recovered.scalarModel(0).getModelType();
+            String sourceType = getEffectiveModelType(source);
+            ScalarModel fittedModel = recovered.scalarModel(0);
+            String fittedType = getEffectiveModelType(fittedModel);
 
             // Accept exact match OR mathematically equivalent match
             boolean match = sourceType.equals(fittedType) || isEquivalent(sourceType, fittedType);
-            System.out.printf("  %s -> %s %s%n", sourceType, fittedType, match ? "✓" : (isEquivalent(sourceType, fittedType) ? "≈" : "✗"));
+            System.out.printf("  %s -> %s %s%n", sourceType, fittedType, match ? "✓" : "✗");
+
+            // Parameter accuracy check for Beta distribution
+            if (source instanceof BetaScalarModel sourceBeta &&
+                fittedModel instanceof BetaScalarModel fittedBeta) {
+                double alphaError = Math.abs(sourceBeta.getAlpha() - fittedBeta.getAlpha())
+                                   / sourceBeta.getAlpha();
+                double betaError = Math.abs(sourceBeta.getBeta() - fittedBeta.getBeta())
+                                  / sourceBeta.getBeta();
+                System.out.printf("    Beta params: source(α=%.2f, β=%.2f) -> fitted(α=%.2f, β=%.2f) " +
+                    "[αErr=%.1f%%, βErr=%.1f%%]%n",
+                    sourceBeta.getAlpha(), sourceBeta.getBeta(),
+                    fittedBeta.getAlpha(), fittedBeta.getBeta(),
+                    alphaError * 100, betaError * 100);
+                // Beta parameter recovery should be within 35%
+                // (method of moments has higher variance than MLE for asymmetric Beta)
+                assertTrue(alphaError < 0.35,
+                    String.format("Beta α error %.1f%% exceeds 35%% threshold", alphaError * 100));
+                assertTrue(betaError < 0.35,
+                    String.format("Beta β error %.1f%% exceeds 35%% threshold", betaError * 100));
+            }
+
             if (match) passed++;
         }
 
@@ -190,7 +219,9 @@ public class PearsonSelectorVerificationTest {
     private int countTypeMatches(ScalarModel[] source, VectorSpaceModel model) {
         int matches = 0;
         for (int d = 0; d < DIMS; d++) {
-            if (source[d].getModelType().equals(model.scalarModel(d).getModelType())) {
+            String sourceType = getEffectiveModelType(source[d]);
+            String fittedType = getEffectiveModelType(model.scalarModel(d));
+            if (sourceType.equals(fittedType)) {
                 matches++;
             }
         }
@@ -204,8 +235,8 @@ public class PearsonSelectorVerificationTest {
     private int countEquivalentMatches(ScalarModel[] source, VectorSpaceModel model) {
         int matches = 0;
         for (int d = 0; d < DIMS; d++) {
-            String sourceType = source[d].getModelType();
-            String fittedType = model.scalarModel(d).getModelType();
+            String sourceType = getEffectiveModelType(source[d]);
+            String fittedType = getEffectiveModelType(model.scalarModel(d));
 
             if (sourceType.equals(fittedType)) {
                 matches++;
@@ -227,5 +258,19 @@ public class PearsonSelectorVerificationTest {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Gets the effective model type for display purposes.
+     *
+     * <p>For CompositeScalarModel, returns the underlying type for 1-component
+     * composites, or "composite" for multi-component composites. This supports
+     * unified composite handling where all models may be wrapped.
+     */
+    private String getEffectiveModelType(ScalarModel model) {
+        if (model instanceof CompositeScalarModel composite) {
+            return composite.getEffectiveModelType();
+        }
+        return model.getModelType();
     }
 }

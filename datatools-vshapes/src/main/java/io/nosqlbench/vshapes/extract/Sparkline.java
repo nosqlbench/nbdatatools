@@ -1,5 +1,8 @@
 package io.nosqlbench.vshapes.extract;
 
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
+
 /*
  * Copyright (c) nosqlbench
  *
@@ -451,5 +454,308 @@ public final class Sparkline {
         }
 
         return sb.toString();
+    }
+
+    /**
+     * Generates a sparkline representation of a ScalarModel's distribution shape.
+     *
+     * <p>This samples the model's PDF at evenly spaced quantile points to create
+     * a visual representation of the distribution shape. For models without a PDF
+     * method, the PDF is approximated by differentiating the CDF.
+     *
+     * @param model the scalar model to visualize
+     * @param width number of characters in the sparkline
+     * @return Unicode sparkline string showing the distribution shape
+     */
+    public static String forModel(ScalarModel model, int width) {
+        if (model == null) {
+            return " ".repeat(width);
+        }
+
+        // Extract bounds based on model type
+        double lower = extractLowerBound(model);
+        double upper = extractUpperBound(model);
+        double range = upper - lower;
+
+        if (range <= 0 || !Double.isFinite(range)) {
+            // Degenerate case - single point or unbounded
+            return String.valueOf(BLOCKS[4]).repeat(width);
+        }
+
+        // Sample PDF at evenly spaced points across the distribution's range
+        // We approximate PDF from CDF: f(x) ≈ (F(x+dx) - F(x-dx)) / (2*dx)
+        double[] pdfValues = new double[width];
+        double dx = range / width / 10.0;  // Small step for derivative
+        double maxPdf = 0;
+
+        for (int i = 0; i < width; i++) {
+            double x = lower + (i + 0.5) * range / width;
+            double pdf = approximatePdf(model, x, dx);
+            if (Double.isFinite(pdf) && pdf >= 0) {
+                pdfValues[i] = pdf;
+                maxPdf = Math.max(maxPdf, pdf);
+            }
+        }
+
+        // Normalize and convert to bar heights
+        StringBuilder sb = new StringBuilder(width);
+        for (double pdf : pdfValues) {
+            int level;
+            if (maxPdf > 0) {
+                level = (int) Math.round(pdf / maxPdf * 8);
+                level = Math.max(0, Math.min(8, level));
+            } else {
+                level = 0;
+            }
+            sb.append(BLOCKS[level]);
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Extracts the lower bound from a ScalarModel by checking its concrete type.
+     */
+    private static double extractLowerBound(ScalarModel model) {
+        if (model instanceof io.nosqlbench.vshapes.model.NormalScalarModel normal) {
+            return normal.lower();
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.UniformScalarModel uniform) {
+            return uniform.getLower();
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.BetaScalarModel beta) {
+            return beta.getLower();
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.GammaScalarModel gamma) {
+            return gamma.getLower();
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.EmpiricalScalarModel empirical) {
+            return empirical.getMin();
+        }
+        if (model instanceof CompositeScalarModel composite) {
+            // Use the minimum lower bound across all components
+            double minLower = Double.POSITIVE_INFINITY;
+            for (ScalarModel comp : composite.getScalarModels()) {
+                minLower = Math.min(minLower, extractLowerBound(comp));
+            }
+            return Double.isFinite(minLower) ? minLower : -1.0;
+        }
+        // Fallback: use quantile approach to estimate 0.1% percentile
+        return estimateQuantile(model, 0.001);
+    }
+
+    /**
+     * Extracts the upper bound from a ScalarModel by checking its concrete type.
+     */
+    private static double extractUpperBound(ScalarModel model) {
+        if (model instanceof io.nosqlbench.vshapes.model.NormalScalarModel normal) {
+            return normal.upper();
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.UniformScalarModel uniform) {
+            return uniform.getUpper();
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.BetaScalarModel beta) {
+            return beta.getUpper();
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.GammaScalarModel gamma) {
+            // Gamma is unbounded above - use quantile for practical upper bound
+            return estimateQuantile(model, 0.999);
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.EmpiricalScalarModel empirical) {
+            return empirical.getMax();
+        }
+        if (model instanceof CompositeScalarModel composite) {
+            // Use the maximum upper bound across all components
+            double maxUpper = Double.NEGATIVE_INFINITY;
+            for (ScalarModel comp : composite.getScalarModels()) {
+                maxUpper = Math.max(maxUpper, extractUpperBound(comp));
+            }
+            return Double.isFinite(maxUpper) ? maxUpper : 1.0;
+        }
+        // Fallback: use quantile approach to estimate 99.9% percentile
+        return estimateQuantile(model, 0.999);
+    }
+
+    /**
+     * Estimates a quantile by inverting the CDF via binary search.
+     */
+    private static double estimateQuantile(ScalarModel model, double p) {
+        // Binary search for x such that CDF(x) = p
+        double lo = -1e6;
+        double hi = 1e6;
+
+        // First, find bounds where CDF crosses target
+        while (model.cdf(lo) > p && lo > -1e10) lo *= 2;
+        while (model.cdf(hi) < p && hi < 1e10) hi *= 2;
+
+        // Binary search
+        for (int i = 0; i < 50; i++) {
+            double mid = (lo + hi) / 2;
+            if (model.cdf(mid) < p) {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        return (lo + hi) / 2;
+    }
+
+    /**
+     * Approximates PDF by differentiating CDF.
+     */
+    private static double approximatePdf(ScalarModel model, double x, double dx) {
+        double cdfLo = model.cdf(x - dx);
+        double cdfHi = model.cdf(x + dx);
+        return (cdfHi - cdfLo) / (2 * dx);
+    }
+
+    /**
+     * Generates a sparkline for a model with default width.
+     *
+     * @param model the scalar model to visualize
+     * @return Unicode sparkline string
+     */
+    public static String forModel(ScalarModel model) {
+        return forModel(model, DEFAULT_WIDTH);
+    }
+
+    /// Default number of samples for data-based sparklines
+    private static final int DEFAULT_SAMPLE_COUNT = 10000;
+
+    /**
+     * Generates a sparkline by sampling from the model and creating a histogram.
+     *
+     * <p>Unlike {@link #forModel(ScalarModel, int)} which shows the theoretical PDF,
+     * this method generates actual samples from the model and shows what the data
+     * distribution looks like. This is more useful for comparing models because:
+     * <ul>
+     *   <li>A composite model with overlapping modes may produce smooth data even
+     *       though its theoretical PDF shows distinct peaks</li>
+     *   <li>Two statistically equivalent models will produce similar histograms</li>
+     * </ul>
+     *
+     * @param model the scalar model to sample from
+     * @param width number of characters in the sparkline (also number of bins)
+     * @return Unicode sparkline string showing the data histogram
+     */
+    public static String forModelSamples(ScalarModel model, int width) {
+        return forModelSamples(model, width, DEFAULT_SAMPLE_COUNT);
+    }
+
+    /**
+     * Generates a sparkline by sampling from the model and creating a histogram.
+     *
+     * @param model the scalar model to sample from
+     * @param width number of characters in the sparkline (also number of bins)
+     * @param sampleCount number of samples to generate
+     * @return Unicode sparkline string showing the data histogram
+     */
+    public static String forModelSamples(ScalarModel model, int width, int sampleCount) {
+        if (model == null) {
+            return " ".repeat(width);
+        }
+
+        // Generate samples from the model using stratified sampling
+        // Use CDF inversion (quantile) via estimateQuantile()
+        float[] samples = new float[sampleCount];
+        for (int i = 0; i < sampleCount; i++) {
+            // Use stratified sampling for better coverage
+            double u = (i + 0.5) / sampleCount;
+            samples[i] = (float) estimateQuantile(model, u);
+        }
+
+        // Generate histogram sparkline from the samples
+        return generateBars(samples, width);
+    }
+
+    /**
+     * Generates a sparkline by sampling from the model with default width.
+     *
+     * @param model the scalar model to sample from
+     * @return Unicode sparkline string showing the data histogram
+     */
+    public static String forModelSamples(ScalarModel model) {
+        return forModelSamples(model, DEFAULT_WIDTH, DEFAULT_SAMPLE_COUNT);
+    }
+
+    /**
+     * Result containing sparklines for a composite model and its components.
+     *
+     * @param overall sparkline for the combined composite distribution
+     * @param components sparklines for each component, with weights
+     */
+    public record CompositeSparklines(
+        String overall,
+        java.util.List<ComponentSparkline> components
+    ) {}
+
+    /**
+     * A component sparkline with its weight.
+     *
+     * @param sparkline the sparkline for this component
+     * @param weight the mixture weight (0.0 to 1.0)
+     * @param modelType the type of the component model
+     * @param params formatted parameter string
+     */
+    public record ComponentSparkline(
+        String sparkline,
+        double weight,
+        String modelType,
+        String params
+    ) {}
+
+    /**
+     * Generates sparklines for a composite model and all its components.
+     *
+     * <p>The overall sparkline uses sample-based histogram to show what the
+     * actual data looks like, while individual component sparklines use
+     * theoretical PDFs to show each component's shape.
+     *
+     * @param composite the composite model
+     * @param width sparkline width
+     * @return composite sparklines with component breakdown
+     */
+    public static CompositeSparklines forComposite(CompositeScalarModel composite, int width) {
+        if (composite == null) {
+            return new CompositeSparklines(" ".repeat(width), java.util.List.of());
+        }
+
+        // Generate overall sparkline using samples (shows actual data shape)
+        String overall = forModelSamples(composite, width);
+
+        // Generate sparklines for each component using theoretical PDFs
+        // (shows what each component contributes)
+        java.util.List<ComponentSparkline> componentSparklines = new java.util.ArrayList<>();
+        ScalarModel[] components = composite.getScalarModels();
+        double[] weights = composite.getWeights();
+
+        for (int i = 0; i < components.length; i++) {
+            ScalarModel comp = components[i];
+            double weight = (i < weights.length) ? weights[i] : 1.0 / components.length;
+            String sparkline = forModelSamples(comp, width);
+            String params = formatComponentParams(comp);
+            componentSparklines.add(new ComponentSparkline(sparkline, weight, comp.getModelType(), params));
+        }
+
+        return new CompositeSparklines(overall, componentSparklines);
+    }
+
+    /**
+     * Formats component model parameters for display.
+     */
+    private static String formatComponentParams(ScalarModel model) {
+        if (model instanceof io.nosqlbench.vshapes.model.NormalScalarModel normal) {
+            return String.format("μ=%.2f, σ=%.2f", normal.getMean(), normal.getStdDev());
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.BetaScalarModel beta) {
+            return String.format("α=%.2f, β=%.2f", beta.getAlpha(), beta.getBeta());
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.UniformScalarModel uniform) {
+            return String.format("[%.2f,%.2f]", uniform.getLower(), uniform.getUpper());
+        }
+        if (model instanceof io.nosqlbench.vshapes.model.GammaScalarModel gamma) {
+            return String.format("k=%.2f, θ=%.2f", gamma.getShape(), gamma.getScale());
+        }
+        return model.getModelType();
     }
 }

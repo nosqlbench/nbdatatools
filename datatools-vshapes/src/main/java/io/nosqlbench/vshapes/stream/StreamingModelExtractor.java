@@ -27,6 +27,7 @@ import io.nosqlbench.vshapes.extract.InternalVerifier;
 import io.nosqlbench.vshapes.extract.ModelExtractor;
 import io.nosqlbench.vshapes.extract.Sparkline;
 import io.nosqlbench.vshapes.extract.InternalVerifier.VerificationLevel;
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import io.nosqlbench.vshapes.model.EmpiricalScalarModel;
 import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
@@ -220,8 +221,8 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
     /// KS threshold for composite models - above this triggers empirical fallback
     private double ksThresholdComposite = 0.05;
 
-    /// Maximum number of modes for composite fitting (2-4)
-    private int maxCompositeComponents = 4;
+    /// Maximum number of modes for composite fitting (2-10)
+    private int maxCompositeComponents = 10;
 
     /// Clustering strategy for composite models
     private ClusteringStrategy clusteringStrategy = ClusteringStrategy.EM;
@@ -245,7 +246,10 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
 
     /// Strategy used for a dimension during adaptive fitting
     public enum AdaptiveStrategy {
-        PARAMETRIC, COMPOSITE_2, COMPOSITE_3, COMPOSITE_4, EMPIRICAL
+        PARAMETRIC,
+        COMPOSITE_2, COMPOSITE_3, COMPOSITE_4, COMPOSITE_5,
+        COMPOSITE_6, COMPOSITE_7, COMPOSITE_8, COMPOSITE_9, COMPOSITE_10,
+        EMPIRICAL
     }
 
     // ========== Reservoir Sampling ==========
@@ -476,12 +480,12 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
         return this;
     }
 
-    /// Sets the maximum number of composite components (2-4).
+    /// Sets the maximum number of composite components (2-10).
     ///
     /// @param maxComponents maximum modes for composite fitting
     /// @return this extractor for chaining
     public StreamingModelExtractor setMaxCompositeComponents(int maxComponents) {
-        this.maxCompositeComponents = Math.max(2, Math.min(maxComponents, 4));
+        this.maxCompositeComponents = Math.max(2, Math.min(maxComponents, 10));
         return this;
     }
 
@@ -607,6 +611,19 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
         dimensionData = new float[dims][storageSize];
         writePositions = new int[dims];
 
+        // CRITICAL: Auto-disable reservoir sampling when dataset fits in storage.
+        // The streaming path must produce IDENTICAL results to the non-streaming path -
+        // reservoir sampling is only a memory optimization, not an algorithmic compromise.
+        // When storage can hold all data, we must use all data for fitting consistency.
+        if (reservoirSamplingEnabled && storageSize >= cardinality) {
+            // Dataset fits in memory - disable sampling to ensure identical results
+            reservoirSamplingEnabled = false;
+        } else if (reservoirSamplingEnabled && reservoirSize < storageSize) {
+            // If sampling is needed but reservoirSize is smaller than available storage,
+            // increase it to use all allocated memory (don't waste storage capacity)
+            reservoirSize = storageSize;
+        }
+
         // Initialize histograms for multi-modal detection if enabled
         if (histogramEnabled) {
             histograms = new StreamingHistogram[dims];
@@ -627,7 +644,7 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
             empiricalCount.set(0);
         }
 
-        // Initialize reservoir sampling
+        // Initialize reservoir sampling only if still enabled after auto-disable check
         if (reservoirSamplingEnabled) {
             perDimensionRng = new java.util.Random[dims];
             perDimensionCounts = new long[dims];
@@ -985,23 +1002,32 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
     /// Reports adaptive fitting statistics after completion.
     private void reportAdaptiveStatistics() {
         // Count strategies used
-        int parametric = 0, composite2 = 0, composite3 = 0, composite4 = 0, empirical = 0;
+        int parametric = 0, empirical = 0;
+        int[] compositeByModes = new int[11];  // Index 2-10 for composite modes
         for (AdaptiveStrategy strategy : dimensionStrategies) {
             if (strategy == null) continue;
             switch (strategy) {
                 case PARAMETRIC -> parametric++;
-                case COMPOSITE_2 -> composite2++;
-                case COMPOSITE_3 -> composite3++;
-                case COMPOSITE_4 -> composite4++;
+                case COMPOSITE_2 -> compositeByModes[2]++;
+                case COMPOSITE_3 -> compositeByModes[3]++;
+                case COMPOSITE_4 -> compositeByModes[4]++;
+                case COMPOSITE_5 -> compositeByModes[5]++;
+                case COMPOSITE_6 -> compositeByModes[6]++;
+                case COMPOSITE_7 -> compositeByModes[7]++;
+                case COMPOSITE_8 -> compositeByModes[8]++;
+                case COMPOSITE_9 -> compositeByModes[9]++;
+                case COMPOSITE_10 -> compositeByModes[10]++;
                 case EMPIRICAL -> empirical++;
             }
         }
 
         System.out.println("\n  Adaptive fitting strategies used:");
         if (parametric > 0) System.out.printf("    Parametric: %d%n", parametric);
-        if (composite2 > 0) System.out.printf("    Composite (2 modes): %d%n", composite2);
-        if (composite3 > 0) System.out.printf("    Composite (3 modes): %d%n", composite3);
-        if (composite4 > 0) System.out.printf("    Composite (4 modes): %d%n", composite4);
+        for (int modes = 2; modes <= 10; modes++) {
+            if (compositeByModes[modes] > 0) {
+                System.out.printf("    Composite (%d modes): %d%n", modes, compositeByModes[modes]);
+            }
+        }
         if (empirical > 0) System.out.printf("    Empirical: %d%n", empirical);
     }
 
@@ -1317,10 +1343,12 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
             dimValues = dimensionData[d];
         }
 
-        // Fit the best model
+        // Fit the best model and wrap as composite for unified handling
         ComponentModelFitter.FitResult result = selector.selectBestResult(stats, dimValues);
-        ScalarModel newModel = result.model();
-        String newType = newModel.getClass().getSimpleName();
+        ScalarModel rawModel = result.model();
+        ScalarModel newModel = CompositeScalarModel.wrap(rawModel);
+        // Track type based on the effective type (underlying model for simple composites)
+        String newType = rawModel.getClass().getSimpleName();
 
         // Check for model type change
         if (currentModelTypes[d] != null && !currentModelTypes[d].equals(newType)) {
@@ -1476,73 +1504,152 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
     /// @param data the sample data for model fitting
     /// @return the best-fit model for this dimension
     private ScalarModel fitDimensionAdaptive(int dimension, DimensionStatistics stats, float[] data) {
+        // Step 0: Check for multimodality FIRST - this takes priority over parametric fitting
+        // because parametric models can achieve low KS on multimodal data while being
+        // structurally wrong (e.g., Beta fitting aggregate shape of trimodal distribution)
+        boolean isMultimodal = histogramEnabled && histograms != null && histograms[dimension].isMultiModal(prominenceThreshold);
+        boolean hasGaps = histogramEnabled && histograms != null && histograms[dimension].hasSignificantGaps(prominenceThreshold);
+
         // Step 1: Try parametric fit
         ComponentModelFitter.FitResult parametricResult = selector.selectBestResult(stats, data);
         double parametricKS = parametricResult.goodnessOfFit();
 
-        // Good parametric fit - use it
-        if (parametricKS <= ksThresholdParametric) {
+        // Good parametric fit - but only accept if NOT multimodal
+        // Multimodal data should try composite fitting even if parametric KS is good
+        if (parametricKS <= ksThresholdParametric && !isMultimodal && !hasGaps) {
             dimensionStrategies[dimension] = AdaptiveStrategy.PARAMETRIC;
             parametricCount.incrementAndGet();
-            return parametricResult.model();
+            return CompositeScalarModel.wrap(parametricResult.model());
         }
 
         // Step 2: Internal verification (optional) - can rescue borderline parametric
-        if (internalVerificationEnabled && internalVerifier != null) {
+        // But NOT for multimodal data - always try composite for multimodal
+        if (!isMultimodal && !hasGaps && internalVerificationEnabled && internalVerifier != null) {
             // Find the fitter that matches the best result's model type
             ComponentModelFitter bestFitter = findFitterForModelType(parametricResult.modelType());
             if (bestFitter != null) {
                 InternalVerifier.VerificationResult vr = internalVerifier.verify(parametricResult.model(), data, bestFitter);
                 if (vr.passed()) {
-                    // Verification passed - parametric is stable enough
+                    // Verification passed - parametric is stable enough, wrap as composite
                     dimensionStrategies[dimension] = AdaptiveStrategy.PARAMETRIC;
                     parametricCount.incrementAndGet();
-                    return parametricResult.model();
+                    return CompositeScalarModel.wrap(parametricResult.model());
                 }
             }
         }
 
-        // Step 3: Try composite (mixture) models if multimodal detected
-        boolean isMultimodal = histogramEnabled && histograms != null && histograms[dimension].isMultiModal(prominenceThreshold);
+        // Step 3: Try composite (mixture) models if multimodal detected or parametric failed
+        StreamingHistogram.GapAnalysis gapAnalysis = null;
+        if (hasGaps) {
+            gapAnalysis = histograms[dimension].analyzeGaps(prominenceThreshold);
+        }
 
-        if (isMultimodal || parametricKS > ksThresholdParametric * 1.5) {
+        if (isMultimodal || hasGaps || parametricKS > ksThresholdParametric * 1.5) {
             // Hint at number of modes from histogram
             int suggestedModes = 2;
-            if (isMultimodal && histograms != null) {
+            if (histograms != null) {
                 List<StreamingHistogram.Mode> modes = histograms[dimension].findModes(prominenceThreshold);
-                suggestedModes = Math.min(modes.size(), maxCompositeComponents);
+                suggestedModes = Math.max(modes.size(), 2);
+
+                // For gap-detected distributions, number of modes = gaps + 1
+                if (gapAnalysis != null && gapAnalysis.hasGaps()) {
+                    int gapBasedModes = gapAnalysis.gaps().size() + 1;
+                    suggestedModes = Math.max(suggestedModes, gapBasedModes);
+                }
+
+                suggestedModes = Math.min(suggestedModes, maxCompositeComponents);
             }
 
-            // Try composite models with increasing complexity
-            for (int numModes = Math.max(2, suggestedModes); numModes <= maxCompositeComponents; numModes++) {
+            // For gap-detected distributions, use a relaxed threshold since the
+            // discontinuous nature makes fitting harder
+            double effectiveThreshold = hasGaps ? ksThresholdComposite * 1.5 : ksThresholdComposite;
+
+            // Try composite models with all mode counts from 2 to max
+            // We iterate over ALL mode counts (not just from suggestedModes upward) because:
+            // 1. The suggested mode count might fail (ModeDetector doesn't confirm multimodality)
+            // 2. A simpler composite (fewer modes) might fit better than a complex one
+            // 3. When maxCompositeComponents equals suggestedModes, we'd only try one fit
+            ComponentModelFitter.FitResult bestComposite = null;
+            int bestNumModes = 0;
+            double bestScore = Double.MAX_VALUE;
+
+            for (int numModes = 2; numModes <= maxCompositeComponents; numModes++) {
                 try {
                     CompositeModelFitter compositeFitter = new CompositeModelFitter(
-                        selector, numModes, ksThresholdComposite, clusteringStrategy);
+                        selector, numModes, effectiveThreshold, clusteringStrategy);
                     ComponentModelFitter.FitResult compositeResult = compositeFitter.fit(stats, data);
 
-                    if (compositeResult.goodnessOfFit() <= ksThresholdComposite) {
+                    // Track the best composite fit even if it doesn't meet threshold
+                    if (compositeResult.goodnessOfFit() < bestScore) {
+                        bestScore = compositeResult.goodnessOfFit();
+                        bestComposite = compositeResult;
+                        bestNumModes = numModes;
+                    }
+
+                    if (compositeResult.goodnessOfFit() <= effectiveThreshold) {
                         // Good composite fit
                         dimensionStrategies[dimension] = switch (numModes) {
                             case 2 -> AdaptiveStrategy.COMPOSITE_2;
                             case 3 -> AdaptiveStrategy.COMPOSITE_3;
-                            default -> AdaptiveStrategy.COMPOSITE_4;
+                            case 4 -> AdaptiveStrategy.COMPOSITE_4;
+                            case 5 -> AdaptiveStrategy.COMPOSITE_5;
+                            case 6 -> AdaptiveStrategy.COMPOSITE_6;
+                            case 7 -> AdaptiveStrategy.COMPOSITE_7;
+                            case 8 -> AdaptiveStrategy.COMPOSITE_8;
+                            case 9 -> AdaptiveStrategy.COMPOSITE_9;
+                            case 10 -> AdaptiveStrategy.COMPOSITE_10;
+                            default -> AdaptiveStrategy.COMPOSITE_10;
                         };
                         compositeCount.incrementAndGet();
-                        return compositeResult.model();
+                        // CompositeModelFitter already returns CompositeScalarModel, wrap ensures consistency
+                        return CompositeScalarModel.wrap(compositeResult.model());
                     }
                 } catch (Exception e) {
                     // Composite fitting can fail for edge cases - continue to next option
                 }
             }
+
+            // For gap-detected distributions, prefer composite over parametric if
+            // composite score is better, even if it doesn't meet threshold
+            if (hasGaps && bestComposite != null && bestScore < parametricKS) {
+                dimensionStrategies[dimension] = switch (bestNumModes) {
+                    case 2 -> AdaptiveStrategy.COMPOSITE_2;
+                    case 3 -> AdaptiveStrategy.COMPOSITE_3;
+                    case 4 -> AdaptiveStrategy.COMPOSITE_4;
+                    case 5 -> AdaptiveStrategy.COMPOSITE_5;
+                    case 6 -> AdaptiveStrategy.COMPOSITE_6;
+                    case 7 -> AdaptiveStrategy.COMPOSITE_7;
+                    case 8 -> AdaptiveStrategy.COMPOSITE_8;
+                    case 9 -> AdaptiveStrategy.COMPOSITE_9;
+                    case 10 -> AdaptiveStrategy.COMPOSITE_10;
+                    default -> AdaptiveStrategy.COMPOSITE_10;
+                };
+                compositeCount.incrementAndGet();
+                return CompositeScalarModel.wrap(bestComposite.model());
+            }
         }
 
-        // Step 4: Fallback to empirical (histogram-based)
+        // Step 4: Compare parametric vs empirical with penalty before falling back
+        // The parametric model might still be better than empirical even if it didn't
+        // pass the tight threshold - we should only use empirical if it truly scores better.
         EmpiricalModelFitter empiricalFitter = new EmpiricalModelFitter();
         ComponentModelFitter.FitResult empiricalResult = empiricalFitter.fit(stats, data);
 
+        // Apply empirical penalty (consistent with BestFitSelector default behavior)
+        // This prevents empirical from winning just because of tight parametric threshold
+        double empiricalPenalty = 0.15;  // Same as pearsonMultimodalSelector
+        double empiricalScoreWithPenalty = empiricalResult.goodnessOfFit() + empiricalPenalty;
+
+        // If parametric score is better than penalized empirical, use parametric
+        if (parametricKS <= empiricalScoreWithPenalty) {
+            dimensionStrategies[dimension] = AdaptiveStrategy.PARAMETRIC;
+            parametricCount.incrementAndGet();
+            return CompositeScalarModel.wrap(parametricResult.model());
+        }
+
         dimensionStrategies[dimension] = AdaptiveStrategy.EMPIRICAL;
         empiricalCount.incrementAndGet();
-        return empiricalResult.model();
+        return CompositeScalarModel.wrap(empiricalResult.model());
     }
 
     /// Returns the strategy used for a specific dimension during adaptive fitting.
@@ -1692,7 +1799,7 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
         private boolean adaptiveEnabled = true;
         private double ksThresholdParametric = 0.03;
         private double ksThresholdComposite = 0.05;
-        private int maxCompositeComponents = 4;
+        private int maxCompositeComponents = 10;
         private ClusteringStrategy clusteringStrategy = ClusteringStrategy.EM;
         private boolean internalVerificationEnabled = true;
         private VerificationLevel verificationLevel = VerificationLevel.BALANCED;

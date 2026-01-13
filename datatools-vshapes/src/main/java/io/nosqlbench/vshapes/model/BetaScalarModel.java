@@ -197,6 +197,20 @@ public class BetaScalarModel implements ScalarModel {
     }
 
     /**
+     * Returns whether this Beta distribution is effectively uniform.
+     *
+     * <p>Beta(1, 1) is mathematically identical to a uniform distribution.
+     * This method returns true when both α and β are within a tolerance of 1.0,
+     * indicating that the distribution behaves like a uniform distribution
+     * and could be replaced with a simpler Uniform model.
+     *
+     * @return true if α ≈ 1 and β ≈ 1 (within 0.1 tolerance)
+     */
+    public boolean isEffectivelyUniform() {
+        return Math.abs(alpha - 1.0) < 0.1 && Math.abs(beta - 1.0) < 0.1;
+    }
+
+    /**
      * Returns the Pearson type for this beta distribution.
      * @return TYPE_II_SYMMETRIC_BETA if α = β, otherwise TYPE_I_BETA
      */

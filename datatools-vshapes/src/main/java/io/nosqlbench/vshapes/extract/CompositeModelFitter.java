@@ -86,26 +86,30 @@ public final class CompositeModelFitter implements ComponentModelFitter {
     /** Default maximum number of components */
     private static final int DEFAULT_MAX_COMPONENTS = 4;
 
+    /** Maximum supported components (matches ModeDetector limit) */
+    private static final int MAX_SUPPORTED_COMPONENTS = 10;
+
     /** Minimum data points per mode to fit a distribution */
     private static final int MIN_POINTS_PER_MODE = 50;
 
     /** Number of points to use for CDF validation */
     private static final int CDF_VALIDATION_POINTS = 100;
 
-    /** Maximum K-S distance to accept composite model */
-    private static final double MAX_CDF_DEVIATION = 0.05;
+    /** Maximum K-S distance to accept composite model (relaxed to 0.10 for normalized data) */
+    private static final double MAX_CDF_DEVIATION = 0.10;
 
     private final BestFitSelector componentSelector;
     private final int maxComponents;
     private final double maxCdfDeviation;
     private final ClusteringStrategy clusteringStrategy;
+    private final boolean useAdaptiveResolution;
 
     /**
      * Creates a composite fitter using the default bounded data selector for components.
      * Uses EM clustering by default.
      */
     public CompositeModelFitter() {
-        this(BestFitSelector.boundedDataSelector(), DEFAULT_MAX_COMPONENTS, MAX_CDF_DEVIATION, ClusteringStrategy.EM);
+        this(BestFitSelector.boundedDataSelector(), DEFAULT_MAX_COMPONENTS, MAX_CDF_DEVIATION, ClusteringStrategy.EM, false);
     }
 
     /**
@@ -115,7 +119,7 @@ public final class CompositeModelFitter implements ComponentModelFitter {
      * @param componentSelector selector for fitting each mode's distribution
      */
     public CompositeModelFitter(BestFitSelector componentSelector) {
-        this(componentSelector, DEFAULT_MAX_COMPONENTS, MAX_CDF_DEVIATION, ClusteringStrategy.EM);
+        this(componentSelector, DEFAULT_MAX_COMPONENTS, MAX_CDF_DEVIATION, ClusteringStrategy.EM, false);
     }
 
     /**
@@ -125,7 +129,7 @@ public final class CompositeModelFitter implements ComponentModelFitter {
      * @param maxComponents maximum number of components (2-4)
      */
     public CompositeModelFitter(BestFitSelector componentSelector, int maxComponents) {
-        this(componentSelector, maxComponents, MAX_CDF_DEVIATION, ClusteringStrategy.EM);
+        this(componentSelector, maxComponents, MAX_CDF_DEVIATION, ClusteringStrategy.EM, false);
     }
 
     /**
@@ -136,23 +140,52 @@ public final class CompositeModelFitter implements ComponentModelFitter {
      * @param maxCdfDeviation maximum K-S distance between composite and empirical CDF
      */
     public CompositeModelFitter(BestFitSelector componentSelector, int maxComponents, double maxCdfDeviation) {
-        this(componentSelector, maxComponents, maxCdfDeviation, ClusteringStrategy.EM);
+        this(componentSelector, maxComponents, maxCdfDeviation, ClusteringStrategy.EM, false);
     }
 
     /**
      * Creates a composite fitter with full configuration including clustering strategy.
      *
      * @param componentSelector selector for fitting each mode's distribution
-     * @param maxComponents maximum number of components (2-4)
+     * @param maxComponents maximum number of components (2-10)
      * @param maxCdfDeviation maximum K-S distance between composite and empirical CDF
      * @param clusteringStrategy the clustering strategy to use (HARD or EM)
      */
     public CompositeModelFitter(BestFitSelector componentSelector, int maxComponents,
                                  double maxCdfDeviation, ClusteringStrategy clusteringStrategy) {
+        this(componentSelector, maxComponents, maxCdfDeviation, clusteringStrategy, false);
+    }
+
+    /**
+     * Creates a composite fitter with full configuration including adaptive resolution.
+     *
+     * <p>When adaptive resolution is enabled, the mode detector will iteratively
+     * increase histogram resolution when it suspects merged peaks, improving
+     * detection of closely-spaced modes in high-mode-count composites.
+     *
+     * @param componentSelector selector for fitting each mode's distribution
+     * @param maxComponents maximum number of components (2-10)
+     * @param maxCdfDeviation maximum K-S distance between composite and empirical CDF
+     * @param clusteringStrategy the clustering strategy to use (HARD or EM)
+     * @param useAdaptiveResolution whether to use adaptive resolution mode detection
+     */
+    public CompositeModelFitter(BestFitSelector componentSelector, int maxComponents,
+                                 double maxCdfDeviation, ClusteringStrategy clusteringStrategy,
+                                 boolean useAdaptiveResolution) {
         this.componentSelector = componentSelector;
-        this.maxComponents = Math.max(2, Math.min(maxComponents, 4));
+        this.maxComponents = Math.max(2, Math.min(maxComponents, MAX_SUPPORTED_COMPONENTS));
         this.maxCdfDeviation = maxCdfDeviation;
         this.clusteringStrategy = clusteringStrategy;
+        this.useAdaptiveResolution = useAdaptiveResolution;
+    }
+
+    /**
+     * Returns whether adaptive resolution mode detection is enabled.
+     *
+     * @return true if adaptive resolution is enabled
+     */
+    public boolean isUseAdaptiveResolution() {
+        return useAdaptiveResolution;
     }
 
     /**
@@ -187,8 +220,10 @@ public final class CompositeModelFitter implements ComponentModelFitter {
 
     @Override
     public FitResult fit(DimensionStatistics stats, float[] values) {
-        // Step 1: Detect modes
-        ModeDetectionResult modeResult = ModeDetector.detect(values, maxComponents);
+        // Step 1: Detect modes (use adaptive resolution if enabled)
+        ModeDetectionResult modeResult = useAdaptiveResolution
+            ? ModeDetector.detectAdaptive(values, maxComponents)
+            : ModeDetector.detect(values, maxComponents);
 
         // Only proceed if data is multimodal
         if (!modeResult.isMultimodal()) {

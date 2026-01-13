@@ -110,9 +110,12 @@ public class CMD_generate_sketch implements Callable<Integer> {
     private String distributionMix = "bounded";
 
     @CommandLine.Option(names = {"--max-modes"},
-        description = "Maximum number of modes for multimodal distributions (default: 4, used with --mix=full)",
+        description = "Maximum number of modes for multimodal distributions (default: 4, max: 10, used with --mix=full)",
         defaultValue = "4")
     private int maxModes = 4;
+
+    /** Maximum supported modes - matches CompositeModelFitter limit */
+    private static final int MAX_SUPPORTED_MODES = 10;
 
     @CommandLine.Option(names = {"--model-out"},
         description = "Optional path to write the ground-truth model JSON")
@@ -134,8 +137,8 @@ public class CMD_generate_sketch implements Callable<Integer> {
 
     @CommandLine.Option(names = {"--normalize", "--normalized"},
         description = "Normalize vectors to unit length (L2 norm = 1.0). Default: true",
-        defaultValue = "true",
-        negatable = true)
+        negatable = true,
+        fallbackValue = "true")
     private boolean normalize = true;
 
     @CommandLine.Spec
@@ -174,6 +177,15 @@ public class CMD_generate_sketch implements Callable<Integer> {
         } catch (IllegalArgumentException e) {
             System.err.println("Error: " + e.getMessage());
             return EXIT_ERROR;
+        }
+
+        // Validate and clamp max modes
+        if (maxModes < 2) {
+            System.err.println("Warning: --max-modes must be at least 2, using 2");
+            maxModes = 2;
+        } else if (maxModes > MAX_SUPPORTED_MODES) {
+            System.err.println("Warning: --max-modes exceeds limit of " + MAX_SUPPORTED_MODES + ", clamping");
+            maxModes = MAX_SUPPORTED_MODES;
         }
 
         // Validate vector spec
@@ -415,36 +427,70 @@ public class CMD_generate_sketch implements Callable<Integer> {
     /**
      * Creates a comprehensive mix including all distribution types and multimodal.
      *
-     * <p>Distribution breakdown designed to test empirical fallback thresholds:
+     * <p>Distribution breakdown designed to test empirical fallback thresholds.
+     * When maxModes <= 4:
      * <ul>
      *   <li>~25% Normal (unimodal)</li>
      *   <li>~20% Beta (unimodal)</li>
      *   <li>~15% Uniform (unimodal)</li>
      *   <li>~15% 2-mode composite</li>
      *   <li>~15% 3-mode composite</li>
-     *   <li>~10% 4-mode composite (or up to maxModes)</li>
+     *   <li>~10% 4-mode composite</li>
+     * </ul>
+     *
+     * <p>When maxModes > 4, additional high-mode composites are included:
+     * <ul>
+     *   <li>~20% Normal/Beta/Uniform (combined)</li>
+     *   <li>~16% 2-3 mode composite</li>
+     *   <li>~16% 4-5 mode composite</li>
+     *   <li>~16% 6-7 mode composite</li>
+     *   <li>~16% 8-9 mode composite</li>
+     *   <li>~16% 10 mode composite</li>
      * </ul>
      */
     private ScalarModel createFullMixModel(int dimension, Random rng) {
-        int choice = dimension % 20;
-        if (choice < 5) {
-            // 25% Normal
-            return createNormalModel(dimension, rng);
-        } else if (choice < 9) {
-            // 20% Beta
-            return createBetaModel(dimension, rng);
-        } else if (choice < 12) {
-            // 15% Uniform
-            return createUniformModel(dimension, rng);
-        } else if (choice < 15) {
-            // 15% 2-mode composite
-            return createCompositeModel(dimension, rng, 2);
-        } else if (choice < 18) {
-            // 15% 3-mode composite
-            return createCompositeModel(dimension, rng, Math.min(3, maxModes));
+        if (maxModes <= 4) {
+            // Original distribution for low mode counts
+            int choice = dimension % 20;
+            if (choice < 5) {
+                return createNormalModel(dimension, rng);
+            } else if (choice < 9) {
+                return createBetaModel(dimension, rng);
+            } else if (choice < 12) {
+                return createUniformModel(dimension, rng);
+            } else if (choice < 15) {
+                return createCompositeModel(dimension, rng, 2);
+            } else if (choice < 18) {
+                return createCompositeModel(dimension, rng, Math.min(3, maxModes));
+            } else {
+                return createCompositeModel(dimension, rng, Math.min(4, maxModes));
+            }
         } else {
-            // 10% 4-mode composite (or maxModes)
-            return createCompositeModel(dimension, rng, Math.min(4, maxModes));
+            // Extended distribution for high mode counts (5-10)
+            int choice = dimension % 25;
+            if (choice < 5) {
+                // 20% unimodal (mix of Normal, Beta, Uniform)
+                return switch (choice % 3) {
+                    case 0 -> createNormalModel(dimension, rng);
+                    case 1 -> createBetaModel(dimension, rng);
+                    default -> createUniformModel(dimension, rng);
+                };
+            } else if (choice < 9) {
+                // 16% 2-3 mode composite
+                return createCompositeModel(dimension, rng, 2 + (dimension % 2));
+            } else if (choice < 13) {
+                // 16% 4-5 mode composite
+                return createCompositeModel(dimension, rng, Math.min(4 + (dimension % 2), maxModes));
+            } else if (choice < 17) {
+                // 16% 6-7 mode composite
+                return createCompositeModel(dimension, rng, Math.min(6 + (dimension % 2), maxModes));
+            } else if (choice < 21) {
+                // 16% 8-9 mode composite
+                return createCompositeModel(dimension, rng, Math.min(8 + (dimension % 2), maxModes));
+            } else {
+                // 16% max modes composite (up to 10)
+                return createCompositeModel(dimension, rng, maxModes);
+            }
         }
     }
 
@@ -515,7 +561,7 @@ public class CMD_generate_sketch implements Callable<Integer> {
         int betaCount = 0;
         int uniformCount = 0;
         int compositeCount = 0;
-        int[] modeCountBreakdown = new int[5];  // Index = number of modes (2, 3, 4)
+        int[] modeCountBreakdown = new int[MAX_SUPPORTED_MODES + 1];  // Index = number of modes (2-10)
         int otherCount = 0;
 
         for (ScalarModel model : models) {
@@ -528,7 +574,7 @@ public class CMD_generate_sketch implements Callable<Integer> {
             } else if (model instanceof CompositeScalarModel composite) {
                 compositeCount++;
                 int modes = composite.getComponentCount();
-                if (modes >= 2 && modes <= 4) {
+                if (modes >= 2 && modes <= MAX_SUPPORTED_MODES) {
                     modeCountBreakdown[modes]++;
                 }
             } else {
@@ -554,9 +600,9 @@ public class CMD_generate_sketch implements Callable<Integer> {
             System.out.printf("  Composite:          %d dimensions (%.1f%%)%n",
                 compositeCount, 100.0 * compositeCount / models.length);
             // Show mode breakdown
-            for (int modes = 2; modes <= 4; modes++) {
+            for (int modes = 2; modes <= MAX_SUPPORTED_MODES; modes++) {
                 if (modeCountBreakdown[modes] > 0) {
-                    System.out.printf("    %d-mode:          %d dimensions%n",
+                    System.out.printf("    %2d-mode:          %d dimensions%n",
                         modes, modeCountBreakdown[modes]);
                 }
             }

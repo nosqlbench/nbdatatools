@@ -14,6 +14,7 @@ High parameter drift           Sensitive parameters      Section 3
 Type mismatch in round-trip    Close competing fits      Section 4
 Very slow extraction           Large dataset/dimensions  Section 5
 "Panama not enabled" error     Missing JVM option        Section 6
+Composites not detected        L2 normalization effects  Section 8
 ```
 
 ---
@@ -75,13 +76,20 @@ nbvectors analyze histogram --input data.fvec --dimension 23
 
 Look for multiple peaks in the histogram.
 
-**Solution: Use empirical model**
+**Solution 1: Use empirical model for specific dimensions**
 ```bash
 nbvectors analyze profile \
     --input data.fvec \
     --output model.json \
-    --model-type empirical
+    --empirical-dimensions 23
 ```
+
+**Solution 2: Let composite fitting handle it**
+
+The system automatically tries composite (multimodal) fitting when parametric
+fails. If composite fitting also fails, check if your data is L2 normalized -
+normalization can smear multimodal structures. See [Section 8](#section-8-composite-distributions-not-detected)
+and [Model Fitting and Normalization](./06_model_fitting.md) for details.
 
 ---
 
@@ -366,6 +374,98 @@ nbvectors analyze stats --input data.fvec --all-dimensions
 ```bash
 nbvectors analyze model-diff --original model1.json --compare model2.json
 ```
+
+---
+
+## Section 8: Composite Distributions Not Detected
+
+### Symptoms
+
+```
+Ground truth model:
+  Composite: 40 dimensions (40.0%)
+    2-mode: 15 dimensions
+    3-mode: 15 dimensions
+    4-mode: 10 dimensions
+
+Extracted model:
+  Composite: 4 dimensions (4.0%)     ← Far fewer than expected
+  Empirical: 56 dimensions (56.0%)   ← Many fell back to empirical
+```
+
+### Cause: L2 Normalization Effects
+
+When vectors are L2-normalized (unit length), the per-dimension distributions
+become coupled and multimodal structures get distorted:
+
+```
+Before Normalization:              After Normalization:
+
+ ▁▃▆█▆▃▁    ▁▃▆█▆▃▁               ▁▂▃▄▅▆▆▆▅▄▃▂▁
+      ↑         ↑                        ↑
+    Mode 1    Mode 2               Modes smeared together
+```
+
+**Why this happens:**
+- L2 normalization divides each component by the vector's length
+- The length depends on ALL dimensions, not just the current one
+- This couples dimensions that were previously independent
+- Mode separation gets "smeared out" as the normalizing factor varies
+
+### Diagnosis
+
+Check if your data is normalized:
+
+```bash
+nbvectors analyze profile -b data.fvec -o model.json
+
+# Look for this in the output:
+# Normalization detection: NORMALIZED (100/100 samples normalized, 100.0%)
+```
+
+### Solutions
+
+**Solution 1: Accept that normalized data has limited composite detection**
+
+This is expected behavior, not a bug. For normalized embeddings, the empirical
+fallback models still produce accurate synthetic vectors. The round-trip
+verification will still pass.
+
+**Solution 2: For testing composite detection, use unnormalized data**
+
+```bash
+# Generate test data WITHOUT normalization
+nbvectors generate sketch -d 100 -n 25000 \
+  --mix=full \
+  --no-normalize \
+  -o test_vectors.fvec --format xvec
+
+# Composite distributions will now be detected correctly
+nbvectors analyze profile -b test_vectors.fvec -o model.json --verify
+```
+
+**Solution 3: Relax composite fitting thresholds**
+
+For normalized data where you still want to try composite fitting:
+
+```bash
+nbvectors analyze profile -b data.fvec -o model.json \
+  --ks-threshold-composite 0.15  # More permissive (default is 0.10)
+```
+
+### Understanding the Trade-offs
+
+| Data Type | Composite Detection | Empirical Fallback | Round-Trip Accuracy |
+|-----------|---------------------|--------------------|--------------------|
+| Unnormalized | High | Low | High |
+| L2 Normalized | Low | High | High (via empirical) |
+
+The key insight: **empirical models are not a failure mode**. They accurately
+capture any distribution shape and always round-trip correctly. For normalized
+embeddings, having many empirical dimensions is normal and expected.
+
+For detailed explanation of model fitting logic, see
+[Model Fitting and Normalization](./06_model_fitting.md).
 
 ---
 

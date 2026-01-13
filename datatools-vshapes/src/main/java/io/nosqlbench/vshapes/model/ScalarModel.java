@@ -140,4 +140,21 @@ public interface ScalarModel extends TensorModel {
     /// @param x the value at which to evaluate the CDF
     /// @return the cumulative probability P(X ≤ x), in range [0, 1]
     double cdf(double x);
+
+    /// Returns this model in canonical form for deterministic comparison.
+    ///
+    /// For most model types, canonical form is the model itself. For
+    /// {@link CompositeScalarModel}, canonical form has components sorted
+    /// by their characteristic location (mean/mode).
+    ///
+    /// Canonical form enables:
+    /// - Deterministic serialization and comparison
+    /// - Round-trip verification testing
+    /// - Consistent ordering of composite components
+    ///
+    /// @return this model in canonical form
+    /// @see ScalarModelComparator
+    default ScalarModel toCanonicalForm() {
+        return this;  // Default: most models are already canonical
+    }
 }

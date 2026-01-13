@@ -10,6 +10,7 @@ accuracy of vector space model extraction and synthetic data generation.
 3. [**Understanding the Results**](./03_interpreting_results.md) - How to read the output
 4. [**Troubleshooting**](./04_troubleshooting.md) - Common issues and solutions
 5. [**Command Reference**](./05_command_reference.md) - Copy-paste ready commands
+6. [**Model Fitting and Normalization**](./06_model_fitting.md) - How models are selected and normalization effects
 
 ## Overview
 

@@ -102,6 +102,12 @@ public final class UniformModelFitter extends AbstractParametricFitter {
         return new UniformModelFitter(-1.0, 1.0);
     }
 
+    /// Expected raw kurtosis for uniform distribution: 1.8 (excess kurtosis = -1.2)
+    private static final double UNIFORM_KURTOSIS = 1.8;
+
+    /// Tolerance for kurtosis-based scoring adjustment
+    private static final double KURTOSIS_TOLERANCE = 0.5;
+
     @Override
     protected ScalarModel estimateParameters(DimensionStatistics stats, float[] values) {
         // Use explicit bounds if provided
@@ -123,6 +129,36 @@ public final class UniformModelFitter extends AbstractParametricFitter {
         double upper = max + extension;
 
         return new UniformScalarModel(lower, upper);
+    }
+
+    @Override
+    public FitResult fit(DimensionStatistics stats, float[] values) {
+        ScalarModel model = estimateParameters(stats, values);
+        double ksScore = computeKSStatistic(model, values);
+
+        // Apply kurtosis-based adjustment to improve discrimination vs Normal.
+        // Uniform has kurtosis ≈ 1.8, Normal has kurtosis ≈ 3.0.
+        // If observed kurtosis is near 1.8, boost the score (lower is better).
+        // If observed kurtosis is near 3.0, penalize the score.
+        double kurtosis = stats.kurtosis();
+        double kurtosisDistance = Math.abs(kurtosis - UNIFORM_KURTOSIS);
+
+        // Score adjustment: bonus for kurtosis near 1.8, penalty for far from 1.8
+        // Maximum bonus/penalty is ±20% of the K-S score
+        double kurtosisAdjustment;
+        if (kurtosisDistance < KURTOSIS_TOLERANCE) {
+            // Kurtosis is uniform-like: give a bonus (reduce score)
+            kurtosisAdjustment = -0.2 * ksScore * (1.0 - kurtosisDistance / KURTOSIS_TOLERANCE);
+        } else if (kurtosis > 2.5) {
+            // Kurtosis is more normal-like: apply penalty (increase score)
+            double normalDistance = Math.min(Math.abs(kurtosis - 3.0), 1.0);
+            kurtosisAdjustment = 0.2 * ksScore * (1.0 - normalDistance);
+        } else {
+            kurtosisAdjustment = 0;
+        }
+
+        double adjustedScore = Math.max(0, ksScore + kurtosisAdjustment);
+        return new FitResult(model, adjustedScore, getModelType());
     }
 
     @Override

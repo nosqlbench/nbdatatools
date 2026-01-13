@@ -351,8 +351,212 @@ public final class StreamingHistogram {
     /// @param prominenceThreshold minimum prominence as fraction of max count
     /// @return true if more than one significant mode is detected
     public boolean isMultiModal(double prominenceThreshold) {
-        return findModes(prominenceThreshold).size() > 1;
+        // First check standard peak detection
+        List<Mode> modes = findModes(prominenceThreshold);
+        if (modes.size() > 1) {
+            return true;
+        }
+
+        // Also check for discontinuous distributions with gaps
+        // These might have peaks that don't meet prominence threshold but have
+        // clear valleys/gaps between them
+        return hasSignificantGaps(prominenceThreshold);
     }
+
+    /// Detects significant gaps in the histogram indicating discontinuous modes.
+    ///
+    /// A "gap" is a valley (local minimum) that is significantly lower than the
+    /// peaks (local maxima) on either side. This catches discontinuous distributions
+    /// like (uniform1 + gap + normal + gap + uniform2) that standard peak detection
+    /// might miss if the peaks don't have sufficient prominence.
+    ///
+    /// This implementation uses valley-to-peak contrast ratio instead of absolute
+    /// thresholds, making it more robust to different distribution shapes.
+    ///
+    /// @param prominenceThreshold used to scale gap detection sensitivity
+    /// @return true if significant gaps are detected
+    public boolean hasSignificantGaps(double prominenceThreshold) {
+        if (totalCount == 0 || numBins < 10) {
+            return false;
+        }
+
+        double[] smoothed = smooth(5);  // Wider smoothing for cleaner peaks/valleys
+        double maxCount = 0;
+        for (double c : smoothed) {
+            if (c > maxCount) maxCount = c;
+        }
+
+        if (maxCount == 0) return false;
+
+        // Find all local minima (valleys) and maxima (peaks)
+        List<Integer> valleys = new ArrayList<>();
+        List<Integer> peaks = new ArrayList<>();
+
+        for (int i = 2; i < numBins - 2; i++) {
+            double prev = smoothed[i - 1];
+            double curr = smoothed[i];
+            double next = smoothed[i + 1];
+
+            if (curr < prev && curr < next && curr < maxCount * 0.5) {
+                // Local minimum that's at least 50% below max
+                valleys.add(i);
+            }
+            if (curr > prev && curr > next && curr > maxCount * prominenceThreshold) {
+                // Local maximum above prominence threshold
+                peaks.add(i);
+            }
+        }
+
+        // Also check edges for peaks
+        if (smoothed[0] > smoothed[1] && smoothed[0] > maxCount * prominenceThreshold) {
+            peaks.addFirst(0);
+        }
+        if (smoothed[numBins - 1] > smoothed[numBins - 2] && smoothed[numBins - 1] > maxCount * prominenceThreshold) {
+            peaks.add(numBins - 1);
+        }
+
+        // A significant gap is a valley that lies between two peaks with good contrast
+        int significantGaps = 0;
+        for (int valley : valleys) {
+            double valleyHeight = smoothed[valley];
+
+            // Find nearest peaks on each side
+            int leftPeak = -1;
+            int rightPeak = -1;
+            for (int p : peaks) {
+                if (p < valley) leftPeak = p;
+                else if (p > valley && rightPeak < 0) rightPeak = p;
+            }
+
+            if (leftPeak >= 0 && rightPeak >= 0) {
+                double leftHeight = smoothed[leftPeak];
+                double rightHeight = smoothed[rightPeak];
+                double lowerPeak = Math.min(leftHeight, rightHeight);
+
+                // Gap contrast: valley should be significantly lower than surrounding peaks
+                // Use a ratio instead of absolute threshold for robustness
+                double contrastRatio = valleyHeight / lowerPeak;
+
+                // Valley should be at most 40% of the lower neighboring peak
+                // (effectively a 60% drop from peak to valley)
+                if (contrastRatio < 0.4) {
+                    significantGaps++;
+                }
+            }
+        }
+
+        return significantGaps >= 1;
+    }
+
+    /// Returns a GapAnalysis with detailed information about gaps in the distribution.
+    ///
+    /// This method uses valley-to-peak contrast analysis to find gaps (valleys between
+    /// peaks with significant contrast).
+    ///
+    /// @param prominenceThreshold threshold for gap detection
+    /// @return analysis result with gap locations and statistics
+    public GapAnalysis analyzeGaps(double prominenceThreshold) {
+        if (totalCount == 0 || numBins < 10) {
+            return new GapAnalysis(List.of(), 0, false);
+        }
+
+        double[] smoothed = smooth(5);  // Match hasSignificantGaps smoothing
+        double maxCount = 0;
+        for (double c : smoothed) {
+            if (c > maxCount) maxCount = c;
+        }
+
+        if (maxCount == 0) {
+            return new GapAnalysis(List.of(), 0, false);
+        }
+
+        // Find all local minima (valleys) and maxima (peaks)
+        List<Integer> valleys = new ArrayList<>();
+        List<Integer> peaks = new ArrayList<>();
+
+        for (int i = 2; i < numBins - 2; i++) {
+            double prev = smoothed[i - 1];
+            double curr = smoothed[i];
+            double next = smoothed[i + 1];
+
+            if (curr < prev && curr < next && curr < maxCount * 0.5) {
+                valleys.add(i);
+            }
+            if (curr > prev && curr > next && curr > maxCount * prominenceThreshold) {
+                peaks.add(i);
+            }
+        }
+
+        // Also check edges for peaks
+        if (smoothed[0] > smoothed[1] && smoothed[0] > maxCount * prominenceThreshold) {
+            peaks.addFirst(0);
+        }
+        if (smoothed[numBins - 1] > smoothed[numBins - 2] && smoothed[numBins - 1] > maxCount * prominenceThreshold) {
+            peaks.add(numBins - 1);
+        }
+
+        // Find significant gaps (valleys with good contrast to surrounding peaks)
+        List<Gap> gaps = new ArrayList<>();
+        double maxGapWidth = 0;
+
+        for (int valley : valleys) {
+            double valleyHeight = smoothed[valley];
+
+            // Find nearest peaks on each side
+            int leftPeak = -1;
+            int rightPeak = -1;
+            for (int p : peaks) {
+                if (p < valley) leftPeak = p;
+                else if (p > valley && rightPeak < 0) rightPeak = p;
+            }
+
+            if (leftPeak >= 0 && rightPeak >= 0) {
+                double leftHeight = smoothed[leftPeak];
+                double rightHeight = smoothed[rightPeak];
+                double lowerPeak = Math.min(leftHeight, rightHeight);
+
+                double contrastRatio = valleyHeight / lowerPeak;
+
+                // Valley should be at most 40% of the lower neighboring peak
+                if (contrastRatio < 0.4) {
+                    // Estimate gap width from valley to first bin above 50% threshold on each side
+                    int gapStart = valley;
+                    int gapEnd = valley;
+                    double halfPeak = lowerPeak * 0.5;
+
+                    while (gapStart > leftPeak && smoothed[gapStart] < halfPeak) gapStart--;
+                    while (gapEnd < rightPeak && smoothed[gapEnd] < halfPeak) gapEnd++;
+
+                    int gapWidth = gapEnd - gapStart + 1;
+                    double gapStartValue = minValue + gapStart * binWidth;
+                    double gapEndValue = minValue + gapEnd * binWidth;
+
+                    gaps.add(new Gap(gapStart, gapEnd, gapStartValue, gapEndValue, contrastRatio, gapWidth));
+                    maxGapWidth = Math.max(maxGapWidth, gapWidth);
+                }
+            }
+        }
+
+        return new GapAnalysis(gaps, maxGapWidth, !gaps.isEmpty());
+    }
+
+    /// Information about a gap (low-count region) in the histogram.
+    ///
+    /// @param startBin starting bin index of the gap
+    /// @param endBin ending bin index of the gap
+    /// @param startValue starting value of the gap
+    /// @param endValue ending value of the gap
+    /// @param depthRatio depth of gap relative to max count (lower = deeper gap)
+    /// @param widthBins width of gap in bins
+    public record Gap(int startBin, int endBin, double startValue, double endValue,
+                      double depthRatio, int widthBins) {}
+
+    /// Analysis result for gap detection.
+    ///
+    /// @param gaps list of detected gaps
+    /// @param maxGapWidth maximum gap width in bins
+    /// @param hasGaps true if any significant gaps were found
+    public record GapAnalysis(List<Gap> gaps, double maxGapWidth, boolean hasGaps) {}
 
     /// Returns the number of bins.
     public int getNumBins() {

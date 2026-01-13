@@ -128,6 +128,50 @@ public final class NormalModelFitter extends AbstractParametricFitter {
         }
     }
 
+    /// Expected raw kurtosis for normal distribution: 3.0 (excess kurtosis = 0)
+    private static final double NORMAL_KURTOSIS = 3.0;
+
+    /// Kurtosis threshold below which data looks more uniform-like
+    private static final double UNIFORM_LIKE_KURTOSIS = 2.2;
+
+    @Override
+    public FitResult fit(DimensionStatistics stats, float[] values) {
+        ScalarModel model = estimateParameters(stats, values);
+        double ksScore = computeKSStatistic(model, values);
+
+        // Apply kurtosis-based adjustment to improve discrimination vs Uniform.
+        // Normal has kurtosis ≈ 3.0, Uniform has kurtosis ≈ 1.8.
+        // If observed kurtosis is near 3.0, boost the score (lower is better).
+        // If observed kurtosis is near 1.8, penalize the score (prefer Uniform).
+        double kurtosis = stats.kurtosis();
+
+        // Score adjustment: bonus for kurtosis near 3.0, penalty for flat distributions
+        // For symmetric data with Normal-like kurtosis, give a strong bonus.
+        double kurtosisAdjustment;
+        double skewness = Math.abs(stats.skewness());
+
+        if (Math.abs(kurtosis - NORMAL_KURTOSIS) < 0.5 && skewness < 0.3) {
+            // Symmetric data with Normal-like kurtosis: strong bonus (reduce score by up to 40%)
+            // This ensures Normal beats Student-t for truly Normal data
+            double normalDistance = Math.abs(kurtosis - NORMAL_KURTOSIS);
+            double symmetry = 1.0 - skewness / 0.3;  // Higher for more symmetric
+            kurtosisAdjustment = -0.40 * ksScore * (1.0 - normalDistance / 0.5) * symmetry;
+        } else if (Math.abs(kurtosis - NORMAL_KURTOSIS) < 0.5) {
+            // Kurtosis is normal-like but data is skewed: smaller bonus
+            double normalDistance = Math.abs(kurtosis - NORMAL_KURTOSIS);
+            kurtosisAdjustment = -0.15 * ksScore * (1.0 - normalDistance / 0.5);
+        } else if (kurtosis < UNIFORM_LIKE_KURTOSIS) {
+            // Kurtosis is uniform-like (platykurtic): apply penalty (increase score)
+            double flatness = Math.max(0, (UNIFORM_LIKE_KURTOSIS - kurtosis) / 0.5);
+            kurtosisAdjustment = 0.25 * ksScore * Math.min(1.0, flatness);
+        } else {
+            kurtosisAdjustment = 0;
+        }
+
+        double adjustedScore = Math.max(0, ksScore + kurtosisAdjustment);
+        return new FitResult(model, adjustedScore, getModelType());
+    }
+
     @Override
     public String getModelType() {
         return NormalScalarModel.MODEL_TYPE;

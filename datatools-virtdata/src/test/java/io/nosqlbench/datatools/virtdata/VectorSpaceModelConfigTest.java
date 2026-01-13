@@ -17,7 +17,10 @@ package io.nosqlbench.datatools.virtdata;
  * under the License.
  */
 
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import io.nosqlbench.vshapes.model.NormalScalarModel;
+import io.nosqlbench.vshapes.model.ScalarModel;
+import io.nosqlbench.vshapes.model.UniformScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -235,6 +239,75 @@ class VectorSpaceModelConfigTest {
         NormalScalarModel origComp = (NormalScalarModel) original.scalarModel(0);
         NormalScalarModel restComp = (NormalScalarModel) restored.scalarModel(0);
         assertEquals(origComp.isTruncated(), restComp.isTruncated());
+    }
+
+    /// Tests that composite (mixture) models survive file round-trip serialization.
+    ///
+    /// This test ensures that VectorSpaceModelConfig.ComponentConfig properly
+    /// serializes and deserializes CompositeScalarModel instances, including
+    /// their sub-models and weights. This is critical for the --reference-model
+    /// feature where generated models with composite distributions are saved
+    /// and later loaded for comparison.
+    @Test
+    void testCompositeModelFileRoundTrip(@TempDir Path tempDir) throws IOException {
+        // Create a model with composite distributions (mixture models)
+        ScalarModel[] dimensions = new ScalarModel[3];
+
+        // Dimension 0: simple normal
+        dimensions[0] = new NormalScalarModel(0.0, 1.0, -1.0, 1.0);
+
+        // Dimension 1: 2-component composite (bimodal)
+        dimensions[1] = new CompositeScalarModel(
+            List.of(
+                new NormalScalarModel(-0.5, 0.2, -1.0, 1.0),
+                new NormalScalarModel(0.5, 0.2, -1.0, 1.0)
+            ),
+            new double[]{0.6, 0.4}
+        );
+
+        // Dimension 2: 3-component composite with mixed types
+        dimensions[2] = new CompositeScalarModel(
+            List.of(
+                new UniformScalarModel(-1.0, -0.3),
+                new NormalScalarModel(0.0, 0.2, -1.0, 1.0),
+                new UniformScalarModel(0.3, 1.0)
+            ),
+            new double[]{0.3, 0.4, 0.3}
+        );
+
+        VectorSpaceModel original = new VectorSpaceModel(1_000_000, dimensions);
+        Path file = tempDir.resolve("composite_model.json");
+
+        // Save to file
+        VectorSpaceModelConfig.saveToFile(original, file);
+        assertTrue(file.toFile().exists());
+
+        // Load from file
+        VectorSpaceModel restored = VectorSpaceModelConfig.loadFromFile(file);
+
+        // Verify basic structure
+        assertEquals(original.uniqueVectors(), restored.uniqueVectors());
+        assertEquals(original.dimensions(), restored.dimensions());
+
+        // Verify dimension 0: simple normal
+        assertInstanceOf(NormalScalarModel.class, restored.scalarModel(0));
+
+        // Verify dimension 1: 2-component composite
+        assertInstanceOf(CompositeScalarModel.class, restored.scalarModel(1));
+        CompositeScalarModel restored1 = (CompositeScalarModel) restored.scalarModel(1);
+        assertEquals(2, restored1.getComponentCount());
+        double[] weights1 = restored1.getWeights();
+        assertEquals(0.6, weights1[0], 0.001);
+        assertEquals(0.4, weights1[1], 0.001);
+
+        // Verify dimension 2: 3-component composite with mixed types
+        assertInstanceOf(CompositeScalarModel.class, restored.scalarModel(2));
+        CompositeScalarModel restored2 = (CompositeScalarModel) restored.scalarModel(2);
+        assertEquals(3, restored2.getComponentCount());
+        ScalarModel[] subModels = restored2.getScalarModels();
+        assertInstanceOf(UniformScalarModel.class, subModels[0]);
+        assertInstanceOf(NormalScalarModel.class, subModels[1]);
+        assertInstanceOf(UniformScalarModel.class, subModels[2]);
     }
 
     @Test

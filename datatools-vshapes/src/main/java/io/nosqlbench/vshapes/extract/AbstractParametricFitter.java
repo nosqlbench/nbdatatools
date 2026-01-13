@@ -48,6 +48,9 @@ import java.util.Objects;
  */
 public abstract class AbstractParametricFitter implements ComponentModelFitter {
 
+    /** Protected constructor for subclasses. */
+    protected AbstractParametricFitter() {}
+
     /**
      * Estimates distribution parameters from observed data.
      *

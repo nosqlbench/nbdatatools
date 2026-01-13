@@ -177,6 +177,20 @@ public class SamplerAccuracyDiagnosticTest {
             System.out.printf("%-15s %-15s %-15s %s%n",
                 typeName, randomBest.getModelType(), samplerBest.getModelType(),
                 match ? "YES" : "NO **");
+
+            // Print diagnostic info for misclassifications
+            if (!randomIsCorrect) {
+                DimensionStatistics stats = DimensionStatistics.compute(0, randomData);
+                System.out.printf("  MISCLASSIFIED: %s classified as %s%n", typeName, randomBest.getModelType());
+                System.out.printf("    Stats: mean=%.4f, std=%.4f, skew=%.4f, kurt=%.4f%n",
+                    stats.mean(), stats.stdDev(), stats.skewness(), stats.kurtosis());
+                List<ComponentModelFitter.FitResult> fits = selector.fitAll(randomData);
+                System.out.println("    Scores (model params):");
+                for (ComponentModelFitter.FitResult fit : fits) {
+                    System.out.printf("      %-14s: %.6f | %s%n",
+                        fit.modelType(), fit.goodnessOfFit(), fit.model());
+                }
+            }
         }
 
         System.out.printf("\nRandom/Sampler match rate: %d/%d (%.1f%%)%n", matches, configs.length,

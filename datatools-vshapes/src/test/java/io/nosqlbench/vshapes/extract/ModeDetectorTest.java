@@ -293,6 +293,66 @@ public class ModeDetectorTest {
             "Overlapping modes should detect 1-2 modes, got: " + result.modeCount());
     }
 
+    /// Tests that 10-mode distributions are correctly detected.
+    ///
+    /// This is a regression test to ensure that threshold tightening for
+    /// preventing over-detection of 2-3 mode data doesn't prevent legitimate
+    /// detection of high mode counts.
+    @Test
+    void detectsTenModes() {
+        // Generate 10 well-separated normal distributions
+        // Modes evenly spaced from -0.9 to 0.9 with narrow std dev
+        int sampleSize = 50000;  // Need more samples for 10 modes
+        double[] means = new double[10];
+        for (int i = 0; i < 10; i++) {
+            means[i] = -0.9 + i * 0.2;  // -0.9, -0.7, -0.5, ..., 0.9
+        }
+        double stdDev = 0.05;  // Narrow to keep modes distinct
+
+        float[] data = generateNModal(sampleSize, means, stdDev);
+
+        ModeDetectionResult result = ModeDetector.detectAdaptive(data, 10);
+
+        System.out.println("10-mode detection test:");
+        System.out.printf("  Dip statistic: %.4f%n", result.dipStatistic());
+        System.out.printf("  Modes detected: %d%n", result.modeCount());
+        if (result.modeCount() >= 2) {
+            System.out.printf("  Peak locations: %s%n", formatArray(result.peakLocations()));
+        }
+
+        assertTrue(result.isMultimodal(), "10-mode data should be multimodal");
+        assertTrue(result.modeCount() >= 8,
+            "Should detect at least 8 of 10 modes, got: " + result.modeCount());
+
+        // Verify peak locations are reasonably distributed
+        if (result.modeCount() >= 8) {
+            double[] peaks = result.peakLocations();
+            double minPeak = peaks[0];
+            double maxPeak = peaks[peaks.length - 1];
+            double range = maxPeak - minPeak;
+            assertTrue(range >= 1.2,
+                "Peak range should span most of [-0.9, 0.9], got range: " + range);
+        }
+    }
+
+    /// Tests detection of 5 modes (intermediate case).
+    @Test
+    void detectsFiveModes() {
+        double[] means = {-0.8, -0.4, 0.0, 0.4, 0.8};
+        double stdDev = 0.08;
+        float[] data = generateNModal(30000, means, stdDev);
+
+        ModeDetectionResult result = ModeDetector.detectAdaptive(data, 10);
+
+        System.out.println("5-mode detection test:");
+        System.out.printf("  Dip statistic: %.4f%n", result.dipStatistic());
+        System.out.printf("  Modes detected: %d%n", result.modeCount());
+
+        assertTrue(result.isMultimodal(), "5-mode data should be multimodal");
+        assertTrue(result.modeCount() >= 4,
+            "Should detect at least 4 of 5 modes, got: " + result.modeCount());
+    }
+
     // ==================== Helper Methods ====================
 
     private float[] generateNormal(int n, double mean, double stdDev) {
@@ -321,6 +381,17 @@ public class ModeDetectorTest {
             int mode = rng.nextInt(3);
             double mean = mode == 0 ? mean1 : (mode == 1 ? mean2 : mean3);
             data[i] = (float) (mean + rng.nextGaussian() * stdDev);
+        }
+        return data;
+    }
+
+    private float[] generateNModal(int n, double[] means, double stdDev) {
+        Random rng = new Random(SEED);
+        float[] data = new float[n];
+        int numModes = means.length;
+        for (int i = 0; i < n; i++) {
+            int mode = rng.nextInt(numModes);
+            data[i] = (float) (means[mode] + rng.nextGaussian() * stdDev);
         }
         return data;
     }

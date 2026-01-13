@@ -185,18 +185,32 @@ public class NormalScalarModel implements ScalarModel {
 
     /**
      * Computes the cumulative distribution function (CDF) at a given value.
+     *
+     * <p>For truncated normal, guards against division by near-zero when the
+     * truncation range captures very little probability mass (e.g., truncating
+     * far from the mean). The result is always clamped to [0, 1].
+     *
      * @param x the value at which to evaluate the CDF
      * @return the cumulative probability P(X ≤ x), in range [0, 1]
      */
     public double cdf(double x) {
         if (truncated) {
-            if (x < lower) return 0.0;
-            if (x > upper) return 1.0;
+            if (x <= lower) return 0.0;
+            if (x >= upper) return 1.0;
             // CDF of truncated normal: F(x) = (Φ((x-μ)/σ) - Φ(a)) / (Φ(b) - Φ(a))
             double cdfX = NormalCDF.cdf(x, mean, stdDev);
             double cdfLower = NormalCDF.cdf(lower, mean, stdDev);
             double cdfUpper = NormalCDF.cdf(upper, mean, stdDev);
-            return (cdfX - cdfLower) / (cdfUpper - cdfLower);
+            double range = cdfUpper - cdfLower;
+            // Guard against division by near-zero when truncation range has tiny probability mass
+            if (range < 1e-15) {
+                // Degenerate case: truncation range has essentially no probability mass
+                // Return linear interpolation within bounds
+                return (x - lower) / (upper - lower);
+            }
+            double result = (cdfX - cdfLower) / range;
+            // Clamp to [0, 1] to guard against floating-point errors
+            return Math.max(0.0, Math.min(1.0, result));
         } else {
             return NormalCDF.cdf(x, mean, stdDev);
         }

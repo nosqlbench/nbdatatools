@@ -118,12 +118,14 @@ public final class BetaModelFitter extends AbstractParametricFitter {
         int n = values != null ? values.length : (int) stats.count();
 
         if (values != null) {
+            // Two-pass approach: compute mean first without clamping to preserve variance
             for (float v : values) {
                 double std = (v - lower) / adjustedRange;
-                std = Math.max(0.001, Math.min(0.999, std));  // Clamp to avoid edge issues
                 sumStd += std;
                 sumStdSq += std * std;
             }
+            // Only apply clamping to the final mean, not to individual values
+            // This preserves the variance contribution from boundary values
         } else {
             // Use statistics directly
             double meanStd = (stats.mean() - lower) / adjustedRange;
@@ -131,8 +133,11 @@ public final class BetaModelFitter extends AbstractParametricFitter {
             return estimateFromMoments(meanStd, varStd, lower, upper);
         }
 
-        double meanStd = sumStd / n;
-        double varStd = (sumStdSq / n) - (meanStd * meanStd);
+        double meanStdRaw = sumStd / n;
+        double varStd = (sumStdSq / n) - (meanStdRaw * meanStdRaw);
+
+        // Clamp mean for parameter estimation (but variance was computed from raw values)
+        double meanStd = Math.max(1e-6, Math.min(1.0 - 1e-6, meanStdRaw));
 
         // Ensure variance is positive
         varStd = Math.max(varStd, 1e-10);
@@ -152,6 +157,13 @@ public final class BetaModelFitter extends AbstractParametricFitter {
         alpha = Math.max(alpha, 0.1);
         beta = Math.max(beta, 0.1);
 
+        // If both α and β are near 1.0, this is effectively a uniform distribution
+        // Snap to exactly 1.0 to make the uniform equivalence explicit
+        if (Math.abs(alpha - 1.0) < 0.15 && Math.abs(beta - 1.0) < 0.15) {
+            alpha = 1.0;
+            beta = 1.0;
+        }
+
         return new BetaScalarModel(alpha, beta, lower, upper);
     }
 
@@ -164,7 +176,70 @@ public final class BetaModelFitter extends AbstractParametricFitter {
         double alpha = Math.max(meanStd * common, 0.1);
         double beta = Math.max((1 - meanStd) * common, 0.1);
 
+        // If both α and β are near 1.0, this is effectively a uniform distribution
+        if (Math.abs(alpha - 1.0) < 0.15 && Math.abs(beta - 1.0) < 0.15) {
+            alpha = 1.0;
+            beta = 1.0;
+        }
+
         return new BetaScalarModel(alpha, beta, lower, upper);
+    }
+
+    @Override
+    public FitResult fit(DimensionStatistics stats, float[] values) {
+        ScalarModel model = estimateParameters(stats, values);
+        double ksScore = computeKSStatistic(model, values);
+
+        // Apply skewness-based adjustment to improve discrimination.
+        // Beta distributions can be skewed (α ≠ β) while Normal is symmetric.
+        // Also, Beta with α,β < 1 shows edge-seeking behavior.
+        double skewness = stats.skewness();
+
+        // Get the fitted parameters to inform scoring
+        BetaScalarModel betaModel = (BetaScalarModel) model;
+        double alpha = betaModel.getAlpha();
+        double beta = betaModel.getBeta();
+
+        double adjustment = 0;
+
+        // Check for edge-seeking behavior (U-shaped distributions with α,β < 1)
+        if (alpha < 1.0 && beta < 1.0) {
+            // U-shaped distributions are distinctive - give a bonus
+            adjustment -= 0.15 * ksScore;
+        }
+
+        // Check if fitted parameters match observed skewness
+        // Beta skewness formula: 2(β-α)√(α+β+1) / ((α+β+2)√(αβ))
+        double expectedSkew = 0;
+        if (alpha > 0 && beta > 0) {
+            double sumAB = alpha + beta;
+            double sqrtProduct = Math.sqrt(alpha * beta);
+            if (sqrtProduct > 0) {
+                expectedSkew = 2 * (beta - alpha) * Math.sqrt(sumAB + 1) / ((sumAB + 2) * sqrtProduct);
+            }
+        }
+
+        // If observed skewness matches expected Beta skewness, give a bonus
+        double skewDiff = Math.abs(skewness - expectedSkew);
+        if (skewDiff < 0.3) {
+            adjustment -= 0.10 * ksScore * (1.0 - skewDiff / 0.3);
+        } else if (skewDiff > 0.5 && Math.abs(skewness) < 0.2) {
+            // Data is symmetric but Beta predicts skew - penalty
+            adjustment += 0.10 * ksScore;
+        }
+
+        // CRITICAL: Penalize Beta when data looks Normal-like.
+        // Normal distributions have kurtosis ≈ 3.0 and are unbounded.
+        // Beta distributions are bounded and typically have lower kurtosis.
+        // If data is symmetric (low skew) with kurtosis near 3.0, prefer Normal.
+        double kurtosis = stats.kurtosis();
+        if (Math.abs(skewness) < 0.3 && Math.abs(kurtosis - 3.0) < 0.5) {
+            // Symmetric data with Normal-like kurtosis - strongly penalize Beta
+            adjustment += 0.25 * ksScore;
+        }
+
+        double adjustedScore = Math.max(0, ksScore + adjustment);
+        return new FitResult(model, adjustedScore, getModelType());
     }
 
     @Override

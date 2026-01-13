@@ -235,25 +235,8 @@
               </systemPropertyVariables>
             </configuration>
           </execution>
-          <!-- Performance test execution, enable with -Pperformance or -Palltests -->
-          <execution>
-            <id>performance-tests</id>
-            <phase>test</phase>
-            <goals>
-              <goal>test</goal>
-            </goals>
-            <configuration>
-              <includes>
-                <include>**/PerformanceTestSuite.java</include>
-              </includes>
-              <skip>${skipPerformanceTests}</skip>
-              <argLine>--add-modules jdk.incubator.vector</argLine>
-              <systemPropertyVariables>
-                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
-              </systemPropertyVariables>
-            </configuration>
-          </execution>
           <!-- Accuracy test execution, enable with -Paccuracy or -Palltests -->
+          <!-- IMPORTANT: Must run BEFORE performance tests to avoid test pollution -->
           <execution>
             <id>accuracy-tests</id>
             <phase>test</phase>
@@ -265,6 +248,25 @@
                 <include>**/AccuracyTestSuite.java</include>
               </includes>
               <skip>${skipAccuracyTests}</skip>
+              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <systemPropertyVariables>
+                <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
+              </systemPropertyVariables>
+            </configuration>
+          </execution>
+          <!-- Performance test execution, enable with -Pperformance or -Palltests -->
+          <!-- Runs AFTER accuracy tests to prevent JMH/JIT pollution affecting accuracy -->
+          <execution>
+            <id>performance-tests</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <includes>
+                <include>**/PerformanceTestSuite.java</include>
+              </includes>
+              <skip>${skipPerformanceTests}</skip>
               <argLine>--add-modules jdk.incubator.vector</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>

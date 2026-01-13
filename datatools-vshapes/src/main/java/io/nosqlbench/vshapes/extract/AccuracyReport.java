@@ -80,6 +80,11 @@ public class AccuracyReport {
         int dimensionsFailed,
         int totalDimensions
     ) {
+        /**
+         * Returns the proportion of dimensions that passed all tests.
+         *
+         * @return pass rate as a value between 0.0 and 1.0
+         */
         public double passRate() {
             return totalDimensions > 0 ? (double) dimensionsPassed / totalDimensions : 1.0;
         }
@@ -153,6 +158,8 @@ public class AccuracyReport {
 
     /**
      * Returns true if all tests passed.
+     *
+     * @return true if at least 95% of dimensions passed and all geometric tests passed
      */
     public boolean allTestsPassed() {
         AggregateMetrics agg = computeAggregateMetrics();
@@ -163,6 +170,8 @@ public class AccuracyReport {
 
     /**
      * Formats the detailed accuracy report.
+     *
+     * @return a multi-line string containing the full accuracy report
      */
     public String formatDetailedReport() {
         StringBuilder sb = new StringBuilder();
@@ -266,6 +275,8 @@ public class AccuracyReport {
 
     /**
      * Formats a summary table of results.
+     *
+     * @return a multi-line string containing a compact summary table
      */
     public String formatSummaryTable() {
         AggregateMetrics agg = computeAggregateMetrics();
@@ -292,16 +303,26 @@ public class AccuracyReport {
         return " ".repeat(Math.max(0, padding)) + s;
     }
 
-    // Getters
+    /** Returns the dataset name. @return the dataset name */
     public String getDatasetName() { return datasetName; }
+
+    /** Returns the number of original samples. @return sample count */
     public int getOriginalSamples() { return originalSamples; }
+
+    /** Returns the number of synthetic samples. @return sample count */
     public int getSyntheticSamples() { return syntheticSamples; }
+
+    /** Returns per-dimension accuracy results. @return list of dimension results */
     public List<StatisticalTestSuite.DimensionAccuracy> getDimensionResults() {
         return new ArrayList<>(dimensionResults);
     }
+
+    /** Returns the correlation comparison results. @return correlation comparison or null */
     public CorrelationAnalysis.CorrelationComparison getCorrelationComparison() {
         return correlationComparison;
     }
+
+    /** Returns the geometric metrics. @return geometric metrics or null */
     public GeometricMetrics getGeometricMetrics() { return geometricMetrics; }
 
     /**
@@ -315,38 +336,76 @@ public class AccuracyReport {
         private CorrelationAnalysis.CorrelationComparison correlationComparison;
         private GeometricMetrics geometricMetrics;
 
+        /** Creates a new builder. */
+        public Builder() {}
+
+        /**
+         * Sets the dataset name.
+         * @param name the dataset name
+         * @return this builder
+         */
         public Builder datasetName(String name) {
             this.datasetName = name;
             return this;
         }
 
+        /**
+         * Sets the sample counts.
+         * @param original number of original samples
+         * @param synthetic number of synthetic samples
+         * @return this builder
+         */
         public Builder sampleCounts(int original, int synthetic) {
             this.originalSamples = original;
             this.syntheticSamples = synthetic;
             return this;
         }
 
+        /**
+         * Adds a dimension accuracy result.
+         * @param result the dimension result to add
+         * @return this builder
+         */
         public Builder addDimensionResult(StatisticalTestSuite.DimensionAccuracy result) {
             this.dimensionResults.add(result);
             return this;
         }
 
+        /**
+         * Sets all dimension results.
+         * @param results the list of dimension results
+         * @return this builder
+         */
         public Builder dimensionResults(List<StatisticalTestSuite.DimensionAccuracy> results) {
             this.dimensionResults.clear();
             this.dimensionResults.addAll(results);
             return this;
         }
 
+        /**
+         * Sets the correlation comparison results.
+         * @param comparison the correlation comparison
+         * @return this builder
+         */
         public Builder correlationComparison(CorrelationAnalysis.CorrelationComparison comparison) {
             this.correlationComparison = comparison;
             return this;
         }
 
+        /**
+         * Sets the geometric metrics.
+         * @param metrics the geometric metrics
+         * @return this builder
+         */
         public Builder geometricMetrics(GeometricMetrics metrics) {
             this.geometricMetrics = metrics;
             return this;
         }
 
+        /**
+         * Builds the AccuracyReport.
+         * @return the constructed AccuracyReport
+         */
         public AccuracyReport build() {
             return new AccuracyReport(this);
         }

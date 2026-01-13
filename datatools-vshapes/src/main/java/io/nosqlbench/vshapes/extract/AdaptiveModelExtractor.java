@@ -20,6 +20,7 @@ package io.nosqlbench.vshapes.extract;
 import io.nosqlbench.vshapes.extract.CompositeModelFitter.ClusteringStrategy;
 import io.nosqlbench.vshapes.extract.InternalVerifier.VerificationLevel;
 import io.nosqlbench.vshapes.extract.InternalVerifier.VerificationResult;
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import io.nosqlbench.vshapes.trace.StateObserver;
@@ -56,7 +57,7 @@ import java.util.List;
 ///
 /// - **Verification level**: FAST (500), BALANCED (1000), THOROUGH (5000)
 /// - **Clustering strategy**: HARD (fast) or EM (accurate)
-/// - **Max composite modes**: 2-4 (default 4)
+/// - **Max composite modes**: 2-10 (default 10)
 /// - **KS threshold for parametric**: 0.03 (trigger composite)
 /// - **KS threshold for composite**: 0.05 (trigger empirical)
 ///
@@ -98,6 +99,12 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
         COMPOSITE_2,
         COMPOSITE_3,
         COMPOSITE_4,
+        COMPOSITE_5,
+        COMPOSITE_6,
+        COMPOSITE_7,
+        COMPOSITE_8,
+        COMPOSITE_9,
+        COMPOSITE_10,
         EMPIRICAL
     }
 
@@ -114,7 +121,7 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
         this(BestFitSelector.pearsonSelector(),
              new InternalVerifier(VerificationLevel.BALANCED),
              ClusteringStrategy.EM,
-             4,
+             10,
              DEFAULT_UNIQUE_VECTORS,
              true);
     }
@@ -126,7 +133,7 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
         this(BestFitSelector.pearsonSelector(),
              new InternalVerifier(verificationLevel),
              ClusteringStrategy.EM,
-             4,
+             10,
              DEFAULT_UNIQUE_VECTORS,
              true);
     }
@@ -136,7 +143,7 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
     /// @param parametricSelector selector for parametric model fitting
     /// @param verifier the internal verifier to use
     /// @param clusteringStrategy clustering strategy for composite models
-    /// @param maxCompositeComponents max components for composite (2-4)
+    /// @param maxCompositeComponents max components for composite (2-10)
     /// @param uniqueVectors target unique vectors for generated model
     /// @param internalVerificationEnabled whether to run internal verification
     public AdaptiveModelExtractor(
@@ -149,7 +156,7 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
         this.parametricSelector = parametricSelector;
         this.verifier = verifier;
         this.clusteringStrategy = clusteringStrategy;
-        this.maxCompositeComponents = Math.max(2, Math.min(maxCompositeComponents, 4));
+        this.maxCompositeComponents = Math.max(2, Math.min(maxCompositeComponents, 10));
         this.uniqueVectors = uniqueVectors;
         this.internalVerificationEnabled = internalVerificationEnabled;
     }
@@ -215,7 +222,8 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
             DimensionFitResult dimResult = fitDimensionAdaptively(d, stats[d], dimensionData, empiricalFitter);
 
             fitResults[d] = dimResult.fitResult();
-            components[d] = dimResult.fitResult().model();
+            // Wrap all models as composites for unified handling
+            components[d] = CompositeScalarModel.wrap(dimResult.fitResult().model());
             strategies.add(dimResult.strategy());
 
             observer.onDimensionComplete(d, components[d]);
@@ -283,6 +291,12 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
                         case 2 -> Strategy.COMPOSITE_2;
                         case 3 -> Strategy.COMPOSITE_3;
                         case 4 -> Strategy.COMPOSITE_4;
+                        case 5 -> Strategy.COMPOSITE_5;
+                        case 6 -> Strategy.COMPOSITE_6;
+                        case 7 -> Strategy.COMPOSITE_7;
+                        case 8 -> Strategy.COMPOSITE_8;
+                        case 9 -> Strategy.COMPOSITE_9;
+                        case 10 -> Strategy.COMPOSITE_10;
                         default -> Strategy.EMPIRICAL;
                     };
 
@@ -381,9 +395,11 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
     ) {
         /// Returns true if a composite model was used.
         public boolean isComposite() {
-            return strategyUsed == Strategy.COMPOSITE_2 ||
-                   strategyUsed == Strategy.COMPOSITE_3 ||
-                   strategyUsed == Strategy.COMPOSITE_4;
+            return switch (strategyUsed) {
+                case COMPOSITE_2, COMPOSITE_3, COMPOSITE_4, COMPOSITE_5,
+                     COMPOSITE_6, COMPOSITE_7, COMPOSITE_8, COMPOSITE_9, COMPOSITE_10 -> true;
+                default -> false;
+            };
         }
 
         /// Returns true if empirical fallback was used.
@@ -456,7 +472,7 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
         private VerificationLevel verificationLevel = VerificationLevel.BALANCED;
         private double driftThreshold = InternalVerifier.DEFAULT_DRIFT_THRESHOLD;
         private ClusteringStrategy clusteringStrategy = ClusteringStrategy.EM;
-        private int maxCompositeComponents = 4;
+        private int maxCompositeComponents = 10;
         private long uniqueVectors = DEFAULT_UNIQUE_VECTORS;
         private boolean internalVerificationEnabled = true;
 
@@ -496,7 +512,7 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
             return this;
         }
 
-        /// Sets the maximum composite components (2-4).
+        /// Sets the maximum composite components (2-10).
         ///
         /// @param max maximum number of modes in composite models
         /// @return this builder for chaining

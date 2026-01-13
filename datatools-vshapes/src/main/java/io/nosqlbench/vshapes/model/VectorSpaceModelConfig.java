@@ -194,6 +194,13 @@ public class VectorSpaceModelConfig {
         @SerializedName("max")
         private Double max;
 
+        // Composite/mixture model parameters
+        @SerializedName("sub_models")
+        private ComponentConfig[] subModels;
+
+        @SerializedName("weights")
+        private double[] weights;
+
         public ComponentConfig() {
         }
 
@@ -362,6 +369,19 @@ public class VectorSpaceModelConfig {
                     }
                     return new EmpiricalScalarModel(bins, cdf, mean, stdDev);
 
+                case "composite":
+                    Objects.requireNonNull(subModels, "sub_models is required for composite");
+                    Objects.requireNonNull(weights, "weights is required for composite");
+                    if (subModels.length != weights.length) {
+                        throw new IllegalArgumentException(
+                            "sub_models and weights must have same length");
+                    }
+                    java.util.List<ScalarModel> components = new java.util.ArrayList<>();
+                    for (ComponentConfig subConfig : subModels) {
+                        components.add(subConfig.toComponentModel());
+                    }
+                    return new CompositeScalarModel(components, weights);
+
                 default:
                     throw new IllegalArgumentException("Unknown component model type: " + modelType);
             }
@@ -370,10 +390,20 @@ public class VectorSpaceModelConfig {
         /**
          * Creates a ComponentConfig from a ScalarModel.
          *
+         * <p>For simple (1-component) CompositeScalarModels, this method unwraps
+         * to the underlying model for backwards-compatible serialization. This
+         * supports the unified model representation where all dimensions are
+         * internally CompositeScalarModels, while maintaining the same JSON format.
+         *
          * @param model the source model
          * @return the corresponding ComponentConfig
          */
         public static ComponentConfig fromComponentModel(ScalarModel model) {
+            // Unwrap simple composites for backwards-compatible serialization
+            if (model instanceof CompositeScalarModel composite && composite.isSimple()) {
+                model = composite.unwrap();
+            }
+
             ComponentConfig config = new ComponentConfig();
             config.type = model.getModelType();
 
@@ -418,9 +448,15 @@ public class VectorSpaceModelConfig {
                 config.min = empirical.getMin();
                 config.max = empirical.getMax();
                 config.bins = empirical.getBinEdges();
-            } else if (model instanceof CompositeScalarModel) {
-                // Composite models don't have simple scalar properties
-                // The type field is sufficient for identification
+            } else if (model instanceof CompositeScalarModel composite) {
+                // Serialize multi-component composite models with their sub-models and weights
+                ScalarModel[] scalarModels = composite.getScalarModels();
+                double[] compositeWeights = composite.getWeights();
+                config.subModels = new ComponentConfig[scalarModels.length];
+                for (int i = 0; i < scalarModels.length; i++) {
+                    config.subModels[i] = fromComponentModel(scalarModels[i]);
+                }
+                config.weights = compositeWeights;
             } else {
                 throw new IllegalArgumentException("Unknown component model type: " + model.getClass().getName());
             }

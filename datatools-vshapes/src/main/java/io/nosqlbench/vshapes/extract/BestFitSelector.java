@@ -18,6 +18,7 @@ package io.nosqlbench.vshapes.extract;
  */
 
 import io.nosqlbench.vshapes.extract.ComponentModelFitter.FitResult;
+import io.nosqlbench.vshapes.model.BetaScalarModel;
 import io.nosqlbench.vshapes.model.PearsonType;
 import io.nosqlbench.vshapes.model.ScalarModel;
 
@@ -67,12 +68,13 @@ public final class BestFitSelector {
 
     private final List<ComponentModelFitter> fitters;
     private final double empiricalPenalty;
+    private final boolean strictMode;
 
     /// Creates a selector with specified fitters.
     ///
     /// @param fitters the list of fitters to consider
     public BestFitSelector(List<ComponentModelFitter> fitters) {
-        this(fitters, 0.1);
+        this(fitters, 0.1, false);
     }
 
     /// Creates a selector with specified fitters and empirical penalty.
@@ -80,12 +82,22 @@ public final class BestFitSelector {
     /// @param fitters the list of fitters to consider
     /// @param empiricalPenalty additional penalty for empirical models (to prefer parametric)
     public BestFitSelector(List<ComponentModelFitter> fitters, double empiricalPenalty) {
+        this(fitters, empiricalPenalty, false);
+    }
+
+    /// Creates a selector with specified fitters, empirical penalty, and strict mode.
+    ///
+    /// @param fitters the list of fitters to consider
+    /// @param empiricalPenalty additional penalty for empirical models (to prefer parametric)
+    /// @param strictMode if true, disables model type aliasing (Beta→Uniform preference)
+    public BestFitSelector(List<ComponentModelFitter> fitters, double empiricalPenalty, boolean strictMode) {
         Objects.requireNonNull(fitters, "fitters cannot be null");
         if (fitters.isEmpty()) {
             throw new IllegalArgumentException("fitters cannot be empty");
         }
         this.fitters = new ArrayList<>(fitters);
         this.empiricalPenalty = empiricalPenalty;
+        this.strictMode = strictMode;
     }
 
     /// Creates a selector with the default set of fitters.
@@ -150,6 +162,41 @@ public final class BestFitSelector {
             new UniformModelFitter(),
             new EmpiricalModelFitter()
         ));
+    }
+
+    /// Creates a strict selector for bounded data (no model aliasing).
+    ///
+    /// This selector is designed for round-trip verification testing where
+    /// model types must be preserved exactly. Unlike [#boundedDataSelector()],
+    /// this selector will NOT alias Beta(1,1) to Uniform.
+    ///
+    /// Use this when:
+    /// - Testing parameter recovery accuracy
+    /// - Verifying round-trip model extraction
+    /// - Comparing source models to fitted models
+    ///
+    /// @return a strict BestFitSelector with Normal, Beta, and Uniform fitters
+    public static BestFitSelector strictBoundedSelector() {
+        return new BestFitSelector(List.of(
+            new NormalModelFitter(),
+            new BetaModelFitter(),
+            new UniformModelFitter()
+        ), 0.1, true);
+    }
+
+    /// Creates a strict selector with specified fitters (no model aliasing).
+    ///
+    /// @param fitters the list of fitters to consider
+    /// @return a strict BestFitSelector that preserves model types
+    public static BestFitSelector strictSelector(List<ComponentModelFitter> fitters) {
+        return new BestFitSelector(fitters, 0.1, true);
+    }
+
+    /// Returns whether this selector is in strict mode.
+    ///
+    /// @return true if model type aliasing is disabled
+    public boolean isStrictMode() {
+        return strictMode;
     }
 
     /// Creates a selector for L2-normalized vector data.
@@ -261,18 +308,43 @@ public final class BestFitSelector {
     ///
     /// Combines normalized Pearson distributions with composite model fitting.
     /// Optimized for round-trip stability by excluding Beta (which oscillates with Normal).
+    /// Uses default settings (4 max components, no adaptive resolution).
     ///
-    /// For multimodal data, the CompositeModelFitter can combine Normal components,
-    /// which is more stable than using Beta for each mode.
+    /// For high mode counts (5+), use {@link #normalizedPearsonMultimodalSelector(int)} instead.
     ///
     /// @return a BestFitSelector with normalized Pearson and multimodal support
     public static BestFitSelector normalizedPearsonMultimodalSelector() {
+        return normalizedPearsonMultimodalSelector(4);
+    }
+
+    /// Creates a Pearson selector with multimodal support for normalized vectors.
+    ///
+    /// Combines normalized Pearson distributions with composite model fitting.
+    /// Optimized for round-trip stability by excluding Beta (which oscillates with Normal).
+    ///
+    /// For maxModes > 4, enables adaptive histogram resolution to better detect
+    /// closely-spaced modes that might otherwise be merged at lower resolution.
+    ///
+    /// @param maxModes maximum number of modes to detect (2-10)
+    /// @return a BestFitSelector with normalized Pearson and multimodal support
+    public static BestFitSelector normalizedPearsonMultimodalSelector(int maxModes) {
         BestFitSelector componentSelector = normalizedPearsonSelector();
+        int effectiveMaxModes = Math.max(2, Math.min(maxModes, 10));
+
+        // Enable adaptive resolution for high mode counts (5+) where modes are likely close together
+        boolean useAdaptiveResolution = effectiveMaxModes > 4;
+
         return new BestFitSelector(
             List.of(
                 NormalModelFitter.forNormalizedVectors(),
                 UniformModelFitter.forNormalizedVectors(),
-                new CompositeModelFitter(componentSelector),
+                new CompositeModelFitter(
+                    componentSelector,
+                    effectiveMaxModes,
+                    0.05,  // Standard CDF deviation threshold
+                    CompositeModelFitter.ClusteringStrategy.EM,
+                    useAdaptiveResolution
+                ),
                 new EmpiricalModelFitter()
             ),
             0.15
@@ -315,11 +387,33 @@ public final class BestFitSelector {
     ///
     /// Combines the full Pearson distribution family with multimodal
     /// detection. Each mode can be fit with any Pearson distribution type.
+    /// Uses default settings (4 max components, no adaptive resolution).
+    ///
+    /// For high mode counts (5+), use {@link #pearsonMultimodalSelector(int)} instead.
     ///
     /// @return a BestFitSelector with full Pearson family and multimodal support
     public static BestFitSelector pearsonMultimodalSelector() {
+        return pearsonMultimodalSelector(4);
+    }
+
+    /// Creates a Pearson selector with multimodal detection and custom max modes.
+    ///
+    /// Combines the full Pearson distribution family with multimodal
+    /// detection. Each mode can be fit with any Pearson distribution type.
+    ///
+    /// For maxModes > 4, enables adaptive histogram resolution to better detect
+    /// closely-spaced modes that might otherwise be merged at lower resolution.
+    ///
+    /// @param maxModes maximum number of modes to detect (2-10)
+    /// @return a BestFitSelector with full Pearson family and multimodal support
+    public static BestFitSelector pearsonMultimodalSelector(int maxModes) {
         // Component selector using full Pearson family for each mode
         BestFitSelector componentSelector = pearsonSelector();
+        int effectiveMaxModes = Math.max(2, Math.min(maxModes, 10));
+
+        // Enable adaptive resolution for high mode counts (5+) where modes are likely close together
+        boolean useAdaptiveResolution = effectiveMaxModes > 4;
+
         return new BestFitSelector(
             List.of(
                 new NormalModelFitter(),
@@ -327,7 +421,13 @@ public final class BestFitSelector {
                 new GammaModelFitter(),
                 new StudentTModelFitter(),
                 new UniformModelFitter(),
-                new CompositeModelFitter(componentSelector),
+                new CompositeModelFitter(
+                    componentSelector,
+                    effectiveMaxModes,
+                    0.05,  // Standard CDF deviation threshold
+                    CompositeModelFitter.ClusteringStrategy.EM,
+                    useAdaptiveResolution
+                ),
                 new EmpiricalModelFitter()
             ),
             0.15
@@ -371,6 +471,96 @@ public final class BestFitSelector {
                 new EmpiricalModelFitter()
             ),
             0.2  // Strong penalty for empirical to prefer parametric/composite
+        );
+    }
+
+    /// Creates a strict round-trip verification selector with tight thresholds.
+    ///
+    /// This selector is optimized for verifying that fitted models can accurately
+    /// reproduce source distributions. It uses:
+    /// - Full Pearson distribution family for best classification
+    /// - Strict mode (no model aliasing) to preserve declared types
+    /// - Support for up to 10 modes for complex multimodal distributions
+    /// - Tight CDF validation (0.03) for high-accuracy composite fitting
+    /// - No simplicity bias - choose purely by fit quality
+    ///
+    /// Use this selector when:
+    /// - Testing round-trip model extraction with `generate sketch` → `analyze profile`
+    /// - Verifying parameter recovery accuracy
+    /// - Comparing source models to fitted models for statistical equivalence
+    ///
+    /// @return a BestFitSelector optimized for strict round-trip verification
+    /// @see ModelRecoveryVerifier
+    public static BestFitSelector strictRoundTripSelector() {
+        // Use strictBoundedSelector for components (preserves exact types)
+        BestFitSelector componentSelector = new BestFitSelector(List.of(
+            new NormalModelFitter(),
+            new BetaModelFitter(),
+            new GammaModelFitter(),
+            new StudentTModelFitter(),
+            new UniformModelFitter()
+        ), 0.1, true);  // Strict mode for components too
+
+        return new BestFitSelector(
+            List.of(
+                new NormalModelFitter(),
+                new BetaModelFitter(),
+                new GammaModelFitter(),
+                new PearsonIVModelFitter(),
+                new InverseGammaModelFitter(),
+                new BetaPrimeModelFitter(),
+                new StudentTModelFitter(),
+                new UniformModelFitter(),
+                new CompositeModelFitter(
+                    componentSelector,
+                    10,    // Support up to 10 modes
+                    0.03,  // Tight CDF deviation threshold
+                    CompositeModelFitter.ClusteringStrategy.EM,
+                    true   // Enable adaptive resolution for high mode counts
+                ),
+                new EmpiricalModelFitter()
+            ),
+            0.25,  // Moderate empirical penalty
+            true   // Strict mode - no aliasing
+        );
+    }
+
+    /// Creates a strict round-trip selector with custom max modes.
+    ///
+    /// @param maxModes maximum number of modes to detect (2-10)
+    /// @return a strict round-trip selector configured for the specified mode count
+    public static BestFitSelector strictRoundTripSelector(int maxModes) {
+        BestFitSelector componentSelector = new BestFitSelector(List.of(
+            new NormalModelFitter(),
+            new BetaModelFitter(),
+            new GammaModelFitter(),
+            new StudentTModelFitter(),
+            new UniformModelFitter()
+        ), 0.1, true);
+
+        int effectiveMaxModes = Math.max(2, Math.min(maxModes, 10));
+
+        return new BestFitSelector(
+            List.of(
+                new NormalModelFitter(),
+                new BetaModelFitter(),
+                new GammaModelFitter(),
+                new PearsonIVModelFitter(),
+                new InverseGammaModelFitter(),
+                new BetaPrimeModelFitter(),
+                new StudentTModelFitter(),
+                new UniformModelFitter(),
+                new CompositeModelFitter(
+                    componentSelector,
+                    effectiveMaxModes,
+                    0.03,
+                    CompositeModelFitter.ClusteringStrategy.EM,
+                    true   // Enable adaptive resolution for high mode counts
+                ),
+                new EmpiricalModelFitter()
+            ),
+            0.25,
+            true
         );
     }
 
@@ -459,8 +649,9 @@ public final class BestFitSelector {
         FitResult simplestWithinThreshold = null;
         int simplestComplexity = Integer.MAX_VALUE;
 
-        // Compute the relative threshold: model must score <= rawBestScore * (1 + SIMPLICITY_MULTIPLIER)
-        double relativeThreshold = rawBestScore * (1.0 + SIMPLICITY_MULTIPLIER);
+        // Use tighter threshold in strict mode (10% vs 30%) to prefer accuracy over simplicity
+        double effectiveMultiplier = strictMode ? STRICT_SIMPLICITY_MULTIPLIER : SIMPLICITY_MULTIPLIER;
+        double relativeThreshold = rawBestScore * (1.0 + effectiveMultiplier);
 
         for (FitResult result : results) {
             double score = result.goodnessOfFit();
@@ -478,18 +669,40 @@ public final class BestFitSelector {
             }
         }
 
-        return simplestWithinThreshold != null ? simplestWithinThreshold : rawBest;
+        FitResult best = simplestWithinThreshold != null ? simplestWithinThreshold : rawBest;
+
+        // Third pass: Beta→Uniform preference (disabled in strict mode)
+        // If Beta was selected with α≈β≈1, prefer Uniform instead
+        // Beta(1,1) is mathematically identical to Uniform, so Uniform is simpler and more explicit
+        // In strict mode, this aliasing is disabled to preserve declared model types for round-trip testing
+        if (!strictMode && best != null && "beta".equals(best.modelType()) &&
+            best.model() instanceof BetaScalarModel beta && beta.isEffectivelyUniform()) {
+
+            // Find the Uniform fit result and return it instead
+            for (FitResult result : results) {
+                if ("uniform".equals(result.modelType())) {
+                    return result;
+                }
+            }
+        }
+
+        return best;
     }
 
     /// Multiplier for simplicity bias: prefer simpler model if within this relative margin.
-    /// A value of 0.5 means a model is considered equivalent if its score is within 50% of the best.
-    /// For example, if the best score is 0.01, models scoring up to 0.015 are considered equivalent.
+    /// A value of 0.3 means a model is considered equivalent if its score is within 30% of the best.
+    /// For example, if the best score is 0.01, models scoring up to 0.013 are considered equivalent.
     /// This relative threshold prevents loose margins when fits are very good (low scores)
     /// while still allowing simplicity preference when fits are close.
     ///
     /// Note: For normalized vectors, the Beta distribution is excluded entirely from selectors
     /// to avoid round-trip instability, so this threshold mainly affects unbounded data selectors.
-    private static final double SIMPLICITY_MULTIPLIER = 0.5;
+    private static final double SIMPLICITY_MULTIPLIER = 0.3;
+
+    /// Strict mode simplicity multiplier: much tighter (10%) to prefer accuracy over simplicity.
+    /// In strict mode (used for round-trip verification), we want to select the model that
+    /// actually fits best rather than defaulting to simpler models when fits are close.
+    private static final double STRICT_SIMPLICITY_MULTIPLIER = 0.10;
 
     /// Returns model complexity score (lower = simpler, preferred).
     ///

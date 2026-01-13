@@ -23,6 +23,7 @@ import io.nosqlbench.command.common.RangeOption;
 import io.nosqlbench.command.compute.VectorNormalizationDetector;
 import io.nosqlbench.common.types.VectorFileExtension;
 import io.nosqlbench.datatools.virtdata.DimensionDistributionGenerator;
+import io.nosqlbench.datatools.virtdata.StratifiedSampler;
 import io.nosqlbench.datatools.virtdata.sampling.ComponentSampler;
 import io.nosqlbench.datatools.virtdata.sampling.ComponentSamplerFactory;
 import io.nosqlbench.vshapes.ComputeMode;
@@ -43,11 +44,14 @@ import io.nosqlbench.vshapes.extract.EmpiricalModelFitter;
 import io.nosqlbench.vshapes.extract.GammaModelFitter;
 import io.nosqlbench.vshapes.extract.InternalVerifier;
 import io.nosqlbench.vshapes.extract.ModelEquivalenceAnalyzer;
+import io.nosqlbench.vshapes.extract.StatisticalEquivalenceChecker;
 import io.nosqlbench.vshapes.extract.StudentTModelFitter;
 import io.nosqlbench.vshapes.extract.ModelExtractor;
 import io.nosqlbench.vshapes.extract.NormalModelFitter;
 import io.nosqlbench.vshapes.extract.UniformModelFitter;
 import io.nosqlbench.vshapes.extract.DimensionFitReport;
+import io.nosqlbench.vshapes.extract.Sparkline;
+import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import io.nosqlbench.vshapes.checkpoint.CheckpointManager;
 import io.nosqlbench.vshapes.checkpoint.CheckpointState;
 import io.nosqlbench.vshapes.trace.NdjsonTraceObserver;
@@ -301,6 +305,11 @@ public class CMD_analyze_profile implements Callable<Integer> {
         description = "Number of synthetic vectors to generate for verification (default: 100000)")
     private int verifyCount = 100_000;
 
+    @CommandLine.Option(names = {"--reference-model"},
+        description = "Path to the original generator model JSON file. When specified, the comparison " +
+            "table will include this model alongside extracted and round-trip models for three-way comparison.")
+    private Path referenceModelPath;
+
     @CommandLine.Option(names = {"--refine"},
         description = "Enable iterative model refinement with internal verification. " +
             "When enabled, each dimension is verified via round-trip and refined if verification fails. " +
@@ -336,12 +345,13 @@ public class CMD_analyze_profile implements Callable<Integer> {
     @CommandLine.Option(names = {"--no-adaptive"},
         description = "Disable adaptive composite fallback (enabled by default). " +
             "When adaptive is enabled, the extractor tries parametric models first, " +
-            "then composite models with 2-4 components before falling back to empirical.")
+            "then composite models with 2-10 components before falling back to empirical.")
     private boolean noAdaptive = false;
 
     @CommandLine.Option(names = {"--max-composite-modes"},
         description = "Maximum number of modes for composite fitting (default: 4). " +
-            "Range: 2-4. Only used when adaptive extraction is enabled.")
+            "Range: 2-10. Higher values require more samples for accurate parameter estimation. " +
+            "Used with adaptive extraction and --multimodal.")
     private int maxCompositeModes = 4;
 
     @CommandLine.Option(names = {"--verification-level"},
@@ -406,11 +416,31 @@ public class CMD_analyze_profile implements Callable<Integer> {
             "Use when you know vectors are not normalized.")
     private boolean assumeUnnormalized = false;
 
+    @CommandLine.Option(names = {"--log-output"},
+        description = "Duplicate stdout/stderr to log files. Optionally specify output directory. " +
+            "Creates stdout.txt and stderr.txt in the specified directory (default: current directory).")
+    private String logOutputDir = null;
+
     /// Detected or assumed normalization status. Set during call().
     private Boolean detectedNormalized = null;
 
     @Override
     public Integer call() {
+        // Set up output logging if requested
+        TeeOutputStream.OutputCapture outputCapture = null;
+        if (logOutputDir != null) {
+            try {
+                // Use specified directory, or current directory if empty string
+                Path logDir = logOutputDir.isEmpty()
+                    ? Path.of(".")
+                    : Path.of(logOutputDir);
+                outputCapture = TeeOutputStream.OutputCapture.start(logDir);
+            } catch (java.io.IOException e) {
+                System.err.println("Warning: Could not set up output logging: " + e.getMessage());
+                // Continue without logging
+            }
+        }
+
         try {
             // Validate base vectors file
             baseVectorsOption.validateBaseVectors();
@@ -549,7 +579,18 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
             // Run round-trip verification if requested
             if (verify) {
-                boolean passed = runRoundTripVerification(model);
+                // Load reference model if specified
+                VectorSpaceModel referenceModel = null;
+                if (referenceModelPath != null) {
+                    System.out.printf("Loading reference model from: %s%n", referenceModelPath);
+                    referenceModel = VectorSpaceModelConfig.loadFromFile(referenceModelPath);
+                    if (referenceModel.dimensions() != model.dimensions()) {
+                        System.err.printf("Error: Reference model has %d dimensions, but extracted model has %d%n",
+                            referenceModel.dimensions(), model.dimensions());
+                        return 1;
+                    }
+                }
+                boolean passed = runRoundTripVerification(model, referenceModel);
                 return passed ? 0 : 1;
             }
 
@@ -559,6 +600,15 @@ public class CMD_analyze_profile implements Callable<Integer> {
             logger.error("Error profiling vectors", e);
             System.err.println("Error: " + e.getMessage());
             return 1;
+        } finally {
+            // Close output capture and restore original streams
+            if (outputCapture != null) {
+                try {
+                    outputCapture.close();
+                } catch (java.io.IOException e) {
+                    // Ignore close errors - streams are already restored
+                }
+            }
         }
     }
 
@@ -895,7 +945,19 @@ public class CMD_analyze_profile implements Callable<Integer> {
      */
     private ModelExtractor.ExtractionResult extractModelFromData(float[][] data, int dimensions, int vectorCount) {
         // Use StreamingModelExtractor - same code path as file-based streaming
-        return extractWithStreamingExtractor(data, dimensions, vectorCount);
+        return extractWithStreamingExtractor(data, dimensions, vectorCount, createSelector());
+    }
+
+    /// Extracts model using a custom selector.
+    ///
+    /// @param data row-major vector data [vectorIndex][dimension]
+    /// @param dimensions number of dimensions
+    /// @param vectorCount number of vectors
+    /// @param selector the BestFitSelector to use for extraction
+    /// @return extraction result containing the model and statistics
+    private ModelExtractor.ExtractionResult extractModelFromData(float[][] data, int dimensions,
+            int vectorCount, BestFitSelector selector) {
+        return extractWithStreamingExtractor(data, dimensions, vectorCount, selector);
     }
 
     /**
@@ -904,10 +966,17 @@ public class CMD_analyze_profile implements Callable<Integer> {
      *
      * <p>This ensures round-trip verification uses the identical streaming extraction
      * algorithm, including convergence tracking, histogram detection, and adaptive fitting.
+     *
+     * @param data row-major vector data [vectorIndex][dimension]
+     * @param dimensions number of dimensions
+     * @param vectorCount number of vectors
+     * @param selector the BestFitSelector to use for extraction
+     * @return extraction result containing the model and statistics
      */
-    private ModelExtractor.ExtractionResult extractWithStreamingExtractor(float[][] data, int dimensions, int vectorCount) {
-        // Create StreamingModelExtractor with same configuration as profileVectorsStreaming
-        StreamingModelExtractor extractor = new StreamingModelExtractor(createSelector());
+    private ModelExtractor.ExtractionResult extractWithStreamingExtractor(float[][] data, int dimensions,
+            int vectorCount, BestFitSelector selector) {
+        // Create StreamingModelExtractor with provided selector
+        StreamingModelExtractor extractor = new StreamingModelExtractor(selector);
         extractor.setUniqueVectors(vectorCount);
 
         // Enable same features as main streaming extraction
@@ -1024,7 +1093,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
      * Creates an AdaptiveModelExtractor with configured fallback chain.
      *
      * <p>The adaptive extractor tries parametric models first, then composite models
-     * with 2-4 components (using EM clustering by default), and falls back to empirical
+     * with 2-10 components (using EM clustering by default), and falls back to empirical
      * only as a last resort.
      */
     private AdaptiveModelExtractor createAdaptiveExtractor() {
@@ -1071,11 +1140,11 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 // Use normalized Pearson selector if data is normalized, otherwise unbounded
                 if (Boolean.TRUE.equals(detectedNormalized)) {
                     return enableMultimodal
-                        ? BestFitSelector.normalizedPearsonMultimodalSelector()
+                        ? BestFitSelector.normalizedPearsonMultimodalSelector(maxModes)
                         : BestFitSelector.normalizedPearsonSelector();
                 }
                 return enableMultimodal
-                    ? BestFitSelector.pearsonMultimodalSelector()
+                    ? BestFitSelector.pearsonMultimodalSelector(maxModes)
                     : BestFitSelector.fullPearsonSelector();
             case normal:
                 return new BestFitSelector(java.util.List.of(
@@ -1098,11 +1167,11 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 if (showFitTable) {
                     if (Boolean.TRUE.equals(detectedNormalized)) {
                         return enableMultimodal
-                            ? BestFitSelector.normalizedPearsonMultimodalSelector()
+                            ? BestFitSelector.normalizedPearsonMultimodalSelector(maxModes)
                             : BestFitSelector.normalizedPearsonSelector();
                     }
                     return enableMultimodal
-                        ? BestFitSelector.pearsonMultimodalSelector()
+                        ? BestFitSelector.pearsonMultimodalSelector(maxModes)
                         : BestFitSelector.fullPearsonSelector();
                 }
                 // Use normalized vector selector if data is detected/assumed normalized
@@ -1363,10 +1432,10 @@ public class CMD_analyze_profile implements Callable<Integer> {
         System.out.printf("  Dimensions: %d%n", model.dimensions());
         System.out.printf("  Unique vectors: %d%n", model.uniqueVectors());
 
-        // Count model types
+        // Count model types (using effective type for display)
         java.util.Map<String, Integer> typeCounts = new java.util.HashMap<>();
         for (int d = 0; d < model.dimensions(); d++) {
-            String type = model.scalarModel(d).getModelType();
+            String type = getEffectiveModelType(model.scalarModel(d));
             typeCounts.merge(type, 1, Integer::sum);
         }
 
@@ -1466,8 +1535,8 @@ public class CMD_analyze_profile implements Callable<Integer> {
             minKsScore = Math.min(minKsScore, gof);
             maxKsScore = Math.max(maxKsScore, gof);
 
-            // Track model type distribution
-            String type = fit.model().getModelType();
+            // Track model type distribution (using effective type for display)
+            String type = getEffectiveModelType(fit.model());
             typeCounts.merge(type, 1, Integer::sum);
 
             // K-S critical value at α=0.05 for two-sample test: 1.36 * sqrt(2/n)
@@ -1644,7 +1713,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
             .driftThreshold(refineThreshold)
             .ksThresholdParametric(0.03)
             .ksThresholdComposite(0.05)
-            .maxCompositeComponents(Math.min(maxModes, 4))
+            .maxCompositeComponents(Math.min(maxModes, 10))
             .verboseLogging(verbose);
 
         // Configure for normalized vectors if detected
@@ -1669,10 +1738,10 @@ public class CMD_analyze_profile implements Callable<Integer> {
         // Step 2: Verify each dimension using BestFitSelector (matches round-trip verification)
         System.out.println("Step 2/3: Verifying dimensions via round-trip type matching...");
 
-        // Use the same selector that extraction uses
-        BestFitSelector verifySelector = Boolean.TRUE.equals(detectedNormalized)
-            ? BestFitSelector.normalizedVectorSelector()
-            : BestFitSelector.boundedDataWithEmpirical();
+        // Use strict round-trip selector for accurate verification
+        // This selector has tighter CDF validation and preserves model types
+        int effectiveMaxModes = enableMultimodal ? Math.max(maxModes, maxCompositeModes) : maxCompositeModes;
+        BestFitSelector verifySelector = BestFitSelector.strictRoundTripSelector(effectiveMaxModes);
 
         java.util.List<Integer> failedDimensions = new java.util.ArrayList<>();
         int verifiedCount = 0;
@@ -1680,7 +1749,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
         for (int d = 0; d < dimensions; d++) {
             ScalarModel dimModel = model.scalarModel(d);
-            String originalType = dimModel.getModelType();
+            String originalType = getEffectiveModelType(dimModel);
 
             // Skip empirical models - they're already exact
             if ("empirical".equals(originalType)) {
@@ -1699,7 +1768,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
             // Use BestFitSelector to find what model type would be selected
             ScalarModel refitModel = verifySelector.selectBest(syntheticData);
-            String refitType = refitModel.getModelType();
+            String refitType = getEffectiveModelType(refitModel);
 
             // Check if types match or are equivalent (Normal ↔ Beta allowed)
             if (originalType.equals(refitType) || areTypesEquivalent(originalType, refitType)) {
@@ -1741,7 +1810,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
         for (int i = 0; i < failedDimensions.size(); i++) {
             int d = failedDimensions.get(i);
             float[] dimData = extractDimensionData(originalData, d);
-            String originalType = model.scalarModel(d).getModelType();
+            String originalType = getEffectiveModelType(model.scalarModel(d));
 
             if (verbose) {
                 System.out.printf("%n  Dimension %d (was: %s):%n", d, originalType);
@@ -1756,7 +1825,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
             for (ComponentModelFitter.FitResult fit : allFits) {
                 ScalarModel candidate = fit.model();
-                String candidateType = candidate.getModelType();
+                String candidateType = getEffectiveModelType(candidate);
 
                 // Empirical always round-trips - use as last resort
                 if ("empirical".equals(candidateType)) {
@@ -1787,7 +1856,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
             } else {
                 // No stable parametric found - use empirical (always stable)
                 ComponentModelFitter.FitResult empiricalFit = allFits.stream()
-                    .filter(f -> "empirical".equals(f.model().getModelType()))
+                    .filter(f -> "empirical".equals(getEffectiveModelType(f.model())))
                     .findFirst()
                     .orElseGet(() -> new EmpiricalModelFitter().fit(
                         DimensionStatistics.compute(d, dimData), dimData));
@@ -1881,7 +1950,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
         // Re-fit using the selector
         ScalarModel refitModel = selector.selectBest(syntheticData);
-        String refitType = refitModel.getModelType();
+        String refitType = getEffectiveModelType(refitModel);
 
         // Type-stable if the re-fitted type matches or types are equivalent
         return expectedType.equals(refitType) || areTypesEquivalent(expectedType, refitType);
@@ -1889,15 +1958,34 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
     /// Checks if two model types are statistically equivalent.
     ///
-    /// Normal and symmetric Beta distributions are equivalent when both produce
-    /// bell-shaped distributions centered near the same location. This allows
-    /// the type-stability check to pass when the distinction is statistical noise.
+    /// Recognized equivalences:
+    /// - Normal ↔ Beta: Symmetric Beta distributions are equivalent to truncated Normal
+    /// - Normal ↔ StudentT: High-df StudentT (ν≥30) converges to Normal
+    /// - Beta(1,1) ↔ Uniform: Mathematically identical
+    ///
+    /// This string-based check is a simplified version. For full model-based
+    /// equivalence checking with parameter validation, use StatisticalEquivalenceChecker.
     private boolean areTypesEquivalent(String type1, String type2) {
         // Normal and Beta can be equivalent for bounded symmetric data
         if (("normal".equals(type1) && "beta".equals(type2)) ||
             ("beta".equals(type1) && "normal".equals(type2))) {
             return true;
         }
+
+        // Normal and StudentT are equivalent when StudentT has high df
+        // (the df check happens in full model comparison, here we're lenient)
+        if (("normal".equals(type1) && "student_t".equals(type2)) ||
+            ("student_t".equals(type1) && "normal".equals(type2))) {
+            return true;
+        }
+
+        // Beta(1,1) and Uniform are mathematically identical
+        // (the parameter check happens in full model comparison)
+        if (("beta".equals(type1) && "uniform".equals(type2)) ||
+            ("uniform".equals(type1) && "beta".equals(type2))) {
+            return true;
+        }
+
         return false;
     }
 
@@ -1938,9 +2026,10 @@ public class CMD_analyze_profile implements Callable<Integer> {
      * </ol>
      *
      * @param originalModel the model extracted from the original data
+     * @param referenceModel optional reference model (original generator) for three-way comparison
      * @return true if verification passed, false otherwise
      */
-    private boolean runRoundTripVerification(VectorSpaceModel originalModel) {
+    private boolean runRoundTripVerification(VectorSpaceModel originalModel, VectorSpaceModel referenceModel) {
         System.out.println();
         System.out.println("═══════════════════════════════════════════════════════════════════════════════");
         System.out.println("                         ROUND-TRIP VERIFICATION                               ");
@@ -1952,8 +2041,9 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
         int dimensions = originalModel.dimensions();
 
-        // Step 1: Generate synthetic data
-        System.out.printf("Step 1/3: Generating %,d synthetic vectors...%n", verifyCount);
+        // Step 1: Generate synthetic data from Ext model
+        System.out.printf("Step 1/3: Generating %,d synthetic vectors from Ext model...%n", verifyCount);
+        System.out.println("         (Ext → variates: testing if Ext can reproduce data)");
         long genStart = System.currentTimeMillis();
 
         DimensionDistributionGenerator generator = new DimensionDistributionGenerator(originalModel);
@@ -1979,14 +2069,17 @@ public class CMD_analyze_profile implements Callable<Integer> {
         long genElapsed = System.currentTimeMillis() - genStart;
         System.out.printf("  ✓ Synthetic data generated (%,d ms)%n%n", genElapsed);
 
-        // Step 2: Re-extract model from synthetic data using the SAME extraction logic
-        System.out.println("Step 2/3: Extracting model from synthetic data...");
+        // Step 2: Re-extract model from synthetic data using strict round-trip selector
+        System.out.println("Step 2/3: Extracting R-T model from synthetic data...");
+        System.out.println("         (variates → R-T: testing if extraction is stable)");
         long extractStart = System.currentTimeMillis();
 
-        // Use the EXACT same extraction method as the main profile command
-        // This ensures the round-trip test is valid - identical extraction logic
+        // Use strict round-trip selector with adaptive resolution for accurate multimodal detection
+        // This selector enables adaptive histogram resolution to detect closely-spaced modes
+        int effectiveMaxModes = enableMultimodal ? Math.max(maxModes, maxCompositeModes) : maxCompositeModes;
+        BestFitSelector roundTripSelector = BestFitSelector.strictRoundTripSelector(effectiveMaxModes);
         ModelExtractor.ExtractionResult extractionResult = extractModelFromData(
-            syntheticData, dimensions, verifyCount);
+            syntheticData, dimensions, verifyCount, roundTripSelector);
         VectorSpaceModel roundTripModel = extractionResult.model();
 
         // Apply the same empirical overrides to round-trip model - if the original
@@ -1994,7 +2087,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
         // meaningful comparison
         java.util.List<Integer> originalEmpiricalDims = new java.util.ArrayList<>();
         for (int d = 0; d < dimensions; d++) {
-            if (originalModel.scalarModel(d).getModelType().equals("empirical")) {
+            if (getEffectiveModelType(originalModel.scalarModel(d)).equals("empirical")) {
                 originalEmpiricalDims.add(d);
             }
         }
@@ -2012,6 +2105,12 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
         // Step 3: Compare models
         System.out.println("Step 3/3: Comparing models...");
+        if (referenceModel != null) {
+            System.out.println("         • Gen vs Ext: accuracy (did extraction capture source?)");
+            System.out.println("         • Ext vs R-T: stability (is extraction reproducible?)");
+        } else {
+            System.out.println("         • Ext vs R-T: stability (is extraction reproducible?)");
+        }
         System.out.println();
 
         // Collect comparison data
@@ -2021,11 +2120,30 @@ public class CMD_analyze_profile implements Callable<Integer> {
         double maxDrift = 0;
         int maxDriftDim = 0;
 
+        // Use statistical equivalence checker for more accurate type matching
+        // This recognizes equivalences like Normal↔StudentT(ν≥30) and Beta(1,1)↔Uniform
+        StatisticalEquivalenceChecker equivalenceChecker = new StatisticalEquivalenceChecker();
+
+        // Track Gen→Ext accuracy separately from Ext→R-T stability
+        int genExtMatches = 0;  // How well did Ext capture Gen?
+        int extRtMatches = 0;   // How stable is Ext→R-T?
+
         for (int d = 0; d < dimensions; d++) {
+            ScalarModel ref = referenceModel != null ? referenceModel.scalarModel(d) : null;
             ScalarModel orig = originalModel.scalarModel(d);
             ScalarModel roundTrip = roundTripModel.scalarModel(d);
 
-            boolean typeMatch = orig.getModelType().equals(roundTrip.getModelType());
+            // Check Ext→R-T stability (extraction is consistent)
+            boolean extRtMatch = equivalenceChecker.areEquivalent(orig, roundTrip);
+            if (extRtMatch) extRtMatches++;
+
+            // Check Gen→Ext accuracy (extraction captured the source model)
+            boolean genExtMatch = ref == null || equivalenceChecker.areEquivalent(ref, orig);
+            if (genExtMatch) genExtMatches++;
+
+            // Overall type match requires BOTH Gen→Ext accuracy AND Ext→R-T stability
+            // If no reference model, only check Ext→R-T
+            boolean typeMatch = (ref == null) ? extRtMatch : (genExtMatch && extRtMatch);
             if (typeMatch) typeMatches++;
 
             double drift = calculateParameterDrift(orig, roundTrip);
@@ -2035,14 +2153,14 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 maxDriftDim = d;
             }
 
-            comparisons.add(new DimensionComparison(d, orig, roundTrip, typeMatch, drift));
+            comparisons.add(new DimensionComparison(d, ref, orig, roundTrip, typeMatch, drift));
         }
 
         double avgDrift = totalDrift / dimensions;
         double typeMatchPct = 100.0 * typeMatches / dimensions;
 
         // Print dimension-by-dimension comparison table
-        printDimensionComparisonTable(comparisons, dimensions);
+        printDimensionComparisonTable(comparisons, dimensions, referenceModel != null);
 
         // Print summary statistics
         System.out.println();
@@ -2058,8 +2176,25 @@ public class CMD_analyze_profile implements Callable<Integer> {
         String maxDriftColor = maxDrift < 2.0 ? ANSI_BLUE : (maxDrift < 5.0 ? ANSI_YELLOW : ANSI_RED);
         String maxDriftStatus = maxDrift < 2.0 ? "✓" : "⚠";
 
-        System.out.printf("  %s%s%s Type matches:      %d/%d (%.1f%%)%n",
-            typeStatusColor, typeStatus, ANSI_RESET, typeMatches, dimensions, typeMatchPct);
+        // Show Gen→Ext and Ext→R-T separately when reference model is available
+        if (referenceModel != null) {
+            double genExtPct = 100.0 * genExtMatches / dimensions;
+            double extRtPct = 100.0 * extRtMatches / dimensions;
+            String genExtColor = genExtMatches == dimensions ? ANSI_BLUE : ANSI_RED;
+            String genExtStatus = genExtMatches == dimensions ? "✓" : "✗";
+            String extRtColor = extRtMatches == dimensions ? ANSI_BLUE : ANSI_YELLOW;
+            String extRtStatus = extRtMatches == dimensions ? "✓" : "⚠";
+
+            System.out.printf("  %s%s%s Gen→Ext accuracy:  %d/%d (%.1f%%) - did extraction capture source?%n",
+                genExtColor, genExtStatus, ANSI_RESET, genExtMatches, dimensions, genExtPct);
+            System.out.printf("  %s%s%s Ext→R-T stability: %d/%d (%.1f%%) - is extraction consistent?%n",
+                extRtColor, extRtStatus, ANSI_RESET, extRtMatches, dimensions, extRtPct);
+            System.out.printf("  %s%s%s Overall matches:   %d/%d (%.1f%%) - both conditions met%n",
+                typeStatusColor, typeStatus, ANSI_RESET, typeMatches, dimensions, typeMatchPct);
+        } else {
+            System.out.printf("  %s%s%s Type matches:      %d/%d (%.1f%%)%n",
+                typeStatusColor, typeStatus, ANSI_RESET, typeMatches, dimensions, typeMatchPct);
+        }
         System.out.printf("  %s%s%s Parameter drift:   %s%.2f%%%s avg (threshold: 1.0%%)%n",
             avgDriftColor, avgDriftStatus, ANSI_RESET, avgDriftColor, avgDrift, ANSI_RESET);
         System.out.printf("  %s%s%s Max drift:         %s%.2f%%%s (dim %d, threshold: 2.0%%)%n",
@@ -2104,22 +2239,23 @@ public class CMD_analyze_profile implements Callable<Integer> {
         System.out.println("Pipeline Flow:");
         System.out.println("┌─────────────────────────────────────────────────────────────────────────────┐");
         System.out.println("│                                                                             │");
-        System.out.println("│  Input      ┌─────────┐     Extracted     ┌──────────┐     Synthetic       │");
-        System.out.println("│  Vectors ──►│ Extract │────► Model ──────►│ Generate │────► Vectors        │");
-        System.out.println("│             └─────────┘        │          └──────────┘        │            │");
-        System.out.println("│                                │                              │            │");
-        System.out.println("│                                │          ┌──────────┐        │            │");
-        System.out.println("│                                │          │ Extract  │◄───────┘            │");
-        System.out.println("│                                │          └──────────┘                     │");
-        System.out.println("│                                │               │                           │");
-        System.out.println("│                                │          Round-Trip                       │");
-        System.out.println("│                                │            Model                          │");
-        System.out.println("│                                │               │                           │");
-        System.out.println("│                                ▼               ▼                           │");
-        System.out.println("│                           ┌─────────────────────────┐                      │");
-        System.out.println("│                           │   Compare Parameters    │                      │");
-        System.out.println("│                           │   (type match + drift)  │                      │");
-        System.out.println("│                           └─────────────────────────┘                      │");
+        System.out.println("│  ┌─────────────────────────────────────────────────────────────────────┐   │");
+        System.out.println("│  │ PHASE 1: Initial Extraction (already complete)                      │   │");
+        System.out.println("│  │   Gen (reference) ──► generate variates ──► Ext (extracted model)   │   │");
+        System.out.println("│  └─────────────────────────────────────────────────────────────────────┘   │");
+        System.out.println("│                                        │                                    │");
+        System.out.println("│                                        ▼                                    │");
+        System.out.println("│  ┌─────────────────────────────────────────────────────────────────────┐   │");
+        System.out.println("│  │ PHASE 2: Round-Trip Verification (this step)                        │   │");
+        System.out.println("│  │   Ext ──► generate variates ──► R-T (round-trip model)              │   │");
+        System.out.println("│  └─────────────────────────────────────────────────────────────────────┘   │");
+        System.out.println("│                                        │                                    │");
+        System.out.println("│                                        ▼                                    │");
+        System.out.println("│  ┌─────────────────────────────────────────────────────────────────────┐   │");
+        System.out.println("│  │ PHASE 3: Comparison                                                 │   │");
+        System.out.println("│  │   • Gen vs Ext: Did extraction capture the source model?            │   │");
+        System.out.println("│  │   • Ext vs R-T: Is extraction stable/reproducible?                  │   │");
+        System.out.println("│  └─────────────────────────────────────────────────────────────────────┘   │");
         System.out.println("│                                                                             │");
         System.out.println("└─────────────────────────────────────────────────────────────────────────────┘");
         System.out.println();
@@ -2127,9 +2263,17 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
     /**
      * Record for holding dimension comparison data.
+     *
+     * @param dimension the dimension index
+     * @param reference optional reference model (original generator) - null if not provided
+     * @param extracted model extracted from the original data
+     * @param roundTrip model extracted from synthetic data generated from extracted model
+     * @param typeMatch whether extracted and roundTrip types match
+     * @param drift parameter drift between extracted and roundTrip models
      */
     private record DimensionComparison(
         int dimension,
+        ScalarModel reference,
         ScalarModel extracted,
         ScalarModel roundTrip,
         boolean typeMatch,
@@ -2141,16 +2285,35 @@ public class CMD_analyze_profile implements Callable<Integer> {
      *
      * <p>Color coding:
      * <ul>
-     *   <li>Green: matching values / passed</li>
+     *   <li>Blue: matching values / passed</li>
      *   <li>Yellow: warning (small drift)</li>
      *   <li>Red: divergence / type mismatch</li>
      * </ul>
+     *
+     * @param comparisons the dimension comparisons to display
+     * @param dimensions total number of dimensions
+     * @param hasReference true if a reference (generator) model is available
      */
-    private void printDimensionComparisonTable(java.util.List<DimensionComparison> comparisons, int dimensions) {
+    private void printDimensionComparisonTable(java.util.List<DimensionComparison> comparisons, int dimensions, boolean hasReference) {
+        // Print legend for Unicode glyphs
+        System.out.println("Legend: " + ANSI_DIM +
+            GLYPH_NORMAL + "=Normal " +
+            GLYPH_UNIFORM + "=Uniform " +
+            GLYPH_BETA + "=Beta " +
+            GLYPH_GAMMA + "=Gamma " +
+            GLYPH_STUDENT_T + "=Student-t " +
+            GLYPH_EMPIRICAL + "=Empirical " +
+            GLYPH_COMPOSITE + "=Composite" +
+            ANSI_RESET);
+        System.out.println();
         System.out.println("Dimension-by-Dimension Comparison:");
-        System.out.println("┌──────┬────────────┬────────────────────────────────┬────────────────────────────────┬────────┬────────┐");
-        System.out.println("│ Dim  │ Type       │ Extracted Model                │ Round-Trip Model               │ Drift  │ Status │");
-        System.out.println("├──────┼────────────┼────────────────────────────────┼────────────────────────────────┼────────┼────────┤");
+        // Vertical layout: each dimension shows stages stacked (Gen/Ext/R-T)
+        System.out.println("┌─────┬───────┬──────────────┬─────────────────────────────────┬────────┬────────┐");
+        System.out.println("│ Dim │ Stage │ Shape        │ Model                           │ Drift  │ Status │");
+        System.out.println("├─────┼───────┼──────────────┼─────────────────────────────────┼────────┼────────┤");
+
+        // Sparkline width for the shape column
+        final int SPARKLINE_WIDTH = 12;
 
         // Determine which dimensions to show
         int maxToShow = verbose ? dimensions : Math.min(20, dimensions);
@@ -2178,44 +2341,18 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 continue;
             }
 
-            // Determine row color based on status
-            String rowColor;
+            // Determine overall status color based on drift
+            String statusColor;
             String statusSymbol;
             if (c.typeMatch && c.drift < 1.0) {
-                rowColor = ANSI_BLUE;
+                statusColor = ANSI_BLUE;
                 statusSymbol = "✓";
             } else if (c.drift < 2.0) {
-                rowColor = ANSI_YELLOW;
+                statusColor = ANSI_YELLOW;
                 statusSymbol = "⚠";
             } else {
-                rowColor = ANSI_RED;
+                statusColor = ANSI_RED;
                 statusSymbol = "✗";
-            }
-
-            // Format type column with color for type mismatches
-            String typeCol;
-            String typeColor = ANSI_RESET;
-            if (c.typeMatch) {
-                typeCol = c.extracted.getModelType();
-                typeColor = ANSI_DIM;  // Dim for matching types
-            } else {
-                // Type mismatch: show change like a diff
-                typeCol = c.extracted.getModelType() + "→" + c.roundTrip.getModelType();
-                typeColor = ANSI_RED + ANSI_BOLD;  // Bold red for type changes
-            }
-
-            String extractedParams = formatModelParams(c.extracted);
-            String roundTripParams = formatModelParams(c.roundTrip);
-
-            // Color the params based on drift
-            String extractedColor = ANSI_DIM;  // Original is dimmed (like - in diff)
-            String roundTripColor;
-            if (c.typeMatch && c.drift < 0.5) {
-                roundTripColor = ANSI_BLUE;  // Good match
-            } else if (c.drift < 2.0) {
-                roundTripColor = ANSI_YELLOW;  // Warning
-            } else {
-                roundTripColor = ANSI_RED;  // Diverged
             }
 
             // Format drift with color
@@ -2224,9 +2361,6 @@ public class CMD_analyze_profile implements Callable<Integer> {
             if (!c.typeMatch) {
                 driftStr = "TYPE";
                 driftColor = ANSI_RED + ANSI_BOLD;
-            } else if (c.drift < 0.5) {
-                driftStr = String.format("%.2f%%", c.drift);
-                driftColor = ANSI_BLUE;
             } else if (c.drift < 1.0) {
                 driftStr = String.format("%.2f%%", c.drift);
                 driftColor = ANSI_BLUE;
@@ -2238,14 +2372,130 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 driftColor = ANSI_RED;
             }
 
-            // Print the row with colors
-            System.out.printf("│ %4d │ %s%-10s%s │ %s%-30s%s │ %s%-30s%s │ %s%6s%s │   %s%s%s    │%n",
-                c.dimension,
-                typeColor, truncateString(typeCol, 10), ANSI_RESET,
-                extractedColor, truncateString(extractedParams, 30), ANSI_RESET,
-                roundTripColor, truncateString(roundTripParams, 30), ANSI_RESET,
-                driftColor, driftStr, ANSI_RESET,
-                rowColor, statusSymbol, ANSI_RESET);
+            // Column width for model params (matches header: 33 dashes)
+            final int MODEL_WIDTH = 33;
+
+            // Row 1: Generator (if present) or Extracted
+            // Use renderModelSparkline() to forward-render samples using ComponentSampler.
+            // This ensures all phases use the same sampling infrastructure, making
+            // sparklines directly comparable when models are statistically equivalent.
+            if (hasReference && c.reference != null) {
+                String refSparkline = renderModelSparkline(c.reference, SPARKLINE_WIDTH);
+                String refParams = truncateString(formatModelParams(c.reference), MODEL_WIDTH);
+                String refModelCell = padToWidth(ANSI_CYAN + refParams + ANSI_RESET, MODEL_WIDTH);
+                System.out.printf("│ %3d │ %sGen%s   │ %s │ %s │        │        │%n",
+                    c.dimension,
+                    ANSI_CYAN, ANSI_RESET,
+                    refSparkline,
+                    refModelCell);
+
+                // Show Gen components if it's a composite (for layer comparison)
+                if (c.reference instanceof CompositeScalarModel refComposite && !refComposite.isSimple()) {
+                    ScalarModel[] refSubModels = refComposite.getScalarModels();
+                    double[] refWeights = refComposite.getWeights();
+                    float[] refRange = computeCompositeRange(refComposite);
+
+                    for (int i = 0; i < refSubModels.length; i++) {
+                        ScalarModel subModel = refSubModels[i];
+                        boolean isLast = (i == refSubModels.length - 1);
+                        String prefix = isLast ? "└" : "├";
+                        String glyph = getDistributionGlyph(subModel);
+                        String weightStr = String.format("%.0f%%", refWeights[i] * 100);
+                        String compParams = formatModelParams(subModel);
+                        String paramsOnly = compParams.length() > 2 ? compParams.substring(1) : compParams;
+                        String compContent = ANSI_CYAN + weightStr + " " + truncateString(paramsOnly, MODEL_WIDTH - 6) + ANSI_RESET;
+                        String compModelCell = padToWidth(compContent, MODEL_WIDTH);
+                        String compSparkline = renderModelSparklineOnRange(subModel, SPARKLINE_WIDTH, refRange[0], refRange[1]);
+
+                        System.out.printf("│     │  %s%s%s%s   │ %s │ %s │        │        │%n",
+                            ANSI_CYAN, prefix, glyph, ANSI_RESET,
+                            compSparkline,
+                            compModelCell);
+                    }
+                }
+
+                // Row 2: Extracted
+                String extSparkline = renderModelSparkline(c.extracted, SPARKLINE_WIDTH);
+                String extParams = truncateString(formatModelParams(c.extracted), MODEL_WIDTH);
+                String extModelCell = padToWidth(ANSI_DIM + extParams + ANSI_RESET, MODEL_WIDTH);
+                System.out.printf("│     │ %sExt%s   │ %s │ %s │        │        │%n",
+                    ANSI_DIM, ANSI_RESET,
+                    extSparkline,
+                    extModelCell);
+
+                // Row 3: Round-Trip (with drift and status)
+                String rtSparkline = renderModelSparkline(c.roundTrip, SPARKLINE_WIDTH);
+                String rtParams = truncateString(formatModelParams(c.roundTrip), MODEL_WIDTH);
+                String rtColor = c.typeMatch && c.drift < 1.0 ? ANSI_BLUE : (c.drift < 2.0 ? ANSI_YELLOW : ANSI_RED);
+                String rtModelCell = padToWidth(rtColor + rtParams + ANSI_RESET, MODEL_WIDTH);
+                System.out.printf("│     │ %sR-T%s   │ %s │ %s │ %s%6s%s │   %s%s%s    │%n",
+                    rtColor, ANSI_RESET,
+                    rtSparkline,
+                    rtModelCell,
+                    driftColor, driftStr, ANSI_RESET,
+                    statusColor, statusSymbol, ANSI_RESET);
+            } else {
+                // No reference: Row 1 = Extracted
+                String extSparkline = renderModelSparkline(c.extracted, SPARKLINE_WIDTH);
+                String extParams = truncateString(formatModelParams(c.extracted), MODEL_WIDTH);
+                String extModelCell = padToWidth(ANSI_DIM + extParams + ANSI_RESET, MODEL_WIDTH);
+                System.out.printf("│ %3d │ %sExt%s   │ %s │ %s │        │        │%n",
+                    c.dimension,
+                    ANSI_DIM, ANSI_RESET,
+                    extSparkline,
+                    extModelCell);
+
+                // Row 2: Round-Trip (with drift and status)
+                String rtSparkline = renderModelSparkline(c.roundTrip, SPARKLINE_WIDTH);
+                String rtParams = truncateString(formatModelParams(c.roundTrip), MODEL_WIDTH);
+                String rtColor = c.typeMatch && c.drift < 1.0 ? ANSI_BLUE : (c.drift < 2.0 ? ANSI_YELLOW : ANSI_RED);
+                String rtModelCell = padToWidth(rtColor + rtParams + ANSI_RESET, MODEL_WIDTH);
+                System.out.printf("│     │ %sR-T%s   │ %s │ %s │ %s%6s%s │   %s%s%s    │%n",
+                    rtColor, ANSI_RESET,
+                    rtSparkline,
+                    rtModelCell,
+                    driftColor, driftStr, ANSI_RESET,
+                    statusColor, statusSymbol, ANSI_RESET);
+            }
+
+            // For multi-component composites, show sub-components under extracted row
+            // Render all components on the SAME x-axis range as the overall composite
+            // so their visual contributions to the mixture are clear
+            if (c.extracted instanceof CompositeScalarModel composite && !composite.isSimple()) {
+                ScalarModel[] subModels = composite.getScalarModels();
+                double[] weights = composite.getWeights();
+
+                // Compute the common range from the overall composite
+                float[] commonRange = computeCompositeRange(composite);
+                float commonMin = commonRange[0];
+                float commonMax = commonRange[1];
+
+                for (int i = 0; i < subModels.length; i++) {
+                    ScalarModel subModel = subModels[i];
+                    boolean isLast = (i == subModels.length - 1);
+                    String prefix = isLast ? "└" : "├";
+                    String glyph = getDistributionGlyph(subModel);
+                    String weightStr = String.format("%.0f%%", weights[i] * 100);
+                    String compParams = formatModelParams(subModel);
+                    // Strip the leading glyph from compParams since we show it separately
+                    String paramsOnly = compParams.length() > 2 ? compParams.substring(1) : compParams;
+                    String compContent = ANSI_DIM + weightStr + " " + truncateString(paramsOnly, MODEL_WIDTH - 6) + ANSI_RESET;
+                    String compModelCell = padToWidth(compContent, MODEL_WIDTH);
+                    // Render component on the common range so it shows where it contributes
+                    String compSparkline = renderModelSparklineOnRange(subModel, SPARKLINE_WIDTH, commonMin, commonMax);
+
+                    System.out.printf("│     │  %s%s%s%s   │ %s │ %s │        │        │%n",
+                        ANSI_DIM, prefix, glyph, ANSI_RESET,
+                        compSparkline,
+                        compModelCell);
+                }
+            }
+
+            // Separator between dimensions (except for last)
+            int remaining = dimensions - shown - 1;
+            if (shown < maxToShow - 1 || (remaining == 0 && shown < comparisons.size() - 1)) {
+                System.out.println("├─────┼───────┼──────────────┼─────────────────────────────────┼────────┼────────┤");
+            }
 
             shown++;
         }
@@ -2253,51 +2503,224 @@ public class CMD_analyze_profile implements Callable<Integer> {
         // Show summary if we truncated
         int notShown = dimensions - shown;
         if (notShown > 0) {
-            System.out.println("├──────┴────────────┴────────────────────────────────┴────────────────────────────────┴────────┴────────┤");
-            System.out.printf("│ %s... %d more dimensions not shown (use --verbose to see all)%s                                           │%n",
+            System.out.println("├─────┴───────┴──────────────┴─────────────────────────────────┴────────┴────────┤");
+            System.out.printf("│ %s... %d more dimensions not shown (use --verbose to see all)%s                  │%n",
                 ANSI_DIM, notShown, ANSI_RESET);
         }
 
-        System.out.println("└──────────────────────────────────────────────────────────────────────────────────────────────────────────┘");
+        System.out.println("└─────┴───────┴──────────────┴─────────────────────────────────┴────────┴────────┘");
     }
 
     /**
-     * Formats model parameters for display.
+     * Gets the effective model type for display purposes.
+     *
+     * <p>For CompositeScalarModel, returns the underlying type for 1-component
+     * composites, or "composite" for multi-component composites. For all other
+     * models, returns the standard model type.
      */
-    private String formatModelParams(ScalarModel model) {
-        if (model instanceof NormalScalarModel normal) {
-            if (normal.isTruncated()) {
-                return String.format("μ=%.3f, σ=%.3f [%.2f,%.2f]",
-                    normal.getMean(), normal.getStdDev(), normal.lower(), normal.upper());
-            }
-            return String.format("μ=%.4f, σ=%.4f", normal.getMean(), normal.getStdDev());
+    private String getEffectiveModelType(ScalarModel model) {
+        if (model instanceof CompositeScalarModel composite) {
+            return composite.getEffectiveModelType();
         }
-
-        if (model instanceof io.nosqlbench.vshapes.model.BetaScalarModel beta) {
-            return String.format("α=%.3f, β=%.3f [%.2f,%.2f]",
-                beta.getAlpha(), beta.getBeta(), beta.getLower(), beta.getUpper());
-        }
-
-        if (model instanceof io.nosqlbench.vshapes.model.UniformScalarModel uniform) {
-            return String.format("[%.4f, %.4f]", uniform.getLower(), uniform.getUpper());
-        }
-
-        if (model instanceof io.nosqlbench.vshapes.model.EmpiricalScalarModel) {
-            return "empirical (histogram)";
-        }
-
-        // Fallback for other types
         return model.getModelType();
     }
 
+    // Unicode glyphs for distribution types - visually distinctive and compact
+    private static final String GLYPH_NORMAL = "𝒩";       // U+1D4A9 Mathematical Script N
+    private static final String GLYPH_UNIFORM = "▭";      // U+25AD White Rectangle
+    private static final String GLYPH_BETA = "β";         // U+03B2 Greek Small Beta
+    private static final String GLYPH_GAMMA = "Γ";        // U+0393 Greek Capital Gamma
+    private static final String GLYPH_INV_GAMMA = "Γ⁻¹";  // Gamma with superscript -1
+    private static final String GLYPH_STUDENT_T = "𝑡";    // U+1D461 Mathematical Italic t
+    private static final String GLYPH_PEARSON_IV = "ℙ";   // U+2119 Double-Struck P
+    private static final String GLYPH_BETA_PRIME = "β′";  // Beta with prime
+    private static final String GLYPH_EMPIRICAL = "▦";    // U+25A6 Square with diagonal crosshatch
+    private static final String GLYPH_COMPOSITE = "⊕";    // U+2295 Circled Plus (mixture)
+
     /**
-     * Truncates a string for table display.
+     * Formats model parameters in compact notation with Unicode distribution glyphs.
+     *
+     * <p>Format examples:
+     * <ul>
+     *   <li>Normal: {@code 𝒩(0.12,0.57)[−1,1]}</li>
+     *   <li>Uniform: {@code ▭[−0.5,0.5]}</li>
+     *   <li>Beta: {@code β(1.2,2.3)[0,1]}</li>
+     *   <li>Composite: {@code ⊕3[𝒩,β,▭]}</li>
+     * </ul>
      */
-    private String truncateString(String str, int maxLen) {
-        if (str.length() <= maxLen) {
+    private String formatModelParams(ScalarModel model) {
+        // Unwrap simple (1-component) composites for formatting
+        if (model instanceof CompositeScalarModel composite && composite.isSimple()) {
+            model = composite.unwrap();
+        }
+
+        if (model instanceof NormalScalarModel normal) {
+            String bounds = normal.isTruncated()
+                ? String.format("[%s,%s]", formatCompact(normal.lower()), formatCompact(normal.upper()))
+                : "";
+            return String.format("%s(%s,%s)%s",
+                GLYPH_NORMAL,
+                formatCompact(normal.getMean()),
+                formatCompact(normal.getStdDev()),
+                bounds);
+        }
+
+        if (model instanceof io.nosqlbench.vshapes.model.BetaScalarModel beta) {
+            return String.format("%s(%s,%s)[%s,%s]",
+                GLYPH_BETA,
+                formatCompact(beta.getAlpha()),
+                formatCompact(beta.getBeta()),
+                formatCompact(beta.getLower()),
+                formatCompact(beta.getUpper()));
+        }
+
+        if (model instanceof io.nosqlbench.vshapes.model.UniformScalarModel uniform) {
+            return String.format("%s[%s,%s]",
+                GLYPH_UNIFORM,
+                formatCompact(uniform.getLower()),
+                formatCompact(uniform.getUpper()));
+        }
+
+        if (model instanceof io.nosqlbench.vshapes.model.GammaScalarModel gamma) {
+            String shift = gamma.getLocation() != 0
+                ? String.format("+%s", formatCompact(gamma.getLocation()))
+                : "";
+            return String.format("%s(%s,%s)%s",
+                GLYPH_GAMMA,
+                formatCompact(gamma.getShape()),
+                formatCompact(gamma.getScale()),
+                shift);
+        }
+
+        if (model instanceof io.nosqlbench.vshapes.model.InverseGammaScalarModel invGamma) {
+            return String.format("%s(%s,%s)",
+                GLYPH_INV_GAMMA,
+                formatCompact(invGamma.getShape()),
+                formatCompact(invGamma.getScale()));
+        }
+
+        if (model instanceof io.nosqlbench.vshapes.model.StudentTScalarModel studentT) {
+            return String.format("%s(ν=%s,μ=%s,σ=%s)",
+                GLYPH_STUDENT_T,
+                formatCompact(studentT.getDegreesOfFreedom()),
+                formatCompact(studentT.getLocation()),
+                formatCompact(studentT.getScale()));
+        }
+
+        if (model instanceof io.nosqlbench.vshapes.model.PearsonIVScalarModel pearson) {
+            return String.format("%s(m=%s,ν=%s)",
+                GLYPH_PEARSON_IV,
+                formatCompact(pearson.getM()),
+                formatCompact(pearson.getNu()));
+        }
+
+        if (model instanceof io.nosqlbench.vshapes.model.BetaPrimeScalarModel betaPrime) {
+            return String.format("%s(%s,%s)",
+                GLYPH_BETA_PRIME,
+                formatCompact(betaPrime.getAlpha()),
+                formatCompact(betaPrime.getBeta()));
+        }
+
+        if (model instanceof io.nosqlbench.vshapes.model.EmpiricalScalarModel) {
+            return GLYPH_EMPIRICAL + " histogram";
+        }
+
+        if (model instanceof CompositeScalarModel composite) {
+            // Show component count and types: ⊕3[𝒩,β,▭]
+            StringBuilder sb = new StringBuilder();
+            sb.append(GLYPH_COMPOSITE).append(composite.getComponentCount()).append("[");
+            ScalarModel[] components = composite.getScalarModels();
+            for (int i = 0; i < components.length; i++) {
+                if (i > 0) sb.append(",");
+                sb.append(getDistributionGlyph(components[i]));
+            }
+            sb.append("]");
+            return sb.toString();
+        }
+
+        // Fallback for unknown types
+        return model.getModelType();
+    }
+
+    /// Returns the Unicode glyph for a distribution type.
+    private String getDistributionGlyph(ScalarModel model) {
+        if (model instanceof CompositeScalarModel c && c.isSimple()) {
+            model = c.unwrap();
+        }
+        if (model instanceof NormalScalarModel) return GLYPH_NORMAL;
+        if (model instanceof io.nosqlbench.vshapes.model.UniformScalarModel) return GLYPH_UNIFORM;
+        if (model instanceof io.nosqlbench.vshapes.model.BetaScalarModel) return GLYPH_BETA;
+        if (model instanceof io.nosqlbench.vshapes.model.GammaScalarModel) return GLYPH_GAMMA;
+        if (model instanceof io.nosqlbench.vshapes.model.InverseGammaScalarModel) return GLYPH_INV_GAMMA;
+        if (model instanceof io.nosqlbench.vshapes.model.StudentTScalarModel) return GLYPH_STUDENT_T;
+        if (model instanceof io.nosqlbench.vshapes.model.PearsonIVScalarModel) return GLYPH_PEARSON_IV;
+        if (model instanceof io.nosqlbench.vshapes.model.BetaPrimeScalarModel) return GLYPH_BETA_PRIME;
+        if (model instanceof io.nosqlbench.vshapes.model.EmpiricalScalarModel) return GLYPH_EMPIRICAL;
+        if (model instanceof CompositeScalarModel) return GLYPH_COMPOSITE;
+        return "?";
+    }
+
+    /// Formats a number compactly: removes trailing zeros, uses minimal precision.
+    private String formatCompact(double value) {
+        if (value == 0.0) return "0";
+        if (value == 1.0) return "1";
+        if (value == -1.0) return "−1";
+
+        // Use fewer digits for "nice" numbers
+        if (Math.abs(value - Math.round(value)) < 0.001) {
+            return String.valueOf((int) Math.round(value));
+        }
+
+        // Format with 2 decimal places, strip trailing zeros
+        String formatted = String.format("%.2f", value);
+        // Replace - with proper minus sign
+        formatted = formatted.replace("-", "−");
+        // Strip trailing zeros after decimal point
+        if (formatted.contains(".")) {
+            formatted = formatted.replaceAll("0+$", "").replaceAll("\\.$", "");
+        }
+        return formatted;
+    }
+
+    /**
+     * Truncates a string for table display based on visible width.
+     */
+    private String truncateString(String str, int maxVisibleLen) {
+        int visible = visibleLength(str);
+        if (visible <= maxVisibleLen) {
             return str;
         }
-        return str.substring(0, maxLen - 2) + "..";
+        // Need to truncate - strip ANSI codes for clean truncation
+        String stripped = stripAnsi(str);
+        if (stripped.length() <= maxVisibleLen - 2) {
+            return stripped;
+        }
+        return stripped.substring(0, maxVisibleLen - 2) + "..";
+    }
+
+    /**
+     * Calculates the visible length of a string (excluding ANSI escape codes).
+     * Also accounts for some wide Unicode characters.
+     */
+    private int visibleLength(String str) {
+        // Strip ANSI escape codes
+        String stripped = stripAnsi(str);
+        // Count visible characters, accounting for some double-width Unicode
+        int len = 0;
+        for (int i = 0; i < stripped.length(); i++) {
+            char c = stripped.charAt(i);
+            // Mathematical script/italic characters are often double-width in terminals
+            // but for most monospace fonts they're single-width, so count as 1
+            len++;
+        }
+        return len;
+    }
+
+    /**
+     * Strips ANSI escape codes from a string.
+     */
+    private String stripAnsi(String str) {
+        return str.replaceAll("\u001B\\[[0-9;]*m", "");
     }
 
     /**
@@ -2417,6 +2840,131 @@ public class CMD_analyze_profile implements Callable<Integer> {
         return Math.abs(orig - roundTrip) / Math.abs(scale);
     }
 
+    /// Number of samples for sparkline histograms.
+    /// Using 10,000 samples provides stable histograms for visual comparison.
+    private static final int SPARKLINE_SAMPLE_COUNT = 10000;
+
+    /// Renders a sparkline histogram by forward-rendering samples from a model.
+    ///
+    /// This method uses the same sampling infrastructure (ComponentSampler +
+    /// StratifiedSampler) that's used for actual data generation, ensuring
+    /// visual comparability across pipeline phases.
+    ///
+    /// @param model the scalar model to render
+    /// @param width the sparkline width (number of histogram bins)
+    /// @return a histogram sparkline string
+    private String renderModelSparkline(ScalarModel model, int width) {
+        if (model == null) {
+            return " ".repeat(width);
+        }
+
+        // Create sampler using the same factory as production code
+        ComponentSampler sampler = ComponentSamplerFactory.forModel(model);
+
+        // Generate samples using stratified sampling
+        // Use dimension=0 since we're rendering a single dimension's model
+        int[] bins = new int[width];
+        float min = Float.MAX_VALUE;
+        float max = -Float.MAX_VALUE;
+
+        // First pass: generate samples and find bounds
+        float[] samples = new float[SPARKLINE_SAMPLE_COUNT];
+        for (int i = 0; i < SPARKLINE_SAMPLE_COUNT; i++) {
+            double u = StratifiedSampler.unitIntervalValue(i, 0, SPARKLINE_SAMPLE_COUNT);
+            float value = (float) sampler.sample(u);
+            samples[i] = value;
+            if (Float.isFinite(value)) {
+                min = Math.min(min, value);
+                max = Math.max(max, value);
+            }
+        }
+
+        // Handle degenerate cases
+        if (min >= max || !Float.isFinite(min) || !Float.isFinite(max)) {
+            return "▄".repeat(width);
+        }
+
+        // Second pass: bin the samples
+        float range = max - min;
+        float binWidth = range / width;
+        for (float value : samples) {
+            if (Float.isFinite(value)) {
+                int bin = (int) ((value - min) / binWidth);
+                if (bin >= width) bin = width - 1;
+                if (bin < 0) bin = 0;
+                bins[bin]++;
+            }
+        }
+
+        // Convert to sparkline using Sparkline.fromHistogram()
+        return Sparkline.fromHistogram(bins);
+    }
+
+    /// Renders a sparkline histogram on a specified common range.
+    ///
+    /// This is used for rendering composite components on the same x-axis scale
+    /// as the overall composite, so the visual contribution of each component
+    /// to the mixture is clear.
+    ///
+    /// @param model the scalar model to render
+    /// @param width the sparkline width (number of histogram bins)
+    /// @param commonMin the minimum x value for the common range
+    /// @param commonMax the maximum x value for the common range
+    /// @return a histogram sparkline string
+    private String renderModelSparklineOnRange(ScalarModel model, int width, float commonMin, float commonMax) {
+        if (model == null || commonMin >= commonMax) {
+            return " ".repeat(width);
+        }
+
+        // Create sampler using the same factory as production code
+        ComponentSampler sampler = ComponentSamplerFactory.forModel(model);
+
+        // Generate samples using stratified sampling
+        int[] bins = new int[width];
+        float range = commonMax - commonMin;
+        float binWidth = range / width;
+
+        for (int i = 0; i < SPARKLINE_SAMPLE_COUNT; i++) {
+            double u = StratifiedSampler.unitIntervalValue(i, 0, SPARKLINE_SAMPLE_COUNT);
+            float value = (float) sampler.sample(u);
+
+            if (Float.isFinite(value)) {
+                // Bin on the common range - values outside will clip to edges
+                int bin = (int) ((value - commonMin) / binWidth);
+                if (bin >= width) bin = width - 1;
+                if (bin < 0) bin = 0;
+                bins[bin]++;
+            }
+        }
+
+        return Sparkline.fromHistogram(bins);
+    }
+
+    /// Computes the combined min/max range for a composite model.
+    ///
+    /// This samples from the composite to find the actual data range,
+    /// which is then used to render all components on a common scale.
+    ///
+    /// @param composite the composite model
+    /// @return float[2] with {min, max}
+    private float[] computeCompositeRange(CompositeScalarModel composite) {
+        ComponentSampler sampler = ComponentSamplerFactory.forModel(composite);
+
+        float min = Float.MAX_VALUE;
+        float max = -Float.MAX_VALUE;
+
+        for (int i = 0; i < SPARKLINE_SAMPLE_COUNT; i++) {
+            double u = StratifiedSampler.unitIntervalValue(i, 0, SPARKLINE_SAMPLE_COUNT);
+            float value = (float) sampler.sample(u);
+            if (Float.isFinite(value)) {
+                min = Math.min(min, value);
+                max = Math.max(max, value);
+            }
+        }
+
+        return new float[] { min, max };
+    }
+
     /**
      * Truncates a path for display.
      */
@@ -2439,9 +2987,10 @@ public class CMD_analyze_profile implements Callable<Integer> {
     /// @param targetWidth the target visible width
     /// @return the padded string
     private static String padToWidth(String text, int targetWidth) {
-        // Strip ANSI codes to get visible length
-        String visible = text.replaceAll("\u001B\\[[;\\d]*m", "");
-        int padding = targetWidth - visible.length();
+        // Strip ANSI codes to get visible length - handle all SGR sequences
+        String visible = text.replaceAll("\u001B\\[[0-9;]*m", "");
+        int visibleLen = visible.length();
+        int padding = targetWidth - visibleLen;
         if (padding <= 0) {
             return text;
         }

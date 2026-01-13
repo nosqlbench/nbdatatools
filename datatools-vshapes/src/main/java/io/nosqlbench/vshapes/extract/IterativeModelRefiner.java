@@ -399,7 +399,7 @@ public final class IterativeModelRefiner {
         private double driftThreshold = 0.02;  // 2% default
         private double ksThresholdParametric = 0.03;
         private double ksThresholdComposite = 0.05;
-        private int maxCompositeComponents = 4;
+        private int maxCompositeComponents = 10;
         private boolean verboseLogging = false;
         private long seed = 42;
         private Double explicitLowerBound = null;
@@ -429,9 +429,9 @@ public final class IterativeModelRefiner {
             return this;
         }
 
-        /// Sets the maximum number of composite components to try.
+        /// Sets the maximum number of composite components to try (2-10).
         public Builder maxCompositeComponents(int max) {
-            this.maxCompositeComponents = Math.max(2, Math.min(4, max));
+            this.maxCompositeComponents = Math.max(2, Math.min(10, max));
             return this;
         }
 

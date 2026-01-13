@@ -310,9 +310,33 @@ public final class InternalVerifier {
                     origGamma.getScale(), refitGamma.getScale(), scaleDrift * 100));
         }
 
-        if (original instanceof CompositeScalarModel) {
-            // For composite models, just check if types match - detailed comparison is complex
-            return new ParameterComparison(0.0, 0.0, "Composite model comparison (simplified)");
+        if (original instanceof CompositeScalarModel origComposite &&
+            refitted instanceof CompositeScalarModel refitComposite) {
+            // For composite models, compare number of components and weights
+            int origCount = origComposite.getComponentCount();
+            int refitCount = refitComposite.getComponentCount();
+
+            if (origCount != refitCount) {
+                return new ParameterComparison(1.0, 1.0,
+                    String.format("Component count mismatch: %d vs %d", origCount, refitCount));
+            }
+
+            // Compare weights (normalized)
+            double[] origWeights = origComposite.getWeights();
+            double[] refitWeights = refitComposite.getWeights();
+            double maxWeightDrift = 0.0;
+            double totalWeightDrift = 0.0;
+
+            for (int i = 0; i < origCount; i++) {
+                double drift = Math.abs(origWeights[i] - refitWeights[i]);
+                maxWeightDrift = Math.max(maxWeightDrift, drift);
+                totalWeightDrift += drift;
+            }
+
+            double avgWeightDrift = totalWeightDrift / origCount;
+            return new ParameterComparison(maxWeightDrift, avgWeightDrift,
+                String.format("Composite %d components, max weight drift: %.2f%%",
+                    origCount, maxWeightDrift * 100));
         }
 
         // Fallback for other model types

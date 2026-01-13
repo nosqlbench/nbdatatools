@@ -133,6 +133,45 @@ public final class StudentTModelFitter extends AbstractParametricFitter {
     }
 
     @Override
+    public FitResult fit(DimensionStatistics stats, float[] values) {
+        ScalarModel model = estimateParameters(stats, values);
+        double ksScore = computeKSStatistic(model, values);
+
+        // Apply penalty for high df where Student-t approaches Normal.
+        // Student-t with df >= 30 is nearly identical to Normal.
+        // Prefer Normal (simpler model) when df is high.
+        StudentTScalarModel tModel = (StudentTScalarModel) model;
+        double df = tModel.getDegreesOfFreedom();
+
+        double adjustment = 0;
+
+        // Penalize high df - defer to Normal as the simpler model
+        // The penalty grows as df increases. At high df, Student-t is
+        // indistinguishable from Normal, so Normal should win via simplicity.
+        // Use aggressive penalty to ensure Normal wins when df is high.
+        if (df >= 20) {
+            // Strong penalty: at df=20, 50% penalty; at df=100, 80% penalty
+            double normalLikeness = (df - 20) / (MAX_DF - 20);  // 0 at df=20, 1 at df=100
+            adjustment += (0.50 + 0.30 * normalLikeness) * ksScore;
+        }
+
+        // Give a bonus for low df (heavy tails) where Student-t is distinctive
+        if (df < 10) {
+            double heavyTailed = (10 - df) / (10 - MIN_DF);  // Higher for lower df
+            adjustment -= 0.15 * ksScore * heavyTailed;
+        }
+
+        // Penalize asymmetric data - Student-t is symmetric
+        double skewness = Math.abs(stats.skewness());
+        if (skewness > 0.3) {
+            adjustment += 0.20 * ksScore * Math.min(1.0, (skewness - 0.3) / 0.5);
+        }
+
+        double adjustedScore = Math.max(0, ksScore + adjustment);
+        return new FitResult(model, adjustedScore, getModelType());
+    }
+
+    @Override
     public String getModelType() {
         return StudentTScalarModel.MODEL_TYPE;
     }
