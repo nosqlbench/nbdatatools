@@ -515,9 +515,9 @@ public class ExtendedCurveVarietyTest {
         }
 
         // Phase 4: Generate from Ext and re-extract (R-T)
+        // Use the SAME selector as Gen→Ext for true round-trip test
         float[] extVariates = generateVariates(extModel, SAMPLE_SIZE, seed + 1);
-        BestFitSelector rtSelector = BestFitSelector.strictRoundTripSelector(MAX_MODES);
-        ScalarModel rtModel = extractViaStreamingPath(extVariates, rtSelector);
+        ScalarModel rtModel = extractViaStreamingPath(extVariates, selector);
         System.out.printf("  R-T model: %s%n", describeModel(rtModel));
 
         // Phase 5: Compare Ext vs R-T
@@ -554,12 +554,13 @@ public class ExtendedCurveVarietyTest {
             long seed = BASE_SEED + fixture.name().hashCode();
             float[] genVariates = generateVariates(genModel, SAMPLE_SIZE, seed);
 
+            // Use the SAME selector for both Gen→Ext and Ext→R-T stages
             BestFitSelector selector = BestFitSelector.pearsonMultimodalSelector(MAX_MODES);
             ScalarModel extModel = extractViaStreamingPath(genVariates, selector);
 
             float[] extVariates = generateVariates(extModel, SAMPLE_SIZE, seed + 1);
-            BestFitSelector rtSelector = BestFitSelector.strictRoundTripSelector(MAX_MODES);
-            ScalarModel rtModel = extractViaStreamingPath(extVariates, rtSelector);
+            // Use the same selector for R-T extraction - true round-trip test
+            ScalarModel rtModel = extractViaStreamingPath(extVariates, selector);
 
             boolean genExtMatch = EQUIVALENCE_CHECKER.areEquivalent(genModel, extModel);
             boolean extRtMatch = EQUIVALENCE_CHECKER.areEquivalent(extModel, rtModel);

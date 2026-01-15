@@ -211,7 +211,7 @@
             <include>**/VectorDataTestSuite.java</include>
           </includes>
           <!-- Add Vector API module for JDK 25 multi-release JAR support -->
-          <argLine>--add-modules jdk.incubator.vector</argLine>
+          <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
           <!-- Configure ephemeral test resources to use target/ directory -->
           <systemPropertyVariables>
             <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
@@ -229,7 +229,7 @@
               <includes>
                 <include>**/VectorDataTestSuite.java</include>
               </includes>
-              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>
@@ -248,7 +248,7 @@
                 <include>**/AccuracyTestSuite.java</include>
               </includes>
               <skip>${skipAccuracyTests}</skip>
-              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>
@@ -267,7 +267,7 @@
                 <include>**/PerformanceTestSuite.java</include>
               </includes>
               <skip>${skipPerformanceTests}</skip>
-              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>

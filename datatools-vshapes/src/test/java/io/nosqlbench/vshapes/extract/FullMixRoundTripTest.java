@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /// nbvectors analyze profile \
 ///     --multimodal --max-modes=3 --max-composite-modes=3 \
 ///     --model-type pearson --clustering em \
-///     --assume-unnormalized --verify --verbose
+///     --no-normalized --verify --verbose
 /// ```
 ///
 /// ## Test Coverage
@@ -296,8 +296,8 @@ public class FullMixRoundTripTest {
             float[] extVariates = generateVariates(extModels[d], SAMPLE_SIZE);
 
             // Phase 5: Extract R-T model from Ext variates
-            BestFitSelector rtSelector = BestFitSelector.strictRoundTripSelector(MAX_COMPOSITE_COMPONENTS);
-            rtModels[d] = extractViaStreamingPath(extVariates, rtSelector, d);
+            // Use the SAME selector as Gen→Ext for true round-trip test
+            rtModels[d] = extractViaStreamingPath(extVariates, selector, d);
             System.out.printf("  R-T model: %s%n", describeModel(rtModels[d]));
 
             // Phase 6: Compare Ext vs R-T (stability)
@@ -384,7 +384,7 @@ public class FullMixRoundTripTest {
     /// - --max-modes=3
     /// - --max-composite-modes=3
     /// - --clustering em
-    /// - --assume-unnormalized
+    /// - --no-normalized
     private ScalarModel extractViaStreamingPath(float[] values, BestFitSelector selector, int dimension) {
         StreamingModelExtractor extractor = new StreamingModelExtractor(selector);
         extractor.setUniqueVectors(values.length);

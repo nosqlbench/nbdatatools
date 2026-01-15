@@ -196,8 +196,8 @@ class CompositeRegenerationDiagnosticTest {
             System.out.println("Parametric fit failed: " + e.getMessage());
         }
 
-        // Try strict round-trip selector
-        BestFitSelector roundTrip = BestFitSelector.strictRoundTripSelector(3);
+        // Try Pearson multimodal selector
+        BestFitSelector roundTrip = BestFitSelector.pearsonMultimodalSelector(3);
         try {
             ComponentModelFitter.FitResult rtResult = roundTrip.selectBestResult(samples);
             System.out.printf("Round-trip best fit: %s (KS=%.4f)%n",

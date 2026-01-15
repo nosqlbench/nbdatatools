@@ -425,9 +425,9 @@ public class RoundTripPipelineTest {
 
         // ============ PHASE 6: Extract R-T from Ext variates ============
         // Use streaming path to match CLI behavior exactly
+        // Use the SAME selector as Gen→Ext for true round-trip test
         System.out.println("\nPHASE 6: Extract R-T model from Ext variates (stability test)");
-        BestFitSelector rtSelector = BestFitSelector.strictRoundTripSelector(MAX_MODES);
-        ScalarModel rtScalar = extractViaStreamingPath(extVariates, rtSelector);
+        ScalarModel rtScalar = extractViaStreamingPath(extVariates, selector);
         System.out.printf("  R-T model type: %s%n", describeModel(rtScalar));
 
         // ============ PHASE 7: Compare Ext vs R-T (stability) ============
@@ -486,13 +486,14 @@ public class RoundTripPipelineTest {
             ScalarModel genScalar = genModel.scalarModel(0);
 
             // Generate and extract via streaming path (matches CLI behavior)
+            // Use the SAME selector for both Gen→Ext and Ext→R-T stages
             float[] genVariates = generateVariates(genScalar, SAMPLE_SIZE);
             BestFitSelector selector = BestFitSelector.pearsonMultimodalSelector(MAX_MODES);
             ScalarModel extScalar = extractViaStreamingPath(genVariates, selector);
 
             float[] extVariates = generateVariates(extScalar, SAMPLE_SIZE);
-            BestFitSelector rtSelector = BestFitSelector.strictRoundTripSelector(MAX_MODES);
-            ScalarModel rtScalar = extractViaStreamingPath(extVariates, rtSelector);
+            // Use the same selector for R-T extraction - this is a true round-trip test
+            ScalarModel rtScalar = extractViaStreamingPath(extVariates, selector);
 
             // Compare
             boolean genExtMatch = EQUIVALENCE_CHECKER.areEquivalent(genScalar, extScalar);

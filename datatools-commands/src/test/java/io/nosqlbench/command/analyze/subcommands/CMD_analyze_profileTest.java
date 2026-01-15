@@ -20,6 +20,7 @@ package io.nosqlbench.command.analyze.subcommands;
 import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -33,7 +34,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link CMD_analyze_profile}.
+ *
+ * <p>This test is tagged as "long-running" because it performs actual
+ * profile analysis which can take significant time. Run with:
+ * <pre>
+ * mvn test -pl datatools-commands -Plong-running
+ * </pre>
  */
+@Tag("long-running")
 class CMD_analyze_profileTest {
 
     @Test

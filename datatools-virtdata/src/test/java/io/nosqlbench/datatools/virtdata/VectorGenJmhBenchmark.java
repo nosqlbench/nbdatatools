@@ -44,7 +44,7 @@ import java.util.function.LongFunction;
 @State(Scope.Thread)
 @Warmup(iterations = 3, time = 1)
 @Measurement(iterations = 5, time = 1)
-@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector"})
+@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED"})
 public class VectorGenJmhBenchmark {
 
     @Param({"64", "128", "256", "512", "1024"})
@@ -212,7 +212,7 @@ public class VectorGenJmhBenchmark {
         Options opt = new OptionsBuilder()
             .include(VectorGenJmhBenchmark.class.getSimpleName())
             .forks(1)
-            .jvmArgs("--add-modules", "jdk.incubator.vector")
+            .jvmArgs("--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED")
             .build();
 
         new Runner(opt).run();

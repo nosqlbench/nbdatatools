@@ -1,0 +1,242 @@
+package io.nosqlbench.vshapes;
+
+/*
+ * Copyright (c) nosqlbench
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+
+import com.jediterm.core.compatibility.Point;
+import com.jediterm.core.util.TermSize;
+import com.jediterm.core.typeahead.TerminalTypeAheadManager;
+import com.jediterm.terminal.ArrayTerminalDataStream;
+import com.jediterm.terminal.RequestOrigin;
+import com.jediterm.terminal.TerminalDataStream;
+import com.jediterm.terminal.TerminalDisplay;
+import com.jediterm.terminal.TerminalExecutorServiceManager;
+import com.jediterm.terminal.TerminalStarter;
+import com.jediterm.terminal.TtyBasedArrayDataStream;
+import com.jediterm.terminal.TtyConnector;
+import com.jediterm.terminal.emulator.JediEmulator;
+import com.jediterm.terminal.emulator.mouse.MouseFormat;
+import com.jediterm.terminal.emulator.mouse.MouseMode;
+import com.jediterm.terminal.model.JediTerminal;
+import com.jediterm.terminal.model.StyleState;
+import com.jediterm.terminal.model.TerminalSelection;
+import com.jediterm.terminal.model.TerminalTextBuffer;
+
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+/**
+ * Shared test harness for exercising JediTerm in headless mode.
+ */
+public final class TerminalTestRig {
+
+    private final RecordingDisplay display = new RecordingDisplay();
+    private final StyleState styleState = new StyleState();
+    private final TerminalTextBuffer buffer;
+    private final JediTerminal terminal;
+
+    public TerminalTestRig(int columns, int rows) {
+        buffer = new TerminalTextBuffer(columns, rows, styleState);
+        terminal = new JediTerminal(display, buffer, styleState);
+        terminal.resize(new TermSize(columns, rows), RequestOrigin.Remote);
+        terminal.setCursorVisible(true);
+    }
+
+    public void feedFrame(String ansiFrame) throws IOException {
+        JediEmulator emulator = new JediEmulator(new ArrayTerminalDataStream(ansiFrame.toCharArray()), terminal);
+        while (emulator.hasNext()) {
+            emulator.next();
+        }
+    }
+
+    public Snapshot snapshot() {
+        return new Snapshot(
+            buffer.getScreenLines().stripTrailing(),
+            display.getCursor(),
+            display.isCursorVisible(),
+            display.getWindowTitle()
+        );
+    }
+
+    public TerminalSession startSession(TtyConnector connector,
+                                        TerminalExecutorServiceManager executors,
+                                        TerminalTypeAheadManager typeAheadManager) {
+        TerminalStarter starter = new TerminalStarter(
+            terminal,
+            connector,
+            new TtyBasedArrayDataStream(connector),
+            typeAheadManager,
+            executors
+        );
+        ExecutorService executor = executors.getUnboundedExecutorService();
+        Future<?> task = executor.submit(starter::start);
+        return new TerminalSession(starter, task);
+    }
+
+    public TerminalStarter newStarter(TtyConnector connector,
+                                      TerminalExecutorServiceManager executors,
+                                      TerminalTypeAheadManager typeAheadManager,
+                                      TerminalDataStream stream) {
+        return new TerminalStarter(terminal, connector, stream, typeAheadManager, executors);
+    }
+
+    public TerminalTextBuffer buffer() {
+        return buffer;
+    }
+
+    public JediTerminal terminal() {
+        return terminal;
+    }
+
+    public RecordingDisplay display() {
+        return display;
+    }
+
+    public void resize(int columns, int rows) {
+        terminal.resize(new TermSize(columns, rows), RequestOrigin.User);
+    }
+
+    public static record Snapshot(String screen, Point cursor, boolean cursorVisible,
+        String windowTitle) { }
+
+    public static final class RecordingDisplay implements TerminalDisplay {
+        private final TerminalSelection selection = new TerminalSelection(new Point(0, 0));
+        private Point cursor = new Point(0, 0);
+        private String windowTitle = "";
+        private boolean cursorVisible;
+
+        @Override
+        public void setCursor(int x, int y) {
+            cursor = new Point(x, y);
+            selection.updateEnd(new Point(x, y));
+        }
+
+        @Override
+        public void setCursorShape(com.jediterm.terminal.CursorShape cursorShape) {
+            // not needed for headless tests
+        }
+
+        @Override
+        public void beep() {
+            // not needed for headless tests
+        }
+
+        @Override
+        public void onResize(TermSize termSize, RequestOrigin origin) {
+            // not needed for headless tests
+        }
+
+        @Override
+        public void scrollArea(int top, int bottom, int lines) {
+            // not needed for headless tests
+        }
+
+        @Override
+        public void setCursorVisible(boolean visible) {
+            cursorVisible = visible;
+        }
+
+        @Override
+        public void useAlternateScreenBuffer(boolean useAlternateBuffer) {
+            // not needed for headless tests
+        }
+
+        @Override
+        public String getWindowTitle() {
+            return windowTitle;
+        }
+
+        @Override
+        public void setWindowTitle(String windowTitle) {
+            this.windowTitle = windowTitle;
+        }
+
+        @Override
+        public TerminalSelection getSelection() {
+            return selection;
+        }
+
+        @Override
+        public void terminalMouseModeSet(MouseMode mouseMode) {
+            // not needed for headless tests
+        }
+
+        @Override
+        public void setMouseFormat(MouseFormat mouseFormat) {
+            // not needed for headless tests
+        }
+
+        @Override
+        public boolean ambiguousCharsAreDoubleWidth() {
+            return false;
+        }
+
+        public Point getCursor() {
+            return cursor;
+        }
+
+        public boolean isCursorVisible() {
+            return cursorVisible;
+        }
+    }
+
+    public static final class TerminalSession implements AutoCloseable {
+        private final TerminalStarter starter;
+        private final Future<?> task;
+
+        TerminalSession(TerminalStarter starter, Future<?> task) {
+            this.starter = starter;
+            this.task = task;
+        }
+
+        public void sendKeys(String input) {
+            starter.sendString(input, true);
+        }
+
+        public void postResize(TermSize size, RequestOrigin origin) {
+            starter.postResize(size, origin);
+        }
+
+        public void awaitCompletion(long timeout, TimeUnit unit) {
+            try {
+                task.get(timeout, unit);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for terminal session", e);
+            } catch (ExecutionException e) {
+                throw new IllegalStateException("Terminal session failed", e.getCause());
+            } catch (TimeoutException e) {
+                throw new IllegalStateException("Terminal session did not finish in time", e);
+            }
+        }
+
+        public boolean isRunning() {
+            return !task.isDone();
+        }
+
+        @Override
+        public void close() {
+            starter.requestEmulatorStop();
+            task.cancel(true);
+        }
+    }
+}

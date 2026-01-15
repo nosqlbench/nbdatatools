@@ -47,10 +47,13 @@ import io.nosqlbench.vshapes.extract.ModelEquivalenceAnalyzer;
 import io.nosqlbench.vshapes.extract.StatisticalEquivalenceChecker;
 import io.nosqlbench.vshapes.extract.StudentTModelFitter;
 import io.nosqlbench.vshapes.extract.ModelExtractor;
+import io.nosqlbench.command.generate.subcommands.CMD_generate_sketch;
+import io.nosqlbench.vshapes.extract.ModelParser;
 import io.nosqlbench.vshapes.extract.NormalModelFitter;
 import io.nosqlbench.vshapes.extract.UniformModelFitter;
 import io.nosqlbench.vshapes.extract.DimensionFitReport;
 import io.nosqlbench.vshapes.extract.Sparkline;
+import io.nosqlbench.vshapes.extract.BraillePlot;
 import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import io.nosqlbench.vshapes.checkpoint.CheckpointManager;
 import io.nosqlbench.vshapes.checkpoint.CheckpointState;
@@ -229,11 +232,21 @@ public class CMD_analyze_profile implements Callable<Integer> {
         parametric  // Parametric distributions only (no empirical)
     }
 
-    @CommandLine.Mixin
-    private BaseVectorsFileOption baseVectorsOption = new BaseVectorsFileOption();
+    /// Base vectors file path with optional inline range.
+    /// Not required when --from-model is used (auto-generated as bridge_<epoch>.fvec).
+    @CommandLine.Option(
+        names = {"-b", "--base"},
+        description = "Base vectors file path (supports inline range e.g., file.fvec:1000). " +
+            "Auto-generated as bridge_<epoch>.fvec when using --from-model if not specified.",
+        converter = BaseVectorsFileOption.BaseVectorsConverter.class
+    )
+    private BaseVectorsFileOption.BaseVectors baseVectors;
 
-    @CommandLine.Option(names = {"-o", "--output"}, description = "Output JSON file for VectorSpaceModel config",
-        required = true)
+    /// Output JSON file for VectorSpaceModel config.
+    /// Not required when --from-model is used (auto-generated as model_<epoch>.json).
+    @CommandLine.Option(names = {"-o", "--output"},
+        description = "Output JSON file for VectorSpaceModel config. " +
+            "Auto-generated as model_<epoch>.json when using --from-model if not specified.")
     private Path outputFile;
 
     @CommandLine.Option(names = {"-n", "--unique-vectors"},
@@ -266,7 +279,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
     @CommandLine.Option(names = {"--analyze-equivalence"},
         description = "Run model equivalence analysis to find simplification opportunities")
-    private boolean analyzeEquivalence = false;
+    private boolean analyzeEquivalence = true;
 
     @CommandLine.Option(names = {"--equivalence-threshold"},
         description = "Max CDF difference threshold for model equivalence (default: 0.02)")
@@ -274,19 +287,20 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
     @CommandLine.Option(names = {"--apply-simplifications"},
         description = "Apply recommended simplifications to the saved model")
-    private boolean applySimplifications = false;
+    private boolean applySimplifications = true;
 
     @CommandLine.Option(names = {"--show-fit-table"},
         description = "Display per-dimension fit quality table for all Pearson distribution types")
-    private boolean showFitTable = false;
+    private boolean showFitTable = true;
 
     @CommandLine.Option(names = {"--fit-table-max-dims"},
         description = "Maximum dimensions to show in fit table (default: 50)")
     private int fitTableMaxDims = 50;
 
-    @CommandLine.Option(names = {"--no-convergence"},
-        description = "Disable convergent parameter estimation (process all samples without early stopping)")
-    private boolean noConvergence = false;
+    @CommandLine.Option(names = {"--convergence"},
+        description = "Enable convergent parameter estimation with early stopping when parameters stabilize (default: true)",
+        negatable = true)
+    private boolean convergence = true;
 
     @CommandLine.Option(names = {"--convergence-threshold"},
         description = "Convergence threshold as fraction of standard error (default: 0.01 = 1%)")
@@ -310,12 +324,18 @@ public class CMD_analyze_profile implements Callable<Integer> {
             "table will include this model alongside extracted and round-trip models for three-way comparison.")
     private Path referenceModelPath;
 
+    @CommandLine.Option(names = {"--from-model"},
+        description = "Specify a generator model string to use for verification (instead of extracting from a file). " +
+            "Delegates to generate sketch to create the bridge file using the provided base path. " +
+            "Example: '⊕3[▭,𝒩,β]:[−0.5,0.5]*.33,𝒩(0,1)*.33,...'")
+    private String fromModelSpec;
+
     @CommandLine.Option(names = {"--refine"},
         description = "Enable iterative model refinement with internal verification. " +
             "When enabled, each dimension is verified via round-trip and refined if verification fails. " +
             "Refinement tries models in order: simple parametric → extended parametric → composite → empirical. " +
             "Implies --verify.")
-    private boolean refine = false;
+    private boolean refine = true;
 
     @CommandLine.Option(names = {"--refine-threshold"},
         description = "Maximum parameter drift threshold for refinement verification (default: 0.02 = 2%%)")
@@ -323,36 +343,17 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
     @CommandLine.Option(names = {"--verbose", "-v"},
         description = "Show detailed progress and output")
-    private boolean verbose = false;
+    private boolean verbose = true;
 
     @CommandLine.Option(names = {"--empirical-dimensions"},
         description = "Force empirical (histogram) model for specific dimensions (comma-separated list, e.g., '23,47,89')",
         split = ",")
     private java.util.List<Integer> empiricalDimensions = new java.util.ArrayList<>();
 
-    @CommandLine.Option(names = {"--multimodal"},
-        description = "Enable multimodal detection and composite model fitting. " +
-            "When enabled, the profile command detects multi-modal distributions and fits " +
-            "2-3 component mixture models instead of falling back to empirical histograms.")
-    private boolean enableMultimodal = false;
-
     @CommandLine.Option(names = {"--max-modes"},
-        description = "Maximum number of modes to detect per dimension (default: 3). " +
-            "Only used when --multimodal is enabled.")
-    private int maxModes = 3;
-
-    // Adaptive composite fallback options
-    @CommandLine.Option(names = {"--no-adaptive"},
-        description = "Disable adaptive composite fallback (enabled by default). " +
-            "When adaptive is enabled, the extractor tries parametric models first, " +
-            "then composite models with 2-10 components before falling back to empirical.")
-    private boolean noAdaptive = false;
-
-    @CommandLine.Option(names = {"--max-composite-modes"},
-        description = "Maximum number of modes for composite fitting (default: 4). " +
-            "Range: 2-10. Higher values require more samples for accurate parameter estimation. " +
-            "Used with adaptive extraction and --multimodal.")
-    private int maxCompositeModes = 4;
+        description = "Maximum number of modes to detect and fit per dimension (default: 10). " +
+            "Range: 1-10. Composite models are always tried before falling back to empirical.")
+    private int maxModes = 10;
 
     @CommandLine.Option(names = {"--verification-level"},
         description = "Internal verification thoroughness level: fast (500 samples), " +
@@ -400,26 +401,36 @@ public class CMD_analyze_profile implements Callable<Integer> {
             "Used for chunked processing of large datasets.")
     private String memoryBudget = "0.6";
 
-    @CommandLine.Option(names = {"--use-transposed-loading"},
-        description = "Load vectors directly in column-major (transposed) format for faster per-dimension analysis. " +
-            "Automatically enabled when using memory-mapped I/O.")
-    private boolean useTransposedLoading = true;
-
-    @CommandLine.Option(names = {"--assume-normalized"},
-        description = "Assume vectors are L2-normalized (||v|| = 1.0). Skips auto-detection and applies " +
-            "[-1, 1] range bounds to model extraction. Use when you know vectors are normalized " +
-            "to avoid detection overhead.")
-    private boolean assumeNormalized = false;
-
-    @CommandLine.Option(names = {"--assume-unnormalized"},
-        description = "Assume vectors are NOT normalized. Skips auto-detection. " +
-            "Use when you know vectors are not normalized.")
-    private boolean assumeUnnormalized = false;
+    /// Specifies whether vectors are L2-normalized.
+    /// Use --normalized to assume vectors are unit vectors (||v|| = 1.0).
+    /// Use --no-normalized to assume vectors are NOT normalized.
+    /// If neither is specified, auto-detection is performed.
+    @CommandLine.Option(names = {"--normalized"},
+        description = "Assume vectors are L2-normalized (||v|| = 1.0). Use --no-normalized to assume " +
+            "vectors are NOT normalized. If neither is specified, auto-detection is performed. " +
+            "Default: auto-detect.",
+        negatable = true)
+    private Boolean normalizedVectors = null;
 
     @CommandLine.Option(names = {"--log-output"},
         description = "Duplicate stdout/stderr to log files. Optionally specify output directory. " +
             "Creates stdout.txt and stderr.txt in the specified directory (default: current directory).")
     private String logOutputDir = null;
+
+    @CommandLine.Option(names = {"--plot"},
+        description = "Enable braille-based histogram plots for each dimension. " +
+            "For composite models, each component is shown in a different color. " +
+            "Default: enabled for single-dimension profiles, disabled otherwise.",
+        negatable = true)
+    private Boolean plotEnabled = null;
+
+    @CommandLine.Option(names = {"--plot-width"},
+        description = "Plot width in characters (default: 80 for single dim, 40 for multi-dim)")
+    private Integer plotWidth = null;
+
+    @CommandLine.Option(names = {"--plot-height"},
+        description = "Plot height in lines (default: 20 for single dim, 10 for multi-dim)")
+    private Integer plotHeight = null;
 
     /// Detected or assumed normalization status. Set during call().
     private Boolean detectedNormalized = null;
@@ -442,15 +453,88 @@ public class CMD_analyze_profile implements Callable<Integer> {
         }
 
         try {
-            // Validate base vectors file
-            baseVectorsOption.validateBaseVectors();
-            Path inputFile = baseVectorsOption.getBasePath();
+            // Check if using model from string spec (delegate to generate sketch)
+            if (fromModelSpec != null) {
+                // Auto-generate file paths based on epoch time if not specified
+                long epochSeconds = System.currentTimeMillis() / 1000;
+
+                Path bridgeFile;
+                if (baseVectors != null) {
+                    bridgeFile = baseVectors.path();
+                } else {
+                    // Auto-generate bridge file path
+                    bridgeFile = Path.of(String.format("bridge_%d.fvec", epochSeconds));
+                    System.out.println("Auto-generated bridge file: " + bridgeFile);
+                }
+
+                if (outputFile == null) {
+                    // Auto-generate output model file path
+                    outputFile = Path.of(String.format("model_%d.json", epochSeconds));
+                    System.out.println("Auto-generated output file: " + outputFile);
+                }
+
+                // Update baseVectors to point to the bridge file for later processing
+                baseVectors = new BaseVectorsFileOption.BaseVectors(bridgeFile, null);
+
+                // Determine reference model file path (bridge_<epoch>.json)
+                String bridgeName = bridgeFile.getFileName().toString();
+                int extIdx = bridgeName.lastIndexOf('.');
+                String jsonName = (extIdx > 0 ? bridgeName.substring(0, extIdx) : bridgeName) + "_ref.json";
+                Path refModelFile = bridgeFile.resolveSibling(jsonName);
+
+                System.out.println("Using model from spec: " + fromModelSpec);
+                System.out.println("Delegating to 'generate sketch' to create bridge file: " + bridgeFile);
+
+                // Construct args for generate sketch
+                long count = uniqueVectors != null ? uniqueVectors : 100_000;
+                int dims = 1; // Default to 1D for spec verification
+
+                CMD_generate_sketch sketchCmd = new CMD_generate_sketch();
+                CommandLine cmd = new CommandLine(sketchCmd);
+                int result = cmd.execute(
+                    "-o", bridgeFile.toString(),
+                    "-d", String.valueOf(dims),
+                    "-n", String.valueOf(count),
+                    "--format", "xvec",
+                    "--model-spec", fromModelSpec,
+                    "--model-out", refModelFile.toString(),
+                    "--force"
+                );
+
+                if (result != 0) {
+                    System.err.println("Error: Failed to generate bridge file from spec");
+                    return result;
+                }
+
+                // Set reference model to the one we just generated
+                referenceModelPath = refModelFile;
+                verify = true; // Enable verification
+
+                System.out.println("Bridge file generated. Proceeding with profiling...");
+            } else {
+                // Standard flow: Validate required options
+                if (baseVectors == null) {
+                    System.err.println("Error: --base file is required (or use --from-model for auto-generation)");
+                    return 1;
+                }
+                if (outputFile == null) {
+                    System.err.println("Error: --output file is required (or use --from-model for auto-generation)");
+                    return 1;
+                }
+                // Validate base vectors file exists
+                if (!java.nio.file.Files.exists(baseVectors.path())) {
+                    System.err.println("Error: Base vectors file does not exist: " + baseVectors.path());
+                    return 1;
+                }
+            }
+
+            Path inputFile = baseVectors.path();
 
             // Parse inline range if specified
             RangeOption.Range inlineRange = null;
-            if (baseVectorsOption.hasInlineRange()) {
+            if (baseVectors.rangeSpec() != null && !baseVectors.rangeSpec().isEmpty()) {
                 RangeOption.RangeConverter converter = new RangeOption.RangeConverter();
-                inlineRange = converter.convert(baseVectorsOption.getInlineRange());
+                inlineRange = converter.convert(baseVectors.rangeSpec());
             }
 
             String fileExtension = getFileExtension(inputFile);
@@ -506,19 +590,12 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 System.out.printf("Created checkpoint directory: %s%n", checkpointDir);
             }
 
-            // Validate conflicting normalization options
-            if (assumeNormalized && assumeUnnormalized) {
-                System.err.println("Error: Cannot use both --assume-normalized and --assume-unnormalized");
-                return 1;
-            }
-
             // Detect or set normalization status
-            if (assumeNormalized) {
-                detectedNormalized = true;
-                logger.info("Assuming vectors are L2-normalized (user specified)");
-            } else if (assumeUnnormalized) {
-                detectedNormalized = false;
-                logger.info("Assuming vectors are NOT normalized (user specified)");
+            if (normalizedVectors != null) {
+                // User explicitly specified --normalized or --no-normalized
+                detectedNormalized = normalizedVectors;
+                logger.info("Assuming vectors are {} (user specified)",
+                    detectedNormalized ? "L2-normalized" : "NOT normalized");
             } else {
                 // Auto-detect normalization by sampling vectors
                 try {
@@ -545,7 +622,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
             }
             System.out.printf("  Model type: %s%n", modelType);
             // Display normalization status
-            String normSource = (assumeNormalized || assumeUnnormalized) ? " (user specified)" : " (auto-detected)";
+            String normSource = (normalizedVectors != null) ? " (user specified)" : " (auto-detected)";
             System.out.printf("  Normalized: %s%s%n",
                 detectedNormalized ? "yes (L2 unit vectors)" : "no",
                 normSource);
@@ -590,7 +667,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
                         return 1;
                     }
                 }
-                boolean passed = runRoundTripVerification(model, referenceModel);
+                boolean passed = runRoundTripVerification(model, referenceModel, createSelector());
                 return passed ? 0 : 1;
             }
 
@@ -980,7 +1057,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
         extractor.setUniqueVectors(vectorCount);
 
         // Enable same features as main streaming extraction
-        if (!noConvergence) {
+        if (convergence) {
             extractor.enableConvergenceTracking(convergenceThreshold);
             extractor.enableIncrementalFitting(5);
             extractor.enableHistogramTracking(0.25);
@@ -989,7 +1066,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
         // Configure adaptive settings
         extractor.setAdaptiveEnabled(isAdaptiveEnabled());
         if (isAdaptiveEnabled()) {
-            extractor.setMaxCompositeComponents(maxCompositeModes);
+            extractor.setMaxCompositeComponents(maxModes);
         }
 
         // Initialize with shape
@@ -1031,7 +1108,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
             }
 
             // Check convergence
-            if (!noConvergence) {
+            if (convergence) {
                 extractor.checkConvergence();
                 if (extractor.shouldStopEarly()) {
                     System.out.printf("\r  Converged at chunk %d/%d (%d%%)      %n", chunk + 1, chunks, percent);
@@ -1113,7 +1190,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
             .parametricSelector(BestFitSelector.pearsonSelector())
             .verificationLevel(vLevel)
             .clusteringStrategy(strategy)
-            .maxCompositeComponents(maxCompositeModes)
+            .maxCompositeComponents(maxModes)
             .uniqueVectors(uniqueVectors != null ? uniqueVectors : 1_000_000)
             .internalVerification(!noInternalVerify)
             .build();
@@ -1121,9 +1198,11 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
     /**
      * Returns true if adaptive extraction is enabled.
+     * Adaptive extraction always tries composite models before falling back to empirical.
      */
     private boolean isAdaptiveEnabled() {
-        return !noAdaptive && modelType == ModelType.auto;
+        // Always enabled - composite models are tried before empirical fallback
+        return true;
     }
 
     /**
@@ -1138,14 +1217,11 @@ public class CMD_analyze_profile implements Callable<Integer> {
         switch (modelType) {
             case pearson:
                 // Use normalized Pearson selector if data is normalized, otherwise unbounded
+                // Always use multimodal detection
                 if (Boolean.TRUE.equals(detectedNormalized)) {
-                    return enableMultimodal
-                        ? BestFitSelector.normalizedPearsonMultimodalSelector(maxModes)
-                        : BestFitSelector.normalizedPearsonSelector();
+                    return BestFitSelector.normalizedPearsonMultimodalSelector(maxModes);
                 }
-                return enableMultimodal
-                    ? BestFitSelector.pearsonMultimodalSelector(maxModes)
-                    : BestFitSelector.fullPearsonSelector();
+                return BestFitSelector.pearsonMultimodalSelector(maxModes);
             case normal:
                 return new BestFitSelector(java.util.List.of(
                     Boolean.TRUE.equals(detectedNormalized)
@@ -1163,27 +1239,20 @@ public class CMD_analyze_profile implements Callable<Integer> {
             case auto:
             default:
                 // When showing fit table, use Pearson selector for comprehensive comparison
-                // Respect normalization detection for proper bounds handling
+                // Always use multimodal detection
                 if (showFitTable) {
                     if (Boolean.TRUE.equals(detectedNormalized)) {
-                        return enableMultimodal
-                            ? BestFitSelector.normalizedPearsonMultimodalSelector(maxModes)
-                            : BestFitSelector.normalizedPearsonSelector();
+                        return BestFitSelector.normalizedPearsonMultimodalSelector(maxModes);
                     }
-                    return enableMultimodal
-                        ? BestFitSelector.pearsonMultimodalSelector(maxModes)
-                        : BestFitSelector.fullPearsonSelector();
+                    return BestFitSelector.pearsonMultimodalSelector(maxModes);
                 }
                 // Use normalized vector selector if data is detected/assumed normalized
                 if (Boolean.TRUE.equals(detectedNormalized)) {
                     // Normalized vectors have known bounds [-1, 1]
                     return BestFitSelector.normalizedVectorSelector();
                 }
-                // Use bounded data selector (Normal, Beta, Uniform, Empirical) for typical
-                // vector embeddings. With multimodal enabled, also tries composite models.
-                return enableMultimodal
-                    ? BestFitSelector.multimodalAwareSelector()
-                    : BestFitSelector.boundedDataWithEmpirical();
+                // Use multimodal-aware selector for bounded data
+                return BestFitSelector.multimodalAwareSelector();
         }
     }
 
@@ -1735,13 +1804,11 @@ public class CMD_analyze_profile implements Callable<Integer> {
         }
         System.out.printf("  ✓ Loaded %,d vectors%n%n", originalData.length);
 
-        // Step 2: Verify each dimension using BestFitSelector (matches round-trip verification)
+        // Step 2: Verify each dimension using BestFitSelector (same as main extraction)
         System.out.println("Step 2/3: Verifying dimensions via round-trip type matching...");
 
-        // Use strict round-trip selector for accurate verification
-        // This selector has tighter CDF validation and preserves model types
-        int effectiveMaxModes = enableMultimodal ? Math.max(maxModes, maxCompositeModes) : maxCompositeModes;
-        BestFitSelector verifySelector = BestFitSelector.strictRoundTripSelector(effectiveMaxModes);
+        // Use the same selector as the main extraction for consistency
+        BestFitSelector verifySelector = createSelector();
 
         java.util.List<Integer> failedDimensions = new java.util.ArrayList<>();
         int verifiedCount = 0;
@@ -2025,11 +2092,19 @@ public class CMD_analyze_profile implements Callable<Integer> {
      *   <li>Reports pass/fail status with dimension-by-dimension details</li>
      * </ol>
      *
+     * <p>The same selector used for initial extraction is passed to ensure
+     * consistent fitting logic between Gen→Ext and Ext→R-T stages. This is
+     * essential for a true round-trip test - using different selectors would
+     * test whether two different extractors agree, not whether the same
+     * extractor is stable.
+     *
      * @param originalModel the model extracted from the original data
      * @param referenceModel optional reference model (original generator) for three-way comparison
+     * @param selector the same selector used for initial extraction
      * @return true if verification passed, false otherwise
      */
-    private boolean runRoundTripVerification(VectorSpaceModel originalModel, VectorSpaceModel referenceModel) {
+    private boolean runRoundTripVerification(VectorSpaceModel originalModel, VectorSpaceModel referenceModel,
+                                             BestFitSelector selector) {
         System.out.println();
         System.out.println("═══════════════════════════════════════════════════════════════════════════════");
         System.out.println("                         ROUND-TRIP VERIFICATION                               ");
@@ -2069,17 +2144,15 @@ public class CMD_analyze_profile implements Callable<Integer> {
         long genElapsed = System.currentTimeMillis() - genStart;
         System.out.printf("  ✓ Synthetic data generated (%,d ms)%n%n", genElapsed);
 
-        // Step 2: Re-extract model from synthetic data using strict round-trip selector
+        // Step 2: Re-extract model from synthetic data using the SAME selector as Gen→Ext
         System.out.println("Step 2/3: Extracting R-T model from synthetic data...");
         System.out.println("         (variates → R-T: testing if extraction is stable)");
         long extractStart = System.currentTimeMillis();
 
-        // Use strict round-trip selector with adaptive resolution for accurate multimodal detection
-        // This selector enables adaptive histogram resolution to detect closely-spaced modes
-        int effectiveMaxModes = enableMultimodal ? Math.max(maxModes, maxCompositeModes) : maxCompositeModes;
-        BestFitSelector roundTripSelector = BestFitSelector.strictRoundTripSelector(effectiveMaxModes);
+        // Use the same selector that was used for initial extraction - this ensures
+        // consistent fitting logic between Gen→Ext and Ext→R-T stages
         ModelExtractor.ExtractionResult extractionResult = extractModelFromData(
-            syntheticData, dimensions, verifyCount, roundTripSelector);
+            syntheticData, dimensions, verifyCount, selector);
         VectorSpaceModel roundTripModel = extractionResult.model();
 
         // Apply the same empirical overrides to round-trip model - if the original
@@ -2161,6 +2234,11 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
         // Print dimension-by-dimension comparison table
         printDimensionComparisonTable(comparisons, dimensions, referenceModel != null);
+
+        // Print dimension plots if enabled
+        if (shouldShowPlots(dimensions)) {
+            printDimensionPlots(comparisons, dimensions);
+        }
 
         // Print summary statistics
         System.out.println();
@@ -2306,6 +2384,27 @@ public class CMD_analyze_profile implements Callable<Integer> {
             GLYPH_COMPOSITE + "=Composite" +
             ANSI_RESET);
         System.out.println();
+        
+        // Print Specs Section
+        boolean printedSpecsHeader = false;
+        for (DimensionComparison c : comparisons) {
+            boolean genComposite = c.reference instanceof CompositeScalarModel gc && !gc.isSimple();
+            boolean extComposite = c.extracted instanceof CompositeScalarModel ec && !ec.isSimple();
+            
+            // In verbose mode show all, otherwise only composite/multimodal
+            if (verbose || genComposite || extComposite) {
+                if (!printedSpecsHeader) {
+                    System.out.println("Model Specifications:");
+                    printedSpecsHeader = true;
+                }
+                if (hasReference && c.reference != null) {
+                    System.out.println("  Dim " + c.dimension + " Gen: " + ANSI_CYAN + formatParsableSpec(c.reference) + ANSI_RESET);
+                }
+                System.out.println("  Dim " + c.dimension + " Ext: " + ANSI_DIM + formatParsableSpec(c.extracted) + ANSI_RESET);
+            }
+        }
+        if (printedSpecsHeader) System.out.println();
+
         System.out.println("Dimension-by-Dimension Comparison:");
         // Vertical layout: each dimension shows stages stacked (Gen/Ext/R-T)
         System.out.println("┌─────┬───────┬──────────────┬─────────────────────────────────┬────────┬────────┐");
@@ -2375,12 +2474,17 @@ public class CMD_analyze_profile implements Callable<Integer> {
             // Column width for model params (matches header: 33 dashes)
             final int MODEL_WIDTH = 33;
 
+            // Compute common range for sparklines across all phases for this dimension
+            float[] range = computeCommonRange(c.reference, c.extracted, c.roundTrip);
+            float commonMin = range[0];
+            float commonMax = range[1];
+
             // Row 1: Generator (if present) or Extracted
-            // Use renderModelSparkline() to forward-render samples using ComponentSampler.
-            // This ensures all phases use the same sampling infrastructure, making
+            // Use renderModelSparklineOnRange() to forward-render samples using ComponentSampler.
+            // This ensures all phases use the same sampling infrastructure and common range, making
             // sparklines directly comparable when models are statistically equivalent.
             if (hasReference && c.reference != null) {
-                String refSparkline = renderModelSparkline(c.reference, SPARKLINE_WIDTH);
+                String refSparkline = renderModelSparklineOnRange(c.reference, SPARKLINE_WIDTH, commonMin, commonMax);
                 String refParams = truncateString(formatModelParams(c.reference), MODEL_WIDTH);
                 String refModelCell = padToWidth(ANSI_CYAN + refParams + ANSI_RESET, MODEL_WIDTH);
                 System.out.printf("│ %3d │ %sGen%s   │ %s │ %s │        │        │%n",
@@ -2393,7 +2497,6 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 if (c.reference instanceof CompositeScalarModel refComposite && !refComposite.isSimple()) {
                     ScalarModel[] refSubModels = refComposite.getScalarModels();
                     double[] refWeights = refComposite.getWeights();
-                    float[] refRange = computeCompositeRange(refComposite);
 
                     for (int i = 0; i < refSubModels.length; i++) {
                         ScalarModel subModel = refSubModels[i];
@@ -2402,10 +2505,12 @@ public class CMD_analyze_profile implements Callable<Integer> {
                         String glyph = getDistributionGlyph(subModel);
                         String weightStr = String.format("%.0f%%", refWeights[i] * 100);
                         String compParams = formatModelParams(subModel);
-                        String paramsOnly = compParams.length() > 2 ? compParams.substring(1) : compParams;
+                        // Use offsetByCodePoints to handle surrogate pairs (like 𝒩) correctly
+                        int skip = compParams.length() > 0 ? Character.charCount(compParams.codePointAt(0)) : 0;
+                        String paramsOnly = compParams.length() > skip ? compParams.substring(skip) : "";
                         String compContent = ANSI_CYAN + weightStr + " " + truncateString(paramsOnly, MODEL_WIDTH - 6) + ANSI_RESET;
                         String compModelCell = padToWidth(compContent, MODEL_WIDTH);
-                        String compSparkline = renderModelSparklineOnRange(subModel, SPARKLINE_WIDTH, refRange[0], refRange[1]);
+                        String compSparkline = renderModelSparklineOnRange(subModel, SPARKLINE_WIDTH, commonMin, commonMax);
 
                         System.out.printf("│     │  %s%s%s%s   │ %s │ %s │        │        │%n",
                             ANSI_CYAN, prefix, glyph, ANSI_RESET,
@@ -2415,7 +2520,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
                 }
 
                 // Row 2: Extracted
-                String extSparkline = renderModelSparkline(c.extracted, SPARKLINE_WIDTH);
+                String extSparkline = renderModelSparklineOnRange(c.extracted, SPARKLINE_WIDTH, commonMin, commonMax);
                 String extParams = truncateString(formatModelParams(c.extracted), MODEL_WIDTH);
                 String extModelCell = padToWidth(ANSI_DIM + extParams + ANSI_RESET, MODEL_WIDTH);
                 System.out.printf("│     │ %sExt%s   │ %s │ %s │        │        │%n",
@@ -2423,8 +2528,38 @@ public class CMD_analyze_profile implements Callable<Integer> {
                     extSparkline,
                     extModelCell);
 
+                // For multi-component composites, show sub-components under extracted row
+                // Render all components on the SAME x-axis range as the overall composite
+                // so their visual contributions to the mixture are clear
+                if (c.extracted instanceof CompositeScalarModel composite && !composite.isSimple()) {
+                    ScalarModel[] subModels = composite.getScalarModels();
+                    double[] weights = composite.getWeights();
+
+                    for (int i = 0; i < subModels.length; i++) {
+                        ScalarModel subModel = subModels[i];
+                        boolean isLast = (i == subModels.length - 1);
+                        String prefix = isLast ? "└" : "├";
+                        String glyph = getDistributionGlyph(subModel);
+                        String weightStr = String.format("%.0f%%", weights[i] * 100);
+                        String compParams = formatModelParams(subModel);
+                        // Strip the leading glyph from compParams since we show it separately
+                        // Use offsetByCodePoints to handle surrogate pairs (like 𝒩) correctly
+                        int skip = compParams.length() > 0 ? Character.charCount(compParams.codePointAt(0)) : 0;
+                        String paramsOnly = compParams.length() > skip ? compParams.substring(skip) : "";
+                        String compContent = ANSI_DIM + weightStr + " " + truncateString(paramsOnly, MODEL_WIDTH - 6) + ANSI_RESET;
+                        String compModelCell = padToWidth(compContent, MODEL_WIDTH);
+                        // Render component on the common range so it shows where it contributes
+                        String compSparkline = renderModelSparklineOnRange(subModel, SPARKLINE_WIDTH, commonMin, commonMax);
+
+                        System.out.printf("│     │  %s%s%s%s   │ %s │ %s │        │        │%n",
+                            ANSI_DIM, prefix, glyph, ANSI_RESET,
+                            compSparkline,
+                            compModelCell);
+                    }
+                }
+
                 // Row 3: Round-Trip (with drift and status)
-                String rtSparkline = renderModelSparkline(c.roundTrip, SPARKLINE_WIDTH);
+                String rtSparkline = renderModelSparklineOnRange(c.roundTrip, SPARKLINE_WIDTH, commonMin, commonMax);
                 String rtParams = truncateString(formatModelParams(c.roundTrip), MODEL_WIDTH);
                 String rtColor = c.typeMatch && c.drift < 1.0 ? ANSI_BLUE : (c.drift < 2.0 ? ANSI_YELLOW : ANSI_RED);
                 String rtModelCell = padToWidth(rtColor + rtParams + ANSI_RESET, MODEL_WIDTH);
@@ -2436,7 +2571,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
                     statusColor, statusSymbol, ANSI_RESET);
             } else {
                 // No reference: Row 1 = Extracted
-                String extSparkline = renderModelSparkline(c.extracted, SPARKLINE_WIDTH);
+                String extSparkline = renderModelSparklineOnRange(c.extracted, SPARKLINE_WIDTH, commonMin, commonMax);
                 String extParams = truncateString(formatModelParams(c.extracted), MODEL_WIDTH);
                 String extModelCell = padToWidth(ANSI_DIM + extParams + ANSI_RESET, MODEL_WIDTH);
                 System.out.printf("│ %3d │ %sExt%s   │ %s │ %s │        │        │%n",
@@ -2445,8 +2580,36 @@ public class CMD_analyze_profile implements Callable<Integer> {
                     extSparkline,
                     extModelCell);
 
+                // For multi-component composites, show sub-components under extracted row
+                if (c.extracted instanceof CompositeScalarModel composite && !composite.isSimple()) {
+                    ScalarModel[] subModels = composite.getScalarModels();
+                    double[] weights = composite.getWeights();
+
+                    for (int i = 0; i < subModels.length; i++) {
+                        ScalarModel subModel = subModels[i];
+                        boolean isLast = (i == subModels.length - 1);
+                        String prefix = isLast ? "└" : "├";
+                        String glyph = getDistributionGlyph(subModel);
+                        String weightStr = String.format("%.0f%%", weights[i] * 100);
+                        String compParams = formatModelParams(subModel);
+                        // Strip the leading glyph from compParams since we show it separately
+                        // Use offsetByCodePoints to handle surrogate pairs (like 𝒩) correctly
+                        int skip = compParams.length() > 0 ? Character.charCount(compParams.codePointAt(0)) : 0;
+                        String paramsOnly = compParams.length() > skip ? compParams.substring(skip) : "";
+                        String compContent = ANSI_DIM + weightStr + " " + truncateString(paramsOnly, MODEL_WIDTH - 6) + ANSI_RESET;
+                        String compModelCell = padToWidth(compContent, MODEL_WIDTH);
+                        // Render component on the common range so it shows where it contributes
+                        String compSparkline = renderModelSparklineOnRange(subModel, SPARKLINE_WIDTH, commonMin, commonMax);
+
+                        System.out.printf("│     │  %s%s%s%s   │ %s │ %s │        │        │%n",
+                            ANSI_DIM, prefix, glyph, ANSI_RESET,
+                            compSparkline,
+                            compModelCell);
+                    }
+                }
+
                 // Row 2: Round-Trip (with drift and status)
-                String rtSparkline = renderModelSparkline(c.roundTrip, SPARKLINE_WIDTH);
+                String rtSparkline = renderModelSparklineOnRange(c.roundTrip, SPARKLINE_WIDTH, commonMin, commonMax);
                 String rtParams = truncateString(formatModelParams(c.roundTrip), MODEL_WIDTH);
                 String rtColor = c.typeMatch && c.drift < 1.0 ? ANSI_BLUE : (c.drift < 2.0 ? ANSI_YELLOW : ANSI_RED);
                 String rtModelCell = padToWidth(rtColor + rtParams + ANSI_RESET, MODEL_WIDTH);
@@ -2456,39 +2619,6 @@ public class CMD_analyze_profile implements Callable<Integer> {
                     rtModelCell,
                     driftColor, driftStr, ANSI_RESET,
                     statusColor, statusSymbol, ANSI_RESET);
-            }
-
-            // For multi-component composites, show sub-components under extracted row
-            // Render all components on the SAME x-axis range as the overall composite
-            // so their visual contributions to the mixture are clear
-            if (c.extracted instanceof CompositeScalarModel composite && !composite.isSimple()) {
-                ScalarModel[] subModels = composite.getScalarModels();
-                double[] weights = composite.getWeights();
-
-                // Compute the common range from the overall composite
-                float[] commonRange = computeCompositeRange(composite);
-                float commonMin = commonRange[0];
-                float commonMax = commonRange[1];
-
-                for (int i = 0; i < subModels.length; i++) {
-                    ScalarModel subModel = subModels[i];
-                    boolean isLast = (i == subModels.length - 1);
-                    String prefix = isLast ? "└" : "├";
-                    String glyph = getDistributionGlyph(subModel);
-                    String weightStr = String.format("%.0f%%", weights[i] * 100);
-                    String compParams = formatModelParams(subModel);
-                    // Strip the leading glyph from compParams since we show it separately
-                    String paramsOnly = compParams.length() > 2 ? compParams.substring(1) : compParams;
-                    String compContent = ANSI_DIM + weightStr + " " + truncateString(paramsOnly, MODEL_WIDTH - 6) + ANSI_RESET;
-                    String compModelCell = padToWidth(compContent, MODEL_WIDTH);
-                    // Render component on the common range so it shows where it contributes
-                    String compSparkline = renderModelSparklineOnRange(subModel, SPARKLINE_WIDTH, commonMin, commonMax);
-
-                    System.out.printf("│     │  %s%s%s%s   │ %s │ %s │        │        │%n",
-                        ANSI_DIM, prefix, glyph, ANSI_RESET,
-                        compSparkline,
-                        compModelCell);
-                }
             }
 
             // Separator between dimensions (except for last)
@@ -2509,6 +2639,75 @@ public class CMD_analyze_profile implements Callable<Integer> {
         }
 
         System.out.println("└─────┴───────┴──────────────┴─────────────────────────────────┴────────┴────────┘");
+    }
+
+    /// Determines whether to show dimension plots based on --plot option and dimension count.
+    ///
+    /// Default behavior:
+    /// - Single dimension: plots enabled by default
+    /// - Multiple dimensions: plots disabled by default
+    ///
+    /// @param dimensions the number of dimensions in the model
+    /// @return true if plots should be shown
+    private boolean shouldShowPlots(int dimensions) {
+        if (plotEnabled != null) {
+            return plotEnabled;
+        }
+        // Default: enabled for single dimension, disabled for multi-dimension
+        return dimensions == 1;
+    }
+
+    /// Prints braille-based histogram plots for each dimension.
+    ///
+    /// For composite models, each component is shown in a different color.
+    /// Uses normalization status from the detected/assumed value.
+    ///
+    /// @param comparisons the dimension comparisons containing models
+    /// @param dimensions the total number of dimensions
+    private void printDimensionPlots(java.util.List<DimensionComparison> comparisons, int dimensions) {
+        // Determine plot size based on dimension count
+        int width = plotWidth != null ? plotWidth : (dimensions == 1 ? 80 : 40);
+        int height = plotHeight != null ? plotHeight : (dimensions == 1 ? 20 : 10);
+        boolean isNormalized = detectedNormalized != null && detectedNormalized;
+
+        System.out.println();
+        System.out.println("───────────────────────────────────────────────────────────────────────────────");
+        System.out.println("                          DIMENSION DISTRIBUTIONS                               ");
+        System.out.println("───────────────────────────────────────────────────────────────────────────────");
+
+        // Limit dimensions to show if many
+        int maxPlots = verbose ? dimensions : Math.min(10, dimensions);
+
+        for (int i = 0; i < comparisons.size() && i < maxPlots; i++) {
+            DimensionComparison c = comparisons.get(i);
+            ScalarModel model = c.extracted;  // Use extracted model for plotting
+            String source = baseVectors != null ? baseVectors.path().getFileName().toString() : "extracted";
+
+            System.out.println();
+            System.out.printf("Dimension %d:%n", c.dimension);
+
+            // Handle composite models - show all components overlaid
+            if (model instanceof CompositeScalarModel composite && !composite.isSimple()) {
+                String plot = BraillePlot.compositeHistogram(
+                    composite, width, height, 10000, isNormalized, c.dimension, source);
+                System.out.print(plot);
+            } else {
+                // Single model
+                java.util.List<ScalarModel> models = java.util.Collections.singletonList(model);
+                String label = getEffectiveModelType(model);
+                java.util.List<String> labels = java.util.Collections.singletonList(label);
+                String plot = BraillePlot.modelHistogram(
+                    models, labels, width, height, 10000, isNormalized, c.dimension, source);
+                System.out.print(plot);
+            }
+        }
+
+        // Indicate if more dimensions not shown
+        if (comparisons.size() > maxPlots) {
+            System.out.println();
+            System.out.printf("%s... %d more dimensions not plotted (use --verbose to see all)%s%n",
+                ANSI_DIM, comparisons.size() - maxPlots, ANSI_RESET);
+        }
     }
 
     /**
@@ -2672,7 +2871,8 @@ public class CMD_analyze_profile implements Callable<Integer> {
         }
 
         // Format with 2 decimal places, strip trailing zeros
-        String formatted = String.format("%.2f", value);
+        // Use Locale.US to ensure dot separator
+        String formatted = String.format(java.util.Locale.US, "%.2f", value);
         // Replace - with proper minus sign
         formatted = formatted.replace("-", "−");
         // Strip trailing zeros after decimal point
@@ -2838,6 +3038,32 @@ public class CMD_analyze_profile implements Callable<Integer> {
             return Math.abs(orig - roundTrip) < 1e-10 ? 0 : 1.0;
         }
         return Math.abs(orig - roundTrip) / Math.abs(scale);
+    }
+
+    /// Computes a common min/max range across multiple models for consistent visualization.
+    private float[] computeCommonRange(ScalarModel... models) {
+        float min = Float.MAX_VALUE;
+        float max = -Float.MAX_VALUE;
+
+        for (ScalarModel model : models) {
+            if (model == null) continue;
+
+            // Sample the model to find its range
+            ComponentSampler sampler = ComponentSamplerFactory.forModel(model);
+            for (int i = 0; i < SPARKLINE_SAMPLE_COUNT; i++) {
+                double u = StratifiedSampler.unitIntervalValue(i, 0, SPARKLINE_SAMPLE_COUNT);
+                float value = (float) sampler.sample(u);
+                if (Float.isFinite(value)) {
+                    min = Math.min(min, value);
+                    max = Math.max(max, value);
+                }
+            }
+        }
+
+        if (min >= max) {
+            return new float[] { -1.0f, 1.0f }; // Fallback
+        }
+        return new float[] { min, max };
     }
 
     /// Number of samples for sparkline histograms.
@@ -3109,7 +3335,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
             }
 
             // Enable convergence tracking, incremental fitting, and histogram tracking
-            if (!noConvergence) {
+            if (convergence) {
                 extractor.enableConvergenceTracking(convergenceThreshold);
                 extractor.enableIncrementalFitting(5);  // Fit every 5 batches
                 extractor.enableHistogramTracking(0.25); // 25% prominence for multi-modal detection (stricter)
@@ -3125,7 +3351,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
             // Run analysis with progress reporting
             long startTime = System.currentTimeMillis();
             System.out.printf("  Streaming analysis of %d dimensions...%n", dimensions);
-            if (!noConvergence) {
+            if (convergence) {
                 System.out.println("  Auto-stop on convergence: enabled (fitting begins when all dimensions stabilize)");
             }
             System.out.println("  Press Enter to stop data collection at any time.");
@@ -3404,5 +3630,37 @@ public class CMD_analyze_profile implements Callable<Integer> {
         listener.setDaemon(true);
         listener.start();
         return listener;
+    }
+
+    /// Generates a parsable spec string for the model.
+    private String formatParsableSpec(ScalarModel model) {
+        if (model instanceof CompositeScalarModel composite && !composite.isSimple()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append(GLYPH_COMPOSITE).append(composite.getComponentCount()).append("[");
+            ScalarModel[] components = composite.getScalarModels();
+            for (int i = 0; i < components.length; i++) {
+                if (i > 0) sb.append(",");
+                sb.append(getDistributionGlyph(components[i]));
+            }
+            sb.append("]:");
+            
+            double[] weights = composite.getWeights();
+            for (int i = 0; i < components.length; i++) {
+                if (i > 0) sb.append(",");
+                String glyph = getDistributionGlyph(components[i]);
+                String fullComp = formatModelParams(components[i]);
+                
+                // Strip redundant glyph for compactness if present
+                if (fullComp.startsWith(glyph)) {
+                    sb.append(fullComp.substring(glyph.length()));
+                } else {
+                    sb.append(fullComp);
+                }
+                
+                sb.append("*").append(formatCompact(weights[i]));
+            }
+            return sb.toString();
+        }
+        return formatModelParams(model);
     }
 }

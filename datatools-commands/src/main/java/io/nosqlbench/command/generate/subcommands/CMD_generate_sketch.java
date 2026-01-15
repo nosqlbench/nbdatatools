@@ -25,6 +25,7 @@ import io.nosqlbench.datatools.virtdata.NormalizingVectorGenerator;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vshapes.extract.ModelParser;
 import io.nosqlbench.vshapes.model.*;
 import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import org.apache.logging.log4j.LogManager;
@@ -79,6 +80,9 @@ import java.util.concurrent.Callable;
  *
  * # Generate with limited modes (max 3)
  * nbvectors generate sketch -d 128 -n 100000 -o test.fvec --format FVEC --mix full --max-modes 3
+ *
+ * # Generate from specific model string spec
+ * nbvectors generate sketch -d 128 -n 100000 -o custom.fvec --format FVEC --model-spec '⊕3[▭,𝒩,β]:...'
  * }</pre>
  */
 @CommandLine.Command(name = "sketch",
@@ -108,6 +112,10 @@ public class CMD_generate_sketch implements Callable<Integer> {
         description = "Distribution mix type: bounded (default), normal-only, beta-only, uniform-only, mixed, full",
         defaultValue = "bounded")
     private String distributionMix = "bounded";
+
+    @CommandLine.Option(names = {"--model-spec"},
+        description = "Generate from a specific model string (e.g., '⊕3[▭,𝒩,β]:...'). Overrides --mix.")
+    private String modelSpec;
 
     @CommandLine.Option(names = {"--max-modes"},
         description = "Maximum number of modes for multimodal distributions (default: 4, max: 10, used with --mix=full)",
@@ -170,24 +178,6 @@ public class CMD_generate_sketch implements Callable<Integer> {
             return EXIT_FILE_EXISTS;
         }
 
-        // Parse distribution mix
-        DistributionMix mix;
-        try {
-            mix = parseDistributionMix(distributionMix);
-        } catch (IllegalArgumentException e) {
-            System.err.println("Error: " + e.getMessage());
-            return EXIT_ERROR;
-        }
-
-        // Validate and clamp max modes
-        if (maxModes < 2) {
-            System.err.println("Warning: --max-modes must be at least 2, using 2");
-            maxModes = 2;
-        } else if (maxModes > MAX_SUPPORTED_MODES) {
-            System.err.println("Warning: --max-modes exceeds limit of " + MAX_SUPPORTED_MODES + ", clamping");
-            maxModes = MAX_SUPPORTED_MODES;
-        }
-
         // Validate vector spec
         try {
             vectorSpecOption.validate();
@@ -200,18 +190,59 @@ public class CMD_generate_sketch implements Callable<Integer> {
         int count = vectorSpecOption.getCount();
         long seed = randomSeedOption.getSeed();
 
-        if (verbose) {
-            System.out.println("Generating sketch dataset:");
-            System.out.println("  Dimensions: " + dimension);
-            System.out.println("  Vectors: " + count);
-            System.out.println("  Distribution mix: " + mix);
-            if (mix == DistributionMix.FULL) {
-                System.out.println("  Max modes: " + maxModes);
+        ScalarModel[] scalarModels;
+        DistributionMix mix = null;
+
+        if (modelSpec != null && !modelSpec.isBlank()) {
+            if (verbose) {
+                System.out.println("Generating sketch dataset:");
+                System.out.println("  Dimensions: " + dimension);
+                System.out.println("  Vectors: " + count);
+                System.out.println("  Model spec: " + modelSpec);
+                System.out.println("  Bounds: [" + lowerBound + ", " + upperBound + "]");
+                System.out.println("  Normalize: " + normalize);
+                System.out.println("  Seed: " + seed);
+                System.out.println();
             }
-            System.out.println("  Bounds: [" + lowerBound + ", " + upperBound + "]");
-            System.out.println("  Normalize: " + normalize);
-            System.out.println("  Seed: " + seed);
-            System.out.println();
+            ScalarModel parsed = ModelParser.parse(modelSpec);
+            scalarModels = new ScalarModel[dimension];
+            for (int i = 0; i < dimension; i++) {
+                scalarModels[i] = parsed;
+            }
+        } else {
+            // Parse distribution mix
+            try {
+                mix = parseDistributionMix(distributionMix);
+            } catch (IllegalArgumentException e) {
+                System.err.println("Error: " + e.getMessage());
+                return EXIT_ERROR;
+            }
+
+            // Validate and clamp max modes
+            if (maxModes < 2) {
+                System.err.println("Warning: --max-modes must be at least 2, using 2");
+                maxModes = 2;
+            } else if (maxModes > MAX_SUPPORTED_MODES) {
+                System.err.println("Warning: --max-modes exceeds limit of " + MAX_SUPPORTED_MODES + ", clamping");
+                maxModes = MAX_SUPPORTED_MODES;
+            }
+
+            if (verbose) {
+                System.out.println("Generating sketch dataset:");
+                System.out.println("  Dimensions: " + dimension);
+                System.out.println("  Vectors: " + count);
+                System.out.println("  Distribution mix: " + mix);
+                if (mix == DistributionMix.FULL) {
+                    System.out.println("  Max modes: " + maxModes);
+                }
+                System.out.println("  Bounds: [" + lowerBound + ", " + upperBound + "]");
+                System.out.println("  Normalize: " + normalize);
+                System.out.println("  Seed: " + seed);
+                System.out.println();
+            }
+
+            // Build the scalar models based on mix strategy
+            scalarModels = buildScalarModels(dimension, mix, seed);
         }
 
         try {
@@ -220,9 +251,6 @@ public class CMD_generate_sketch implements Callable<Integer> {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-
-            // Build the scalar models based on mix strategy
-            ScalarModel[] scalarModels = buildScalarModels(dimension, mix, seed);
 
             // Create the VectorSpaceModel
             VectorSpaceModel model = new VectorSpaceModel(count, scalarModels);
@@ -274,7 +302,7 @@ public class CMD_generate_sketch implements Callable<Integer> {
             System.out.printf("║  Vectors: %,15d                                        ║%n", count);
             System.out.printf("║  Dimensions: %,12d                                        ║%n", dimension);
             System.out.printf("║  Format: %-56s ║%n", format);
-            System.out.printf("║  Distribution mix: %-46s ║%n", mix);
+            System.out.printf("║  Distribution mix: %-46s ║%n", mix != null ? mix : "CUSTOM (from spec)");
             System.out.printf("║  Bounds: [%.2f, %.2f]                                           ║%n", lowerBound, upperBound);
             System.out.printf("║  Normalized: %-52s ║%n", normalize ? "yes (L2 unit vectors)" : "no");
             System.out.printf("║  Seed: %-58d ║%n", seed);

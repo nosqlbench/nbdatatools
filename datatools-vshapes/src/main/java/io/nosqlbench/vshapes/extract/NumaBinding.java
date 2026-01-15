@@ -65,99 +65,111 @@ import java.util.Optional;
  */
 public final class NumaBinding {
 
-    private static final Linker LINKER;
-    private static final SymbolLookup LIBNUMA;
-    private static final boolean AVAILABLE;
+    private static final class LibNumaHolder {
+        static final Linker LINKER;
+        static final SymbolLookup LIBNUMA;
+        static final boolean AVAILABLE;
 
-    // Function handles (null if libnuma not available)
-    private static final MethodHandle NUMA_AVAILABLE;
-    private static final MethodHandle NUMA_RUN_ON_NODE;
-    private static final MethodHandle NUMA_SET_LOCALALLOC;
-    private static final MethodHandle NUMA_ALLOC_ONNODE;
-    private static final MethodHandle NUMA_FREE;
-    private static final MethodHandle NUMA_MAX_NODE;
+        static final MethodHandle NUMA_AVAILABLE;
+        static final MethodHandle NUMA_RUN_ON_NODE;
+        static final MethodHandle NUMA_SET_LOCALALLOC;
+        static final MethodHandle NUMA_ALLOC_ONNODE;
+        static final MethodHandle NUMA_FREE;
+        static final MethodHandle NUMA_MAX_NODE;
+
+        static {
+            Linker linker = null;
+            SymbolLookup lookup = null;
+            boolean available = false;
+
+            MethodHandle numaAvailable = null;
+            MethodHandle numaRunOnNode = null;
+            MethodHandle numaSetLocalalloc = null;
+            MethodHandle numaAllocOnnode = null;
+            MethodHandle numaFree = null;
+            MethodHandle numaMaxNode = null;
+
+            try {
+                linker = Linker.nativeLinker();
+                // Try to load libnuma.so
+                lookup = SymbolLookup.libraryLookup("libnuma.so.1", Arena.global());
+
+                // int numa_available(void)
+                Optional<MemorySegment> numaAvailableSym = lookup.find("numa_available");
+                if (numaAvailableSym.isPresent()) {
+                    numaAvailable = linker.downcallHandle(
+                        numaAvailableSym.get(),
+                        FunctionDescriptor.of(ValueLayout.JAVA_INT)
+                    );
+                    int result = (int) numaAvailable.invoke();
+                    available = (result >= 0);
+                }
+
+                if (available) {
+                    numaRunOnNode = linker.downcallHandle(
+                        lookup.find("numa_run_on_node").orElseThrow(),
+                        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT)
+                    );
+                    numaSetLocalalloc = linker.downcallHandle(
+                        lookup.find("numa_set_localalloc").orElseThrow(),
+                        FunctionDescriptor.ofVoid()
+                    );
+                    numaAllocOnnode = linker.downcallHandle(
+                        lookup.find("numa_alloc_onnode").orElseThrow(),
+                        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT)
+                    );
+                    numaFree = linker.downcallHandle(
+                        lookup.find("numa_free").orElseThrow(),
+                        FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG)
+                    );
+                    numaMaxNode = linker.downcallHandle(
+                        lookup.find("numa_max_node").orElseThrow(),
+                        FunctionDescriptor.of(ValueLayout.JAVA_INT)
+                    );
+                }
+            } catch (Throwable e) {
+                available = false;
+            }
+
+            LINKER = linker;
+            LIBNUMA = lookup;
+            AVAILABLE = available;
+            NUMA_AVAILABLE = numaAvailable;
+            NUMA_RUN_ON_NODE = numaRunOnNode;
+            NUMA_SET_LOCALALLOC = numaSetLocalalloc;
+            NUMA_ALLOC_ONNODE = numaAllocOnnode;
+            NUMA_FREE = numaFree;
+            NUMA_MAX_NODE = numaMaxNode;
+        }
+    }
+
+    private static final int DETECTED_MAX_NODE;
+    private static final boolean DETECTED_AVAILABLE;
 
     static {
-        Linker linker = null;
-        SymbolLookup lookup = null;
+        // Non-privileged topology detection via sysfs
+        int maxNode = 0;
         boolean available = false;
-
-        MethodHandle numaAvailable = null;
-        MethodHandle numaRunOnNode = null;
-        MethodHandle numaSetLocalalloc = null;
-        MethodHandle numaAllocOnnode = null;
-        MethodHandle numaFree = null;
-        MethodHandle numaMaxNode = null;
-
         try {
-            linker = Linker.nativeLinker();
-
-            // Try to load libnuma.so
-            lookup = SymbolLookup.libraryLookup("libnuma.so.1", Arena.global());
-
-            // int numa_available(void)
-            Optional<MemorySegment> numaAvailableSym = lookup.find("numa_available");
-            if (numaAvailableSym.isPresent()) {
-                numaAvailable = linker.downcallHandle(
-                    numaAvailableSym.get(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT)
-                );
-
-                // Check if NUMA is actually available on this system
-                int result = (int) numaAvailable.invoke();
-                available = (result >= 0);
+            java.io.File nodeDir = new java.io.File("/sys/devices/system/node");
+            if (nodeDir.exists() && nodeDir.isDirectory()) {
+                String[] files = nodeDir.list();
+                if (files != null) {
+                    for (String file : files) {
+                        if (file.startsWith("node") && file.matches("node\\d+")) {
+                            try {
+                                int id = Integer.parseInt(file.substring(4));
+                                maxNode = Math.max(maxNode, id);
+                                available = true;
+                            } catch (NumberFormatException ignored) {}
+                        }
+                    }
+                }
             }
-
-            if (available) {
-                // int numa_run_on_node(int node)
-                numaRunOnNode = linker.downcallHandle(
-                    lookup.find("numa_run_on_node").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT)
-                );
-
-                // void numa_set_localalloc(void)
-                numaSetLocalalloc = linker.downcallHandle(
-                    lookup.find("numa_set_localalloc").orElseThrow(),
-                    FunctionDescriptor.ofVoid()
-                );
-
-                // void *numa_alloc_onnode(size_t size, int node)
-                numaAllocOnnode = linker.downcallHandle(
-                    lookup.find("numa_alloc_onnode").orElseThrow(),
-                    FunctionDescriptor.of(
-                        ValueLayout.ADDRESS,
-                        ValueLayout.JAVA_LONG,
-                        ValueLayout.JAVA_INT
-                    )
-                );
-
-                // void numa_free(void *mem, size_t size)
-                numaFree = linker.downcallHandle(
-                    lookup.find("numa_free").orElseThrow(),
-                    FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG)
-                );
-
-                // int numa_max_node(void)
-                numaMaxNode = linker.downcallHandle(
-                    lookup.find("numa_max_node").orElseThrow(),
-                    FunctionDescriptor.of(ValueLayout.JAVA_INT)
-                );
-            }
-
-        } catch (Throwable e) {
-            // libnuma not available - that's fine, we'll use fallback behavior
-            available = false;
-        }
-
-        LINKER = linker;
-        LIBNUMA = lookup;
-        AVAILABLE = available;
-        NUMA_AVAILABLE = numaAvailable;
-        NUMA_RUN_ON_NODE = numaRunOnNode;
-        NUMA_SET_LOCALALLOC = numaSetLocalalloc;
-        NUMA_ALLOC_ONNODE = numaAllocOnnode;
-        NUMA_FREE = numaFree;
-        NUMA_MAX_NODE = numaMaxNode;
+        } catch (Throwable ignored) {}
+        
+        DETECTED_MAX_NODE = maxNode;
+        DETECTED_AVAILABLE = available;
     }
 
     private NumaBinding() {
@@ -165,27 +177,23 @@ public final class NumaBinding {
     }
 
     /**
-     * Returns true if libnuma is available and NUMA is supported on this system.
+     * Returns true if NUMA is supported and detected on this system.
+     * <p>Uses non-privileged sysfs detection first.</p>
      */
     public static boolean isAvailable() {
-        return AVAILABLE;
+        return DETECTED_AVAILABLE || LibNumaHolder.AVAILABLE;
     }
 
     /**
      * Binds the current thread to run on CPUs of the specified NUMA node.
-     *
-     * <p>After this call, the thread will only be scheduled on CPUs belonging
-     * to the specified node. This ensures memory accesses are local.</p>
-     *
-     * @param node the NUMA node (0-indexed)
-     * @return 0 on success, -1 on failure (or if libnuma unavailable)
+     * <p>Triggers loading of libnuma native bindings.</p>
      */
     public static int runOnNode(int node) {
-        if (!AVAILABLE || NUMA_RUN_ON_NODE == null) {
+        if (!LibNumaHolder.AVAILABLE || LibNumaHolder.NUMA_RUN_ON_NODE == null) {
             return -1;
         }
         try {
-            return (int) NUMA_RUN_ON_NODE.invoke(node);
+            return (int) LibNumaHolder.NUMA_RUN_ON_NODE.invoke(node);
         } catch (Throwable e) {
             return -1;
         }
@@ -193,16 +201,13 @@ public final class NumaBinding {
 
     /**
      * Sets the memory allocation policy to prefer local node allocation.
-     *
-     * <p>After this call, memory allocations will be placed on the NUMA node
-     * where the allocating thread is running (first-touch policy).</p>
      */
     public static void setLocalAlloc() {
-        if (!AVAILABLE || NUMA_SET_LOCALALLOC == null) {
+        if (!LibNumaHolder.AVAILABLE || LibNumaHolder.NUMA_SET_LOCALALLOC == null) {
             return;
         }
         try {
-            NUMA_SET_LOCALALLOC.invoke();
+            LibNumaHolder.NUMA_SET_LOCALALLOC.invoke();
         } catch (Throwable e) {
             // Ignore
         }
@@ -210,38 +215,24 @@ public final class NumaBinding {
 
     /**
      * Allocates memory on a specific NUMA node.
-     *
-     * <p>The returned memory segment is backed by memory physically located
-     * on the specified NUMA node, ensuring local access for threads on that node.</p>
-     *
-     * @param size  number of bytes to allocate
-     * @param node  NUMA node for placement
-     * @param arena arena for lifecycle management (should be confined to one thread)
-     * @return memory segment on the specified node, or null if allocation failed
      */
     public static MemorySegment allocOnNode(long size, int node, Arena arena) {
-        if (!AVAILABLE || NUMA_ALLOC_ONNODE == null) {
-            // Fall back to regular allocation
+        if (!LibNumaHolder.AVAILABLE || LibNumaHolder.NUMA_ALLOC_ONNODE == null) {
             return arena.allocate(size, 64);
         }
 
         try {
-            MemorySegment ptr = (MemorySegment) NUMA_ALLOC_ONNODE.invoke(size, node);
+            MemorySegment ptr = (MemorySegment) LibNumaHolder.NUMA_ALLOC_ONNODE.invoke(size, node);
             if (ptr.address() == 0) {
                 return null;
             }
-
-            // Reinterpret with the arena's scope and a cleanup action
             final MemorySegment finalPtr = ptr;
             final long finalSize = size;
             return ptr.reinterpret(size, arena, segment -> {
                 try {
-                    NUMA_FREE.invoke(finalPtr, finalSize);
-                } catch (Throwable e) {
-                    // Ignore cleanup errors
-                }
+                    LibNumaHolder.NUMA_FREE.invoke(finalPtr, finalSize);
+                } catch (Throwable e) {}
             });
-
         } catch (Throwable e) {
             return null;
         }
@@ -249,15 +240,15 @@ public final class NumaBinding {
 
     /**
      * Returns the maximum NUMA node ID on this system.
-     *
-     * @return max node ID (0-indexed), or 0 if NUMA unavailable
+     * <p>Uses non-privileged sysfs detection first.</p>
      */
     public static int maxNode() {
-        if (!AVAILABLE || NUMA_MAX_NODE == null) {
+        if (DETECTED_AVAILABLE) return DETECTED_MAX_NODE;
+        if (!LibNumaHolder.AVAILABLE || LibNumaHolder.NUMA_MAX_NODE == null) {
             return 0;
         }
         try {
-            return (int) NUMA_MAX_NODE.invoke();
+            return (int) LibNumaHolder.NUMA_MAX_NODE.invoke();
         } catch (Throwable e) {
             return 0;
         }
@@ -265,8 +256,6 @@ public final class NumaBinding {
 
     /**
      * Returns the number of NUMA nodes on this system.
-     *
-     * @return node count (at least 1)
      */
     public static int nodeCount() {
         return maxNode() + 1;
@@ -274,12 +263,9 @@ public final class NumaBinding {
 
     /**
      * Convenience method to bind thread and set local allocation policy.
-     *
-     * @param node the NUMA node to bind to
-     * @return true if binding succeeded
      */
     public static boolean bindThreadToNode(int node) {
-        if (!AVAILABLE) {
+        if (!LibNumaHolder.AVAILABLE) { // Triggers lazy load
             return false;
         }
         int result = runOnNode(node);
@@ -292,6 +278,6 @@ public final class NumaBinding {
 
     @Override
     public String toString() {
-        return "NumaBinding{available=" + AVAILABLE + ", maxNode=" + maxNode() + "}";
+        return "NumaBinding{available=" + isAvailable() + ", maxNode=" + maxNode() + "}";
     }
 }

@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Benchmark)
 @Warmup(iterations = 2, time = 1)
 @Measurement(iterations = 3, time = 2)
-@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector"})
+@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED"})
 @Tag("performance")
 public class BatchStatisticsBenchmark {
 
@@ -114,7 +114,7 @@ public class BatchStatisticsBenchmark {
             .warmupIterations(2)
             .measurementIterations(3)
             .forks(1)
-            .jvmArgs("--add-modules", "jdk.incubator.vector")
+            .jvmArgs("--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED")
             .build();
 
         new Runner(opt).run();

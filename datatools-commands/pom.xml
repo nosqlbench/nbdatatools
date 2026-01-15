@@ -273,7 +273,9 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
           <!-- Add Vector API module for JDK 25 multi-release JAR support -->
-          <argLine>--add-modules jdk.incubator.vector</argLine>
+          <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
+          <!-- Exclude long-running tests by default; use -Plong-running to include them -->
+          <excludedGroups>long-running</excludedGroups>
         </configuration>
       </plugin>
       <plugin>
@@ -294,5 +296,25 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Profile to include long-running tests -->
+    <profile>
+      <id>long-running</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <!-- Include long-running tests when this profile is active -->
+              <excludedGroups combine.self="override"/>
+              <groups>long-running</groups>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
 </project>

@@ -474,96 +474,6 @@ public final class BestFitSelector {
         );
     }
 
-    /// Creates a strict round-trip verification selector with tight thresholds.
-    ///
-    /// This selector is optimized for verifying that fitted models can accurately
-    /// reproduce source distributions. It uses:
-    /// - Full Pearson distribution family for best classification
-    /// - Strict mode (no model aliasing) to preserve declared types
-    /// - Support for up to 10 modes for complex multimodal distributions
-    /// - Tight CDF validation (0.03) for high-accuracy composite fitting
-    /// - No simplicity bias - choose purely by fit quality
-    ///
-    /// Use this selector when:
-    /// - Testing round-trip model extraction with `generate sketch` → `analyze profile`
-    /// - Verifying parameter recovery accuracy
-    /// - Comparing source models to fitted models for statistical equivalence
-    ///
-    /// @return a BestFitSelector optimized for strict round-trip verification
-    /// @see ModelRecoveryVerifier
-    public static BestFitSelector strictRoundTripSelector() {
-        // Use strictBoundedSelector for components (preserves exact types)
-        BestFitSelector componentSelector = new BestFitSelector(List.of(
-            new NormalModelFitter(),
-            new BetaModelFitter(),
-            new GammaModelFitter(),
-            new StudentTModelFitter(),
-            new UniformModelFitter()
-        ), 0.1, true);  // Strict mode for components too
-
-        return new BestFitSelector(
-            List.of(
-                new NormalModelFitter(),
-                new BetaModelFitter(),
-                new GammaModelFitter(),
-                new PearsonIVModelFitter(),
-                new InverseGammaModelFitter(),
-                new BetaPrimeModelFitter(),
-                new StudentTModelFitter(),
-                new UniformModelFitter(),
-                new CompositeModelFitter(
-                    componentSelector,
-                    10,    // Support up to 10 modes
-                    0.03,  // Tight CDF deviation threshold
-                    CompositeModelFitter.ClusteringStrategy.EM,
-                    true   // Enable adaptive resolution for high mode counts
-                ),
-                new EmpiricalModelFitter()
-            ),
-            0.25,  // Moderate empirical penalty
-            true   // Strict mode - no aliasing
-        );
-    }
-
-    /// Creates a strict round-trip selector with custom max modes.
-    ///
-    /// @param maxModes maximum number of modes to detect (2-10)
-    /// @return a strict round-trip selector configured for the specified mode count
-    public static BestFitSelector strictRoundTripSelector(int maxModes) {
-        BestFitSelector componentSelector = new BestFitSelector(List.of(
-            new NormalModelFitter(),
-            new BetaModelFitter(),
-            new GammaModelFitter(),
-            new StudentTModelFitter(),
-            new UniformModelFitter()
-        ), 0.1, true);
-
-        int effectiveMaxModes = Math.max(2, Math.min(maxModes, 10));
-
-        return new BestFitSelector(
-            List.of(
-                new NormalModelFitter(),
-                new BetaModelFitter(),
-                new GammaModelFitter(),
-                new PearsonIVModelFitter(),
-                new InverseGammaModelFitter(),
-                new BetaPrimeModelFitter(),
-                new StudentTModelFitter(),
-                new UniformModelFitter(),
-                new CompositeModelFitter(
-                    componentSelector,
-                    effectiveMaxModes,
-                    0.03,
-                    CompositeModelFitter.ClusteringStrategy.EM,
-                    true   // Enable adaptive resolution for high mode counts
-                ),
-                new EmpiricalModelFitter()
-            ),
-            0.25,
-            true
-        );
-    }
-
     /// Classifies the distribution type using the Pearson criterion.
     ///
     /// This method uses skewness and kurtosis from the data to determine
@@ -699,10 +609,10 @@ public final class BestFitSelector {
     /// to avoid round-trip instability, so this threshold mainly affects unbounded data selectors.
     private static final double SIMPLICITY_MULTIPLIER = 0.3;
 
-    /// Strict mode simplicity multiplier: much tighter (10%) to prefer accuracy over simplicity.
+    /// Strict mode simplicity multiplier: 0.0 (disabled) to prefer accuracy over simplicity.
     /// In strict mode (used for round-trip verification), we want to select the model that
     /// actually fits best rather than defaulting to simpler models when fits are close.
-    private static final double STRICT_SIMPLICITY_MULTIPLIER = 0.10;
+    private static final double STRICT_SIMPLICITY_MULTIPLIER = 0.0;
 
     /// Returns model complexity score (lower = simpler, preferred).
     ///

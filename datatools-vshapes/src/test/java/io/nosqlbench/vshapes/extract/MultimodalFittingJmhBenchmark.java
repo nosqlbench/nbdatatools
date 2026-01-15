@@ -64,7 +64,7 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Benchmark)
 @Warmup(iterations = 2, time = 2)
 @Measurement(iterations = 3, time = 2)
-@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector"})
+@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED"})
 @Tag("performance")
 public class MultimodalFittingJmhBenchmark {
 
@@ -211,7 +211,7 @@ public class MultimodalFittingJmhBenchmark {
             .forks(1)
             .param("sampleSize", "10000")  // Use representative size for quick test
             .param("numModes", "2")
-            .jvmArgs("--add-modules", "jdk.incubator.vector")
+            .jvmArgs("--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED")
             .resultFormat(ResultFormatType.TEXT)
             .build();
 

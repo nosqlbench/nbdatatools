@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @State(Scope.Benchmark)
 @Warmup(iterations = 3, time = 1)
 @Measurement(iterations = 3, time = 1)
-@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector"})
+@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED"})
 public class VectorGenJmhPerfTest {
 
     @Param({"128"})
@@ -179,7 +179,7 @@ public class VectorGenJmhPerfTest {
             .measurementIterations(3)
             .measurementTime(org.openjdk.jmh.runner.options.TimeValue.seconds(1))
             .forks(1)
-            .jvmArgs("--add-modules", "jdk.incubator.vector")
+            .jvmArgs("--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED")
             .build();
 
         new Runner(opt).run();

@@ -255,7 +255,7 @@ Profiling vector file: large_dataset.fvec
 
 **Enable SIMD acceleration:**
 ```bash
-java --add-modules jdk.incubator.vector -jar nbvectors.jar ...
+java --add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED -jar nbvectors.jar ...
 ```
 
 **Use sampling:**
@@ -305,10 +305,10 @@ Add the required JVM option:
 
 ```bash
 # Direct invocation
-java --add-modules jdk.incubator.vector -jar nbvectors.jar analyze profile ...
+java --add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED -jar nbvectors.jar analyze profile ...
 
 # Or set environment variable
-export JAVA_TOOL_OPTIONS="--add-modules jdk.incubator.vector"
+export JAVA_TOOL_OPTIONS="--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED"
 nbvectors analyze profile ...
 ```
 
@@ -320,7 +320,7 @@ In `pom.xml`:
   <groupId>org.apache.maven.plugins</groupId>
   <artifactId>maven-surefire-plugin</artifactId>
   <configuration>
-    <argLine>--add-modules jdk.incubator.vector</argLine>
+    <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
   </configuration>
 </plugin>
 ```
@@ -338,7 +338,7 @@ java.lang.OutOfMemoryError: Java heap space
 ### Solution: Increase heap size
 
 ```bash
-java -Xmx8g --add-modules jdk.incubator.vector -jar nbvectors.jar ...
+java -Xmx8g --add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED -jar nbvectors.jar ...
 ```
 
 ### Solution: Use streaming mode

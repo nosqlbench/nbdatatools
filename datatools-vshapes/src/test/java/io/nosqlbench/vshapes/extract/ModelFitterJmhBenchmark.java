@@ -58,7 +58,7 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Benchmark)
 @Warmup(iterations = 3, time = 1)
 @Measurement(iterations = 5, time = 1)
-@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector"})
+@Fork(value = 1, jvmArgs = {"--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED"})
 @Tag("performance")
 public class ModelFitterJmhBenchmark {
 
@@ -186,7 +186,7 @@ public class ModelFitterJmhBenchmark {
             .warmupIterations(2)
             .measurementIterations(3)
             .forks(1)
-            .jvmArgs("--add-modules", "jdk.incubator.vector")
+            .jvmArgs("--add-modules", "jdk.incubator.vector", "--enable-native-access=ALL-UNNAMED")
             .resultFormat(ResultFormatType.TEXT)
             .build();
 

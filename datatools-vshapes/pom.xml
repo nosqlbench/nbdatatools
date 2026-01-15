@@ -20,9 +20,40 @@
     <javadoc.name>vshapes</javadoc.name>
   </properties>
 
+  <repositories>
+    <repository>
+      <id>jetbrains</id>
+      <name>Jetbrains Artifacts</name>
+      <url>https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <layout>default</layout>
+    </repository>
+    <repository>
+      <id>central</id>
+      <name>Maven Central</name>
+      <layout>default</layout>
+      <url>https://repo1.maven.org/maven2</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+
+  </repositories>
+
   <dependencies>
 
-<!--    Core API bridges-->
+    <dependency>
+      <groupId>org.jetbrains.jediterm</groupId>
+      <artifactId>jediterm-core</artifactId>
+      <version>3.57</version>
+    </dependency>
+
+    <!--    Core API bridges-->
     <dependency>
       <groupId>io.nosqlbench</groupId>
       <artifactId>datatools-testdata-apis</artifactId>
@@ -100,19 +131,6 @@
 
   </dependencies>
 
-  <repositories>
-    <repository>
-      <name>Central Portal Snapshots</name>
-      <id>central-portal-snapshots</id>
-      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
-  </repositories>
   <scm>
     <connection>scm:git:git://github.com/nosqlbench/nbdatatools.git</connection>
     <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git
@@ -239,7 +257,7 @@
             <include>**/VectorDataTestSuite.java</include>
           </includes>
           <!-- Add Vector API module for JDK 25 multi-release JAR support -->
-          <argLine>--add-modules jdk.incubator.vector</argLine>
+          <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
           <!-- Configure ephemeral test resources to use target/ directory -->
           <systemPropertyVariables>
             <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
@@ -257,7 +275,7 @@
               <includes>
                 <include>**/VectorDataTestSuite.java</include>
               </includes>
-              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>
@@ -275,7 +293,7 @@
                 <include>**/PerformanceTestSuite.java</include>
               </includes>
               <skip>${skipPerformanceTests}</skip>
-              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>
@@ -293,7 +311,7 @@
                 <include>**/AccuracyTestSuite.java</include>
               </includes>
               <skip>${skipAccuracyTests}</skip>
-              <argLine>--add-modules jdk.incubator.vector</argLine>
+              <argLine>--add-modules jdk.incubator.vector --enable-native-access=ALL-UNNAMED</argLine>
               <systemPropertyVariables>
                 <jetty.test.resources.root>${project.build.directory}/test-classes/testserver</jetty.test.resources.root>
               </systemPropertyVariables>

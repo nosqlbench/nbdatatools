@@ -161,7 +161,7 @@ public class DistributionArchetypeCorrectnessTest {
         CompositeScalarModel source = createSeparatedBimodal(-0.5, 0.5, 0.1);
         float[] data = generateData(source, SAMPLE_SIZE, SEED);
 
-        BestFitSelector selector = BestFitSelector.strictRoundTripSelector(4);
+        BestFitSelector selector = BestFitSelector.pearsonMultimodalSelector(4);
         FitResult result = selector.selectBestResult(data);
 
         String effectiveType = getEffectiveModelType(result.model());
@@ -181,7 +181,7 @@ public class DistributionArchetypeCorrectnessTest {
         CompositeScalarModel source = createSeparatedTrimodal();
         float[] data = generateData(source, SAMPLE_SIZE, SEED);
 
-        BestFitSelector selector = BestFitSelector.strictRoundTripSelector(4);
+        BestFitSelector selector = BestFitSelector.pearsonMultimodalSelector(4);
         FitResult result = selector.selectBestResult(data);
 
         String effectiveType = getEffectiveModelType(result.model());
@@ -195,7 +195,7 @@ public class DistributionArchetypeCorrectnessTest {
         CompositeScalarModel source = createNModesSeparated(modes, SEED);
         float[] data = generateData(source, SAMPLE_SIZE, SEED);
 
-        BestFitSelector selector = BestFitSelector.strictRoundTripSelector(modes + 2);
+        BestFitSelector selector = BestFitSelector.pearsonMultimodalSelector(modes + 2);
         FitResult result = selector.selectBestResult(data);
 
         StatisticalEquivalenceChecker checker = new StatisticalEquivalenceChecker();
@@ -214,7 +214,7 @@ public class DistributionArchetypeCorrectnessTest {
         CompositeScalarModel source = createOverlappingBimodal();
         float[] data = generateData(source, SAMPLE_SIZE, SEED);
 
-        BestFitSelector selector = BestFitSelector.strictRoundTripSelector(4);
+        BestFitSelector selector = BestFitSelector.pearsonMultimodalSelector(4);
         FitResult result = selector.selectBestResult(data);
 
         StatisticalEquivalenceChecker checker = new StatisticalEquivalenceChecker();
@@ -233,7 +233,7 @@ public class DistributionArchetypeCorrectnessTest {
         CompositeScalarModel source = createOverlappingHighMode(6, SEED);
         float[] data = generateData(source, SAMPLE_SIZE, SEED);
 
-        BestFitSelector selector = BestFitSelector.strictRoundTripSelector(10);
+        BestFitSelector selector = BestFitSelector.pearsonMultimodalSelector(10);
         FitResult result = selector.selectBestResult(data);
 
         StatisticalEquivalenceChecker checker = new StatisticalEquivalenceChecker();
@@ -330,7 +330,7 @@ public class DistributionArchetypeCorrectnessTest {
         float[] originalData = generateData(source, SAMPLE_SIZE, SEED);
 
         // First extraction
-        BestFitSelector selector = BestFitSelector.strictRoundTripSelector(modes + 2);
+        BestFitSelector selector = BestFitSelector.pearsonMultimodalSelector(modes + 2);
         FitResult firstResult = selector.selectBestResult(originalData);
 
         // Generate data from extracted model
