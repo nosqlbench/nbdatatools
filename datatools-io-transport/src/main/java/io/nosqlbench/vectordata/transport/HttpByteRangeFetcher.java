@@ -228,7 +228,7 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
     @Override
     public CompletableFuture<Long> getSize() throws IOException {
         validateNotClosed();
-        
+
         // Return cached size if available
         Long cached = cachedSize.get();
         if (cached != null) {
@@ -236,36 +236,64 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
         }
 
         return CompletableFuture.supplyAsync(() -> {
+            StringBuilder diagnostics = new StringBuilder();
+            diagnostics.append("Failed to determine content size for URL: ").append(sourceUrl).append("\n");
+            diagnostics.append("\nThe server must provide file size via one of these methods:\n");
+            diagnostics.append("  1. Content-Length header in HEAD response\n");
+            diagnostics.append("  2. Content-Range header in response to Range request\n");
+            diagnostics.append("\nDiagnostic details:\n");
+
             IOException lastError = null;
+            String headDiagnostic = null;
+            String rangeDiagnostic = null;
 
             try {
-                Long size = tryResolveSizeWithHead();
-                if (size != null) {
-                    return size;
+                SizeProbeResult headResult = tryResolveSizeWithHeadDiagnostic();
+                if (headResult.size != null) {
+                    return headResult.size;
                 }
+                headDiagnostic = headResult.diagnostic;
             } catch (IOException e) {
                 lastError = e;
+                headDiagnostic = "HEAD request failed: " + e.getMessage();
             }
 
             try {
-                Long size = tryResolveSizeWithRangeProbe();
-                if (size != null) {
-                    return size;
+                SizeProbeResult rangeResult = tryResolveSizeWithRangeProbeDiagnostic();
+                if (rangeResult.size != null) {
+                    return rangeResult.size;
                 }
+                rangeDiagnostic = rangeResult.diagnostic;
             } catch (IOException e) {
                 if (lastError != null) {
                     e.addSuppressed(lastError);
                 }
                 lastError = e;
+                rangeDiagnostic = "Range probe failed: " + e.getMessage();
             }
+
+            diagnostics.append("  HEAD request: ").append(headDiagnostic != null ? headDiagnostic : "not attempted").append("\n");
+            diagnostics.append("  Range probe:  ").append(rangeDiagnostic != null ? rangeDiagnostic : "not attempted").append("\n");
+            diagnostics.append("\nPossible causes:\n");
+            diagnostics.append("  - Server does not support HEAD requests\n");
+            diagnostics.append("  - Server does not return Content-Length header\n");
+            diagnostics.append("  - Server does not support HTTP Range requests\n");
+            diagnostics.append("  - Network or authentication issues\n");
+            diagnostics.append("\nSuggested workaround:\n");
+            diagnostics.append("  Use --cache <directory> to download the dataset locally first\n");
 
             if (lastError == null) {
-                lastError = new IOException("Server did not provide enough metadata to determine content size");
+                lastError = new IOException(diagnostics.toString());
+            } else {
+                lastError = new IOException(diagnostics.toString(), lastError);
             }
 
-            throw new RuntimeException("Failed to determine content size", lastError);
+            throw new RuntimeException(diagnostics.toString(), lastError);
         });
     }
+
+    /// Result of a size probe attempt with diagnostic information
+    private record SizeProbeResult(Long size, String diagnostic) {}
 
     @Override
     public boolean supportsRangeRequests() {
@@ -297,14 +325,21 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
 
     /// Attempts to determine the resource size via a HEAD request.
     private Long tryResolveSizeWithHead() throws IOException {
+        return tryResolveSizeWithHeadDiagnostic().size;
+    }
+
+    /// Attempts to determine the resource size via a HEAD request with diagnostic info.
+    private SizeProbeResult tryResolveSizeWithHeadDiagnostic() throws IOException {
         Request headRequest = new Request.Builder()
             .url(sourceUrl)
             .head()
             .build();
 
         try (Response response = httpClient.newCall(headRequest).execute()) {
+            int statusCode = response.code();
             if (!response.isSuccessful()) {
-                throw new IOException("HEAD request failed with status: " + response.code());
+                String diagnostic = String.format("HTTP %d %s", statusCode, response.message());
+                throw new IOException("HEAD request failed with status: " + statusCode + " " + response.message());
             }
 
             String acceptRanges = response.header("Accept-Ranges");
@@ -314,21 +349,28 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
 
             String contentLength = response.header("Content-Length");
             if (contentLength == null) {
-                return null;
+                String diagnostic = String.format("HTTP %d OK, but no Content-Length header. Accept-Ranges: %s",
+                    statusCode, acceptRanges != null ? acceptRanges : "not present");
+                return new SizeProbeResult(null, diagnostic);
             }
 
             try {
                 long size = Long.parseLong(contentLength);
                 cachedSize.set(size);
-                return size;
+                return new SizeProbeResult(size, "success, size=" + size);
             } catch (NumberFormatException e) {
-                throw new IOException("Server returned non-numeric Content-Length header", e);
+                throw new IOException("Server returned non-numeric Content-Length header: '" + contentLength + "'", e);
             }
         }
     }
 
     /// Attempts to determine the resource size via a byte range GET probe.
     private Long tryResolveSizeWithRangeProbe() throws IOException {
+        return tryResolveSizeWithRangeProbeDiagnostic().size;
+    }
+
+    /// Attempts to determine the resource size via a byte range GET probe with diagnostic info.
+    private SizeProbeResult tryResolveSizeWithRangeProbeDiagnostic() throws IOException {
         Request rangeRequest = new Request.Builder()
             .url(sourceUrl)
             .addHeader("Range", "bytes=0-0")
@@ -344,10 +386,13 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
                     Long sizeFromRange = parseSizeFromContentRange(contentRange);
                     if (sizeFromRange != null) {
                         cachedSize.set(sizeFromRange);
-                        return sizeFromRange;
+                        return new SizeProbeResult(sizeFromRange, "success via Content-Range, size=" + sizeFromRange);
                     }
+                    return new SizeProbeResult(null,
+                        "HTTP 206, Content-Range present but could not parse size: " + contentRange);
                 }
-                return null;
+                return new SizeProbeResult(null,
+                    "HTTP 206 (Partial Content) but no Content-Range header");
             }
 
             if (status == 200) {
@@ -358,7 +403,8 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
                     try {
                         long size = Long.parseLong(contentLength);
                         cachedSize.set(size);
-                        return size;
+                        return new SizeProbeResult(size,
+                            "HTTP 200 (server ignores Range), got size from Content-Length: " + size);
                     } catch (NumberFormatException ignore) {
                         // Ignore and attempt using the response body metadata below
                     }
@@ -369,14 +415,17 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
                     long size = body.contentLength();
                     if (size >= 0) {
                         cachedSize.set(size);
-                        return size;
+                        return new SizeProbeResult(size,
+                            "HTTP 200 (server ignores Range), got size from body: " + size);
                     }
                 }
 
-                return null;
+                return new SizeProbeResult(null,
+                    "HTTP 200 (server does not support Range requests), no Content-Length header");
             }
 
-            throw new IOException("Range probe request failed with status: " + status);
+            String diagnostic = String.format("HTTP %d %s", status, response.message());
+            throw new IOException("Range probe request failed: " + diagnostic);
         }
     }
 

@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /// Represents a data source with a path, window, and type.
 ///
@@ -42,6 +44,15 @@ import java.util.StringJoiner;
 ///
 /// @see SourceType
 public class DSSource {
+
+  /// Pattern for parsing a source spec with optional window notation.
+  /// Supports window notation with:
+  ///   - Parentheses: file.ext(window)
+  ///   - Brackets: file.ext[window]
+  private static final Pattern SOURCE_SPEC_PATTERN = Pattern.compile(
+      "^(?<path>.+?)(?<window>\\([^)]+\\)|\\[[^\\]]+\\])?$"
+  );
+
   /// The path to the data source
   public String path;
   /// The window defining which portions of the data to include
@@ -163,6 +174,13 @@ public class DSSource {
   }
 
   /// Creates a DSSource from a map of data.
+  ///
+  /// When the data is a String, it is parsed to extract an optional window specifier.
+  /// Supported formats:
+  ///   - `path/to/file.fvec` - simple path with no window
+  ///   - `path/to/file.fvec(0..1000)` - path with window in parentheses
+  ///   - `path/to/file.fvec[0..1000]` - path with window in brackets
+  ///
   /// @param data The map of data to create the source from
   /// @return A new DSSource instance
   public static DSSource fromData(Object data) {
@@ -170,7 +188,7 @@ public class DSSource {
       return null;
     }
     if (data instanceof String) {
-      return new DSSource((String) data);
+      return parseSourceSpec((String) data);
     } else if (data instanceof Path) {
       return new DSSource(((Path) data).toString());
     } else if (data instanceof DSSource) {
@@ -197,5 +215,39 @@ public class DSSource {
     } else {
       throw new RuntimeException("invalid source format:" + data);
     }
+  }
+
+  /// Parses a source spec string to extract path and optional window.
+  ///
+  /// @param spec The source spec string
+  /// @return A new DSSource with parsed path and window
+  private static DSSource parseSourceSpec(String spec) {
+    if (spec == null || spec.isBlank()) {
+      return new DSSource(spec);
+    }
+
+    Matcher matcher = SOURCE_SPEC_PATTERN.matcher(spec);
+    if (matcher.matches()) {
+      String path = matcher.group("path");
+      String windowSpec = matcher.group("window");
+
+      if (windowSpec != null && !windowSpec.isEmpty()) {
+        // Strip outer delimiters: (...) -> ..., [...] -> ...
+        String innerWindow = windowSpec;
+        if (innerWindow.startsWith("(") && innerWindow.endsWith(")")) {
+          innerWindow = innerWindow.substring(1, innerWindow.length() - 1);
+        } else if (innerWindow.startsWith("[") && innerWindow.endsWith("]")) {
+          innerWindow = innerWindow.substring(1, innerWindow.length() - 1);
+        }
+
+        DSWindow window = DSWindow.fromData(innerWindow);
+        return new DSSource(path, window);
+      }
+
+      return new DSSource(path, DSWindow.ALL);
+    }
+
+    // If pattern doesn't match, treat entire string as path
+    return new DSSource(spec);
   }
 }

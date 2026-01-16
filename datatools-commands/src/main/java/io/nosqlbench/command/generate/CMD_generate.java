@@ -42,6 +42,7 @@ import java.util.List;
 /// that can be used for test data preparation. It includes subcommands for:
 ///
 /// - `dataset`: Generate a complete example dataset with base, query, indices, distances, and dataset.yaml
+/// - `derive`: Derive vector data from an existing dataset via the vectordata API
 /// - `ivec-shuffle`: Generate shuffled integer vectors with deterministic ordering
 /// - `ivec-extract`: Extract indices from an ivec file using a range specification
 /// - `fvec-extract`: Extract data from floating-point vector files
@@ -60,11 +61,11 @@ import java.util.List;
     header = "Generate pseudo-random vector test data in various forms",
     description = "This provides a set of basic procedural generation utilities for\n" +
         "the purposes of preparing test data. The command includes subcommands\n" +
-        "for generating complete datasets (dataset), shuffled integer vectors\n" +
-        "(ivec-shuffle), extracting indices from integer vector files (ivec-extract),\n" +
-        "extracting data from floating-point vector files (fvec-extract), generating\n" +
-        "vector files with specified types and dimensions (vectors),\n" +
-        "and making basic base, query, and ground truth data (mktestdata).",
+        "for generating complete datasets (dataset), deriving vectors from existing\n" +
+        "datasets (derive), shuffled integer vectors (ivec-shuffle), extracting indices\n" +
+        "from integer vector files (ivec-extract), extracting data from floating-point\n" +
+        "vector files (fvec-extract), generating vector files with specified types and\n" +
+        "dimensions (vectors), and making basic base, query, and ground truth data (mktestdata).",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
     subcommands = {CMD_generate_dataset.class, CMD_generate_derive.class, CMD_generate_from_model.class, CMD_generate_ivecShuffle.class, CMD_generate_ivecExtract.class, CMD_generate_fvecExtract.class, CMD_generate_vectors.class, CMD_generate_mktestdata.class, CMD_generate_sketch.class, CommandLine.HelpCommand.class})
