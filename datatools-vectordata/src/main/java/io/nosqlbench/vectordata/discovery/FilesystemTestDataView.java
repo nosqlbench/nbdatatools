@@ -18,9 +18,12 @@ package io.nosqlbench.vectordata.discovery;
  */
 
 
+import io.nosqlbench.datatools.virtdata.VectorGenerator;
+import io.nosqlbench.datatools.virtdata.VectorGeneratorIO;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FView;
 import io.nosqlbench.vectordata.layout.FWindow;
+import io.nosqlbench.vectordata.layout.SourceType;
 import io.nosqlbench.vectordata.layoutv2.DSInterval;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.BaseVectorsXvecImpl;
@@ -35,6 +38,9 @@ import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vectordata.spec.tokens.SpecToken;
 import io.nosqlbench.vectordata.spec.tokens.Templatizer;
+import io.nosqlbench.vectordata.views.VirtdataFloatVectorsView;
+import io.nosqlbench.vshapes.model.VectorSpaceModel;
+import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -97,6 +103,15 @@ public class FilesystemTestDataView implements TestDataView, AutoCloseable {
             String filename = view.source().inpath();
             Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
 
+            // Check for virtdata source
+            if (view.source().isVirtdata()) {
+                baseVectors = loadVirtdataVectors(filePath, view.window());
+                logger.debug("Base vectors (virtdata) for profile '{}': model={}, count={}",
+                    profileName, filename, baseVectors.getCount());
+                return Optional.of(baseVectors);
+            }
+
+            // Standard xvec file source
             if (!Files.exists(filePath)) {
                 logger.warn("Base vectors file not found: {}", filePath);
                 return Optional.empty();
@@ -139,6 +154,15 @@ public class FilesystemTestDataView implements TestDataView, AutoCloseable {
             String filename = view.source().inpath();
             Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
 
+            // Check for virtdata source
+            if (view.source().isVirtdata()) {
+                queryVectors = loadVirtdataVectors(filePath, view.window());
+                logger.debug("Query vectors (virtdata) for profile '{}': model={}, count={}",
+                    profileName, filename, queryVectors.getCount());
+                return Optional.of(queryVectors);
+            }
+
+            // Standard xvec file source
             if (!Files.exists(filePath)) {
                 logger.warn("Query vectors file not found: {}", filePath);
                 return Optional.empty();
@@ -370,6 +394,45 @@ public class FilesystemTestDataView implements TestDataView, AutoCloseable {
         DSWindow window = new DSWindow();
         window.add(new DSInterval(interval.minIncl(), interval.maxExcl()));
         return window;
+    }
+
+    /// Loads a virtdata (generator-backed) vectors view from a model JSON file.
+    ///
+    /// The model file is loaded as a VectorSpaceModel, then an appropriate
+    /// VectorGenerator is created and wrapped in a VirtdataFloatVectorsView.
+    ///
+    /// @param modelPath The path to the model JSON file
+    /// @param window The window defining cardinality (required for bounded generation)
+    /// @return A VirtdataFloatVectorsView implementing both BaseVectors and QueryVectors
+    /// @throws IOException if the model file cannot be read
+    /// @throws IllegalArgumentException if no generator supports the model type
+    private VirtdataFloatVectorsView loadVirtdataVectors(Path modelPath, FWindow window) throws IOException {
+        if (!Files.exists(modelPath)) {
+            throw new IOException("Virtdata model file not found: " + modelPath);
+        }
+
+        // Load the VectorSpaceModel from JSON
+        VectorSpaceModel model = VectorSpaceModelConfig.loadFromFile(modelPath);
+
+        // Create and initialize a generator for the model
+        VectorGenerator<VectorSpaceModel> generator = VectorGeneratorIO.createForModel(model);
+
+        // Determine count from window
+        int count;
+        if (window == null || window == FWindow.ALL || window.intervals().isEmpty()) {
+            // Use model's unique vectors as count, capped at Integer.MAX_VALUE
+            long unique = model.uniqueVectors();
+            count = unique > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) unique;
+        } else {
+            // Use window size as count
+            long windowSize = 0;
+            for (var interval : window.intervals()) {
+                windowSize += interval.maxExcl() - interval.minIncl();
+            }
+            count = windowSize > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) windowSize;
+        }
+
+        return new VirtdataFloatVectorsView(generator, count);
     }
 
     /// Extracts the file extension from a filename.

@@ -584,13 +584,22 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * Callback invoked when a tracker is closed. Unregisters the tracker from
      * monitoring and removes it from the active tracker list.
      *
+     * <p>This method synchronizes on the tracker to coordinate with {@link #taskUpdate},
+     * ensuring that FINISH is always the last event sent for a tracker.
+     *
      * @param tracker the tracker that was closed
      */
     void onTrackerClosed(StatusTracker<?> tracker) {
         monitor.unregister(tracker);
         activeTrackers.remove(tracker);
-        if (finishedTrackers.add(tracker)) {
-            taskFinished(tracker);
+
+        // Synchronize on tracker to coordinate with taskUpdate().
+        // This ensures that once we add to finishedTrackers and send FINISH,
+        // no concurrent taskUpdate() can send another UPDATE.
+        synchronized (tracker) {
+            if (finishedTrackers.add(tracker)) {
+                taskFinished(tracker);
+            }
         }
         finishedTrackers.remove(tracker);
         lastDeliveredStatus.remove(tracker);
@@ -667,27 +676,41 @@ public final class StatusContext implements AutoCloseable, StatusSink {
      * This method is part of the {@link StatusSink} interface and is called
      * by {@link #pushStatus} when the monitor provides a new status observation.
      *
+     * <p>This method synchronizes on the task tracker to ensure that once
+     * a FINISH event is sent, no more UPDATE events are sent for that tracker.
+     * This prevents race conditions between the monitor thread and task close operations.
+     *
      * @param task the tracker reporting the update
      * @param status the new status
      */
     @Override
     public void taskUpdate(StatusTracker<?> task, StatusUpdate<?> status) {
-        if (status != null) {
-            StatusUpdate<?> previous = lastDeliveredStatus.get(task);
-            if (status.runstate == RunState.SUCCESS
-                    && (previous == null || previous.runstate != RunState.RUNNING)) {
-                StatusUpdate<?> runningUpdate =
-                        new StatusUpdate<>(Math.min(status.progress, 1.0), RunState.RUNNING, status.tracked);
-                notifySinks(sink -> sink.taskUpdate(task, runningUpdate), "notifying sink of status change");
-                lastDeliveredStatus.put(task, runningUpdate);
+        // Synchronize on task to ensure FINISH is always the last event.
+        // This prevents the race condition where the monitor thread sends
+        // UPDATE after the test thread has sent FINISH.
+        synchronized (task) {
+            // Once a task has finished (FINISH sent), don't send any more updates
+            if (finishedTrackers.contains(task)) {
+                return;
             }
-        }
 
-        notifySinks(sink -> sink.taskUpdate(task, status), "notifying sink of status change");
-        lastDeliveredStatus.put(task, status);
-        if (status != null && isTerminal(status) && finishedTrackers.add(task)) {
-            taskFinished(task);
-            monitor.unregister(task);
+            if (status != null) {
+                StatusUpdate<?> previous = lastDeliveredStatus.get(task);
+                if (status.runstate == RunState.SUCCESS
+                        && (previous == null || previous.runstate != RunState.RUNNING)) {
+                    StatusUpdate<?> runningUpdate =
+                            new StatusUpdate<>(Math.min(status.progress, 1.0), RunState.RUNNING, status.tracked);
+                    notifySinks(sink -> sink.taskUpdate(task, runningUpdate), "notifying sink of status change");
+                    lastDeliveredStatus.put(task, runningUpdate);
+                }
+            }
+
+            notifySinks(sink -> sink.taskUpdate(task, status), "notifying sink of status change");
+            lastDeliveredStatus.put(task, status);
+            if (status != null && isTerminal(status) && finishedTrackers.add(task)) {
+                taskFinished(task);
+                monitor.unregister(task);
+            }
         }
     }
 

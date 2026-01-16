@@ -367,6 +367,34 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
               throw new RuntimeException("unsupported vector type: " + baseVectors.getClass());
             }
 
+            // Validate normalization for DOT_PRODUCT metric
+            if (this.distanceFunction == DistanceFunction.DOT_PRODUCT) {
+              try {
+                // Sample vectors to check normalization
+                int vectorCount = baseVectors.getCount();
+                float[][] sampleVectors = new float[Math.min(100, vectorCount)][];
+                for (int i = 0; i < sampleVectors.length; i++) {
+                  int idx = i * (vectorCount / sampleVectors.length);
+                  sampleVectors[i] = baseVectors.get(idx);
+                }
+                boolean isNormalized = io.nosqlbench.command.compute.VectorNormalizationDetector.areVectorsNormalized(sampleVectors);
+                if (!isNormalized) {
+                  logger.error("╔═══════════════════════════════════════════════════════════╗");
+                  logger.error("║ CRITICAL ERROR: DOT_PRODUCT used with NON-NORMALIZED vectors!");
+                  logger.error("╠═══════════════════════════════════════════════════════════╣");
+                  logger.error("║ DOT_PRODUCT only valid for normalized vectors (||v||=1)   ║");
+                  logger.error("║ Recommended: Use COSINE, L2, or L1 for non-normalized data║");
+                  logger.error("╚═══════════════════════════════════════════════════════════╝");
+                  System.err.println("\nERROR: DOT_PRODUCT requires normalized vectors. Use COSINE, L2, or L1 instead.\n");
+                  return 1;
+                } else {
+                  logger.info("Vectors verified as normalized - DOT_PRODUCT metric is valid");
+                }
+              } catch (Exception e) {
+                logger.warn("Could not validate vector normalization: {}", e.getMessage());
+              }
+            }
+
             // Auto-detect and validate neighborhood size
             int detectedK = detectNeighborhoodSize(indices);
             int effectiveK = validateAndSetNeighborhoodSize(detectedK);

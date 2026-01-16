@@ -18,11 +18,18 @@ package io.nosqlbench.command.analyze;
  */
 
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_check_endian;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_compare;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_explore;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_describe;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_find;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_flamegraph;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_histogram;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_model_diff;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_plot;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_profile;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_select;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_slice;
+import io.nosqlbench.command.analyze.subcommands.CMD_analyze_stats;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_verifyknn;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_verifyprofiles;
 import io.nosqlbench.command.analyze.subcommands.CMD_analyze_zeros;
@@ -48,7 +55,14 @@ import java.util.concurrent.Callable;
         CMD_analyze_check_endian.class,
         CMD_analyze_find.class,
         CMD_analyze_slice.class,
-        CMD_analyze_flamegraph.class
+        CMD_analyze_flamegraph.class,
+        CMD_analyze_profile.class,
+        CMD_analyze_model_diff.class,
+        CMD_analyze_stats.class,
+        CMD_analyze_histogram.class,
+        CMD_analyze_compare.class,
+        CMD_analyze_plot.class,
+        CMD_analyze_explore.class
     })
 public class CMD_analyze implements Callable<Integer>, BundledCommand {
     private static final Logger logger = LogManager.getLogger(CMD_analyze.class);

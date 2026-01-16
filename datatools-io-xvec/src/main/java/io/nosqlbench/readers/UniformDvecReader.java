@@ -178,11 +178,9 @@ public class UniformDvecReader extends ImmutableSizedReader<double[]> implements
             // Prepare the buffer for reading
             buffer.flip();
 
-            // Convert bytes to double values
+            // Bulk convert bytes to double values
             double[] vector = new double[dimension];
-            for (int i = 0; i < dimension; i++) {
-                vector[i] = buffer.getDouble();
-            }
+            buffer.asDoubleBuffer().get(vector);
 
             return vector;
         } catch (IOException e) {
@@ -291,11 +289,84 @@ public class UniformDvecReader extends ImmutableSizedReader<double[]> implements
 
     @Override
     public Object[] toArray() {
-        Object[] result = new Object[size];
-        for (int i = 0; i < size; i++) {
-            result[i] = get(i);
+        // Use bulk read for efficiency
+        return getRange(0, size);
+    }
+
+    /// Reads a range of vectors in bulk for optimal I/O performance.
+    /// Uses microbatching to read multiple vectors per I/O operation.
+    ///
+    /// @param startIndex starting index (inclusive)
+    /// @param endIndex ending index (exclusive)
+    /// @return array of vectors in the range
+    public double[][] getRange(int startIndex, int endIndex) {
+        if (startIndex < 0 || endIndex > size || startIndex > endIndex) {
+            throw new IndexOutOfBoundsException(
+                "Range [" + startIndex + ", " + endIndex + ") out of bounds for size " + size);
         }
+
+        int count = endIndex - startIndex;
+        if (count == 0) {
+            return new double[0][];
+        }
+
+        double[][] result = new double[count][];
+
+        // Process in microbatches for efficient I/O
+        int batchSize = Math.max(64, Math.min(2048, 65536 / dimension));  // Smaller batches for doubles (8 bytes)
+
+        try {
+            int processed = 0;
+            while (processed < count) {
+                int currentBatch = Math.min(batchSize, count - processed);
+                int batchStart = startIndex + processed;
+                readVectorBatch(batchStart, currentBatch, result, processed);
+                processed += currentBatch;
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading vector range [" + startIndex + ", " + endIndex + ")", e);
+        }
+
         return result;
+    }
+
+    /// Reads a batch of vectors with a single I/O operation.
+    private void readVectorBatch(int startIndex, int count, double[][] dest, int destOffset) throws IOException {
+        int bytesPerVector = dimension * 8;
+        int totalBytes = count * recordSize;
+
+        ByteBuffer buffer = ByteBuffer.allocate(totalBytes).order(ByteOrder.LITTLE_ENDIAN);
+
+        long readPosition = (long) startIndex * recordSize;
+        CompletableFuture<Integer> readFuture = new CompletableFuture<>();
+        fileChannel.read(buffer, readPosition, null, new CompletionHandler<Integer, Void>() {
+            @Override
+            public void completed(Integer bytesRead, Void attachment) {
+                readFuture.complete(bytesRead);
+            }
+            @Override
+            public void failed(Throwable exc, Void attachment) {
+                readFuture.completeExceptionally(exc);
+            }
+        });
+
+        try {
+            int bytesRead = readFuture.get();
+            if (bytesRead != totalBytes) {
+                throw new IOException("Failed to read batch: expected " + totalBytes + " bytes, got " + bytesRead);
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            throw new IOException("Failed to read vector batch", e);
+        }
+
+        buffer.flip();
+
+        for (int i = 0; i < count; i++) {
+            buffer.getInt();  // Skip dimension header
+            dest[destOffset + i] = new double[dimension];
+            buffer.asDoubleBuffer().get(dest[destOffset + i]);
+            buffer.position(buffer.position() + bytesPerVector);
+        }
     }
 
     @Override
@@ -451,11 +522,8 @@ public class UniformDvecReader extends ImmutableSizedReader<double[]> implements
 
         @Override
         public Object[] toArray() {
-            Object[] result = new Object[size];
-            for (int i = 0; i < size; i++) {
-                result[i] = get(i);
-            }
-            return result;
+            // Use parent's optimized bulk getRange for efficient I/O
+            return parent.getRange(offset, offset + size);
         }
 
         @Override

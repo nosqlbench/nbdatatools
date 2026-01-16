@@ -86,12 +86,12 @@ public class FInterval {
 
   /// Converts this interval to a string representation.
   ///
-  /// @return The string representation of this interval in the format "[min,max)"
+  /// @return The string representation of this interval in the format "min..max"
   public String toData() {
     if (minIncl == -1L && maxExcl == -1L) {
       return "";
     }
-    return "(" + minIncl + ".." + maxExcl + ")";
+    return minIncl + ".." + maxExcl;
   }
 
   /// Returns the number of elements in this interval.

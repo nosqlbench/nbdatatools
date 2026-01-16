@@ -173,6 +173,11 @@ final class StatusMonitor implements AutoCloseable {
         try {
             // Tracker observes its own tracked object and caches the result
             StatusUpdate<T> status = tracker.refreshAndGetStatus();
+            // Check closed again after observation to avoid race with close()
+            // where we could push an UPDATE after the tracker has been closed
+            if (tracker.isClosed()) {
+                return;
+            }
             // Context routes the observed status to sinks
             context.pushStatus(tracker, status);
         } catch (Throwable t) {

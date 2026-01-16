@@ -369,10 +369,11 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
   }
 
   /// Converts raw bytes to the appropriate vector type.
+  /// Uses bulk buffer operations for optimal performance.
   ///
-  /// @param bytes 
+  /// @param bytes
   ///     The raw bytes to convert
-  /// @param vectorDim 
+  /// @param vectorDim
   ///     The number of dimensions in this specific vector
   /// @return The vector as the appropriate type
   private Object convertBytesToVector(byte[] bytes, int vectorDim) {
@@ -381,25 +382,19 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
 
     if (aryType == int.class) {
       int[] result = new int[vectorDim];
-      for (int i = 0; i < vectorDim; i++) {
-        result[i] = buffer.getInt();
-      }
+      buffer.asIntBuffer().get(result);  // Bulk read
       return result;
     } else if (aryType == byte.class) {
       byte[] result = new byte[vectorDim];
-      buffer.get(result);
+      buffer.get(result);  // Already bulk
       return result;
     } else if (aryType == float.class) {
       float[] result = new float[vectorDim];
-      for (int i = 0; i < vectorDim; i++) {
-        result[i] = buffer.getFloat();
-      }
+      buffer.asFloatBuffer().get(result);  // Bulk read
       return result;
     } else if (aryType == double.class) {
       double[] result = new double[vectorDim];
-      for (int i = 0; i < vectorDim; i++) {
-        result[i] = buffer.getDouble();
-      }
+      buffer.asDoubleBuffer().get(result);  // Bulk read
       return result;
     } else {
       throw new RuntimeException("Unsupported component type: " + aryType.getName());

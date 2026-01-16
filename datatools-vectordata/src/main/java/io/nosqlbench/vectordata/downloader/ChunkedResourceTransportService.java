@@ -129,7 +129,27 @@ public class ChunkedResourceTransportService implements ResourceTransportService
                     }
                     
                     // Create parent directories if needed
-                    Files.createDirectories(targetPath.getParent());
+                    Path parentDir = targetPath.getParent();
+                    try {
+                        Files.createDirectories(parentDir);
+                    } catch (java.nio.file.FileAlreadyExistsException e) {
+                        // Handle race condition or broken symlink
+                        Path problemPath = java.nio.file.Path.of(e.getFile());
+                        if (Files.isSymbolicLink(problemPath)) {
+                            try {
+                                Path target = Files.readSymbolicLink(problemPath);
+                                if (!target.isAbsolute()) {
+                                    target = problemPath.getParent().resolve(target);
+                                }
+                                Files.createDirectories(target);
+                            } catch (IOException targetEx) {
+                                Files.delete(problemPath);
+                            }
+                            Files.createDirectories(parentDir);
+                        } else if (!Files.isDirectory(parentDir)) {
+                            throw e;
+                        }
+                    }
                     
                     // Get total size for progress tracking
                     long totalSize = client.getSize().join();

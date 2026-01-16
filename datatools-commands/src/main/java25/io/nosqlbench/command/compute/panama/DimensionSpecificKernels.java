@@ -35,21 +35,12 @@ import java.lang.foreign.ValueLayout;
  * </ul>
  *
  * <p>Performance: 1.5-2x faster than generic implementation for these sizes.
+ *
+ * <p>SIMD species selection is centralized via {@link LocalSpecies}.
  */
 public class DimensionSpecificKernels {
-    // Use runtime-selected optimal species (matches PanamaVectorBatch)
-    private static final VectorSpecies<Float> SPECIES = selectOptimalSpecies();
-
-    private static VectorSpecies<Float> selectOptimalSpecies() {
-        if (FloatVector.SPECIES_512.vectorBitSize() == 512 &&
-            FloatVector.SPECIES_PREFERRED.vectorBitSize() >= 512) {
-            return FloatVector.SPECIES_512;  // AVX-512
-        } else if (FloatVector.SPECIES_256.vectorBitSize() == 256) {
-            return FloatVector.SPECIES_256;  // AVX2
-        } else {
-            return FloatVector.SPECIES_128;  // SSE
-        }
-    }
+    // Use centralized species selection from LocalSpecies
+    private static final VectorSpecies<Float> SPECIES = LocalSpecies.floatSpecies();
 
     /**
      * Compute L2 distance for dimension-1024 vectors (Cohere, many modern embeddings).

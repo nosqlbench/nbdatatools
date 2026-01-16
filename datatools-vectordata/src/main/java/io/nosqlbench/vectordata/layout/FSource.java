@@ -25,16 +25,37 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/// An FSource is a source of data, with an optional window.
+/// An FSource is a source of data, with an optional window and type.
+///
+/// ## Source Types
+///
+/// Sources can be either file-backed (xvec) or generator-backed (virtdata):
+/// - {@link SourceType#XVEC} - reads from .fvec/.ivec files
+/// - {@link SourceType#VIRTDATA} - generates vectors from a model JSON file
+///
+/// ## Type Inference
+///
+/// When the type is not explicitly specified:
+/// - Paths ending in `.json` are inferred as {@link SourceType#VIRTDATA}
+/// - All other paths default to {@link SourceType#XVEC}
+///
+/// @see SourceType
 public class FSource {
   /// the path to the source of the data
   private final String inpath;
   /// the window of the source of the data
   private final FWindow window;
+  /// the type of the source (xvec or virtdata)
+  private final SourceType type;
 
   public FSource(String inpath, FWindow window) {
+    this(inpath, window, SourceType.inferFromPath(inpath));
+  }
+
+  public FSource(String inpath, FWindow window, SourceType type) {
     this.inpath = inpath;
     this.window = window;
+    this.type = type != null ? type : SourceType.inferFromPath(inpath);
   }
 
   public String inpath() {
@@ -43,6 +64,24 @@ public class FSource {
 
   public FWindow window() {
     return window;
+  }
+
+  /// Returns the source type.
+  /// @return the source type (xvec or virtdata)
+  public SourceType type() {
+    return type;
+  }
+
+  /// Returns true if this is a virtdata (generator-backed) source.
+  /// @return true if type is VIRTDATA
+  public boolean isVirtdata() {
+    return type == SourceType.VIRTDATA;
+  }
+
+  /// Returns true if this is an xvec (file-backed) source.
+  /// @return true if type is XVEC
+  public boolean isXvec() {
+    return type == SourceType.XVEC;
   }
 
   /// Creates a new FSource with the specified path and window
@@ -106,10 +145,26 @@ public class FSource {
       return parse(s);
     } else if (source instanceof Map<?, ?>) {
       Map<?, ?> m = (Map<?, ?>) source;
-      return new FSource(
-          (String) m.get("inpath"),
-          FWindow.fromObject(m.get("window"))
-      );
+      String inpath = (String) m.get("inpath");
+      if (inpath == null) {
+        inpath = (String) m.get("source"); // alternate key
+      }
+      if (inpath == null) {
+        inpath = (String) m.get("path"); // alternate key
+      }
+      FWindow window = FWindow.fromObject(m.get("window"));
+
+      // Parse type if specified, otherwise infer from path
+      SourceType type = null;
+      Object typeObj = m.get("type");
+      if (typeObj instanceof String) {
+        type = SourceType.fromString((String) typeObj);
+      }
+      if (type == null) {
+        type = SourceType.inferFromPath(inpath);
+      }
+
+      return new FSource(inpath, window, type);
     }
     return null;
   }
@@ -125,16 +180,18 @@ public class FSource {
     if (this == obj) return true;
     if (obj == null || getClass() != obj.getClass()) return false;
     FSource that = (FSource) obj;
-    return java.util.Objects.equals(inpath, that.inpath) && java.util.Objects.equals(window, that.window);
+    return java.util.Objects.equals(inpath, that.inpath)
+        && java.util.Objects.equals(window, that.window)
+        && type == that.type;
   }
 
   @Override
   public int hashCode() {
-    return java.util.Objects.hash(inpath, window);
+    return java.util.Objects.hash(inpath, window, type);
   }
 
   @Override
   public String toString() {
-    return "FSource{inpath='" + inpath + "', window=" + window + '}';
+    return "FSource{type=" + type + ", inpath='" + inpath + "', window=" + window + '}';
   }
 }

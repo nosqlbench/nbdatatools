@@ -130,17 +130,34 @@ public enum DistanceFunction {
       throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
     }
 
-    var SPECIES = FloatVector.SPECIES_PREFERRED;
-    double dot = 0.0d;
+    var SPECIES = LocalSpecies.floatSpecies();
+    int lanes = SPECIES.length();
+    var acc = FloatVector.zero(SPECIES);
     int i = 0;
     int upperBound = SPECIES.loopBound(vectorA.length);
 
-    for (; i < upperBound; i += SPECIES.length()) {
-      var va = FloatVector.fromArray(SPECIES, vectorA, i);
-      var vb = FloatVector.fromArray(SPECIES, vectorB, i);
-      dot += va.mul(vb).reduceLanes(VectorOperators.ADD);
+    // 8-way unrolled loop
+    int unrollBound = upperBound - (7 * lanes);
+    for (; i <= unrollBound; i += 8 * lanes) {
+      for (int j = 0; j < 8; j++) {
+        int offset = i + j * lanes;
+        var va = FloatVector.fromArray(SPECIES, vectorA, offset);
+        var vb = FloatVector.fromArray(SPECIES, vectorB, offset);
+        acc = va.fma(vb, acc);
+      }
     }
 
+    // Handle remaining vectorized iterations
+    for (; i < upperBound; i += lanes) {
+      var va = FloatVector.fromArray(SPECIES, vectorA, i);
+      var vb = FloatVector.fromArray(SPECIES, vectorB, i);
+      acc = va.fma(vb, acc);
+    }
+
+    // Single reduce at end
+    double dot = acc.reduceLanes(VectorOperators.ADD);
+
+    // Scalar tail
     for (; i < vectorA.length; i++) {
       dot += vectorA[i] * vectorB[i];
     }
@@ -153,17 +170,34 @@ public enum DistanceFunction {
       throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
     }
 
-    var SPECIES = DoubleVector.SPECIES_PREFERRED;
-    double dot = 0.0d;
+    var SPECIES = LocalSpecies.doubleSpecies();
+    int lanes = SPECIES.length();
+    var acc = DoubleVector.zero(SPECIES);
     int i = 0;
     int upperBound = SPECIES.loopBound(vectorA.length);
 
-    for (; i < upperBound; i += SPECIES.length()) {
-      var va = DoubleVector.fromArray(SPECIES, vectorA, i);
-      var vb = DoubleVector.fromArray(SPECIES, vectorB, i);
-      dot += va.mul(vb).reduceLanes(VectorOperators.ADD);
+    // 8-way unrolled loop
+    int unrollBound = upperBound - (7 * lanes);
+    for (; i <= unrollBound; i += 8 * lanes) {
+      for (int j = 0; j < 8; j++) {
+        int offset = i + j * lanes;
+        var va = DoubleVector.fromArray(SPECIES, vectorA, offset);
+        var vb = DoubleVector.fromArray(SPECIES, vectorB, offset);
+        acc = va.fma(vb, acc);
+      }
     }
 
+    // Handle remaining vectorized iterations
+    for (; i < upperBound; i += lanes) {
+      var va = DoubleVector.fromArray(SPECIES, vectorA, i);
+      var vb = DoubleVector.fromArray(SPECIES, vectorB, i);
+      acc = va.fma(vb, acc);
+    }
+
+    // Single reduce at end
+    double dot = acc.reduceLanes(VectorOperators.ADD);
+
+    // Scalar tail
     for (; i < vectorA.length; i++) {
       dot += vectorA[i] * vectorB[i];
     }
@@ -176,30 +210,42 @@ public enum DistanceFunction {
       throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
     }
 
-    var SPECIES = FloatVector.SPECIES_PREFERRED;
+    var SPECIES = LocalSpecies.floatSpecies();
+    int lanes = SPECIES.length();
 
-    double dotProduct = 0.0;
-    double normA = 0.0;
-    double normB = 0.0;
+    var accDot = FloatVector.zero(SPECIES);
+    var accNormA = FloatVector.zero(SPECIES);
+    var accNormB = FloatVector.zero(SPECIES);
 
     int i = 0;
     int upperBound = SPECIES.loopBound(vectorA.length);
 
-    // SIMD loop - compute all three values in parallel
-    for (; i < upperBound; i += SPECIES.length()) {
+    // 8-way unrolled loop with vector accumulators
+    int unrollBound = upperBound - (7 * lanes);
+    for (; i <= unrollBound; i += 8 * lanes) {
+      for (int j = 0; j < 8; j++) {
+        int offset = i + j * lanes;
+        var va = FloatVector.fromArray(SPECIES, vectorA, offset);
+        var vb = FloatVector.fromArray(SPECIES, vectorB, offset);
+        accDot = va.fma(vb, accDot);
+        accNormA = va.fma(va, accNormA);
+        accNormB = vb.fma(vb, accNormB);
+      }
+    }
+
+    // Handle remaining vectorized iterations
+    for (; i < upperBound; i += lanes) {
       var va = FloatVector.fromArray(SPECIES, vectorA, i);
       var vb = FloatVector.fromArray(SPECIES, vectorB, i);
-
-      // Dot product
-      var prod = va.mul(vb);
-      dotProduct += prod.reduceLanes(VectorOperators.ADD);
-
-      // Norms
-      var sqA = va.mul(va);
-      var sqB = vb.mul(vb);
-      normA += sqA.reduceLanes(VectorOperators.ADD);
-      normB += sqB.reduceLanes(VectorOperators.ADD);
+      accDot = va.fma(vb, accDot);
+      accNormA = va.fma(va, accNormA);
+      accNormB = vb.fma(vb, accNormB);
     }
+
+    // Single reduce at end
+    double dotProduct = accDot.reduceLanes(VectorOperators.ADD);
+    double normA = accNormA.reduceLanes(VectorOperators.ADD);
+    double normB = accNormB.reduceLanes(VectorOperators.ADD);
 
     // Scalar tail
     for (; i < vectorA.length; i++) {
@@ -224,30 +270,42 @@ public enum DistanceFunction {
       throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
     }
 
-    var SPECIES = DoubleVector.SPECIES_PREFERRED;
+    var SPECIES = LocalSpecies.doubleSpecies();
+    int lanes = SPECIES.length();
 
-    double dotProduct = 0.0;
-    double normA = 0.0;
-    double normB = 0.0;
+    var accDot = DoubleVector.zero(SPECIES);
+    var accNormA = DoubleVector.zero(SPECIES);
+    var accNormB = DoubleVector.zero(SPECIES);
 
     int i = 0;
     int upperBound = SPECIES.loopBound(vectorA.length);
 
-    // SIMD loop - compute all three values in parallel
-    for (; i < upperBound; i += SPECIES.length()) {
+    // 8-way unrolled loop with vector accumulators
+    int unrollBound = upperBound - (7 * lanes);
+    for (; i <= unrollBound; i += 8 * lanes) {
+      for (int j = 0; j < 8; j++) {
+        int offset = i + j * lanes;
+        var va = DoubleVector.fromArray(SPECIES, vectorA, offset);
+        var vb = DoubleVector.fromArray(SPECIES, vectorB, offset);
+        accDot = va.fma(vb, accDot);
+        accNormA = va.fma(va, accNormA);
+        accNormB = vb.fma(vb, accNormB);
+      }
+    }
+
+    // Handle remaining vectorized iterations
+    for (; i < upperBound; i += lanes) {
       var va = DoubleVector.fromArray(SPECIES, vectorA, i);
       var vb = DoubleVector.fromArray(SPECIES, vectorB, i);
-
-      // Dot product
-      var prod = va.mul(vb);
-      dotProduct += prod.reduceLanes(VectorOperators.ADD);
-
-      // Norms
-      var sqA = va.mul(va);
-      var sqB = vb.mul(vb);
-      normA += sqA.reduceLanes(VectorOperators.ADD);
-      normB += sqB.reduceLanes(VectorOperators.ADD);
+      accDot = va.fma(vb, accDot);
+      accNormA = va.fma(va, accNormA);
+      accNormB = vb.fma(vb, accNormB);
     }
+
+    // Single reduce at end
+    double dotProduct = accDot.reduceLanes(VectorOperators.ADD);
+    double normA = accNormA.reduceLanes(VectorOperators.ADD);
+    double normB = accNormB.reduceLanes(VectorOperators.ADD);
 
     // Scalar tail
     for (; i < vectorA.length; i++) {
@@ -272,21 +330,35 @@ public enum DistanceFunction {
       throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
     }
 
-    // Use preferred species (typically 256-bit AVX2 or 512-bit AVX-512)
-    var SPECIES = FloatVector.SPECIES_PREFERRED;
+    var SPECIES = LocalSpecies.floatSpecies();
+    int lanes = SPECIES.length();
 
-    double sum = 0.0;
+    var acc = FloatVector.zero(SPECIES);
     int i = 0;
     int upperBound = SPECIES.loopBound(vectorA.length);
 
-    // SIMD loop - vectorized operations
-    for (; i < upperBound; i += SPECIES.length()) {
+    // 8-way unrolled loop with vector accumulator
+    int unrollBound = upperBound - (7 * lanes);
+    for (; i <= unrollBound; i += 8 * lanes) {
+      for (int j = 0; j < 8; j++) {
+        int offset = i + j * lanes;
+        var va = FloatVector.fromArray(SPECIES, vectorA, offset);
+        var vb = FloatVector.fromArray(SPECIES, vectorB, offset);
+        var diff = va.sub(vb);
+        acc = diff.fma(diff, acc);
+      }
+    }
+
+    // Handle remaining vectorized iterations
+    for (; i < upperBound; i += lanes) {
       var va = FloatVector.fromArray(SPECIES, vectorA, i);
       var vb = FloatVector.fromArray(SPECIES, vectorB, i);
       var diff = va.sub(vb);
-      var squared = diff.mul(diff);
-      sum += squared.reduceLanes(VectorOperators.ADD);
+      acc = diff.fma(diff, acc);
     }
+
+    // Single reduce at end
+    double sum = acc.reduceLanes(VectorOperators.ADD);
 
     // Scalar tail for remaining elements
     for (; i < vectorA.length; i++) {
@@ -302,20 +374,35 @@ public enum DistanceFunction {
       throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
     }
 
-    var SPECIES = DoubleVector.SPECIES_PREFERRED;
+    var SPECIES = LocalSpecies.doubleSpecies();
+    int lanes = SPECIES.length();
 
-    double sum = 0.0;
+    var acc = DoubleVector.zero(SPECIES);
     int i = 0;
     int upperBound = SPECIES.loopBound(vectorA.length);
 
-    // SIMD loop - vectorized operations
-    for (; i < upperBound; i += SPECIES.length()) {
+    // 8-way unrolled loop with vector accumulator
+    int unrollBound = upperBound - (7 * lanes);
+    for (; i <= unrollBound; i += 8 * lanes) {
+      for (int j = 0; j < 8; j++) {
+        int offset = i + j * lanes;
+        var va = DoubleVector.fromArray(SPECIES, vectorA, offset);
+        var vb = DoubleVector.fromArray(SPECIES, vectorB, offset);
+        var diff = va.sub(vb);
+        acc = diff.fma(diff, acc);
+      }
+    }
+
+    // Handle remaining vectorized iterations
+    for (; i < upperBound; i += lanes) {
       var va = DoubleVector.fromArray(SPECIES, vectorA, i);
       var vb = DoubleVector.fromArray(SPECIES, vectorB, i);
       var diff = va.sub(vb);
-      var squared = diff.mul(diff);
-      sum += squared.reduceLanes(VectorOperators.ADD);
+      acc = diff.fma(diff, acc);
     }
+
+    // Single reduce at end
+    double sum = acc.reduceLanes(VectorOperators.ADD);
 
     // Scalar tail for remaining elements
     for (; i < vectorA.length; i++) {
@@ -331,20 +418,35 @@ public enum DistanceFunction {
       throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
     }
 
-    var SPECIES = FloatVector.SPECIES_PREFERRED;
+    var SPECIES = LocalSpecies.floatSpecies();
+    int lanes = SPECIES.length();
 
-    double sum = 0.0;
+    var acc = FloatVector.zero(SPECIES);
     int i = 0;
     int upperBound = SPECIES.loopBound(vectorA.length);
 
-    // SIMD loop
-    for (; i < upperBound; i += SPECIES.length()) {
+    // 8-way unrolled loop with vector accumulator
+    int unrollBound = upperBound - (7 * lanes);
+    for (; i <= unrollBound; i += 8 * lanes) {
+      for (int j = 0; j < 8; j++) {
+        int offset = i + j * lanes;
+        var va = FloatVector.fromArray(SPECIES, vectorA, offset);
+        var vb = FloatVector.fromArray(SPECIES, vectorB, offset);
+        var diff = va.sub(vb);
+        acc = acc.add(diff.abs());
+      }
+    }
+
+    // Handle remaining vectorized iterations
+    for (; i < upperBound; i += lanes) {
       var va = FloatVector.fromArray(SPECIES, vectorA, i);
       var vb = FloatVector.fromArray(SPECIES, vectorB, i);
       var diff = va.sub(vb);
-      var abs = diff.abs();  // Absolute value via SIMD
-      sum += abs.reduceLanes(VectorOperators.ADD);
+      acc = acc.add(diff.abs());
     }
+
+    // Single reduce at end
+    double sum = acc.reduceLanes(VectorOperators.ADD);
 
     // Scalar tail
     for (; i < vectorA.length; i++) {
@@ -359,20 +461,35 @@ public enum DistanceFunction {
       throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
     }
 
-    var SPECIES = DoubleVector.SPECIES_PREFERRED;
+    var SPECIES = LocalSpecies.doubleSpecies();
+    int lanes = SPECIES.length();
 
-    double sum = 0.0;
+    var acc = DoubleVector.zero(SPECIES);
     int i = 0;
     int upperBound = SPECIES.loopBound(vectorA.length);
 
-    // SIMD loop
-    for (; i < upperBound; i += SPECIES.length()) {
+    // 8-way unrolled loop with vector accumulator
+    int unrollBound = upperBound - (7 * lanes);
+    for (; i <= unrollBound; i += 8 * lanes) {
+      for (int j = 0; j < 8; j++) {
+        int offset = i + j * lanes;
+        var va = DoubleVector.fromArray(SPECIES, vectorA, offset);
+        var vb = DoubleVector.fromArray(SPECIES, vectorB, offset);
+        var diff = va.sub(vb);
+        acc = acc.add(diff.abs());
+      }
+    }
+
+    // Handle remaining vectorized iterations
+    for (; i < upperBound; i += lanes) {
       var va = DoubleVector.fromArray(SPECIES, vectorA, i);
       var vb = DoubleVector.fromArray(SPECIES, vectorB, i);
       var diff = va.sub(vb);
-      var abs = diff.abs();  // Absolute value via SIMD
-      sum += abs.reduceLanes(VectorOperators.ADD);
+      acc = acc.add(diff.abs());
     }
+
+    // Single reduce at end
+    double sum = acc.reduceLanes(VectorOperators.ADD);
 
     // Scalar tail
     for (; i < vectorA.length; i++) {

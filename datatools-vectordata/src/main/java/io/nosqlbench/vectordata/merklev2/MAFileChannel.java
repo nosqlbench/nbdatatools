@@ -1111,7 +1111,31 @@ public class MAFileChannel extends AsynchronousFileChannel {
             // Write to temp file and load as MerkleRef
             byte[] data = new byte[refData.remaining()];
             refData.get(data);
-            java.nio.file.Files.createDirectories(tempPath.getParent());
+            Path parentDir = tempPath.getParent();
+            try {
+                java.nio.file.Files.createDirectories(parentDir);
+            } catch (java.nio.file.FileAlreadyExistsException e) {
+                // This can happen if: (1) race condition, (2) broken symlink in path, or (3) file exists where dir expected
+                Path problemPath = java.nio.file.Path.of(e.getFile());
+                if (java.nio.file.Files.isSymbolicLink(problemPath)) {
+                    // Broken symlink - try to create the target, or remove symlink if target is inaccessible
+                    try {
+                        Path target = java.nio.file.Files.readSymbolicLink(problemPath);
+                        if (!target.isAbsolute()) {
+                            target = problemPath.getParent().resolve(target);
+                        }
+                        java.nio.file.Files.createDirectories(target);
+                    } catch (IOException targetEx) {
+                        // Can't create target - remove the broken symlink and create directory directly
+                        java.nio.file.Files.delete(problemPath);
+                    }
+                    java.nio.file.Files.createDirectories(parentDir);
+                } else if (java.nio.file.Files.isDirectory(parentDir)) {
+                    // Race condition - directory was created by another thread, continue
+                } else {
+                    throw e;
+                }
+            }
             java.nio.file.Files.write(tempPath, data);
             return MerkleRef.load(tempPath);
         } finally {

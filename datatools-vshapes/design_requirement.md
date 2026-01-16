@@ -1,0 +1,17 @@
+The shape analyzer code in this module must adhere to the following design requirements:
+* IO needs to follow the mmap patterns already established for efficient loading and saving of vector data.
+* Any command-line enabled version of the tools must use the centrally defined option definitions where appropriate, paying special attention to semantic alignment to user expectations.
+* The code must be concurrent-first, with the "non-threaded" mode simply being the concurrent mode with a single thread running.
+* The number of threads used must be auto-determined by the system capabilities, by default consuming all but the last 10 hardware threads, but the default concurrency should try to achieve the best throughput.
+* Analyzers (extractors) which evaluate vector code should be modular in the runtime, such that multiple analyzers can run independently of others against the same in-memory code. The intermediate analysis products must be algebraic and combinable to a final output which is numerically consistent with processing over the whole dataset at once.
+* Analyzers must be genericized over both the model and intermediate state types which are produced to arrive at their final model outputs. Intermediate results must be serializable so that intermediate stages of long running processing graphs can be materialized for caching and recovery.
+* When running concurrently, NUMA awareness is required, so that concurrent processes can be localized to NUMA nodes when it makes sense.
+* AVX and SIMD operations are required to be supported for all operations which can yield meaningful performance improvements. This means that if AVX or other accelerator ISA features are available in the local runtime, and the runtime is a java version known to have panama support, then it should be considered an error to be running the tools in a way that doesn't make panama features active. This doesn't mean that panama must be used, only that the user should have the option to use it where hardware support it, and thus it should be enabled by default.
+* JMH-enabled performance tests should be provided for all vector and statistical processing code.
+* Numerical accuracy tests should be provided for all vector or statistical processing code.
+* When there is any non-trivial process that can take more than a few seconds, status indicator about progress and completion states should be provided to the user.
+* Any intermediate algebraic, algorithmic, or accumulator type state which can surface or illustrate the essential details of key algorithms should be made available to the user during processing, and especially post-hoc for traceability.
+* Where memory or CPU limits would prohibit processing all the specified data in one pass, partitioning should automatically be used to allow for incremental and resumable processing, using the intermediate result types aligned to an analyzer.
+* Multiple analyzers should be able to run against the same loaded data concurrently to lower the IO cost of working with data which is not already in memory.
+* Javadoc should be updated using the modern markdown triple-slash format, with fenced code sections diagramming the key concepts, connections, dataflows, and layouts.
+* All performance and accuracy tests should be tagged as such.

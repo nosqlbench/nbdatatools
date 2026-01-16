@@ -102,5 +102,18 @@ public interface VectorRandomAccessReader<T> extends List<T>, RandomAccess, Size
     return new ImmutableListIterator<>(this, index);
   }
 
+  /// Gets a range of elements using bulk operations when available.
+  ///
+  /// Default implementation uses subList and toArray. Concrete implementations
+  /// can override this for more efficient bulk reads.
+  ///
+  /// @param startIndex starting index (inclusive)
+  /// @param endIndex ending index (exclusive)
+  /// @return array of elements in the range
+  @SuppressWarnings("unchecked")
+  default T[] getRange(int startIndex, int endIndex) {
+    List<T> sub = subList(startIndex, endIndex);
+    return (T[]) sub.toArray();
+  }
 }
 

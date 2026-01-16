@@ -19,6 +19,7 @@ package io.nosqlbench.vshapes.measures;
 
 import io.nosqlbench.vshapes.TestVectorSpace;
 import io.nosqlbench.vshapes.VectorUtils;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -27,6 +28,7 @@ import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@Tag("unit")
 public class HubnessMeasureTest {
 
     @TempDir

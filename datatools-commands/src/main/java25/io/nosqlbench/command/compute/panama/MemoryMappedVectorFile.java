@@ -133,7 +133,7 @@ public class MemoryMappedVectorFile implements AutoCloseable {
 
     /**
      * Read a single vector from the mapped file (creates a copy).
-     * For best performance, use {@link #readVectorsDirect} or {@link #asPanamaVectorBatch}.
+     * Uses bulk memory copy for optimal performance.
      *
      * @param index vector index
      * @return copy of the vector as float array
@@ -145,21 +145,18 @@ public class MemoryMappedVectorFile implements AutoCloseable {
 
         float[] vector = new float[dimension];
         long baseOffset = index * vectorStride;
+        long dataOffset = baseOffset + Integer.BYTES;  // Skip dimension field
 
-        // Skip dimension field (4 bytes)
-        long dataOffset = baseOffset + Integer.BYTES;
-
-        // Read floats from mapped memory
-        for (int i = 0; i < dimension; i++) {
-            int intBits = mappedFile.get(ValueLayout.JAVA_INT, dataOffset + (long) i * Integer.BYTES);
-            vector[i] = Float.intBitsToFloat(intBits);
-        }
+        // Bulk copy using Panama MemorySegment
+        ValueLayout.OfFloat floatLayout = ValueLayout.JAVA_FLOAT.withOrder(byteOrder);
+        MemorySegment.copy(mappedFile, floatLayout, dataOffset, vector, 0, dimension);
 
         return vector;
     }
 
     /**
      * Read a range of vectors from the mapped file (creates copies).
+     * Uses bulk memory operations for optimal performance.
      *
      * @param startIndex starting vector index (inclusive)
      * @param endIndex ending vector index (exclusive)
@@ -173,11 +170,142 @@ public class MemoryMappedVectorFile implements AutoCloseable {
         int count = endIndex - startIndex;
         float[][] vectors = new float[count][];
 
+        ValueLayout.OfFloat floatLayout = ValueLayout.JAVA_FLOAT.withOrder(byteOrder);
         for (int i = 0; i < count; i++) {
-            vectors[i] = getVector(startIndex + i);
+            vectors[i] = new float[dimension];
+            long dataOffset = (startIndex + i) * vectorStride + Integer.BYTES;
+            MemorySegment.copy(mappedFile, floatLayout, dataOffset, vectors[i], 0, dimension);
         }
 
         return vectors;
+    }
+
+    /**
+     * Read a range of vectors in transposed (column-major) format.
+     *
+     * <p>Instead of returning {@code float[vectorCount][dimension]} (row-major),
+     * this returns {@code float[dimension][vectorCount]} (column-major).
+     * This format is optimal for per-dimension analysis where you iterate
+     * through all values of one dimension before moving to the next.
+     *
+     * <p>Memory access pattern benefits:
+     * <ul>
+     *   <li>Sequential reads during analysis: dimension[d][0], [d][1], [d][2]...
+     *   <li>Better cache utilization for SIMD operations on dimension data
+     *   <li>Avoids transpose step in analyzers that work per-dimension
+     * </ul>
+     *
+     * <p>Memory usage: {@code dimension × count × 4 bytes}
+     *
+     * @param startIndex starting vector index (inclusive)
+     * @param endIndex ending vector index (exclusive)
+     * @return transposed array of shape {@code [dimension][count]}
+     * @throws IndexOutOfBoundsException if the range is invalid
+     */
+    public float[][] getTransposedVectors(int startIndex, int endIndex) {
+        return getTransposedVectors(startIndex, endIndex, null);
+    }
+
+    /**
+     * Read a range of vectors in transposed (column-major) format with progress reporting.
+     *
+     * <p>Uses bulk memory operations for maximum throughput. Instead of reading
+     * individual floats (slow), reads entire batches of vectors and transposes
+     * in CPU cache-friendly blocks.
+     *
+     * @param startIndex starting vector index (inclusive)
+     * @param endIndex ending vector index (exclusive)
+     * @param progressCallback callback for progress updates (may be null)
+     * @return transposed array of shape {@code [dimension][count]}
+     * @throws IndexOutOfBoundsException if the range is invalid
+     */
+    public float[][] getTransposedVectors(int startIndex, int endIndex, ProgressCallback progressCallback) {
+        if (startIndex < 0 || endIndex > vectorCount || startIndex >= endIndex) {
+            throw new IndexOutOfBoundsException("Invalid range: [" + startIndex + ", " + endIndex + ")");
+        }
+
+        int count = endIndex - startIndex;
+
+        // Allocate column-major result: float[dimension][count]
+        float[][] transposed = new float[dimension][count];
+
+        // Process in batches for better cache utilization
+        // Batch size chosen to fit in L2 cache (~256KB per core)
+        // Each vector = dimension * 4 bytes, so batch = 256KB / (dimension * 4)
+        int batchSize = Math.max(64, Math.min(8192, 65536 / dimension));
+
+        // Allocate reusable buffer for bulk vector data (without dimension headers)
+        float[] batchBuffer = new float[batchSize * dimension];
+
+        int processed = 0;
+        int lastReportedPercent = -1;
+
+        while (processed < count) {
+            int batchEnd = Math.min(processed + batchSize, count);
+            int currentBatchSize = batchEnd - processed;
+
+            // Bulk read this batch of vectors into the buffer
+            readVectorsBulk(startIndex + processed, currentBatchSize, batchBuffer);
+
+            // Transpose the batch: batchBuffer[vector * dimension + dim] -> transposed[dim][processed + vector]
+            for (int v = 0; v < currentBatchSize; v++) {
+                int bufferBase = v * dimension;
+                int destIndex = processed + v;
+                for (int d = 0; d < dimension; d++) {
+                    transposed[d][destIndex] = batchBuffer[bufferBase + d];
+                }
+            }
+
+            processed = batchEnd;
+
+            // Report progress
+            if (progressCallback != null) {
+                int percent = (int) ((processed * 100L) / count);
+                if (percent != lastReportedPercent) {
+                    progressCallback.onProgress((double) processed / count, processed, count);
+                    lastReportedPercent = percent;
+                }
+            }
+        }
+
+        return transposed;
+    }
+
+    /**
+     * Bulk read vectors into a float array, stripping dimension headers.
+     * Uses direct offset-based bulk memory operations for maximum throughput.
+     *
+     * @param startIndex starting vector index
+     * @param count number of vectors to read
+     * @param dest destination array of size count * dimension
+     */
+    private void readVectorsBulk(int startIndex, int count, float[] dest) {
+        // Use JAVA_FLOAT layout with little-endian byte order for direct float reading
+        ValueLayout.OfFloat floatLayout = ValueLayout.JAVA_FLOAT.withOrder(byteOrder);
+
+        // For each vector, read the float data (skipping dimension header)
+        for (int v = 0; v < count; v++) {
+            long vectorOffset = (startIndex + v) * vectorStride;
+            long dataOffset = vectorOffset + Integer.BYTES;  // skip dimension header
+
+            // Direct bulk copy from mapped file to dest array
+            int destOffset = v * dimension;
+            MemorySegment.copy(
+                mappedFile, floatLayout, dataOffset,
+                dest, destOffset, dimension
+            );
+        }
+    }
+
+    /// Callback for progress updates during vector loading.
+    @FunctionalInterface
+    public interface ProgressCallback {
+        /// Called periodically during loading to report progress.
+        ///
+        /// @param progress progress as a value between 0.0 and 1.0
+        /// @param loaded number of vectors loaded so far
+        /// @param total total number of vectors to load
+        void onProgress(double progress, int loaded, int total);
     }
 
     /**

@@ -36,40 +36,18 @@ import java.util.List;
  * - CPU cache utilization (prefetching works better)
  * - Memory bandwidth (fewer cache misses)
  * - SIMD operations (can process multiple dimensions at once)
+ *
+ * <p>SIMD species selection is centralized via {@link LocalSpecies}.
  */
 public class PanamaVectorBatch implements AutoCloseable {
-    // Select widest available SIMD species at runtime
-    // AVX-512 (512-bit) > AVX2 (256-bit) > SSE (128-bit)
-    private static final VectorSpecies<Float> SPECIES = selectOptimalSpecies();
+    // Use centralized species selection from LocalSpecies
+    private static final VectorSpecies<Float> SPECIES = LocalSpecies.floatSpecies();
 
     private final Arena arena;
     private final MemorySegment segment;
     private final int vectorCount;
     private final int dimension;
     private final long vectorStride;  // bytes between vectors
-
-    /**
-     * Select the widest available SIMD species for optimal performance.
-     * Checks what the hardware actually supports and uses the best available.
-     */
-    private static VectorSpecies<Float> selectOptimalSpecies() {
-        // Try AVX-512 first (512-bit = 16 floats per lane)
-        if (FloatVector.SPECIES_512.vectorBitSize() == 512 &&
-            FloatVector.SPECIES_PREFERRED.vectorBitSize() >= 512) {
-            System.out.println("SIMD: Using AVX-512 (512-bit, 16 floats/lane)");
-            return FloatVector.SPECIES_512;
-        }
-
-        // Fall back to AVX2 (256-bit = 8 floats per lane)
-        if (FloatVector.SPECIES_256.vectorBitSize() == 256) {
-            System.out.println("SIMD: Using AVX2 (256-bit, 8 floats/lane)");
-            return FloatVector.SPECIES_256;
-        }
-
-        // Last resort: SSE (128-bit = 4 floats per lane)
-        System.out.println("SIMD: Using SSE (128-bit, 4 floats/lane)");
-        return FloatVector.SPECIES_128;
-    }
 
     /**
      * Creates a Panama-optimized vector batch from a list of float arrays.

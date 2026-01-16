@@ -31,10 +31,10 @@ import java.util.Map;
 /// # VectorSpaceAnalyzer
 ///
 /// Main orchestrator for vector space analysis operations.
-/// 
+///
 /// ## Purpose
 /// This class coordinates the execution of various analysis measures,
-/// handles dependency resolution between measures, and manages caching 
+/// handles dependency resolution between measures, and manages caching
 /// of computational artifacts for performance optimization.
 ///
 /// ## Features
@@ -42,10 +42,26 @@ import java.util.Map;
 /// - **Dependency Management**: Automatic resolution of measure dependencies
 /// - **Caching**: Persistent caching of expensive computations
 /// - **Comprehensive Reporting**: Unified analysis reports with multiple measures
+/// - **Automatic Compute Mode Selection**: Detects and uses optimal SIMD mode
+///
+/// ## Compute Mode Detection
+///
+/// The analyzer automatically selects the most efficient compute mode:
+/// - **Panama AVX-512**: 512-bit SIMD (Java 25+ with AVX-512 CPU)
+/// - **Panama AVX2**: 256-bit SIMD (Java 25+ with AVX2 CPU)
+/// - **Panama SSE**: 128-bit SIMD (Java 25+ fallback)
+/// - **Scalar**: Pure Java (Java 11+ baseline)
+///
+/// Use {@link #getComputeMode()} to see the detected mode.
 ///
 /// ## Usage
 /// ```java
 /// VectorSpaceAnalyzer analyzer = new VectorSpaceAnalyzer();
+///
+/// // Check compute mode
+/// System.out.println("Using: " + analyzer.getComputeMode().displayName());
+///
+/// // Run analysis
 /// AnalysisReport report = analyzer.analyzeVectorSpace(myVectorSpace);
 /// System.out.println(report.getSummary());
 /// ```
@@ -53,22 +69,27 @@ import java.util.Map;
 /// ## Default Measures
 /// The analyzer comes pre-configured with:
 /// - **LID**: Local Intrinsic Dimensionality analysis
-/// - **Margin**: Nearest-neighbor margin analysis  
+/// - **Margin**: Nearest-neighbor margin analysis
 /// - **Hubness**: Hub and anti-hub detection
 public class VectorSpaceAnalyzer {
 
     private final Path cacheDir;
     private final Map<String, AnalysisMeasure<?>> measures;
     private final Map<String, Object> computedResults;
+    private final ComputeMode.Mode computeMode;
 
     /// Creates a new analyzer with the specified cache directory.
-    /// 
+    ///
+    /// Automatically detects the optimal compute mode based on
+    /// Java version and CPU capabilities.
+    ///
     /// @param cacheDir directory for storing computational artifacts
     public VectorSpaceAnalyzer(Path cacheDir) {
         this.cacheDir = cacheDir;
         this.measures = new LinkedHashMap<>();
         this.computedResults = new HashMap<>();
-        
+        this.computeMode = ComputeMode.getEffectiveMode();
+
         // Register default measures
         registerMeasure(new LIDMeasure());
         registerMeasure(new MarginMeasure());
@@ -79,6 +100,33 @@ public class VectorSpaceAnalyzer {
     /// Uses system temporary directory with a "vshapes-cache" subdirectory.
     public VectorSpaceAnalyzer() {
         this(Paths.get(System.getProperty("java.io.tmpdir"), "vshapes-cache"));
+    }
+
+    /// Returns the compute mode being used for analysis operations.
+    ///
+    /// The mode is automatically detected at construction time based on:
+    /// - Java runtime version (Panama requires Java 25+)
+    /// - CPU instruction set support (AVX-512, AVX2, AVX)
+    /// - JVM's preferred vector species
+    ///
+    /// @return the active compute mode
+    public ComputeMode.Mode getComputeMode() {
+        return computeMode;
+    }
+
+    /// Returns a summary of the compute capabilities for this analyzer.
+    ///
+    /// @return human-readable compute mode summary
+    public String getComputeModeSummary() {
+        return ComputeMode.getModeSummary();
+    }
+
+    /// Prints a detailed compute capability report to stdout.
+    ///
+    /// Useful for diagnostics and verifying that optimal acceleration
+    /// is being used on a particular system.
+    public void printCapabilityReport() {
+        System.out.println(ComputeMode.getCapabilityReport());
     }
 
     /// Registers a new analysis measure with the analyzer.
@@ -108,7 +156,7 @@ public class VectorSpaceAnalyzer {
             computeMeasure(measure, vectorSpace);
         }
 
-        return new AnalysisReport(vectorSpace, new HashMap<>(computedResults));
+        return new AnalysisReport(vectorSpace, new HashMap<>(computedResults), computeMode);
     }
 
     /// Computes a specific measure, handling dependencies automatically.
@@ -209,12 +257,13 @@ public class VectorSpaceAnalyzer {
     /// ## AnalysisReport
     ///
     /// Comprehensive analysis report containing all computed measures for a vector space.
-    /// 
+    ///
     /// ### Features
     /// - **Unified Results**: All measure results in a single report
     /// - **Text Summaries**: Human-readable analysis summaries
     /// - **Type-Safe Access**: Strongly-typed result retrieval
-    /// 
+    /// - **Compute Mode Info**: Reports the acceleration mode used
+    ///
     /// ### Usage
     /// ```java
     /// AnalysisReport report = analyzer.analyzeVectorSpace(vectorSpace);
@@ -226,14 +275,18 @@ public class VectorSpaceAnalyzer {
         public final VectorSpace vectorSpace;
         /// Map of measure mnemonics to their computed results
         public final Map<String, Object> results;
+        /// The compute mode used for analysis
+        public final ComputeMode.Mode computeMode;
 
         /// Creates a new analysis report.
-        /// 
+        ///
         /// @param vectorSpace the analyzed vector space
         /// @param results map of measure mnemonics to their computed results
-        public AnalysisReport(VectorSpace vectorSpace, Map<String, Object> results) {
+        /// @param computeMode the compute mode used for analysis
+        public AnalysisReport(VectorSpace vectorSpace, Map<String, Object> results, ComputeMode.Mode computeMode) {
             this.vectorSpace = vectorSpace;
             this.results = results;
+            this.computeMode = computeMode;
         }
 
         /// Gets a specific result by measure mnemonic with type safety.
@@ -251,17 +304,26 @@ public class VectorSpaceAnalyzer {
             return null;
         }
 
+        /// Returns the compute mode used for this analysis.
+        ///
+        /// @return the compute mode
+        public ComputeMode.Mode getComputeMode() {
+            return computeMode;
+        }
+
         /// Generates a comprehensive text summary of the analysis results.
-        /// 
+        ///
         /// @return formatted multi-line summary string with all computed measures
         public String getSummary() {
             StringBuilder sb = new StringBuilder();
             sb.append("Vector Space Analysis Report\n");
             sb.append("===========================\n");
             sb.append(String.format("Vector Space: %s\n", vectorSpace.getId()));
-            sb.append(String.format("Vectors: %d, Dimensions: %d\n", 
+            sb.append(String.format("Vectors: %d, Dimensions: %d\n",
                                   vectorSpace.getVectorCount(), vectorSpace.getDimension()));
             sb.append(String.format("Has Class Labels: %s\n", vectorSpace.hasClassLabels()));
+            sb.append(String.format("Compute Mode: %s (%s)\n",
+                                  computeMode.displayName(), computeMode.description()));
             sb.append("\n");
 
             // LID Summary
