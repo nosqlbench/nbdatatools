@@ -64,10 +64,10 @@ public final class ModeDetector {
     private static final int DEFAULT_MAX_MODES = 10;
 
     /** Default minimum prominence for a peak to be considered significant */
-    private static final double DEFAULT_PROMINENCE_THRESHOLD = 0.05;
+    private static final double DEFAULT_PROMINENCE_THRESHOLD = 0.03;
 
     /** Default bandwidth for Gaussian kernel smoothing (in bins) */
-    private static final double DEFAULT_SMOOTHING_BANDWIDTH = 2.0;
+    private static final double DEFAULT_SMOOTHING_BANDWIDTH = 3.0;
 
     /** Dip statistic threshold for multimodality (p < 0.05) */
     private static final double DIP_MULTIMODAL_THRESHOLD = 0.05;

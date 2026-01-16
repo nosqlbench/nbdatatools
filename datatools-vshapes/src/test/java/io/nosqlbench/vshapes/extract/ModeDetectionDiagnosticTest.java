@@ -202,4 +202,75 @@ public class ModeDetectionDiagnosticTest {
         int detectedModes = Math.max(result.modeCount(), adaptiveResult.modeCount());
         System.out.println("Detected " + detectedModes + " of 5 modes");
     }
+
+    @Test
+    void diagnoseBimodalDominant() {
+        // Replicate bimodal_dominant fixture with exact seed and sampling logic
+        long baseSeed = 20240115L;
+        long seed = baseSeed + "bimodal_dominant".hashCode();
+        
+        System.out.println("Using seed: " + seed);
+        
+        Random rng = new Random(seed);
+        int n = 50000;
+        float[] data = new float[n];
+        
+        // CompositeModel weights: 0.85, 0.15
+        double[] cumWeights = {0.85, 1.0};
+        
+        for (int i = 0; i < n; i++) {
+            double u = rng.nextDouble();
+            int comp = u <= 0.85 ? 0 : 1;
+            
+            double mean = comp == 0 ? -0.3 : 0.5;
+            double stdDev = 0.15;
+            double lower = -1.0;
+            double upper = 1.0;
+            
+            // Exact rejection sampling logic from ExtendedCurveVarietyTest
+            double val = mean; // default
+            boolean found = false;
+            for (int attempt = 0; attempt < 1000; attempt++) {
+                double sample = mean + rng.nextGaussian() * stdDev;
+                if (sample >= lower && sample <= upper) {
+                    val = sample;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                val = Math.max(lower, Math.min(upper, mean));
+            }
+            
+            data[i] = (float) val;
+        }
+        
+        System.out.println("=== Bimodal Dominant Diagnostic (Exact Sampling) ===");
+        
+        // Test detect with maxModes=2 (StreamingModelExtractor behavior)
+        ModeDetectionResult res2 = ModeDetector.detect(data, 2);
+        System.out.printf("detect(2): modes=%d, isMultimodal=%s, dip=%.4f%n", 
+            res2.modeCount(), res2.isMultimodal(), res2.dipStatistic());
+        if (res2.modeCount() > 0) {
+            System.out.println("  Peaks: " + Arrays.toString(res2.peakLocations()));
+            System.out.println("  Heights: " + Arrays.toString(res2.peakHeights()));
+        }
+        
+        // Test detect with maxModes=4
+        ModeDetectionResult res4 = ModeDetector.detect(data, 4);
+        System.out.printf("detect(4): modes=%d, isMultimodal=%s, dip=%.4f%n", 
+            res4.modeCount(), res4.isMultimodal(), res4.dipStatistic());
+        if (res4.modeCount() > 0) {
+            System.out.println("  Peaks: " + Arrays.toString(res4.peakLocations()));
+            System.out.println("  Heights: " + Arrays.toString(res4.peakHeights()));
+        }
+        
+        // Assertions
+        assertTrue(res2.isMultimodal(), "Should detect bimodal with maxModes=2");
+        assertEquals(2, res2.modeCount(), "Should find exactly 2 modes with maxModes=2");
+        
+        if (res4.modeCount() > 2) {
+             System.out.println("WARNING: Overfitting detected with maxModes=4");
+        }
+    }
 }
