@@ -15,6 +15,20 @@ graph TD
     G -->|use| H[Application/Test]
 ```
 
+## Data Source Specifications
+
+Commands in this chapter accept `--dataset` or `--vectors` parameters with flexible specification formats. These let you reference data from catalogs, local paths, or remote URLs.
+
+Quick reference:
+- **`--dataset sift-128`** - Catalog lookup by name
+- **`--dataset ./mydata/`** - Local directory with dataset.yaml
+- **`--vectors sift-128.default.base`** - Catalog facet (base vectors)
+- **`--vectors ./vectors.fvec`** - Local vector file
+
+Dot separators are preferred for facets (`dataset.profile.facet`); colons are still accepted for compatibility.
+
+For complete format documentation, see [Specification Formats](03-cli-reference.md#specification-formats) in the CLI Reference.
+
 ## Discovering Datasets
 
 ### List Available Datasets

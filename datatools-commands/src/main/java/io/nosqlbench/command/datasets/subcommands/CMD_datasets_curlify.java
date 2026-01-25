@@ -19,6 +19,11 @@ package io.nosqlbench.command.datasets.subcommands;
 
 
 import io.nosqlbench.command.common.CommandLineFormatter;
+import io.nosqlbench.command.common.DatasetCompletionCandidates;
+import io.nosqlbench.vectordata.discovery.TestDataSources;
+import io.nosqlbench.vectordata.downloader.Catalog;
+import io.nosqlbench.vectordata.downloader.DatasetEntry;
+import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
 import io.nosqlbench.vectordata.layout.FGroup;
 import io.nosqlbench.vectordata.layout.FInterval;
 import io.nosqlbench.vectordata.layout.FProfiles;
@@ -31,6 +36,7 @@ import picocli.CommandLine;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -43,19 +49,28 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /// Emit curl commands to download a remote dataset.yaml and only the needed byte-ranges
 /// for the selected profiles.
+///
+/// The dataset can be specified as either:
+/// - A remote URL to a dataset.yaml file
+/// - A dataset name from the catalog (e.g., "datasetname" for default profile)
+/// - A dataset:profile specification (e.g., "datasetname:profile")
 @CommandLine.Command(name = "curlify",
     header = "Generate curl commands for a remote dataset.yaml",
     description = "Downloads the dataset.yaml and emits curl commands which use HTTP range reads to\n" +
         "fetch only the portions of each referenced file that are needed for the selected profiles.\n" +
-        "If no profiles are specified, all profiles are included.")
+        "If no profiles are specified, all profiles are included.\n\n" +
+        "The dataset can be specified as:\n" +
+        "  - A remote URL to a dataset.yaml file\n" +
+        "  - A dataset name from the catalog (uses default profile)\n" +
+        "  - A dataset:profile specification from the catalog")
 public class CMD_datasets_curlify implements Callable<Integer> {
 
     private static final Logger logger = LogManager.getLogger(CMD_datasets_curlify.class);
@@ -64,10 +79,20 @@ public class CMD_datasets_curlify implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Parameters(paramLabel = "DATASET_YAML_URL",
-        description = "Remote dataset.yaml URL",
-        arity = "1")
-    private String datasetYamlUrl;
+    @CommandLine.Parameters(paramLabel = "DATASET",
+        description = "Remote dataset.yaml URL, or dataset name, or dataset:profile from catalog",
+        arity = "1",
+        completionCandidates = DatasetCompletionCandidates.DatasetProfile.class)
+    private String datasetSpec;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
 
     @CommandLine.Option(names = {"-p", "--profile"},
         description = "Profiles to include (default: all). Comma-separated list allowed.",
@@ -83,6 +108,10 @@ public class CMD_datasets_curlify implements Callable<Integer> {
         CommandLineFormatter.printCommandLine(spec);
         spec.commandLine().getOut().println();
 
+        this.configdir = Path.of(this.configdir.toString()
+            .replace("~", System.getProperty("user.home"))
+            .replace("${HOME}", System.getProperty("user.home")));
+
         StringBuilder sb = new StringBuilder();
         List<String> errors = new ArrayList<>();
         int exitCode = 0;
@@ -90,10 +119,39 @@ public class CMD_datasets_curlify implements Callable<Integer> {
         URI yamlUri = null;
         String datasetName = "dataset";
         Path targetDir = outputDir != null ? outputDir : Path.of(datasetName);
+        String resolvedDatasetYamlUrl = datasetSpec;
 
         try {
+            // Check if this is a URL or a dataset name/spec
+            if (REMOTE_PATTERN.matcher(datasetSpec).matches()) {
+                // It's a URL, use it directly
+                resolvedDatasetYamlUrl = datasetSpec;
+            } else {
+                // Try to look it up in the catalog
+                URL catalogUrl = resolveFromCatalog(datasetSpec);
+                if (catalogUrl != null) {
+                    String urlStr = catalogUrl.toString();
+                    // Only append dataset.yaml if not already present
+                    if (urlStr.endsWith("/dataset.yaml") || urlStr.endsWith("/dataset.yml")) {
+                        resolvedDatasetYamlUrl = urlStr;
+                    } else {
+                        if (!urlStr.endsWith("/")) {
+                            urlStr += "/";
+                        }
+                        resolvedDatasetYamlUrl = urlStr + "dataset.yaml";
+                    }
+                    sb.append("# Resolved '").append(datasetSpec).append("' from catalog\n");
+                } else {
+                    // Not found in catalog, treat as a local path or fail
+                    String msg = "Dataset '" + datasetSpec + "' not found in catalog and is not a valid URL";
+                    errors.add(msg);
+                    sb.append("# ").append(msg).append("\n");
+                    exitCode = 1;
+                }
+            }
+
             try {
-                yamlUri = URI.create(datasetYamlUrl);
+                yamlUri = URI.create(resolvedDatasetYamlUrl);
                 datasetName = deriveDatasetName(yamlUri);
                 targetDir = outputDir != null ? outputDir : Path.of(datasetName);
             } catch (Exception e) {
@@ -103,25 +161,17 @@ public class CMD_datasets_curlify implements Callable<Integer> {
             }
 
         sb.append("# curl script for dataset '").append(datasetName).append("'\n");
-        sb.append("# source: ").append(datasetYamlUrl).append("\n");
+        sb.append("# source: ").append(resolvedDatasetYamlUrl).append("\n");
         sb.append("DATASET_DIR=").append(shQuote(targetDir.toString())).append("\n");
-        sb.append("mkdir -p \"$DATASET_DIR\"\n");
-        if (yamlUri != null) {
-            sb.append("curl -L -o \"$DATASET_DIR/dataset.yaml\" ").append(shQuote(yamlUri.toString())).append("\n\n");
-        } else {
-            sb.append("# Unable to curl dataset.yaml because the URL was invalid\n\n");
-            exitCode = 1;
-        }
+        sb.append("mkdir -p \"$DATASET_DIR\"\n\n");
 
         TestGroupLayout layout = null;
         if (yamlUri != null) {
-            sb.append("# [info] Fetching dataset.yaml ...\n");
             String yamlContent = null;
             try {
                 yamlContent = fetchText(yamlUri);
-                sb.append("# [info] Fetched dataset.yaml\n");
             } catch (Exception e) {
-                String msg = "Failed to fetch dataset.yaml: " + e.getMessage();
+                String msg = "Failed to fetch dataset.yaml from " + yamlUri + ": " + e.getMessage();
                 errors.add(msg);
                 sb.append("# ").append(msg).append("\n");
                 logger.debug("fetch failure", e);
@@ -131,7 +181,6 @@ public class CMD_datasets_curlify implements Callable<Integer> {
             if (yamlContent != null) {
                 try {
                     layout = TestGroupLayout.fromYaml(yamlContent);
-                    sb.append("# [info] Parsed dataset.yaml\n");
                 } catch (RuntimeException rte) {
                     String msg = String.format("Unable to parse dataset.yaml from %s: %s", yamlUri, rte.getMessage());
                     errors.add(msg);
@@ -147,7 +196,6 @@ public class CMD_datasets_curlify implements Callable<Integer> {
             cacheRoot = targetDir.resolve(".curlify-cache");
             try {
                 Files.createDirectories(cacheRoot);
-                sb.append("# [info] Cache dir: ").append(cacheRoot).append("\n");
             } catch (IOException e) {
                 String msg = String.format("Unable to create cache directory %s: %s", cacheRoot, e.getMessage());
                 errors.add(msg);
@@ -158,7 +206,6 @@ public class CMD_datasets_curlify implements Callable<Integer> {
         }
 
         if (layout != null) {
-            sb.append("# [info] Mapping profiles...\n");
             FGroup profilesGroup = layout.profiles();
             Map<String, FProfiles> profiles = profilesGroup.profiles();
             Set<String> requestedProfiles = profileNames.isEmpty()
@@ -439,4 +486,44 @@ public class CMD_datasets_curlify implements Callable<Integer> {
     }
 
     private record ViewSizing(int dimension, int recordSize) {}
+
+    /// Resolve a dataset specification from the catalog.
+    ///
+    /// Supports formats:
+    /// - "datasetname" - looks up dataset, returns base URL
+    /// - "datasetname:profile" - looks up dataset, adds profile to profileNames if not already present
+    ///
+    /// @param spec The dataset specification
+    /// @return The base URL of the dataset, or null if not found
+    private URL resolveFromCatalog(String spec) {
+        try {
+            TestDataSources config = new TestDataSources();
+            config = config.configure(this.configdir);
+            if (this.catalogs != null && !this.catalogs.isEmpty()) {
+                config = config.addCatalogs(this.catalogs);
+            }
+
+            Catalog catalog = Catalog.of(config);
+
+            DatasetProfileSpec parsed = DatasetProfileSpec.parse(spec);
+            String datasetName = parsed.dataset();
+
+            // If a profile was specified in the spec, add it to the profile list
+            parsed.profile().ifPresent(profile -> {
+                if (!profileNames.contains(profile)) {
+                    profileNames.add(profile);
+                }
+            });
+
+            Optional<DatasetEntry> entry = catalog.findExact(datasetName);
+            if (entry.isPresent()) {
+                return entry.get().url();
+            }
+
+            return null;
+        } catch (Exception e) {
+            logger.debug("Failed to resolve from catalog: {}", e.getMessage());
+            return null;
+        }
+    }
 }

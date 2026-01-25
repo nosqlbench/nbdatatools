@@ -18,6 +18,7 @@ The nbdatatools project consists of 10 modules organized into logical layers. Th
   - Common plugin configurations
   - Dependency version management
   - Build profiles and properties
+  - Versioning and build metadata (see [versioning_build_numbers.md](versioning_build_numbers.md))
   - License and deployment settings
 
 #### testdata-apis

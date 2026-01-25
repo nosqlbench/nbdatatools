@@ -10,3 +10,4 @@ io.nosqlbench.command.analyze.CMD_analyze
 io.nosqlbench.command.info.CMD_info
 io.nosqlbench.command.version.CMD_version
 io.nosqlbench.command.vectordata.CMD_vectordata
+io.nosqlbench.command.config.CMD_config

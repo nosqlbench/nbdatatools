@@ -17,6 +17,7 @@ package io.nosqlbench.command.vectordata;
  * under the License.
  */
 
+import io.nosqlbench.command.common.DatasetCompletionCandidates;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
 import io.nosqlbench.vectordata.layout.FWindow;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
@@ -175,7 +176,9 @@ class CMD_vectordata_prebuffer implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, required = true, description = "dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"}, required = true,
+        description = "dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"-p", "--profile"}, description = "Profile name (default: first or preset)")
@@ -255,7 +258,9 @@ class CMD_vectordata_info implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, required = true, description = "dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"}, required = true,
+        description = "dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"--cache"}, description = "Cache directory for remote datasets")
@@ -302,7 +307,9 @@ class CMD_vectordata_views implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, required = true, description = "dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"}, required = true,
+        description = "dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"-p", "--profile"}, split = ",", description = "Profile filter (default: all)")
@@ -389,7 +396,9 @@ class CMD_vectordata_profiles implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, required = true, description = "dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"}, required = true,
+        description = "dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"--cache"}, description = "Cache directory for remote datasets")
@@ -426,7 +435,9 @@ class CMD_vectordata_size implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, required = true, description = "dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"}, required = true,
+        description = "dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"-p", "--profile"}, description = "Profile name (default: first or preset)")
@@ -507,7 +518,9 @@ class CMD_vectordata_sample implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, required = true, description = "dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"}, required = true,
+        description = "dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"-p", "--profile"}, description = "Profile name (default: first or preset)")
@@ -599,7 +612,9 @@ class CMD_vectordata_cat implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, required = true, description = "dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"}, required = true,
+        description = "dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"-p", "--profile"}, description = "Profile name (default: first or preset)")
@@ -741,7 +756,9 @@ class CMD_vectordata_verify implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, required = true, description = "dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"}, required = true,
+        description = "dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"-p", "--profile"}, description = "Profile name (default: first or preset)")
@@ -799,7 +816,9 @@ class CMD_vectordata_repl implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
-    @CommandLine.Option(names = {"-d", "--dataset"}, description = "Initial dataset.yaml path or URL")
+    @CommandLine.Option(names = {"-d", "--dataset"},
+        description = "Initial dataset.yaml path or URL",
+        completionCandidates = DatasetCompletionCandidates.DatasetOnly.class)
     private String datasetSpec;
 
     private final java.util.List<String> replCommands = java.util.List.of(

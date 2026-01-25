@@ -17,6 +17,7 @@ package io.nosqlbench.command.datasets.subcommands;
  * under the License.
  */
 
+import io.nosqlbench.command.common.DatasetCompletionCandidates;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
@@ -46,7 +47,8 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
     private static final Logger logger = LogManager.getLogger(CMD_datasets_prebuffer.class);
 
     @CommandLine.Parameters(description = "Dataset and profile to prebuffer using 'dataset:profile'. Escape literal ':' with '\\:'.",
-                           arity = "1..*")
+                           arity = "1..*",
+                           completionCandidates = DatasetCompletionCandidates.DatasetProfile.class)
     private List<String> datasets = new ArrayList<>();
 
     @CommandLine.Option(names = {"--catalog"},

@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -210,7 +211,7 @@ public class Catalog {
   ///     If multiple datasets match the same name
   public Optional<DatasetEntry> findExact(String name) {
     List<DatasetEntry> found =
-        datasets.stream().filter(e -> e.name().equalsIgnoreCase(name)).collect(java.util.stream.Collectors.toList());
+        datasets.stream().filter(e -> e.name().equalsIgnoreCase(name)).collect(Collectors.toList());
     if (found.size() == 1) {
       return Optional.of(found.get(0));
     } else if (found.size() > 1) {

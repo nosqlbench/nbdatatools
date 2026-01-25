@@ -106,6 +106,11 @@ version     Print version/build information
 [Nbvectors javadocs](https://javadoc.io/doc/io.nosqlbench/nbvectors/latest/index.html)
 are graciously hosted by [javadoc.io](https://javadoc.io/).
 
+## Developer docs
+
+- [Module structure](docs/dev_manual/module_structure.md)
+- [Versioning + build metadata](docs/dev_manual/versioning_build_numbers.md)
+
 ## Testing
 
 Tests are organized into three categories that can be run independently or together using Maven profiles:

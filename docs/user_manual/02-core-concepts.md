@@ -317,6 +317,31 @@ for (int i = start; i < start + count; i++) {
 - `convert ...` for format conversion
 - `datasets` for standard test data
 
+## Data Source Specifications
+
+NBDataTools commands use flexible specification formats to reference data from various sources.
+
+### Dataset Specifications (`--dataset`)
+
+The `--dataset` parameter references whole datasets and supports:
+- **Catalog names**: `sift-128`
+- **Local directories**: `./mydata/` (containing `dataset.yaml`)
+- **Local files**: `./mydata/dataset.yaml`
+- **Remote URLs**: `https://example.com/datasets/sift/`
+
+### Vector Data Specifications (`--vectors`)
+
+The `--vectors` parameter references specific vector facets and supports:
+- **Local files**: `./vectors.fvec`
+- **Catalog facets**: `sift-128.default.base` (shorthand) or `facet.sift-128.default.base`
+- **Remote files**: `https://example.com/vectors.fvec`
+
+The `<facet>` component can be: `base`, `query`, `indices`, or `distances`.
+
+Dot separators are preferred for facet specs; colon separators remain supported for compatibility.
+
+📝 For complete format details and examples, see [Specification Formats](03-cli-reference.md#specification-formats) in the CLI Reference.
+
 ## Summary
 
 These core concepts form the foundation of NBDataTools:

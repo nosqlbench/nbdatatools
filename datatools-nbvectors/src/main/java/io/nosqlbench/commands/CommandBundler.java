@@ -18,16 +18,42 @@ package io.nosqlbench.commands;
  */
 
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import io.nosqlbench.command.analyze.CMD_analyze;
+import io.nosqlbench.command.catalog.CMD_catalog;
+import io.nosqlbench.command.cleanup.CMD_cleanup;
+import io.nosqlbench.command.compute.CMD_compute;
+import io.nosqlbench.command.config.CMD_config;
+import io.nosqlbench.command.convert.CMD_convert;
+import io.nosqlbench.command.datasets.CMD_datasets;
+import io.nosqlbench.command.fetch.CMD_fetch;
+import io.nosqlbench.command.generate.CMD_generate;
+import io.nosqlbench.command.info.CMD_info;
+import io.nosqlbench.command.merkle.CMD_merkle;
+import io.nosqlbench.command.vectordata.CMD_vectordata;
+import io.nosqlbench.command.version.CMD_version;
 import picocli.CommandLine;
 
 /// A collection of tools for working with vector test data
 ///
 /// This is the top level command which serves as an props point for all sub-commands
 @CommandLine.Command(name = "nbvectors", subcommands = {
-    CommandLine.HelpCommand.class
-}, modelTransformer = AddBundledCommands.class)
+    CommandLine.HelpCommand.class,
+    NbvectorsGenerateCompletion.class,
+    NbvectorsComplete.class,
+    CMD_analyze.class,
+    CMD_catalog.class,
+    CMD_cleanup.class,
+    CMD_compute.class,
+    CMD_config.class,
+    CMD_convert.class,
+    CMD_datasets.class,
+    CMD_fetch.class,
+    CMD_generate.class,
+    CMD_info.class,
+    CMD_merkle.class,
+    CMD_vectordata.class,
+    CMD_version.class
+})
 public class CommandBundler {
 
   /// create a command bundler

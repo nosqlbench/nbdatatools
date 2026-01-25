@@ -1,4 +1,4 @@
-package io.nosqlbench.command.datasets;
+package io.nosqlbench.command.config;
 
 /*
  * Copyright (c) nosqlbench
@@ -17,10 +17,9 @@ package io.nosqlbench.command.datasets;
  * under the License.
  */
 
-import io.nosqlbench.command.datasets.subcommands.CMD_datasets_list;
-import io.nosqlbench.command.datasets.subcommands.CMD_datasets_prebuffer;
-import io.nosqlbench.command.datasets.subcommands.CMD_datasets_plan;
-import io.nosqlbench.command.datasets.subcommands.CMD_datasets_curlify;
+import io.nosqlbench.command.config.subcommands.CMD_config_init;
+import io.nosqlbench.command.config.subcommands.CMD_config_list_mounts;
+import io.nosqlbench.command.config.subcommands.CMD_config_show;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,30 +27,34 @@ import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
 
-/// Browse and download vector testing datasets from accessible catalogs
-@CommandLine.Command(name = "datasets",
-    header = "Browse and download vector testing datasets from accessible catalogs",
-    description = "Contains subcommands to work with vector testing datasets from accessible catalogs",
+/// Manage vectordata configuration settings.
+///
+/// This command provides subcommands to initialize, view, and manage
+/// vectordata configuration, including cache directory settings.
+@CommandLine.Command(name = "config",
+    header = "Manage vectordata configuration settings",
+    description = "Initialize, view, and manage vectordata configuration including cache directory settings",
     subcommands = {
-        CMD_datasets_list.class,
-        CMD_datasets_prebuffer.class,
-        CMD_datasets_curlify.class,
-        CMD_datasets_plan.class,
+        CMD_config_init.class,
+        CMD_config_show.class,
+        CMD_config_list_mounts.class,
         CommandLine.HelpCommand.class
     })
-public class CMD_datasets implements Callable<Integer>, BundledCommand {
+public class CMD_config implements Callable<Integer>, BundledCommand {
 
-    private static final Logger logger = LogManager.getLogger(CMD_datasets.class);
+    private static final Logger logger = LogManager.getLogger(CMD_config.class);
 
-    /// Create the CMD_datasets command
-    public CMD_datasets() {}
+    /// Create the CMD_config command.
+    public CMD_config() {}
 
-    /// Run a datasets command
+    /// Run the config command.
+    ///
     /// @param args Command line arguments
     public static void main(String[] args) {
-        CMD_datasets command = new CMD_datasets();
+        CMD_config command = new CMD_config();
         logger.info("instancing commandline");
-        CommandLine commandLine = new CommandLine(command).setCaseInsensitiveEnumValuesAllowed(true)
+        CommandLine commandLine = new CommandLine(command)
+            .setCaseInsensitiveEnumValuesAllowed(true)
             .setOptionsCaseInsensitive(true);
         logger.info("executing commandline");
         int exitCode = commandLine.execute(args);

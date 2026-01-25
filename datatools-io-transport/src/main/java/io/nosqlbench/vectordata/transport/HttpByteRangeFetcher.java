@@ -253,6 +253,9 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
                     return headResult.size;
                 }
                 headDiagnostic = headResult.diagnostic;
+            } catch (ResourceNotFoundException e) {
+                // Resource not found - return -1 to indicate this
+                return -1L;
             } catch (IOException e) {
                 lastError = e;
                 headDiagnostic = "HEAD request failed: " + e.getMessage();
@@ -264,6 +267,9 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
                     return rangeResult.size;
                 }
                 rangeDiagnostic = rangeResult.diagnostic;
+            } catch (ResourceNotFoundException e) {
+                // Resource not found - return -1 to indicate this
+                return -1L;
             } catch (IOException e) {
                 if (lastError != null) {
                     e.addSuppressed(lastError);
@@ -339,6 +345,14 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
             int statusCode = response.code();
             if (!response.isSuccessful()) {
                 String diagnostic = String.format("HTTP %d %s", statusCode, response.message());
+                // Throw specific exceptions for common HTTP errors
+                if (statusCode == 404) {
+                    throw new ResourceNotFoundException("Resource not found: " + sourceUrl + " (HTTP 404)");
+                } else if (statusCode == 403) {
+                    throw new IOException("Access denied: " + sourceUrl + " (HTTP 403 Forbidden)");
+                } else if (statusCode == 401) {
+                    throw new IOException("Authentication required: " + sourceUrl + " (HTTP 401 Unauthorized)");
+                }
                 throw new IOException("HEAD request failed with status: " + statusCode + " " + response.message());
             }
 
@@ -378,6 +392,16 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
 
         try (Response response = httpClient.newCall(rangeRequest).execute()) {
             int status = response.code();
+
+            // Check for resource not found or access errors first
+            if (status == 404) {
+                throw new ResourceNotFoundException("Resource not found: " + sourceUrl + " (HTTP 404)");
+            } else if (status == 403) {
+                throw new IOException("Access denied: " + sourceUrl + " (HTTP 403 Forbidden)");
+            } else if (status == 401) {
+                throw new IOException("Authentication required: " + sourceUrl + " (HTTP 401 Unauthorized)");
+            }
+
             if (status == 206) {
                 cachedRangeSupport.set(true);
 
@@ -544,7 +568,7 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
     }
 
     /// Validates that this fetcher has not been closed.
-    /// 
+    ///
     /// @throws IOException if the fetcher has been closed
     private void validateNotClosed() throws IOException {
         if (closed.get()) {
@@ -552,5 +576,25 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
         }
     }
 
+    /// Exception thrown when the requested resource is not found (HTTP 404).
+    ///
+    /// This exception is used to distinguish "resource not found" errors from
+    /// other types of IO errors, allowing callers to handle missing resources
+    /// appropriately (e.g., returning -1 for size instead of throwing).
+    public static class ResourceNotFoundException extends IOException {
+        /// Creates a new ResourceNotFoundException with the specified message.
+        ///
+        /// @param message The detail message
+        public ResourceNotFoundException(String message) {
+            super(message);
+        }
 
+        /// Creates a new ResourceNotFoundException with the specified message and cause.
+        ///
+        /// @param message The detail message
+        /// @param cause The cause of this exception
+        public ResourceNotFoundException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
 }

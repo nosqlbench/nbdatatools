@@ -15,6 +15,162 @@ java -jar nbvectors.jar <command> [options]
 - `-v, --verbose` - Enable verbose output
 - `--debug` - Enable debug logging
 
+## Specification Formats
+
+Many commands accept `--dataset` or `--vectors` parameters that support flexible specification formats. These allow you to reference data from multiple sources using a unified syntax.
+
+### Dataset Specification (`--dataset`)
+
+The `--dataset` parameter accepts specifications for referencing whole datasets (not specific vector facets). Supported formats:
+
+| Format | Type | Example |
+|--------|------|---------|
+| `<name>` | Catalog lookup | `sift-128` |
+| `<path>/` | Local directory | `./mydata/` |
+| `<path>/dataset.yaml` | Local dataset file | `./mydata/dataset.yaml` |
+| `https://...` | Remote base URL | `https://example.com/datasets/sift` |
+| `https://.../dataset.yaml` | Remote dataset file | `https://example.com/datasets/sift/dataset.yaml` |
+
+**Note:** Remote base URLs (with or without trailing `/`) must point to a directory containing a `dataset.yaml` file. The trailing slash is optional.
+
+#### Resolution Priority
+
+When an unqualified name is provided (no URL scheme, no path separators):
+
+1. Check if it's a local directory containing `dataset.yaml`
+2. Check if it's a local file path to `dataset.yaml`
+3. Treat it as a catalog dataset name
+
+#### Examples
+
+```bash
+# Catalog lookup by name
+java -jar nbvectors.jar datasets info --dataset sift-128
+
+# Local directory containing dataset.yaml
+java -jar nbvectors.jar analyze describe --dataset ./my-dataset/
+
+# Direct path to dataset.yaml
+java -jar nbvectors.jar analyze describe --dataset ./my-dataset/dataset.yaml
+
+# Remote dataset base URL (trailing slash is optional)
+java -jar nbvectors.jar analyze describe --dataset https://example.com/datasets/sift
+
+# Remote dataset.yaml URL
+java -jar nbvectors.jar analyze describe --dataset https://example.com/datasets/sift/dataset.yaml
+```
+
+#### Path Expansion
+
+The following path variables are expanded automatically:
+
+- `~` → User home directory
+- `${HOME}` → User home directory
+
+```bash
+# These are equivalent
+java -jar nbvectors.jar analyze describe --dataset ~/datasets/sift
+java -jar nbvectors.jar analyze describe --dataset /home/user/datasets/sift
+```
+
+#### Naming Rules
+
+Catalog dataset names must:
+- Start with an alphanumeric character
+- Contain only alphanumeric characters, dashes (`-`), underscores (`_`), and dots (`.`)
+
+### Vector Data Specification (`--vectors`)
+
+The `--vectors` parameter accepts specifications for referencing specific vector data facets (base vectors, query vectors, indices, or distances). Supported formats:
+
+| Format | Type | Example |
+|--------|------|---------|
+| `<path>` | Local file | `./vectors.fvec` |
+| `<dir>/<dataset>:<profile>:<facet>` | Local directory facet | `./data/sift:default:base` |
+| `<name>.<profile>.<facet>` | Catalog facet (shorthand, preferred) | `sift-128.default.base` |
+| `facet.<name>.<profile>.<facet>` | Catalog facet (explicit) | `facet.sift-128.default.query` |
+| `https://.../<file>` | Remote file | `https://example.com/vectors.fvec` |
+| `https://.../dataset.yaml` | Remote dataset.yaml | `https://example.com/sift/dataset.yaml` |
+
+Colon separators are also accepted for compatibility: `name:profile:facet` and `facet:name:profile:facet`.
+Use `:` when dataset/profile names or paths contain dots (for example, `./data/...`).
+
+#### Facet Types
+
+The `<facet>` component specifies which type of vector data to access:
+
+| Facet | Description |
+|-------|-------------|
+| `base` | Base vectors (the searchable corpus) |
+| `query` | Query vectors (test queries) |
+| `indices` | Ground truth neighbor indices |
+| `distances` | Ground truth neighbor distances |
+
+#### Resolution Priority
+
+When parsing specifications:
+
+1. Check if it starts with `http://` or `https://` → Remote source
+2. Check if it matches a relative directory path → Local facet reference
+3. Check if it looks like `name.profile.facet` or `name:profile:facet` → Catalog facet lookup
+4. Check if it's a local file path → Local file
+5. Default to catalog facet lookup
+
+#### Examples
+
+```bash
+# Local vector file
+java -jar nbvectors.jar analyze describe --vectors ./vectors.fvec
+
+# Catalog facet with shorthand notation
+java -jar nbvectors.jar analyze describe --vectors sift-128.default.base
+
+# Catalog facet with explicit prefix
+java -jar nbvectors.jar analyze describe --vectors facet.sift-128.default.query
+
+# Local directory facet
+java -jar nbvectors.jar analyze describe --vectors ./datasets/sift:default:indices
+
+# Remote vector file
+java -jar nbvectors.jar analyze describe --vectors https://example.com/data/base.fvec
+
+# Remote dataset.yaml (prompts for facet selection)
+java -jar nbvectors.jar analyze describe --vectors https://example.com/sift/dataset.yaml
+```
+
+#### Ambiguous URLs
+
+URLs ending with `/` are rejected for `--vectors` because they don't specify which facet to use. Instead, you'll receive a helpful suggestion:
+
+```
+Error: Dataset base URL 'https://example.com/sift/' is ambiguous.
+       A specific facet must be specified, not just the dataset base directory.
+
+To specify a facet, try one of these commands:
+  --vectors https://example.com/sift/dataset.yaml  (then select facet)
+
+Or use a catalog facet specification:
+  --vectors facet.<dataset>.<profile>.base
+  --vectors facet.<dataset>.<profile>.query
+  --vectors facet.<dataset>.<profile>.indices
+  --vectors facet.<dataset>.<profile>.distances
+
+Colon separators are also accepted for compatibility:
+  --vectors facet:<dataset>:<profile>:base
+```
+
+### Comparison: `--dataset` vs `--vectors`
+
+| Feature | `--dataset` | `--vectors` |
+|---------|-------------|-------------|
+| References | Whole datasets | Specific facets |
+| URL with trailing `/` | ✓ Valid (base directory) | ✗ Rejected (ambiguous) |
+| Facet specification | Not applicable | Required for catalog/directory |
+| Catalog shorthand | `sift-128` | `sift-128.default.base` |
+
+Use `--dataset` when working with complete datasets (downloading, listing, describing the structure).
+Use `--vectors` when working with specific vector data (analyzing, converting, processing individual files).
+
 ## Command Categories
 
 ### Analysis Commands
