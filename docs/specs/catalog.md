@@ -6,36 +6,42 @@ This document specifies the design and implementation of the dataset catalog sys
 
 The catalog system aggregates dataset definitions from multiple sources into a single searchable index. Users can reference datasets by simple names (e.g., `sift-128`), and the system resolves these names to specific URLs or file paths, including their associated metadata and profiles.
 
+> **See Also:**
+> *   [Data Access API](data_access_v1.md): The catalog serves as the primary entry point for the Data Access API.
+> *   [Dataset Specification](dataset_yaml_v1.md): Defines the structure of the datasets discovered by the catalog.
+
 ## 2. Catalog Discovery
 
-The system discovers catalogs through a hierarchical configuration approach.
+The system discovers catalogs through a hierarchical configuration approach involving specific file names and directory structures.
 
-### 2.1 Configuration File (`catalogs.yaml`)
+### 2.1 Configuration Files (`catalogs.*` vs `catalog.*`)
 
-The primary way to configure catalog sources is through a `catalogs.yaml` file. This file contains a YAML list of strings, where each string represents a catalog location.
+The system distinguishes between a **list of catalogs** and a **catalog definition** based on the filename.
 
-**Search Locations:**
-1.  **Default Config Directory**: `~/.config/vectordata/catalogs.yaml`
-2.  **Explicit Config Directory**: Provided via API or command-line arguments.
+1.  **List of Catalogs** (`catalogs.yaml`, `catalogs.json`):
+    *   Contains a list of strings (zero or more).
+    *   Each string is a reference to a catalog location (URL or path).
+    *   This is used to bootstrap the discovery process or aggregate multiple sources.
 
-**Example `catalogs.yaml`:**
-```yaml
-- https://example.com/datasets/catalog.json
-- ~/my-datasets/
-- /opt/data/shared-catalog.yaml
-```
+2.  **Catalog Definition** (`catalog.yaml`, `catalog.json`):
+    *   Contains the actual catalog definition (a list of dataset entries).
+    *   Describes datasets within its path hierarchy.
 
-### 2.2 Location Resolution
+### 2.2 Directory Resolution
 
-A catalog location string can be resolved in several ways:
+When a raw directory path is provided as a source, the system inspects its contents to determine its role:
 
-1.  **Remote URL**: If it starts with `http://` or `https://`, it is treated as a remote source.
-2.  **Local Directory**: If it is a directory path:
-    *   If it contains `catalogs.yaml`, it is treated as a config directory (recursive discovery).
-    *   If it contains `catalog.json`, it is treated as a catalog source.
-3.  **Local File**:
-    *   If it is a `.yaml` file, it is parsed as a list of further catalog locations.
-    *   If it is a `.json` file, it is parsed as a `catalog.json`.
+1.  **Catalog Base Path**:
+    *   If the directory contains `catalog.json` (or `catalog.yaml`), it is treated as a catalog source.
+    *   The system loads the catalog definition from that file.
+
+2.  **Dataset Base Path**:
+    *   If the directory contains `dataset.yaml`, it is treated as a single dataset.
+    *   (Future/Implicit support: The system may implicitly wrap this into a single-entry catalog).
+
+3.  **Configuration Base Path**:
+    *   If the directory contains `catalogs.yaml` (or `catalogs.json`), it is treated as a configuration source.
+    *   The system reads the list of catalogs from this file and resolves them.
 
 ## 3. Catalog Data Format (`catalog.json`)
 
@@ -51,7 +57,7 @@ A direct entry contains all the fields necessary to define a `DatasetEntry`.
 *   **`name`** (String): Unique identifier for the dataset.
 *   **`url`** (String/URL): Base URL or path where the dataset files are located.
 *   **`attributes`** (Map<String, String>): Metadata (e.g., `distance_function`, `model`).
-*   **`profiles`** (Map<String, Object>): Profile definitions (matches the `profiles` section in `dataset.yaml`).
+*   **`profiles`** (Map<String, Object>): Profile definitions. The structure of each profile must conform to the [Dataset Specification](dataset_yaml_v1.md#22-profiles).
 *   **`tags`** (Map<String, String>): Optional categorization tags.
 
 #### 3.1.2 Layout-embedded Entry
@@ -59,7 +65,7 @@ This form allows embedding the content of a `dataset.yaml` file directly within 
 
 *   **`name`** (String): Dataset name.
 *   **`path`** (String): Relative path from the catalog location to the `dataset.yaml` or dataset directory.
-*   **`layout`** (Object): Contains the standard `dataset.yaml` structure:
+*   **`layout`** (Object): An embedded dataset configuration object. The structure of this object must conform to the [Dataset Specification](dataset_yaml_v1.md#2-configuration-datasetyaml).
     *   `attributes`
     *   `profiles`
     *   `tags`
