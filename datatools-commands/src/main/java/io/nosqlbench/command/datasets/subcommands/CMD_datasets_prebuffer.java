@@ -18,12 +18,20 @@ package io.nosqlbench.command.datasets.subcommands;
  */
 
 import io.nosqlbench.command.common.DatasetCompletionCandidates;
+import io.nosqlbench.vectordata.config.VectorDataSettings;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
+import io.nosqlbench.vectordata.downloader.DatasetEntry;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.layoutv2.DSInterval;
+import io.nosqlbench.vectordata.layoutv2.DSProfile;
+import io.nosqlbench.vectordata.layoutv2.DSView;
+import io.nosqlbench.vectordata.layoutv2.DSWindow;
+import io.nosqlbench.vectordata.layoutv2.DSSource;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+import io.nosqlbench.vectordata.spec.datasets.types.ViewKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -61,8 +69,7 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
     private Path configdir;
 
     @CommandLine.Option(names = {"--cache-dir"},
-        description = "Directory for cached dataset files",
-        defaultValue = "./cache")
+        description = "Directory for cached dataset files (defaults to configured cache_dir)")
     private Path cacheDir;
 
     @CommandLine.Option(names = {"--verbose", "-v"}, description = "Show more information")
@@ -80,7 +87,10 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
     public Integer call() {
         try {
             this.configdir = expandPath(this.configdir);
-            this.cacheDir = expandPath(this.cacheDir);
+            this.cacheDir = resolveCacheDir();
+            if (this.cacheDir == null) {
+                return 1;
+            }
             
             TestDataSources config = new TestDataSources().configure(this.configdir);
             config = config.addCatalogs(this.catalogs);
@@ -137,6 +147,9 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
             
             // Parse the views to prebuffer
             List<String> viewsToPrebuffer = parseViews();
+
+            // Print summary before prebuffering
+            printPrebufferPlan(catalog, spec, viewsToPrebuffer);
             
             // Prebuffer based on selected views
             CompletableFuture<Void> prebufferFuture;
@@ -232,6 +245,17 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
             .replace("~", System.getProperty("user.home"))
             .replace("${HOME}", System.getProperty("user.home")));
     }
+
+    private Path resolveCacheDir() {
+        if (cacheDir != null) {
+            return expandPath(cacheDir);
+        }
+        if (!VectorDataSettings.isConfigured()) {
+            System.err.println("cache_dir is not configured. Run: nbvectors config init");
+            return null;
+        }
+        return VectorDataSettings.load().getCacheDirectory();
+    }
     
     private String formatDuration(Duration duration) {
         long seconds = duration.getSeconds();
@@ -273,5 +297,114 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
         }
 
         return viewList;
+    }
+
+    private void printPrebufferPlan(Catalog catalog, DatasetProfileSpec spec, List<String> viewsToPrebuffer) {
+        String profileName = spec.profile().orElse("");
+        DatasetEntry dataset = catalog.findExact(spec.dataset()).orElse(null);
+        if (dataset == null) {
+            System.out.println("Prebuffer plan: dataset not found for " + spec.dataset());
+            return;
+        }
+        DSProfile profile = resolveProfile(dataset, profileName);
+        if (profile == null) {
+            System.out.println("Prebuffer plan: profile '" + profileName + "' not found in dataset " + dataset.name());
+            return;
+        }
+
+        System.out.println("Prebuffer plan for " + dataset.name() + ":" + profileName);
+        List<ViewKind> viewKinds = resolveViewKinds(viewsToPrebuffer);
+        for (ViewKind viewKind : viewKinds) {
+            DSView view = findView(profile, viewKind);
+            if (view == null) {
+                continue;
+            }
+            DSSource source = view.getSource();
+            String sourcePath = (source != null && source.getPath() != null) ? source.getPath() : "unknown";
+            DSWindow window = selectWindow(view, source);
+            String windowLabel = formatWindow(window);
+            System.out.println("  " + viewKind.getDatasetKind().name().toLowerCase() + ": " +
+                sourcePath + " (window " + windowLabel + ")");
+        }
+    }
+
+    private DSProfile resolveProfile(DatasetEntry dataset, String profileName) {
+        if (profileName == null) {
+            return null;
+        }
+        DSProfile profile = dataset.profiles().get(profileName);
+        if (profile == null) {
+            profile = dataset.profiles().get(profileName.toLowerCase());
+        }
+        if (profile == null) {
+            profile = dataset.profiles().get(profileName.toUpperCase());
+        }
+        if (profile == null) {
+            for (String key : dataset.profiles().keySet()) {
+                if (key.equalsIgnoreCase(profileName)) {
+                    profile = dataset.profiles().get(key);
+                    break;
+                }
+            }
+        }
+        return profile;
+    }
+
+    private List<ViewKind> resolveViewKinds(List<String> viewsToPrebuffer) {
+        List<ViewKind> viewKinds = new ArrayList<>();
+        if (viewsToPrebuffer.contains("*")) {
+            for (ViewKind kind : ViewKind.values()) {
+                viewKinds.add(kind);
+            }
+            return viewKinds;
+        }
+        for (String view : viewsToPrebuffer) {
+            ViewKind.fromName(view).ifPresent(viewKinds::add);
+        }
+        return viewKinds;
+    }
+
+    private DSView findView(DSProfile profile, ViewKind viewKind) {
+        for (String viewName : profile.keySet()) {
+            String normalized = viewName.toLowerCase();
+            if (viewKind.getAllNames().contains(normalized)) {
+                return profile.get(viewName);
+            }
+            DSView dsView = profile.get(viewName);
+            if (dsView != null && dsView.getName() != null) {
+                String dsViewName = dsView.getName().toLowerCase();
+                if (viewKind.getAllNames().contains(dsViewName)) {
+                    return dsView;
+                }
+            }
+        }
+        return null;
+    }
+
+    private DSWindow selectWindow(DSView view, DSSource source) {
+        if (view != null && view.getWindow() != null && !view.getWindow().isEmpty()) {
+            return view.getWindow();
+        }
+        if (source != null && source.getWindow() != null && !source.getWindow().isEmpty()) {
+            return source.getWindow();
+        }
+        return null;
+    }
+
+    private String formatWindow(DSWindow window) {
+        if (window == null || window.isEmpty()) {
+            return "all";
+        }
+        StringBuilder sb = new StringBuilder();
+        boolean first = true;
+        for (DSInterval interval : window) {
+            if (!first) {
+                sb.append(", ");
+            }
+            first = false;
+            sb.append('[').append(interval.getMinIncl()).append(',')
+                .append(interval.getMaxExcl()).append(')');
+        }
+        return sb.toString();
     }
 }

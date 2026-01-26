@@ -19,11 +19,14 @@ package io.nosqlbench.command.common;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
+import io.nosqlbench.vectordata.layoutv2.DSProfile;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,10 +49,7 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
     private static final Path DEFAULT_CONFIG_DIR = Path.of(
         System.getProperty("user.home"), ".config", "vectordata");
 
-    /// Standard facet names for completion
-    private static final List<String> FACET_NAMES = List.of(
-        "base", "query", "indices", "distances"
-    );
+    private static final List<String> CANONICAL_FACET_NAMES = canonicalFacetNames();
 
     @Override
     public Iterator<String> iterator() {
@@ -58,7 +58,6 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
         // Prefix hints are always safe; prefix filtering trims as needed.
         candidates.add("file:");
         candidates.add("facet.");
-        candidates.add("facet:");
 
         Optional<CompletionLineParser.ParsedLine> parsed = CompletionLineParser.parseFromEnv();
         String currentArg = parsed.map(CompletionLineParser.ParsedLine::currentArgPrefix).orElse("");
@@ -82,22 +81,19 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
             prefix = "facet.";
             rest = rest.substring(6);
         } else if (rest.startsWith("facet:")) {
-            prefix = "facet:";
+            prefix = "facet.";
             rest = rest.substring(6);
         }
 
         if (rest.isEmpty() || (!rest.contains(":") && !rest.contains("."))) {
             if (!rest.isEmpty()) {
-                String separator = prefix.endsWith(":") ? ":" : ".";
+                String separator = ".";
                 Optional<String> uniqueMatch = findUniqueDatasetMatch(rest, datasets);
                 if (uniqueMatch.isPresent()) {
                     String datasetName = uniqueMatch.get();
                     List<String> profiles = catalog.profilesByDataset().get(datasetName);
                     if (profiles != null && !profiles.isEmpty()) {
                         candidates.add(prefix + datasetName + separator);
-                        for (String profile : profiles) {
-                            candidates.add(prefix + datasetName + separator + profile + separator);
-                        }
                         return candidates.iterator();
                     }
                 }
@@ -111,8 +107,9 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
             return candidates.iterator();
         }
 
-        String separator = rest.contains(":") ? ":" : ".";
-        String[] parts = rest.split(Pattern.quote(separator), -1);
+        String parseSeparator = rest.contains(".") ? "." : ":";
+        String outputSeparator = ".";
+        String[] parts = rest.split(Pattern.quote(parseSeparator), -1);
         if (parts.length < 2) {
             addDatasetCandidates(candidates, prefix, datasets);
             return candidates.iterator();
@@ -130,15 +127,12 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
                 Optional<String> uniqueProfile = findUniqueProfileMatch(profilePrefix, profiles);
                 if (uniqueProfile.isPresent()) {
                     String profileName = uniqueProfile.get();
-                    candidates.add(prefix + datasetName + separator + profileName + separator);
-                    for (String facet : FACET_NAMES) {
-                        candidates.add(prefix + datasetName + separator + profileName + separator + facet);
-                    }
+                    candidates.add(prefix + datasetName + outputSeparator + profileName + outputSeparator);
                     return candidates.iterator();
                 }
             }
             for (String profile : profiles) {
-                candidates.add(prefix + datasetName + separator + profile + separator);
+                candidates.add(prefix + datasetName + outputSeparator + profile + outputSeparator);
             }
             return candidates.iterator();
         }
@@ -148,8 +142,9 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
             return candidates.iterator();
         }
 
-        for (String facet : FACET_NAMES) {
-            candidates.add(prefix + datasetName + separator + profileName + separator + facet);
+        List<String> facets = catalog.facetsFor(datasetName, profileName);
+        for (String facet : facets) {
+            candidates.add(prefix + datasetName + outputSeparator + profileName + outputSeparator + facet);
         }
 
         return candidates.iterator();
@@ -211,24 +206,44 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
             || value.startsWith("~");
     }
 
-    private record CompletionCatalog(Map<String, List<String>> profilesByDataset) {
+    private record CompletionCatalog(
+        Map<String, List<String>> profilesByDataset,
+        Map<String, Map<String, List<String>>> facetsByDatasetProfile
+    ) {
         static CompletionCatalog load(Path configDir) {
             Map<String, List<String>> profilesByDataset = new LinkedHashMap<>();
+            Map<String, Map<String, List<String>>> facetsByDatasetProfile = new LinkedHashMap<>();
             try {
                 TestDataSources config = new TestDataSources().configure(configDir);
                 Catalog catalog = Catalog.of(config);
                 for (DatasetEntry entry : catalog.datasets()) {
                     String datasetName = entry.name();
+                    if (datasetName.contains(".")) {
+                        continue;
+                    }
                     List<String> profiles = new ArrayList<>();
+                    Map<String, List<String>> facetsByProfile = new LinkedHashMap<>();
                     if (entry.profiles() != null) {
-                        profiles.addAll(entry.profiles().keySet());
+                        entry.profiles().forEach((profileName, profile) -> {
+                            profiles.add(profileName);
+                            facetsByProfile.put(profileName, canonicalFacetNames(profile));
+                        });
                     }
                     profilesByDataset.put(datasetName, profiles);
+                    facetsByDatasetProfile.put(datasetName, facetsByProfile);
                 }
             } catch (Exception e) {
                 // Silently fail - completion is best-effort
             }
-            return new CompletionCatalog(profilesByDataset);
+            return new CompletionCatalog(profilesByDataset, facetsByDatasetProfile);
+        }
+
+        List<String> facetsFor(String datasetName, String profileName) {
+            Map<String, List<String>> byProfile = facetsByDatasetProfile.get(datasetName);
+            if (byProfile == null) {
+                return List.of();
+            }
+            return byProfile.getOrDefault(profileName, List.of());
         }
     }
 
@@ -238,26 +253,9 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
         @Override
         public Iterator<String> iterator() {
             List<String> candidates = new ArrayList<>();
-
-            try {
-                TestDataSources config = new TestDataSources().configure(DEFAULT_CONFIG_DIR);
-                Catalog catalog = Catalog.of(config);
-
-                for (DatasetEntry entry : catalog.datasets()) {
-                    String datasetName = entry.name();
-
-                    if (entry.profiles() != null) {
-                        for (String profileName : entry.profiles().keySet()) {
-                            for (String facet : FACET_NAMES) {
-                            candidates.add("facet." + datasetName + "." + profileName + "." + facet);
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                // Silently fail
+            for (String facet : CANONICAL_FACET_NAMES) {
+                candidates.add(facet);
             }
-
             return candidates.iterator();
         }
     }
@@ -281,26 +279,38 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
             candidates.add("facet.");
             candidates.add("facet:");
 
-            try {
-                TestDataSources config = new TestDataSources().configure(DEFAULT_CONFIG_DIR);
-                Catalog catalog = Catalog.of(config);
-
-                for (DatasetEntry entry : catalog.datasets()) {
-                    String datasetName = entry.name();
-
-                    if (entry.profiles() != null) {
-                        for (String profileName : entry.profiles().keySet()) {
-                            for (String facet : FACET_NAMES) {
-                                candidates.add("facet." + datasetName + "." + profileName + "." + facet);
-                            }
-                        }
+            CompletionCatalog catalog = CompletionCatalog.load(DEFAULT_CONFIG_DIR);
+            for (Map.Entry<String, List<String>> datasetEntry : catalog.profilesByDataset().entrySet()) {
+                String datasetName = datasetEntry.getKey();
+                for (String profileName : datasetEntry.getValue()) {
+                    List<String> facets = catalog.facetsFor(datasetName, profileName);
+                    for (String facet : facets) {
+                        candidates.add("facet." + datasetName + "." + profileName + "." + facet);
                     }
                 }
-            } catch (Exception e) {
-                // Silently fail
             }
 
             return candidates.iterator();
         }
+    }
+
+    private static List<String> canonicalFacetNames() {
+        List<String> names = new ArrayList<>();
+        for (TestDataKind kind : TestDataKind.values()) {
+            names.add(kind.name());
+        }
+        return names;
+    }
+
+    private static List<String> canonicalFacetNames(DSProfile profile) {
+        if (profile == null || profile.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        for (String viewName : profile.keySet()) {
+            Optional<TestDataKind> kind = TestDataKind.fromOptionalString(viewName);
+            kind.ifPresent(value -> names.add(value.name()));
+        }
+        return new ArrayList<>(names);
     }
 }

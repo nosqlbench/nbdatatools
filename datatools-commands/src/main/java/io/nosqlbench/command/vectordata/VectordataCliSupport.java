@@ -17,6 +17,7 @@ package io.nosqlbench.command.vectordata;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.config.VectorDataSettings;
 import io.nosqlbench.vectordata.discovery.DatasetLoader;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
@@ -75,10 +76,15 @@ public class VectordataCliSupport {
         String source;
 
         if (looksLikePathOrUrl(expanded)) {
-            selector = DatasetLoader.load(expanded, cacheDir);
+            String resolvedCacheDir = cacheDir;
+            if (expanded.contains("://")) {
+                resolvedCacheDir = requireCacheDir(cacheDir);
+            }
+            selector = DatasetLoader.load(expanded, resolvedCacheDir);
             name = deriveDatasetName(expanded, selector);
             source = expanded;
         } else {
+            String resolvedCacheDir = requireCacheDir(cacheDir);
             Catalog catalog = Catalog.of(new TestDataSources().configureOptional(Path.of(System.getProperty("user.home"), ".config", "vectordata")));
             Optional<DatasetEntry> match = catalog.findExact(datasetSpec);
             if (match.isEmpty()) {
@@ -88,13 +94,20 @@ public class VectordataCliSupport {
                 throw new IllegalArgumentException("Dataset '" + datasetSpec + "' not found in catalog and does not look like a file/URL");
             }
             DatasetEntry entry = match.get();
-            selector = entry.select();
+            selector = entry.select().setCacheDir(resolvedCacheDir);
             name = entry.name();
             source = entry.url() != null ? entry.url().toString() : datasetSpec;
         }
 
         List<String> profiles = orderedProfiles(selector);
         return new DatasetSession(name, source, selector, profiles);
+    }
+
+    private static String requireCacheDir(String cacheDir) {
+        if (cacheDir != null && !cacheDir.isBlank()) {
+            return cacheDir;
+        }
+        return VectorDataSettings.load().getCacheDirectory().toString();
     }
 
     private static String deriveDatasetName(String spec, ProfileSelector selector) {

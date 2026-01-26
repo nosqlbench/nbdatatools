@@ -17,6 +17,7 @@
 
 package io.nosqlbench.command.common;
 
+import io.nosqlbench.vectordata.config.VectorDataSettings;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.discovery.TestDataView;
@@ -49,6 +50,14 @@ public final class VectorDataSpecSupport {
         return Path.of(expanded);
     }
 
+    public static Path requireCacheDir(Path cacheDir) {
+        Path resolved = expandPath(cacheDir);
+        if (resolved != null) {
+            return resolved;
+        }
+        return VectorDataSettings.load().getCacheDirectory();
+    }
+
     public static TestDataView resolveFacetView(VectorDataSpec spec,
                                                 Path configDir,
                                                 List<String> catalogs,
@@ -77,9 +86,8 @@ public final class VectorDataSpecSupport {
 
         DatasetProfileSpec datasetSpec = DatasetProfileSpec.parse(datasetName + ":" + profileName);
         ProfileSelector selector = catalog.select(datasetSpec);
-        if (cacheDir != null) {
-            selector = selector.setCacheDir(cacheDir.toString());
-        }
+        Path resolvedCacheDir = requireCacheDir(cacheDir);
+        selector = selector.setCacheDir(resolvedCacheDir.toString());
         return selector.profile(profileName);
     }
 

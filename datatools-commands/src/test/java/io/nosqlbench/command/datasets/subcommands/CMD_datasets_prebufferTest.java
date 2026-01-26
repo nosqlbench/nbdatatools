@@ -19,7 +19,17 @@ package io.nosqlbench.command.datasets.subcommands;
 
 
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
+import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
+import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
+import io.nosqlbench.vectordata.merklev2.MerkleShape;
+import io.nosqlbench.vectordata.merklev2.MerkleState;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.downloader.Catalog;
+import io.nosqlbench.vectordata.downloader.DatasetEntry;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -29,10 +39,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.BitSet;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -124,6 +139,159 @@ public class CMD_datasets_prebufferTest {
     // Note: We're not actually executing the command because that would require
     // the full dataset infrastructure to be set up in the test server.
     // This test validates the command structure and server connectivity.
+  }
+
+  @Test
+  public void testPrebufferDownloadsAllMerkleChunks() throws Exception {
+    Path sourceDir = findSourceTestxvecDir();
+    Path sourceBase = sourceDir.resolve("testxvec_base.fvec");
+    Path sourceMref = sourceDir.resolve("testxvec_base.fvec.mref");
+    assertTrue(Files.exists(sourceBase), "Missing testxvec_base.fvec test resource");
+    assertTrue(Files.exists(sourceMref), "Missing testxvec_base.fvec.mref test resource");
+
+    long vectorCount = computeMultiChunkVectorCount(sourceBase, sourceMref);
+
+    String testName = "prebuffer_window_" + System.currentTimeMillis();
+    Path tempRoot = JettyFileServerExtension.TEMP_RESOURCES_ROOT.resolve(testName);
+    Path datasetDir = tempRoot.resolve("rawdatasets").resolve("testxvec_window");
+    Files.createDirectories(datasetDir);
+
+    Files.copy(sourceBase, datasetDir.resolve(sourceBase.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+    Files.copy(sourceMref, datasetDir.resolve(sourceMref.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+
+    String catalogJson = """
+        [
+          {
+            "layout": {
+              "attributes": {
+                "url": "https://github.com/nosqlbench/nbdatatools",
+                "distance_function": "COSINE",
+                "license": "APL"
+              },
+              "profiles": {
+                "default": {
+                  "base": {
+                    "source": "testxvec_base.fvec",
+                    "window": { "minIncl": 0, "maxExcl": %d }
+                  }
+                }
+              }
+            },
+            "dataset_type": "dataset.yaml",
+            "name": "testxvec_window",
+            "path": "rawdatasets/testxvec_window/dataset.yaml"
+          }
+        ]
+        """.formatted(vectorCount);
+    Files.writeString(tempRoot.resolve("catalog.json"), catalogJson);
+
+    Path testCacheDir = tempDir.resolve("prebuffer_chunk_cache");
+    Path testConfigDir = tempDir.resolve("prebuffer_config");
+    Files.createDirectories(testConfigDir);
+    URL baseUrl = JettyFileServerExtension.getBaseUrl();
+    String catalogUrl = baseUrl.toString() + "temp/" + testName + "/";
+    Files.writeString(testConfigDir.resolve("catalogs.yaml"), "- " + catalogUrl + "\n");
+
+    CMD_datasets_prebuffer cmd = new CMD_datasets_prebuffer();
+    picocli.CommandLine commandLine = new picocli.CommandLine(cmd);
+    String[] args = {
+        "testxvec_window:default",
+        "--views=*",
+        "--configdir=" + testConfigDir,
+        "--cache-dir=" + testCacheDir,
+        "--progress=false"
+    };
+
+    int exitCode = commandLine.execute(args);
+    assertEquals(0, exitCode, "Prebuffer command should succeed");
+
+    Catalog catalog = Catalog.of(TestDataSources.ofUrl(catalogUrl));
+    DatasetEntry dataset = catalog.findExact("testxvec_window")
+        .orElseThrow(() -> new IllegalStateException("Expected testxvec_window dataset in catalog"));
+    ProfileSelector selector = dataset.select().setCacheDir(testCacheDir.toString());
+    TestDataView view = selector.profile("default");
+    BaseVectors baseVectors = view.getBaseVectors()
+        .orElseThrow(() -> new IllegalStateException("Base vectors view should exist"));
+
+    Path cacheFile;
+    if (baseVectors instanceof CoreXVecDatasetViewMethods<?> coreView
+        && coreView.getChannel() instanceof CacheFileAccessor accessor) {
+      cacheFile = accessor.getCacheFilePath();
+    } else {
+      throw new IllegalStateException("Base vectors view does not expose cache file path");
+    }
+
+    assertTrue(Files.exists(cacheFile), "Cache file should exist after prebuffer");
+
+    Path stateFile = cacheFile.resolveSibling(cacheFile.getFileName() + ".mrkl");
+    assertTrue(Files.exists(stateFile), "Merkle state file should exist after prebuffer");
+
+    try (MerkleState state = MerkleState.load(stateFile)) {
+      MerkleShape shape = state.getMerkleShape();
+      try (var ref = MerkleRefFactory.load(sourceMref)) {
+        MerkleShape refShape = ref.getShape();
+        assertEquals(refShape.getChunkSize(), shape.getChunkSize(), "State chunk size should match reference");
+        assertEquals(refShape.getTotalContentSize(), shape.getTotalContentSize(), "State content size should match reference");
+      }
+      long recordSize = computeRecordSize(sourceBase);
+      long requiredBytes = vectorCount * recordSize;
+      int expectedChunks = shape.getChunkIndexForPosition(Math.max(requiredBytes - 1, 0)) + 1;
+      assertTrue(expectedChunks > 1, "Expected multiple merkle chunks for windowed data");
+
+      BitSet validChunks = state.getValidChunks();
+      int validCount = validChunks.cardinality();
+      assertEquals(expectedChunks, validCount, "Prebuffer should validate all window chunks");
+      for (int i = 0; i < expectedChunks; i++) {
+        assertTrue(state.isValid(i), "Expected chunk " + i + " to be valid");
+      }
+      int firstInvalid = validChunks.nextClearBit(0);
+      assertTrue(firstInvalid >= expectedChunks, "Expected no invalid chunks before " + expectedChunks + ", but found invalid at " + firstInvalid);
+      assertTrue(Files.size(cacheFile) >= requiredBytes, "Cache file should cover required bytes for window");
+    }
+  }
+
+  private Path findSourceTestxvecDir() {
+    Path repoRoot = Path.of("..");
+    Path sourceDir = repoRoot.resolve("datatools-vectordata")
+        .resolve("src/test/resources/testserver/rawdatasets/testxvec");
+    if (!Files.exists(sourceDir)) {
+      sourceDir = JettyFileServerExtension.DEFAULT_RESOURCES_ROOT
+          .resolve("rawdatasets/testxvec");
+    }
+    return sourceDir;
+  }
+
+  private long computeMultiChunkVectorCount(Path dataFile, Path mrefFile) throws Exception {
+    long recordSize = computeRecordSize(dataFile);
+    long totalVectors = Files.size(dataFile) / recordSize;
+    long chunkSize;
+    try (var ref = MerkleRefFactory.load(mrefFile)) {
+      chunkSize = ref.getShape().getChunkSize();
+    }
+    long targetBytes = chunkSize * 2 + 1;
+    long vectorCount = (targetBytes + recordSize - 1) / recordSize;
+    if (vectorCount > totalVectors) {
+      vectorCount = totalVectors;
+    }
+    assertTrue(vectorCount > 0, "Vector count should be positive");
+    return vectorCount;
+  }
+
+  private long computeRecordSize(Path dataFile) throws Exception {
+    ByteBuffer buffer = ByteBuffer.allocate(4);
+    buffer.order(ByteOrder.LITTLE_ENDIAN);
+    try (var channel = Files.newByteChannel(dataFile)) {
+      int read = channel.read(buffer);
+      if (read != 4) {
+        throw new IllegalStateException("Unable to read dimensions from " + dataFile);
+      }
+    }
+    buffer.flip();
+    int dimensions = buffer.getInt();
+    if (dimensions <= 0) {
+      throw new IllegalStateException("Invalid vector dimensions: " + dimensions);
+    }
+    return 4L + (long) dimensions * Float.BYTES;
   }
 
   @Test

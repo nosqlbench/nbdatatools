@@ -19,10 +19,18 @@ package io.nosqlbench.command.common;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
+import io.nosqlbench.vectordata.layoutv2.DSProfile;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 /// Provides dynamic completion candidates for dataset specifications.
 ///
@@ -41,44 +49,11 @@ public class DatasetCompletionCandidates implements Iterable<String> {
     private static final Path DEFAULT_CONFIG_DIR = Path.of(
         System.getProperty("user.home"), ".config", "vectordata");
 
-    /// Standard facet names for completion
-    private static final List<String> FACET_NAMES = List.of(
-        "base", "query", "indices", "distances",
-        "base_vectors", "query_vectors", "neighbor_indices", "neighbor_distances"
-    );
+    private static final List<String> CANONICAL_FACET_NAMES = canonicalFacetNames();
 
     @Override
     public Iterator<String> iterator() {
-        List<String> candidates = new ArrayList<>();
-
-        try {
-            TestDataSources config = new TestDataSources().configure(DEFAULT_CONFIG_DIR);
-            Catalog catalog = Catalog.of(config);
-
-            // Add dataset names
-            for (DatasetEntry entry : catalog.datasets()) {
-                String datasetName = entry.name();
-                candidates.add(datasetName);
-
-                // Add dataset:profile combinations
-                if (entry.profiles() != null) {
-                    for (String profileName : entry.profiles().keySet()) {
-                        String datasetProfile = datasetName + ":" + profileName;
-                        candidates.add(datasetProfile);
-
-                        // Add dataset:profile:facet combinations
-                        for (String facet : FACET_NAMES) {
-                            candidates.add(datasetProfile + ":" + facet);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Silently fail - completion is best-effort
-            // Return empty list if catalog cannot be loaded
-        }
-
-        return candidates.iterator();
+        return new DatasetProfileFacet().iterator();
     }
 
     /// Completion candidates for dataset names only (no profiles or facets).
@@ -92,6 +67,9 @@ public class DatasetCompletionCandidates implements Iterable<String> {
                 Catalog catalog = Catalog.of(config);
 
                 for (DatasetEntry entry : catalog.datasets()) {
+                    if (entry.name().contains(".")) {
+                        continue;
+                    }
                     candidates.add(entry.name());
                 }
             } catch (Exception e) {
@@ -109,20 +87,55 @@ public class DatasetCompletionCandidates implements Iterable<String> {
             List<String> candidates = new ArrayList<>();
 
             try {
-                TestDataSources config = new TestDataSources().configure(DEFAULT_CONFIG_DIR);
-                Catalog catalog = Catalog.of(config);
+                Optional<CompletionLineParser.ParsedLine> parsed = CompletionLineParser.parseFromEnv();
+                String currentArg = parsed.map(CompletionLineParser.ParsedLine::currentArgPrefix).orElse("");
+                if (currentArg.startsWith("http://") || currentArg.startsWith("https://")) {
+                    return candidates.iterator();
+                }
 
-                for (DatasetEntry entry : catalog.datasets()) {
-                    String datasetName = entry.name();
+                CompletionCatalog catalog = CompletionCatalog.load(DEFAULT_CONFIG_DIR);
+                List<String> datasets = new ArrayList<>(catalog.profilesByDataset().keySet());
+                if (datasets.isEmpty()) {
+                    return candidates.iterator();
+                }
 
-                    if (entry.profiles() != null) {
-                        for (String profileName : entry.profiles().keySet()) {
-                            String datasetProfile = datasetName + ":" + profileName;
-
-                            for (String facet : FACET_NAMES) {
-                                candidates.add(datasetProfile + ":" + facet);
+                if (!currentArg.contains(":") && !currentArg.contains(".")) {
+                    if (!currentArg.isEmpty()) {
+                        Optional<String> uniqueMatch = findUniqueDatasetMatch(currentArg, datasets);
+                        if (uniqueMatch.isPresent()) {
+                            String datasetName = uniqueMatch.get();
+                            List<String> profiles = catalog.profilesByDataset().get(datasetName);
+                            if (profiles != null && !profiles.isEmpty()) {
+                                candidates.add(datasetName + ".");
+                                return candidates.iterator();
                             }
                         }
+                    }
+                    addDatasetCandidates(candidates, datasets, currentArg);
+                    return candidates.iterator();
+                }
+
+                String separator = currentArg.contains(".") ? "." : ":";
+                String[] parts = currentArg.split(Pattern.quote(separator), -1);
+                if (parts.length < 2) {
+                    addDatasetCandidates(candidates, datasets, "");
+                    return candidates.iterator();
+                }
+
+                String datasetName = parts[0];
+                List<String> profiles = catalog.profilesByDataset().get(datasetName);
+                if (datasetName.isEmpty() || profiles == null || profiles.isEmpty()) {
+                    return candidates.iterator();
+                }
+
+                if (parts.length > 2) {
+                    return candidates.iterator();
+                }
+
+                String profilePrefix = parts[1];
+                for (String profileName : profiles) {
+                    if (profilePrefix.isEmpty() || profileName.startsWith(profilePrefix)) {
+                        candidates.add(datasetName + "." + profileName);
                     }
                 }
             } catch (Exception e) {
@@ -140,17 +153,51 @@ public class DatasetCompletionCandidates implements Iterable<String> {
             List<String> candidates = new ArrayList<>();
 
             try {
-                TestDataSources config = new TestDataSources().configure(DEFAULT_CONFIG_DIR);
-                Catalog catalog = Catalog.of(config);
+                Optional<CompletionLineParser.ParsedLine> parsed = CompletionLineParser.parseFromEnv();
+                String currentArg = parsed.map(CompletionLineParser.ParsedLine::currentArgPrefix).orElse("");
+                if (currentArg.startsWith("http://") || currentArg.startsWith("https://")) {
+                    return candidates.iterator();
+                }
 
-                for (DatasetEntry entry : catalog.datasets()) {
-                    String datasetName = entry.name();
+                CompletionCatalog catalog = CompletionCatalog.load(DEFAULT_CONFIG_DIR);
+                List<String> datasets = new ArrayList<>(catalog.profilesByDataset().keySet());
+                if (datasets.isEmpty()) {
+                    return candidates.iterator();
+                }
 
-                    if (entry.profiles() != null) {
-                        for (String profileName : entry.profiles().keySet()) {
-                            candidates.add(datasetName + ":" + profileName);
-                        }
+                if (!currentArg.contains(":") && !currentArg.contains(".")) {
+                    addDatasetCandidates(candidates, datasets, currentArg);
+                    return candidates.iterator();
+                }
+
+                String separator = currentArg.contains(".") ? "." : ":";
+                String[] parts = currentArg.split(Pattern.quote(separator), -1);
+                if (parts.length < 2) {
+                    addDatasetCandidates(candidates, datasets, "");
+                    return candidates.iterator();
+                }
+
+                String datasetName = parts[0];
+                List<String> profiles = catalog.profilesByDataset().get(datasetName);
+                if (datasetName.isEmpty() || profiles == null || profiles.isEmpty()) {
+                    return candidates.iterator();
+                }
+
+                if (parts.length == 2) {
+                    for (String profileName : profiles) {
+                        candidates.add(datasetName + "." + profileName + ".");
                     }
+                    return candidates.iterator();
+                }
+
+                String profileName = parts[1];
+                if (profileName.isEmpty() || !profiles.contains(profileName)) {
+                    return candidates.iterator();
+                }
+
+                List<String> facets = catalog.facetsFor(datasetName, profileName);
+                for (String facet : facets) {
+                    candidates.add(datasetName + "." + profileName + "." + facet);
                 }
             } catch (Exception e) {
                 // Silently fail
@@ -164,7 +211,93 @@ public class DatasetCompletionCandidates implements Iterable<String> {
     public static class FacetOnly implements Iterable<String> {
         @Override
         public Iterator<String> iterator() {
-            return FACET_NAMES.iterator();
+            return CANONICAL_FACET_NAMES.iterator();
         }
+    }
+
+    private static List<String> canonicalFacetNames() {
+        List<String> names = new ArrayList<>();
+        for (TestDataKind kind : TestDataKind.values()) {
+            names.add(kind.name());
+        }
+        return names;
+    }
+
+    private static void addDatasetCandidates(List<String> candidates, List<String> datasets, String startsWith) {
+        if (startsWith == null || startsWith.isEmpty()) {
+            candidates.addAll(datasets);
+            return;
+        }
+        for (String dataset : datasets) {
+            if (dataset.startsWith(startsWith)) {
+                candidates.add(dataset);
+            }
+        }
+    }
+
+    private static Optional<String> findUniqueDatasetMatch(String value, List<String> datasets) {
+        String match = null;
+        for (String dataset : datasets) {
+            if (dataset.startsWith(value)) {
+                if (match != null) {
+                    return Optional.empty();
+                }
+                match = dataset;
+            }
+        }
+        return Optional.ofNullable(match);
+    }
+
+    private record CompletionCatalog(
+        Map<String, List<String>> profilesByDataset,
+        Map<String, Map<String, List<String>>> facetsByDatasetProfile
+    ) {
+        static CompletionCatalog load(Path configDir) {
+            Map<String, List<String>> profilesByDataset = new LinkedHashMap<>();
+            Map<String, Map<String, List<String>>> facetsByDatasetProfile = new LinkedHashMap<>();
+            try {
+                TestDataSources config = new TestDataSources().configure(configDir);
+                Catalog catalog = Catalog.of(config);
+                for (DatasetEntry entry : catalog.datasets()) {
+                    String datasetName = entry.name();
+                    if (datasetName.contains(".")) {
+                        continue;
+                    }
+                    List<String> profiles = new ArrayList<>();
+                    Map<String, List<String>> facetsByProfile = new LinkedHashMap<>();
+                    if (entry.profiles() != null) {
+                        entry.profiles().forEach((profileName, profile) -> {
+                            profiles.add(profileName);
+                            facetsByProfile.put(profileName, canonicalFacetNames(profile));
+                        });
+                    }
+                    profilesByDataset.put(datasetName, profiles);
+                    facetsByDatasetProfile.put(datasetName, facetsByProfile);
+                }
+            } catch (Exception e) {
+                // Silently fail - completion is best-effort
+            }
+            return new CompletionCatalog(profilesByDataset, facetsByDatasetProfile);
+        }
+
+        List<String> facetsFor(String datasetName, String profileName) {
+            Map<String, List<String>> byProfile = facetsByDatasetProfile.get(datasetName);
+            if (byProfile == null) {
+                return List.of();
+            }
+            return byProfile.getOrDefault(profileName, List.of());
+        }
+    }
+
+    private static List<String> canonicalFacetNames(DSProfile profile) {
+        if (profile == null || profile.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        for (String viewName : profile.keySet()) {
+            Optional<TestDataKind> kind = TestDataKind.fromOptionalString(viewName);
+            kind.ifPresent(value -> names.add(value.name()));
+        }
+        return new ArrayList<>(names);
     }
 }

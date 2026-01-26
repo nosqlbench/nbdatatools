@@ -20,6 +20,7 @@ package io.nosqlbench.command.datasets.subcommands;
 
 import io.nosqlbench.command.common.CommandLineFormatter;
 import io.nosqlbench.command.common.DatasetCompletionCandidates;
+import io.nosqlbench.command.common.DatasetProfileFacetSpec;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
@@ -30,6 +31,7 @@ import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FView;
 import io.nosqlbench.vectordata.layout.FWindow;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -61,7 +63,8 @@ import java.util.regex.Pattern;
 /// The dataset can be specified as either:
 /// - A remote URL to a dataset.yaml file
 /// - A dataset name from the catalog (e.g., "datasetname" for default profile)
-/// - A dataset:profile specification (e.g., "datasetname:profile")
+/// - A dataset:profile or dataset.profile specification (e.g., "datasetname:profile")
+/// - A dataset:profile:facet or dataset.profile.facet specification
 @CommandLine.Command(name = "curlify",
     header = "Generate curl commands for a remote dataset.yaml",
     description = "Downloads the dataset.yaml and emits curl commands which use HTTP range reads to\n" +
@@ -70,7 +73,8 @@ import java.util.regex.Pattern;
         "The dataset can be specified as:\n" +
         "  - A remote URL to a dataset.yaml file\n" +
         "  - A dataset name from the catalog (uses default profile)\n" +
-        "  - A dataset:profile specification from the catalog")
+        "  - A dataset:profile or dataset.profile specification from the catalog\n" +
+        "  - A dataset:profile:facet or dataset.profile.facet specification")
 public class CMD_datasets_curlify implements Callable<Integer> {
 
     private static final Logger logger = LogManager.getLogger(CMD_datasets_curlify.class);
@@ -80,9 +84,9 @@ public class CMD_datasets_curlify implements Callable<Integer> {
     private CommandLine.Model.CommandSpec spec;
 
     @CommandLine.Parameters(paramLabel = "DATASET",
-        description = "Remote dataset.yaml URL, or dataset name, or dataset:profile from catalog",
+        description = "Remote dataset.yaml URL, or dataset, dataset.profile, or dataset.profile.facet from catalog",
         arity = "1",
-        completionCandidates = DatasetCompletionCandidates.DatasetProfile.class)
+        completionCandidates = DatasetCompletionCandidates.DatasetProfileFacet.class)
     private String datasetSpec;
 
     @CommandLine.Option(names = {"--catalog"},
@@ -98,6 +102,9 @@ public class CMD_datasets_curlify implements Callable<Integer> {
         description = "Profiles to include (default: all). Comma-separated list allowed.",
         split = ",")
     private List<String> profileNames = new ArrayList<>();
+
+    private String requestedProfileOverride;
+    private String requestedFacet;
 
     @CommandLine.Option(names = {"-o", "--output"},
         description = "Output directory (default: dataset name)")
@@ -211,6 +218,10 @@ public class CMD_datasets_curlify implements Callable<Integer> {
             Set<String> requestedProfiles = profileNames.isEmpty()
                 ? null
                 : new java.util.LinkedHashSet<>(profileNames);
+            if (requestedProfileOverride != null) {
+                requestedProfiles = new java.util.LinkedHashSet<>();
+                requestedProfiles.add(requestedProfileOverride);
+            }
             List<String> datasetProfileOrder = new ArrayList<>(profiles.keySet());
 
             if (requestedProfiles != null) {
@@ -244,7 +255,22 @@ public class CMD_datasets_curlify implements Callable<Integer> {
                 }
 
                 sb.append("# Profile: ").append(profileName).append("\n");
-                for (Map.Entry<String, FView> vEntry : fProfile.views().entrySet()) {
+                Map<String, FView> viewsToProcess = fProfile.views();
+                if (requestedFacet != null) {
+                    FView requestedView = viewsToProcess.get(requestedFacet);
+                    if (requestedView == null) {
+                        String msg = String.format(
+                            "Facet '%s' not found in profile '%s' for dataset.yaml", requestedFacet, profileName);
+                        errors.add(msg);
+                        sb.append("# ").append(msg).append("\n");
+                        exitCode = 1;
+                        continue;
+                    }
+                    java.util.LinkedHashMap<String, FView> filtered = new java.util.LinkedHashMap<>();
+                    filtered.put(requestedFacet, requestedView);
+                    viewsToProcess = filtered;
+                }
+                for (Map.Entry<String, FView> vEntry : viewsToProcess.entrySet()) {
                     String viewName = vEntry.getKey();
                     FView view = vEntry.getValue();
                     URI resolved = resolveSource(baseUri, view.source().inpath());
@@ -491,7 +517,9 @@ public class CMD_datasets_curlify implements Callable<Integer> {
     ///
     /// Supports formats:
     /// - "datasetname" - looks up dataset, returns base URL
-    /// - "datasetname:profile" - looks up dataset, adds profile to profileNames if not already present
+    /// - "datasetname:profile" or "datasetname.profile" - looks up dataset, adds profile to profileNames if not already present
+    /// - "datasetname:profile:facet" or "datasetname.profile.facet" - looks up dataset, adds profile,
+    ///   and filters to the specified facet
     ///
     /// @param spec The dataset specification
     /// @return The base URL of the dataset, or null if not found
@@ -505,15 +533,26 @@ public class CMD_datasets_curlify implements Callable<Integer> {
 
             Catalog catalog = Catalog.of(config);
 
-            DatasetProfileSpec parsed = DatasetProfileSpec.parse(spec);
-            String datasetName = parsed.dataset();
-
-            // If a profile was specified in the spec, add it to the profile list
-            parsed.profile().ifPresent(profile -> {
-                if (!profileNames.contains(profile)) {
-                    profileNames.add(profile);
+            DatasetProfileFacetSpec facetSpec = DatasetProfileFacetSpec.tryParse(spec).orElse(null);
+            String datasetName;
+            if (facetSpec != null) {
+                datasetName = facetSpec.datasetRef();
+                requestedProfileOverride = facetSpec.profileName();
+                if (!profileNames.contains(requestedProfileOverride)) {
+                    profileNames.add(requestedProfileOverride);
                 }
-            });
+                requestedFacet = canonicalFacetName(facetSpec.facetName());
+            } else {
+                DatasetProfileSpec parsed = DatasetProfileSpec.parse(spec);
+                datasetName = parsed.dataset();
+
+                // If a profile was specified in the spec, add it to the profile list
+                parsed.profile().ifPresent(profile -> {
+                    if (!profileNames.contains(profile)) {
+                        profileNames.add(profile);
+                    }
+                });
+            }
 
             Optional<DatasetEntry> entry = catalog.findExact(datasetName);
             if (entry.isPresent()) {
@@ -525,5 +564,11 @@ public class CMD_datasets_curlify implements Callable<Integer> {
             logger.debug("Failed to resolve from catalog: {}", e.getMessage());
             return null;
         }
+    }
+
+    private static String canonicalFacetName(String facetName) {
+        return TestDataKind.fromOptionalString(facetName)
+            .map(TestDataKind::name)
+            .orElse(facetName);
     }
 }

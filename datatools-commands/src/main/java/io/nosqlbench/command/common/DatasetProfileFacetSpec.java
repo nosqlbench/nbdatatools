@@ -88,6 +88,9 @@ public final class DatasetProfileFacetSpec {
         if (dataset.isEmpty() || profile.isEmpty() || facet.isEmpty()) {
             return Optional.empty();
         }
+        if (dataset.contains(".")) {
+            return Optional.empty();
+        }
         return Optional.of(new DatasetProfileFacetSpec(dataset, profile, facet, separator.get()));
     }
 
@@ -110,6 +113,10 @@ public final class DatasetProfileFacetSpec {
         if (dataset.isEmpty() || profile.isEmpty() || facet.isEmpty()) {
             throw new IllegalArgumentException(
                 "Facet spec components must not be empty, got: " + originalSpec);
+        }
+        if (dataset.contains(".")) {
+            throw new IllegalArgumentException(
+                "Dataset names must not contain '.', got: '" + dataset + "'");
         }
         return new DatasetProfileFacetSpec(dataset, profile, facet, separator.get());
     }

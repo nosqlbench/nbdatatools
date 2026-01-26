@@ -262,6 +262,22 @@ public class CMD_merkle_summary implements Callable<Integer> {
         // Use actual valid chunks for the braille display
         BitSet leafStatus = (BitSet) actualValidChunks.clone();
 
+        // Calculate the largest contiguous downloaded prefix (state files only)
+        boolean isStateFile = merkleRef instanceof MerkleState;
+        int contiguousChunks = 0;
+        long contiguousBytes = 0L;
+        if (isStateFile) {
+            int firstInvalid = actualValidChunks.nextClearBit(0);
+            contiguousChunks = Math.min(firstInvalid, totalLeafNodes);
+            if (contiguousChunks == 0) {
+                contiguousBytes = 0L;
+            } else if (contiguousChunks >= totalLeafNodes) {
+                contiguousBytes = merkleRef.getShape().getTotalContentSize();
+            } else {
+                contiguousBytes = merkleRef.getShape().getChunkStartPosition(contiguousChunks);
+            }
+        }
+
         // Generate the braille-formatted image
         String brailleImage = Glyphs.braille(leafStatus);
 
@@ -289,6 +305,12 @@ public class CMD_merkle_summary implements Callable<Integer> {
         summary.append(String.format("Leaf Nodes: (valid/total)=(%d/%d)\n", validLeafNodes, totalLeafNodes));
         summary.append(String.format("Parent Nodes: (valid/total)=(%d/%d)\n", validParentNodes, totalParentNodes));
         summary.append(String.format("All Nodes: (valid/total)=(%d/%d)\n\n", validAllNodes, totalAllNodes));
+        if (isStateFile) {
+            summary.append(String.format("Fully Downloaded From Start: %s (chunks %d)\n\n",
+                MerkleUtils.formatByteSize(contiguousBytes), contiguousChunks));
+        } else {
+            summary.append("Fully Downloaded From Start: N/A (reference file)\n\n");
+        }
 
         // Add footer information
         summary.append("Footer Information:\n");

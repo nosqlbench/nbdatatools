@@ -19,6 +19,7 @@ package io.nosqlbench.command.analyze.subcommands;
 
 import io.nosqlbench.command.common.VectorDataCompletionCandidates;
 import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.command.common.VectorDataSpecConverter;
 import io.nosqlbench.common.types.VectorFileExtension;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
@@ -133,9 +134,8 @@ public class CMD_analyze_describe implements Callable<Integer> {
             DatasetProfileSpec datasetSpec = DatasetProfileSpec.parse(datasetName + ":" + profileName);
 
             ProfileSelector profileSelector = catalog.select(datasetSpec);
-            if (cacheDir != null) {
-                profileSelector = profileSelector.setCacheDir(cacheDir.toString());
-            }
+            Path resolvedCacheDir = VectorDataSpecSupport.requireCacheDir(cacheDir);
+            profileSelector = profileSelector.setCacheDir(resolvedCacheDir.toString());
 
             TestDataView testDataView = profileSelector.profile(profileName);
             return describeFacet(testDataView, facetKind);
@@ -168,9 +168,8 @@ public class CMD_analyze_describe implements Callable<Integer> {
             DatasetProfileSpec datasetSpec = DatasetProfileSpec.parse(datasetName + ":" + profileName);
 
             ProfileSelector profileSelector = catalog.select(datasetSpec);
-            if (cacheDir != null) {
-                profileSelector = profileSelector.setCacheDir(cacheDir.toString());
-            }
+            Path resolvedCacheDir = VectorDataSpecSupport.requireCacheDir(cacheDir);
+            profileSelector = profileSelector.setCacheDir(resolvedCacheDir.toString());
 
             TestDataView testDataView = profileSelector.profile(profileName);
             return describeFacet(testDataView, facetKind);

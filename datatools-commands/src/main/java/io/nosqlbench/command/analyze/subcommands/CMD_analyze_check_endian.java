@@ -19,6 +19,7 @@ package io.nosqlbench.command.analyze.subcommands;
 
 import io.nosqlbench.command.common.VectorDataCompletionCandidates;
 import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.command.common.VectorDataSpecConverter;
 import io.nosqlbench.readers.ReaderUtils;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
@@ -189,9 +190,8 @@ public class CMD_analyze_check_endian implements Callable<Integer> {
 
             DatasetProfileSpec datasetSpec = DatasetProfileSpec.parse(datasetName + ":" + profileName);
             ProfileSelector profileSelector = catalog.select(datasetSpec);
-            if (cacheDir != null) {
-                profileSelector = profileSelector.setCacheDir(cacheDir.toString());
-            }
+            Path resolvedCacheDir = VectorDataSpecSupport.requireCacheDir(cacheDir);
+            profileSelector = profileSelector.setCacheDir(resolvedCacheDir.toString());
 
             return Optional.of(profileSelector.profile(profileName));
         } catch (Exception e) {
