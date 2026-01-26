@@ -21,10 +21,18 @@ package io.nosqlbench.command.generate.subcommands;
 import io.nosqlbench.command.common.BatchProcessingOption;
 import io.nosqlbench.command.common.OutputFileOption;
 import io.nosqlbench.command.common.RangeOption;
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jline.terminal.Terminal;
@@ -39,7 +47,6 @@ import picocli.CommandLine;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -91,13 +98,34 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
 
   @CommandLine.Option(names = {"--ivec-file"},
       description = "Path to ivec file containing indices",
-      required = true)
-  private String ivecFile;
+      required = true,
+      converter = VectorDataSpecConverter.class,
+      completionCandidates = VectorDataCompletionCandidates.class)
+  private VectorDataSpec ivecSpec;
 
   @CommandLine.Option(names = {"--fvec-file"},
       description = "Path to fvec file containing vectors to extract",
-      required = true)
-  private String fvecFile;
+      required = true,
+      converter = VectorDataSpecConverter.class,
+      completionCandidates = VectorDataCompletionCandidates.class)
+  private VectorDataSpec fvecSpec;
+
+  @CommandLine.Option(names = {"--allow-remote"},
+      description = "Allow catalog-backed datasets which may require downloading large files")
+  private boolean allowRemote;
+
+  @CommandLine.Option(names = {"--catalog"},
+      description = "A directory, remote url, or other catalog container")
+  private List<String> catalogs = new ArrayList<>();
+
+  @CommandLine.Option(names = {"--configdir"},
+      description = "The directory to use for configuration files",
+      defaultValue = "~/.config/vectordata")
+  private Path configdir;
+
+  @CommandLine.Option(names = {"--cache-dir"},
+      description = "Directory for cached dataset files")
+  private Path cacheDir;
 
   @CommandLine.Option(names = {"--simple-progress"},
       description = "Use simple progress display instead of fancy terminal UI",
@@ -271,14 +299,14 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
       displayLines.add(new AttributedStringBuilder()
           .append("Input IVEC: ")
           .style(AttributedStyle.BOLD)
-          .append(ivecFile)
+          .append(ivecSpec.toString())
           .style(AttributedStyle.DEFAULT)
           .toAttributedString());
 
       displayLines.add(new AttributedStringBuilder()
           .append("Input FVEC: ")
           .style(AttributedStyle.BOLD)
-          .append(fvecFile)
+          .append(fvecSpec.toString())
           .style(AttributedStyle.DEFAULT)
           .toAttributedString());
 
@@ -479,6 +507,8 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
       }
     }
 
+    this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+
     long startIndex = rangeOption.getRangeStart();
     long endIndex = rangeOption.getRangeEnd();
     long totalVectors = rangeOption.getRangeSize();
@@ -509,19 +539,14 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
     Instant startTime = Instant.now();
 
     try {
+      requireRemoteAllowed(ivecSpec, "--ivec-file");
+      requireRemoteAllowed(fvecSpec, "--fvec-file");
+
       // Open the ivec file to read indices
-      Path ivecPath = Paths.get(ivecFile);
-      if (!Files.exists(ivecPath)) {
-        System.err.println("Error: IVEC file does not exist: " + ivecFile);
-        return 1;
-      }
+      Path ivecPath = resolveInputPath(ivecSpec, "--ivec-file");
 
       // Open the fvec file to read vectors
-      Path fvecPath = Paths.get(fvecFile);
-      if (!Files.exists(fvecPath)) {
-        System.err.println("Error: FVEC file does not exist: " + fvecFile);
-        return 1;
-      }
+      Path fvecPath = resolveInputPath(fvecSpec, "--fvec-file");
 
       // Create parent directories for output file if they don't exist
       Path outputParent = outputPath.getParent();
@@ -761,6 +786,52 @@ public class CMD_generate_fvecExtract implements Callable<Integer> {
       // Shutdown the display
       shutdownDisplay();
     }
+  }
+
+  private void requireRemoteAllowed(VectorDataSpec spec, String label) {
+    if (spec == null) {
+      return;
+    }
+    if (spec.isCatalogFacet() && !allowRemote) {
+      throw new IllegalArgumentException(
+        "Catalog-backed dataset for " + label + " may require downloading large files. " +
+            "Re-run with --allow-remote to proceed.");
+    }
+    if (spec.isRemote()) {
+      throw new IllegalArgumentException("Remote vector specs are not supported for " + label + ": " + spec);
+    }
+  }
+
+  private Path resolveInputPath(VectorDataSpec spec, String label) throws Exception {
+    if (spec == null) {
+      throw new IllegalArgumentException("Missing vector spec for " + label);
+    }
+    if (spec.isLocalFile()) {
+      Path file = spec.getLocalPath().orElseThrow();
+      if (!Files.exists(file)) {
+        throw new IllegalArgumentException("File not found for " + label + ": " + file);
+      }
+      return file.normalize();
+    }
+    if (!spec.isFacet()) {
+      throw new IllegalArgumentException("Unsupported vector data source for " + label + ": " + spec);
+    }
+
+    TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+    DatasetView<?> view = VectorDataSpecSupport
+        .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+    if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+      throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+    }
+    if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+      throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+    }
+
+    view.prebuffer().get();
+    return cacheAccessor.getCacheFilePath();
   }
 
   /**

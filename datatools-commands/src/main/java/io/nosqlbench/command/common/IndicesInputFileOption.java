@@ -18,8 +18,9 @@ package io.nosqlbench.command.common;
 
 import picocli.CommandLine;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.Files;
+import java.util.Optional;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 
 /**
  * Mixin for indices input file option.
@@ -29,8 +30,9 @@ public class IndicesInputFileOption {
 
     @CommandLine.Option(
         names = {"--indices"},
-        description = "Input file path for neighbor indices (supports inline range e.g., file.ivec:1000 or file.ivec:[0,1000))",
-        converter = IndicesConverter.class
+        description = "Neighbor indices spec with optional range suffix (e.g., file.ivec[0,1000) or dataset.profile.indices[0,1000))",
+        converter = IndicesConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class
     )
     private Indices indices;
 
@@ -38,24 +40,43 @@ public class IndicesInputFileOption {
      * Gets the indices file path
      * @return The indices file path, or null if not specified
      */
-    public Path getIndicesPath() {
-        return indices != null ? indices.path() : null;
+    public VectorDataSpec getSpec() {
+        return indices != null ? indices.spec() : null;
     }
 
     /**
-     * Gets the normalized indices file path
-     * @return The normalized path to the indices file, or null if not specified
+     * Gets the local file path if this is a local file spec
+     */
+    public Optional<Path> getLocalPath() {
+        return indices != null ? indices.spec().getLocalPath() : Optional.empty();
+    }
+
+    /**
+     * Gets the normalized indices path (local file only).
      */
     public Path getNormalizedIndicesPath() {
-        return indices != null ? indices.path().normalize() : null;
+        if (indices == null) {
+            return null;
+        }
+        if (!indices.spec().isLocalFile()) {
+            throw new IllegalArgumentException("Indices spec must be a local file: " + indices.spec());
+        }
+        return indices.spec().getLocalPath().orElseThrow().normalize();
+    }
+
+    /**
+     * Gets the inline range specification, if any.
+     */
+    public String getInlineRange() {
+        return indices != null ? indices.rangeSpec() : null;
     }
 
     /**
      * Gets the inline range specification if present
      * @return The range specification or null if not specified
      */
-    public String getInlineRange() {
-        return indices != null ? indices.rangeSpec() : null;
+    public Optional<RangeOption.Range> getRange() {
+        return indices != null ? Optional.ofNullable(indices.range()) : Optional.empty();
     }
 
     /**
@@ -63,7 +84,7 @@ public class IndicesInputFileOption {
      * @return true if a range was specified, false otherwise
      */
     public boolean hasInlineRange() {
-        return indices != null && indices.rangeSpec() != null && !indices.rangeSpec().isEmpty();
+        return indices != null && indices.range() != null;
     }
 
     /**
@@ -79,8 +100,11 @@ public class IndicesInputFileOption {
      * @throws IllegalArgumentException if the file doesn't exist
      */
     public void validateIndicesInput() {
-        if (indices != null && !Files.exists(indices.path())) {
-            throw new IllegalArgumentException("Indices input file does not exist: " + indices.path());
+        if (indices != null && indices.spec().isLocalFile()) {
+            Path path = indices.spec().getLocalPath().orElseThrow();
+            if (!Files.exists(path)) {
+                throw new IllegalArgumentException("Indices input file does not exist: " + path);
+            }
         }
     }
 
@@ -92,20 +116,18 @@ public class IndicesInputFileOption {
     /**
      * Record representing indices file configuration
      */
-    public record Indices(Path path, String rangeSpec) {
+    public record Indices(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
         public Indices {
-            if (path == null) {
-                throw new IllegalArgumentException("Indices path cannot be null");
+            if (spec == null) {
+                throw new IllegalArgumentException("Indices spec cannot be null");
             }
-            path = path.normalize();
         }
 
         @Override
         public String toString() {
-            if (rangeSpec != null && !rangeSpec.isEmpty()) {
-                return path + ":" + rangeSpec;
-            }
-            return path.toString();
+            return rangeSpec != null && !rangeSpec.isEmpty()
+                ? spec + rangeSpec
+                : spec.toString();
         }
     }
 
@@ -119,22 +141,20 @@ public class IndicesInputFileOption {
                 throw new CommandLine.TypeConversionException("Indices file path cannot be empty");
             }
 
-            // Check for inline range specification
-            int colonIndex = value.lastIndexOf(':');
-            if (colonIndex > 0) {
-                // Check if this might be a range specification
-                String potentialRange = value.substring(colonIndex + 1);
-                // Simple heuristic: if it starts with a digit or '[', it's likely a range
-                if (!potentialRange.isEmpty() &&
-                    (Character.isDigit(potentialRange.charAt(0)) || potentialRange.charAt(0) == '[')) {
-                    String pathPart = value.substring(0, colonIndex);
-                    return new Indices(Paths.get(pathPart), potentialRange);
+            VectorDataSpecParser.Parsed parsed = VectorDataSpecParser.parse(value);
+            VectorDataSpec spec = parsed.spec();
+            if (spec.isFacet()) {
+                TestDataKind kind = spec.getFacetKind().orElseThrow();
+                if (kind != TestDataKind.neighbor_indices) {
+                    throw new CommandLine.TypeConversionException(
+                        "Indices spec must use facet 'neighbor_indices', got: " + kind.name());
                 }
             }
-
-            // No range specification found
-            return new Indices(Paths.get(value), null);
+            if (spec.isRemote()) {
+                throw new CommandLine.TypeConversionException(
+                    "Remote vector specs are not supported for --indices: " + spec);
+            }
+            return new Indices(spec, parsed.range(), parsed.rangeSpec());
         }
     }
 }
-

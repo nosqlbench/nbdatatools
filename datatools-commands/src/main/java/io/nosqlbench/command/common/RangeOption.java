@@ -116,17 +116,50 @@ public class RangeOption {
             String trimmed = value.trim();
 
             try {
-                // Format: [m,n) - half-open interval notation
-                if (trimmed.startsWith("[") && trimmed.endsWith(")")) {
-                    String inner = trimmed.substring(1, trimmed.length() - 1);
-                    String[] parts = inner.split(",");
-                    if (parts.length != 2) {
-                        throw new IllegalArgumentException(
-                            "Invalid range format: " + value + ". Expected: [start,end)"
-                        );
+                // Bracketed interval notation: [m,n), (m,n], [m,n], (m,n), or single index [n]
+                if ((trimmed.startsWith("[") || trimmed.startsWith("(")) &&
+                    (trimmed.endsWith("]") || trimmed.endsWith(")"))) {
+                    boolean startClosed = trimmed.startsWith("[");
+                    boolean endClosed = trimmed.endsWith("]");
+
+                    String inner = trimmed.substring(1, trimmed.length() - 1).trim();
+                    long start;
+                    long end;
+
+                    if (inner.contains(",")) {
+                        String[] parts = inner.split(",");
+                        if (parts.length != 2) {
+                            throw new IllegalArgumentException(
+                                "Invalid range format: " + value + ". Expected: [start,end)"
+                            );
+                        }
+                        start = Long.parseLong(parts[0].trim());
+                        end = Long.parseLong(parts[1].trim());
+                    } else if (inner.contains("..")) {
+                        String[] parts = inner.split("\\.\\.");
+                        if (parts.length != 2) {
+                            throw new IllegalArgumentException(
+                                "Invalid range format: " + value + ". Expected: [start..end)"
+                            );
+                        }
+                        start = Long.parseLong(parts[0].trim());
+                        end = Long.parseLong(parts[1].trim());
+                    } else {
+                        long index = Long.parseLong(inner);
+                        if (!startClosed || !endClosed) {
+                            throw new IllegalArgumentException(
+                                "Single-value range must be specified as [n]. Got: " + value
+                            );
+                        }
+                        return new Range(index, index + 1);
                     }
-                    long start = Long.parseLong(parts[0].trim());
-                    long end = Long.parseLong(parts[1].trim());
+
+                    if (!startClosed) {
+                        start += 1;
+                    }
+                    if (endClosed) {
+                        end += 1;
+                    }
                     return new Range(start, end);
                 }
                 // Format: m..n - closed interval (inclusive)
@@ -156,7 +189,7 @@ public class RangeOption {
 
     @CommandLine.Option(
         names = {"--range"},
-        description = "Range of elements to process. Formats: 'n' (0 to n-1), 'm..n' (m to n inclusive), '[m,n)' (m to n-1)",
+        description = "Range of elements to process. Formats: 'n' (0 to n-1), 'm..n' (m to n inclusive), '[m,n)' (m to n-1), '[m,n]', '(m,n]', '(m,n)', '[n]' (single index)",
         converter = RangeConverter.class
     )
     private Range range;

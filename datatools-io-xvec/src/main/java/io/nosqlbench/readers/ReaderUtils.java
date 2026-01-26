@@ -20,9 +20,11 @@ package io.nosqlbench.readers;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.ExecutionException;
 
 /// Utility helpers shared by reader implementations in this package.
 public final class ReaderUtils {
@@ -31,6 +33,11 @@ public final class ReaderUtils {
 
   private ReaderUtils() {
     // Utility class
+  }
+
+  @FunctionalInterface
+  private interface PositionedReader {
+    int read(ByteBuffer dst, long position) throws IOException;
   }
 
   /// Compute the logical vector count for a fixed-width record file ensuring int range safety.
@@ -104,90 +111,132 @@ public final class ReaderUtils {
       throw new IOException("Element width must be positive for file: " + filePath);
     }
 
-    EndianValidation little = evaluateXvecLayout(filePath, elementWidth, ByteOrder.LITTLE_ENDIAN);
-    EndianValidation big = evaluateXvecLayout(filePath, elementWidth, ByteOrder.BIG_ENDIAN);
+    try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ)) {
+      long fileSize = channel.size();
+      PositionedReader reader = (dst, position) -> channel.read(dst, position);
+      return checkXvecEndianness(fileSize, filePath.toString(), elementWidth, reader);
+    }
+  }
+
+  /// Evaluate the dimension header of an xvec-style file using an AsynchronousFileChannel.
+  /// @param channel The channel to inspect
+  /// @param sourceLabel Label for diagnostics (file path or spec)
+  /// @param elementWidth The width in bytes of each vector element
+  /// @return An {@link EndianCheckResult} detailing which interpretations were valid
+  /// @throws IOException If the channel cannot be read or neither interpretation is valid
+  public static EndianCheckResult checkXvecEndianness(AsynchronousFileChannel channel,
+                                                      String sourceLabel,
+                                                      int elementWidth) throws IOException {
+    if (elementWidth <= 0) {
+      throw new IOException("Element width must be positive for source: " + sourceLabel);
+    }
+    long fileSize = channel.size();
+    PositionedReader reader = (dst, position) -> readAsync(channel, dst, position, sourceLabel);
+    return checkXvecEndianness(fileSize, sourceLabel, elementWidth, reader);
+  }
+
+  private static EndianCheckResult checkXvecEndianness(long fileSize,
+                                                       String sourceLabel,
+                                                       int elementWidth,
+                                                       PositionedReader reader) throws IOException {
+    EndianValidation little = evaluateXvecLayout(fileSize, sourceLabel, reader, elementWidth, ByteOrder.LITTLE_ENDIAN);
+    EndianValidation big = evaluateXvecLayout(fileSize, sourceLabel, reader, elementWidth, ByteOrder.BIG_ENDIAN);
 
     if (!little.valid && !big.valid) {
       String reason = little.failureReason != null ? little.failureReason : big.failureReason;
-      throw new IOException("Unable to interpret dimension header for file " + filePath
+      throw new IOException("Unable to interpret dimension header for source " + sourceLabel
                             + (reason != null ? ": " + reason : ""));
     }
 
     return new EndianCheckResult(little, big);
   }
 
-  private static EndianValidation evaluateXvecLayout(Path filePath, int elementWidth, ByteOrder order)
+  private static int readAsync(AsynchronousFileChannel channel, ByteBuffer buffer,
+                               long position, String sourceLabel) throws IOException {
+    try {
+      return channel.read(buffer, position).get();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException("Interrupted while reading " + sourceLabel, e);
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause() != null ? e.getCause() : e;
+      throw new IOException("Failed to read " + sourceLabel, cause);
+    }
+  }
+
+  private static EndianValidation evaluateXvecLayout(long fileSize,
+                                                     String sourceLabel,
+                                                     PositionedReader reader,
+                                                     int elementWidth,
+                                                     ByteOrder order)
       throws IOException {
 
-    try (FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ)) {
-      long fileSize = channel.size();
-      if (fileSize < Integer.BYTES) {
-        return EndianValidation.invalid("File too small to contain dimension header");
+    if (fileSize < Integer.BYTES) {
+      return EndianValidation.invalid("File too small to contain dimension header");
+    }
+
+    ByteBuffer dimBuffer = ByteBuffer.allocate(Integer.BYTES);
+    int bytesRead = reader.read(dimBuffer, 0);
+    if (bytesRead != Integer.BYTES) {
+      return EndianValidation.invalid("Failed to read dimension header");
+    }
+
+    dimBuffer.flip();
+    dimBuffer.order(order);
+    int dimension = dimBuffer.getInt();
+
+    if (dimension <= 0 || dimension > MAX_REASONABLE_DIMENSION) {
+      return EndianValidation.invalid("Dimension " + dimension + " out of range");
+    }
+
+    long vectorBytes;
+    long recordSize;
+    try {
+      vectorBytes = Math.multiplyExact((long) dimension, (long) elementWidth);
+      recordSize = Math.addExact((long) Integer.BYTES, vectorBytes);
+    } catch (ArithmeticException e) {
+      return EndianValidation.invalid("Vector record size overflow");
+    }
+
+    if (recordSize <= Integer.BYTES) {
+      return EndianValidation.invalid("Record size " + recordSize + " too small");
+    }
+
+    if (recordSize > fileSize) {
+      return EndianValidation.invalid("Record size " + recordSize + " exceeds file length");
+    }
+
+    if (fileSize % recordSize != 0L) {
+      return EndianValidation.invalid("File size " + fileSize + " is not a multiple of record size " + recordSize);
+    }
+
+    long vectorCount = fileSize / recordSize;
+    if (vectorCount <= 0) {
+      return EndianValidation.invalid("No vectors detected");
+    }
+
+    if (vectorCount > 1) {
+      dimBuffer.clear();
+      long lastOffset;
+      try {
+        lastOffset = Math.multiplyExact(vectorCount - 1, recordSize);
+      } catch (ArithmeticException e) {
+        return EndianValidation.invalid("Vector offset overflow");
       }
 
-      ByteBuffer dimBuffer = ByteBuffer.allocate(Integer.BYTES);
-      int bytesRead = channel.read(dimBuffer, 0);
-      if (bytesRead != Integer.BYTES) {
-        return EndianValidation.invalid("Failed to read dimension header");
+      int lastBytes = reader.read(dimBuffer, lastOffset);
+      if (lastBytes != Integer.BYTES) {
+        return EndianValidation.invalid("Failed to read trailing dimension");
       }
-
       dimBuffer.flip();
       dimBuffer.order(order);
-      int dimension = dimBuffer.getInt();
-
-      if (dimension <= 0 || dimension > MAX_REASONABLE_DIMENSION) {
-        return EndianValidation.invalid("Dimension " + dimension + " out of range");
+      int trailingDimension = dimBuffer.getInt();
+      if (trailingDimension != dimension) {
+        return EndianValidation.invalid("Inconsistent dimension detected at final record: " + trailingDimension);
       }
-
-      long vectorBytes;
-      long recordSize;
-      try {
-        vectorBytes = Math.multiplyExact((long) dimension, (long) elementWidth);
-        recordSize = Math.addExact((long) Integer.BYTES, vectorBytes);
-      } catch (ArithmeticException e) {
-        return EndianValidation.invalid("Vector record size overflow");
-      }
-
-      if (recordSize <= Integer.BYTES) {
-        return EndianValidation.invalid("Record size " + recordSize + " too small");
-      }
-
-      if (recordSize > fileSize) {
-        return EndianValidation.invalid("Record size " + recordSize + " exceeds file length");
-      }
-
-      if (fileSize % recordSize != 0L) {
-        return EndianValidation.invalid("File size " + fileSize + " is not a multiple of record size " + recordSize);
-      }
-
-      long vectorCount = fileSize / recordSize;
-      if (vectorCount <= 0) {
-        return EndianValidation.invalid("No vectors detected");
-      }
-
-      if (vectorCount > 1) {
-        dimBuffer.clear();
-        long lastOffset;
-        try {
-          lastOffset = Math.multiplyExact(vectorCount - 1, recordSize);
-        } catch (ArithmeticException e) {
-          return EndianValidation.invalid("Vector offset overflow");
-        }
-
-        int lastBytes = channel.read(dimBuffer, lastOffset);
-        if (lastBytes != Integer.BYTES) {
-          return EndianValidation.invalid("Failed to read trailing dimension");
-        }
-        dimBuffer.flip();
-        dimBuffer.order(order);
-        int trailingDimension = dimBuffer.getInt();
-        if (trailingDimension != dimension) {
-          return EndianValidation.invalid("Inconsistent dimension detected at final record: " + trailingDimension);
-        }
-      }
-
-      return EndianValidation.valid(dimension, vectorCount);
     }
+
+    return EndianValidation.valid(dimension, vectorCount);
   }
 
   /// Result of inspecting little and big endian interpretations for an xvec file.

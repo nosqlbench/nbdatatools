@@ -18,9 +18,17 @@ package io.nosqlbench.command.analyze.subcommands;
  */
 
 import io.nosqlbench.common.types.VectorFileExtension;
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vshapes.extract.BraillePlot;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -75,9 +83,24 @@ public class CMD_analyze_plot implements Callable<Integer> {
 
     // ============ Parameters and Options ============
 
-    @CommandLine.Parameters(arity = "1..*", paramLabel = "FILE",
-        description = "Vector file(s) to plot. Multiple files are shown as separate series with different colors.")
-    private List<Path> files = new ArrayList<>();
+    @CommandLine.Parameters(arity = "1..*", paramLabel = "VECTORS",
+        description = "Vector data source(s) to plot. Multiple sources are shown as separate series with different colors.",
+        converter = VectorDataSpecConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class)
+    private List<VectorDataSpec> vectors = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
 
     @CommandLine.Option(names = {"--type", "-t"},
         description = "Plot type: histogram (default) or scatter. " +
@@ -119,13 +142,7 @@ public class CMD_analyze_plot implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            // Validate files exist
-            for (Path file : files) {
-                if (!Files.exists(file)) {
-                    System.err.println("Error: File not found: " + file);
-                    return 1;
-                }
-            }
+            this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
 
             // Parse dimension specification
             List<Integer> dimList = parseDimensions(dimensions);
@@ -144,7 +161,8 @@ public class CMD_analyze_plot implements Callable<Integer> {
             List<float[][]> allData = new ArrayList<>();  // [file][dim][values]
             List<String> labels = new ArrayList<>();
 
-            for (Path file : files) {
+            for (VectorDataSpec spec : vectors) {
+                Path file = resolveInputFile(spec);
                 float[][] fileData = loadDimensionData(file, dimList);
                 if (fileData == null) {
                     return 1;
@@ -167,6 +185,35 @@ public class CMD_analyze_plot implements Callable<Integer> {
             System.err.println("Error: " + e.getMessage());
             return 1;
         }
+    }
+
+    private Path resolveInputFile(VectorDataSpec spec) throws Exception {
+        if (spec.isLocalFile()) {
+            Path file = spec.getLocalPath().orElseThrow();
+            if (!Files.exists(file)) {
+                throw new IllegalArgumentException("File not found: " + file);
+            }
+            return file;
+        }
+        if (!spec.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source: " + spec);
+        }
+
+        TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     /// Parses dimension specification into a list of dimension indices.

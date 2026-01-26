@@ -20,12 +20,22 @@ package io.nosqlbench.command.analyze.subcommands;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 
@@ -40,11 +50,26 @@ import java.util.concurrent.Callable;
 public class CMD_analyze_select implements Callable<Integer> {
     private static final Logger logger = LogManager.getLogger(CMD_analyze_select.class);
 
-    @CommandLine.Parameters(index = "0", description = "File to read from")
-    private Path file;
+    @CommandLine.Parameters(index = "0", description = "Vector data source to read from",
+        converter = VectorDataSpecConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class)
+    private VectorDataSpec vectors;
 
     @CommandLine.Parameters(index = "1", description = "Ordinal position of the vector to select (0-based)")
     private int ordinal;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
 
     /// Execute the command to select a vector from the specified file
     /// 
@@ -52,12 +77,8 @@ public class CMD_analyze_select implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            if (!Files.exists(file)) {
-                String errorMsg = "File not found: " + file;
-                logger.error(errorMsg);
-                System.err.println(errorMsg);
-                return 1;
-            }
+            this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+            Path file = resolveInputFile();
 
             String fileExtension = getFileExtension(file);
             System.out.printf("Selecting vector at position %d from file: %s%n", ordinal, file);
@@ -98,6 +119,35 @@ public class CMD_analyze_select implements Callable<Integer> {
             logger.error("Error processing file", e);
             return 1;
         }
+    }
+
+    private Path resolveInputFile() throws Exception {
+        if (vectors.isLocalFile()) {
+            Path file = vectors.getLocalPath().orElseThrow();
+            if (!Files.exists(file)) {
+                throw new IllegalArgumentException("File not found: " + file);
+            }
+            return file;
+        }
+        if (!vectors.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source: " + vectors);
+        }
+
+        TestDataKind facetKind = vectors.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(vectors, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + vectors));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     /// Get the file extension from a path

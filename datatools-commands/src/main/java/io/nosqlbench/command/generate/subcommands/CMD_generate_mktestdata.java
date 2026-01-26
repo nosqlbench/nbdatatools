@@ -18,10 +18,18 @@ package io.nosqlbench.command.generate.subcommands;
  */
 
 
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.fileio.VectorRandomAccessReader;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.commons.rng.RestorableUniformRandomProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -78,8 +86,27 @@ public class CMD_generate_mktestdata implements Callable<Integer> {
 
   @CommandLine.Option(names = {"-i", "--input"},
       description = "Input vector file path (supports fvec, ivec formats)",
-      required = true)
-  private Path inputPath;
+      required = true,
+      converter = VectorDataSpecConverter.class,
+      completionCandidates = VectorDataCompletionCandidates.class)
+  private VectorDataSpec inputSpec;
+
+  @CommandLine.Option(names = {"--allow-remote"},
+      description = "Allow catalog-backed datasets which may require downloading large files")
+  private boolean allowRemote;
+
+  @CommandLine.Option(names = {"--catalog"},
+      description = "A directory, remote url, or other catalog container")
+  private List<String> catalogs = new ArrayList<>();
+
+  @CommandLine.Option(names = {"--configdir"},
+      description = "The directory to use for configuration files",
+      defaultValue = "~/.config/vectordata")
+  private Path configdir;
+
+  @CommandLine.Option(names = {"--cache-dir"},
+      description = "Directory for cached dataset files")
+  private Path cacheDir;
 
   @CommandLine.Option(names = {"-o", "--output-prefix"},
       description = "Prefix for output files (will generate prefix_queries.fvec, prefix_db.fvec, prefix_mapping.ivec)",
@@ -105,6 +132,8 @@ public class CMD_generate_mktestdata implements Callable<Integer> {
       defaultValue = "XO_SHI_RO_256_PP")
   private RandomGenerators.Algorithm algorithm = RandomGenerators.Algorithm.XO_SHI_RO_256_PP;
 
+  private Path resolvedInputPath;
+
   public static void main(String[] args) {
     CMD_generate_mktestdata cmd = new CMD_generate_mktestdata();
     int exitCode = new CommandLine(cmd).execute(args);
@@ -114,6 +143,10 @@ public class CMD_generate_mktestdata implements Callable<Integer> {
   @Override
   public Integer call() {
     try {
+      this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+      requireRemoteAllowed(inputSpec, "--input");
+      resolvedInputPath = resolveInputPath(inputSpec, "--input");
+
       // Check output paths
       Path queriesPath = Path.of(outputPrefix + "_queries.fvec");
       Path dbPath = Path.of(outputPrefix + "_db.fvec");
@@ -127,8 +160,8 @@ public class CMD_generate_mktestdata implements Callable<Integer> {
       createParentDirectories(queriesPath, dbPath, mappingPath);
 
       // Open input file and determine vector count
-      logger.info("Reading input file: {}", inputPath);
-      VectorRandomAccessReader<float[]> reader = openInputFile(inputPath);
+      logger.info("Reading input file: {}", resolvedInputPath);
+      VectorRandomAccessReader<float[]> reader = openInputFile(resolvedInputPath);
 
       try {
         int vectorCount = reader.getSize();
@@ -178,6 +211,52 @@ public class CMD_generate_mktestdata implements Callable<Integer> {
       logger.error("Error generating test data: {}", e.getMessage(), e);
       return EXIT_ERROR;
     }
+  }
+
+  private void requireRemoteAllowed(VectorDataSpec spec, String label) {
+    if (spec == null) {
+      return;
+    }
+    if (spec.isCatalogFacet() && !allowRemote) {
+      throw new IllegalArgumentException(
+        "Catalog-backed dataset for " + label + " may require downloading large files. " +
+            "Re-run with --allow-remote to proceed.");
+    }
+    if (spec.isRemote()) {
+      throw new IllegalArgumentException("Remote vector specs are not supported for " + label + ": " + spec);
+    }
+  }
+
+  private Path resolveInputPath(VectorDataSpec spec, String label) throws Exception {
+    if (spec == null) {
+      throw new IllegalArgumentException("Missing vector spec for " + label);
+    }
+    if (spec.isLocalFile()) {
+      Path file = spec.getLocalPath().orElseThrow();
+      if (!Files.exists(file)) {
+        throw new IllegalArgumentException("File not found for " + label + ": " + file);
+      }
+      return file.normalize();
+    }
+    if (!spec.isFacet()) {
+      throw new IllegalArgumentException("Unsupported vector data source for " + label + ": " + spec);
+    }
+
+    TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+    DatasetView<?> view = VectorDataSpecSupport
+        .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+    if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+      throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+    }
+    if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+      throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+    }
+
+    view.prebuffer().get();
+    return cacheAccessor.getCacheFilePath();
   }
 
   /// Checks if output paths can be written to, respecting the force flag.

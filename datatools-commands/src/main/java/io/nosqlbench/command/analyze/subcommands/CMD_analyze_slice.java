@@ -18,9 +18,18 @@ package io.nosqlbench.command.analyze.subcommands;
  */
 
 import io.nosqlbench.common.types.VectorFileExtension;
+import io.nosqlbench.command.common.RangeOption;
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -28,6 +37,8 @@ import picocli.CommandLine;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 
@@ -50,14 +61,29 @@ public class CMD_analyze_slice implements Callable<Integer> {
     // Maximum memory per chunk: 1GB
     private static final long MAX_CHUNK_MEMORY = 1024L * 1024L * 1024L;
 
-    @CommandLine.Parameters(index = "0", description = "Input file with optional ranges: file.fvec[:ordinal_range[:component_range]]")
-    private String input;
+    @CommandLine.Parameters(index = "0", description = "Input vector data source",
+        converter = VectorDataSpecConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class)
+    private VectorDataSpec vectors;
 
-    @CommandLine.Option(names = {"--ordinal-range"}, description = "Ordinal range (overrides file syntax): n, m..n, [m,n), (m,n], etc.")
+    @CommandLine.Option(names = {"--ordinal-range"}, description = "Ordinal range: n, m..n, [m,n), (m,n], etc.")
     private String ordinalRange;
 
-    @CommandLine.Option(names = {"--component-range"}, description = "Component range (overrides file syntax): n, m..n, [m,n), (m,n], etc.")
+    @CommandLine.Option(names = {"--component-range"}, description = "Component range: n, m..n, [m,n), (m,n], etc.")
     private String componentRange;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
 
     @CommandLine.Option(names = {"--format"}, description = "Output format: ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE})", defaultValue = "TEXT")
     private OutputFormat format = OutputFormat.TEXT;
@@ -81,14 +107,9 @@ public class CMD_analyze_slice implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         try {
-            // Parse the input specification
-            parseInput();
-
-            // Validate file exists
-            if (!Files.exists(inputPath)) {
-                System.err.println("Error: Input file not found: " + inputPath);
-                return EXIT_ERROR;
-            }
+            this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+            inputPath = resolveInputFile();
+            parseRanges();
 
             // Detect file type
             VectorFileExtension ext = getVectorFileExtension(inputPath);
@@ -119,122 +140,49 @@ public class CMD_analyze_slice implements Callable<Integer> {
         }
     }
 
-    /**
-     * Parse the input specification which may include ranges
-     * Format: file.fvec[:ordinal_range[:component_range]]
-     */
-    private void parseInput() {
-        String[] parts = input.split(":", -1);
-        inputPath = Path.of(parts[0]);
+    private void parseRanges() {
+        RangeOption.RangeConverter converter = new RangeOption.RangeConverter();
 
-        // Parse ordinal range: explicit option takes precedence over file spec
         if (ordinalRange != null && !ordinalRange.trim().isEmpty()) {
-            parseOrdinalRange(ordinalRange);
-        } else if (parts.length > 1 && !parts[1].trim().isEmpty()) {
-            parseOrdinalRange(parts[1]);
+            RangeOption.Range range = converter.convert(ordinalRange);
+            ordinalStart = range.start();
+            ordinalEnd = range.end();
         }
-        // Otherwise, keep default: all ordinals (0 to Long.MAX_VALUE)
 
-        // Parse component range: explicit option takes precedence over file spec
         if (componentRange != null && !componentRange.trim().isEmpty()) {
-            parseComponentRange(componentRange);
-        } else if (parts.length > 2 && !parts[2].trim().isEmpty()) {
-            parseComponentRange(parts[2]);
-        }
-        // Otherwise, keep default: all components (0 to Integer.MAX_VALUE)
-    }
-
-    /**
-     * Parse ordinal range specification
-     * Formats: n, m..n, [m,n), (m,n], [m,n], (m,n)
-     */
-    private void parseOrdinalRange(String spec) {
-        Range range = parseRange(spec);
-        ordinalStart = range.start;
-        ordinalEnd = range.end;
-    }
-
-    /**
-     * Parse component range specification
-     * Formats: n, m..n, [m,n), (m,n], [m,n], (m,n)
-     */
-    private void parseComponentRange(String spec) {
-        Range range = parseRange(spec);
-        componentStart = (int) range.start;
-        componentEnd = (int) range.end;
-    }
-
-    /**
-     * Parse a range specification with flexible bracket syntax
-     */
-    private Range parseRange(String spec) {
-        spec = spec.trim();
-        boolean startClosed = true;
-        boolean endClosed = false;  // Default to half-open [start, end)
-
-        // Detect bracket syntax
-        if (spec.startsWith("[") || spec.startsWith("(")) {
-            startClosed = spec.startsWith("[");
-            spec = spec.substring(1);
-        }
-        if (spec.endsWith("]") || spec.endsWith(")")) {
-            endClosed = spec.endsWith("]");
-            spec = spec.substring(0, spec.length() - 1);
-        }
-
-        long start, end;
-
-        try {
-            // Format: m..n
-            if (spec.contains("..")) {
-                String[] parts = spec.split("\\.\\.");
-                if (parts.length != 2) {
-                    throw new IllegalArgumentException("Invalid range format: " + spec);
-                }
-                start = Long.parseLong(parts[0].trim());
-                end = Long.parseLong(parts[1].trim());
-
-                // For .. syntax without explicit brackets, default to closed interval
-                if (!spec.trim().startsWith("[") && !spec.trim().startsWith("(")) {
-                    endClosed = true;
-                }
-            }
-            // Format: n (shorthand for [0, n))
-            else {
-                start = 0;
-                end = Long.parseLong(spec);
-                endClosed = false;
-            }
-
-            // Adjust for open/closed intervals
-            if (!startClosed) {
-                start++;
-            }
-            if (endClosed) {
-                end++;
-            }
-
-            if (start < 0) {
-                throw new IllegalArgumentException("Range start must be non-negative: " + start);
-            }
-            if (end <= start) {
-                throw new IllegalArgumentException("Range end must be greater than start: [" + start + ", " + end + ")");
-            }
-
-            return new Range(start, end);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid range format: " + spec + " - " + e.getMessage());
+            RangeOption.Range range = converter.convert(componentRange);
+            componentStart = (int) range.start();
+            componentEnd = (int) range.end();
         }
     }
 
-    private static class Range {
-        final long start;
-        final long end;
-
-        Range(long start, long end) {
-            this.start = start;
-            this.end = end;
+    private Path resolveInputFile() throws Exception {
+        if (vectors.isLocalFile()) {
+            Path file = vectors.getLocalPath().orElseThrow();
+            if (!Files.exists(file)) {
+                throw new IllegalArgumentException("Input file not found: " + file);
+            }
+            return file;
         }
+        if (!vectors.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source: " + vectors);
+        }
+
+        TestDataKind facetKind = vectors.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(vectors, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + vectors));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     /**

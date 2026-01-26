@@ -98,7 +98,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /// enqueued more than once. Thus if multiple callers try to read from the same chunk
 /// concurrently, only one download task should be generated and both callers should ultimately
 /// block on the same returned future.
-public class MAFileChannel extends AsynchronousFileChannel {
+public class MAFileChannel extends AsynchronousFileChannel implements CacheFileAccessor {
+    private final Path localCachePath;
     private final MerkleState merkleState;
     private final AsynchronousFileChannel localContentCache;
     private final ChunkedTransportClient transport;
@@ -153,6 +154,7 @@ public class MAFileChannel extends AsynchronousFileChannel {
      */
     public MAFileChannel(Path localCachePath, Path merkleStatePath, String remoteSource, ChunkScheduler chunkScheduler, boolean validationMode, long spaceCheckBytes) throws IOException {
         this.spaceCheckBytes = spaceCheckBytes;
+        this.localCachePath = localCachePath;
         // Ensure merkleStatePath ends with .mrkl (state file, not reference file)
         String statePathStr = merkleStatePath.toString();
         Path mrklStatePath;
@@ -328,6 +330,11 @@ public class MAFileChannel extends AsynchronousFileChannel {
     @Override
     public long size() throws IOException {
         return merkleShape.getTotalContentSize();
+    }
+
+    @Override
+    public Path getCacheFilePath() {
+        return localCachePath;
     }
 
     @Override

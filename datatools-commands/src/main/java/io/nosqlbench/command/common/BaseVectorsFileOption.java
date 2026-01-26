@@ -18,8 +18,9 @@ package io.nosqlbench.command.common;
 
 import picocli.CommandLine;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.Files;
+import java.util.Optional;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 
 /**
  * Mixin for base vectors file option.
@@ -30,9 +31,10 @@ public class BaseVectorsFileOption {
 
     @CommandLine.Option(
         names = {"-b", "--base"},
-        description = "Base vectors file path (supports inline range e.g., file.fvec:1000 or file.fvec:[0,1000))",
+        description = "Base vectors spec with optional range suffix (e.g., file.fvec[0,1000) or dataset.profile.base[0,1000))",
         required = true,
-        converter = BaseVectorsConverter.class
+        converter = BaseVectorsConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class
     )
     private BaseVectors baseVectors;
 
@@ -45,45 +47,71 @@ public class BaseVectorsFileOption {
     }
 
     /**
-     * Gets the path to the base vectors file
-     * @return The normalized path to the base vectors file
+     * Gets the base vectors spec
      */
-    public Path getBasePath() {
-        return baseVectors.path();
+    public VectorDataSpec getSpec() {
+        return baseVectors.spec();
     }
 
     /**
-     * Gets the inline range specification if present
-     * @return The range specification or null if not specified
+     * Gets the base vectors path (local file only).
+     */
+    public Path getBasePath() {
+        return requireLocalPath(baseVectors.spec(), "Base vectors");
+    }
+
+    /**
+     * Gets the normalized base vectors path (local file only).
+     */
+    public Path getNormalizedBasePath() {
+        return getBasePath().normalize();
+    }
+
+    /**
+     * Gets the inline range spec, if provided.
      */
     public String getInlineRange() {
         return baseVectors.rangeSpec();
     }
 
     /**
-     * Checks if an inline range was specified
-     * @return true if a range was specified, false otherwise
+     * Gets the local file path if this is a local file spec
      */
-    public boolean hasInlineRange() {
-        return baseVectors.rangeSpec() != null && !baseVectors.rangeSpec().isEmpty();
+    public Optional<Path> getLocalPath() {
+        return baseVectors.spec().getLocalPath();
     }
 
     /**
-     * Validates that the base vectors file exists
-     * @throws IllegalArgumentException if the file doesn't exist
+     * Gets the inline range if present
+     */
+    public Optional<RangeOption.Range> getRange() {
+        return Optional.ofNullable(baseVectors.range());
+    }
+
+    /**
+     * Checks if a range was specified
+     */
+    public boolean hasRange() {
+        return baseVectors.range() != null;
+    }
+
+    private static Path requireLocalPath(VectorDataSpec spec, String label) {
+        if (!spec.isLocalFile()) {
+            throw new IllegalArgumentException(label + " spec must be a local file: " + spec);
+        }
+        return spec.getLocalPath().orElseThrow();
+    }
+
+    /**
+     * Validates that the base vectors file exists for local file specs
      */
     public void validateBaseVectors() {
-        if (!Files.exists(baseVectors.path())) {
-            throw new IllegalArgumentException("Base vectors file does not exist: " + baseVectors.path());
+        if (baseVectors.spec().isLocalFile()) {
+            Path path = baseVectors.spec().getLocalPath().orElseThrow();
+            if (!Files.exists(path)) {
+                throw new IllegalArgumentException("Base vectors file does not exist: " + path);
+            }
         }
-    }
-
-    /**
-     * Gets the normalized path as a string
-     * @return The normalized path string
-     */
-    public String getNormalizedPath() {
-        return baseVectors.path().normalize().toString();
     }
 
     @Override
@@ -94,20 +122,29 @@ public class BaseVectorsFileOption {
     /**
      * Record representing base vectors file configuration
      */
-    public record BaseVectors(Path path, String rangeSpec) {
+    public record BaseVectors(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
         public BaseVectors {
-            if (path == null) {
-                throw new IllegalArgumentException("Base vectors path cannot be null");
+            if (spec == null) {
+                throw new IllegalArgumentException("Base vectors spec cannot be null");
             }
-            path = path.normalize();
+        }
+
+        public BaseVectors(Path path, String rangeSpec) {
+            this(VectorDataSpec.parse(path.toString()), null, rangeSpec);
+        }
+
+        public Path path() {
+            if (!spec.isLocalFile()) {
+                throw new IllegalArgumentException("Base vectors spec must be a local file: " + spec);
+            }
+            return spec.getLocalPath().orElseThrow();
         }
 
         @Override
         public String toString() {
-            if (rangeSpec != null && !rangeSpec.isEmpty()) {
-                return path + ":" + rangeSpec;
-            }
-            return path.toString();
+            return rangeSpec != null && !rangeSpec.isEmpty()
+                ? spec + rangeSpec
+                : spec.toString();
         }
     }
 
@@ -121,21 +158,20 @@ public class BaseVectorsFileOption {
                 throw new CommandLine.TypeConversionException("Base vectors file path cannot be empty");
             }
 
-            // Check for inline range specification
-            int colonIndex = value.lastIndexOf(':');
-            if (colonIndex > 0) {
-                // Check if this might be a range specification
-                String potentialRange = value.substring(colonIndex + 1);
-                // Simple heuristic: if it starts with a digit or '[', it's likely a range
-                if (!potentialRange.isEmpty() &&
-                    (Character.isDigit(potentialRange.charAt(0)) || potentialRange.charAt(0) == '[')) {
-                    String pathPart = value.substring(0, colonIndex);
-                    return new BaseVectors(Paths.get(pathPart), potentialRange);
+            VectorDataSpecParser.Parsed parsed = VectorDataSpecParser.parse(value);
+            VectorDataSpec spec = parsed.spec();
+            if (spec.isFacet()) {
+                TestDataKind kind = spec.getFacetKind().orElseThrow();
+                if (kind != TestDataKind.base_vectors) {
+                    throw new CommandLine.TypeConversionException(
+                        "Base vectors spec must use facet 'base_vectors', got: " + kind.name());
                 }
             }
-
-            // No range specification found
-            return new BaseVectors(Paths.get(value), null);
+            if (spec.isRemote()) {
+                throw new CommandLine.TypeConversionException(
+                    "Remote vector specs are not supported for --base: " + spec);
+            }
+            return new BaseVectors(spec, parsed.range(), parsed.rangeSpec());
         }
     }
 }

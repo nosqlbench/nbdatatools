@@ -18,8 +18,9 @@ package io.nosqlbench.command.common;
 
 import picocli.CommandLine;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.Files;
+import java.util.Optional;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 
 /**
  * Mixin for query vectors file option.
@@ -30,9 +31,10 @@ public class QueryVectorsFileOption {
 
     @CommandLine.Option(
         names = {"-q", "--query"},
-        description = "Query vectors file path (supports inline range e.g., file.fvec:1000 or file.fvec:[0,1000))",
+        description = "Query vectors spec with optional range suffix (e.g., file.fvec[0,1000) or dataset.profile.query[0,1000))",
         required = true,
-        converter = QueryVectorsConverter.class
+        converter = QueryVectorsConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class
     )
     private QueryVectors queryVectors;
 
@@ -48,42 +50,65 @@ public class QueryVectorsFileOption {
      * Gets the path to the query vectors file
      * @return The normalized path to the query vectors file
      */
-    public Path getQueryPath() {
-        return queryVectors.path();
+    public VectorDataSpec getSpec() {
+        return queryVectors.spec();
     }
 
     /**
-     * Gets the inline range specification if present
-     * @return The range specification or null if not specified
+     * Gets the local file path if this is a local file spec
+     */
+    public Optional<Path> getLocalPath() {
+        return queryVectors.spec().getLocalPath();
+    }
+
+    /**
+     * Gets the query vectors path (local file only).
+     */
+    public Path getQueryPath() {
+        if (!queryVectors.spec().isLocalFile()) {
+            throw new IllegalArgumentException("Query vectors spec must be a local file: " + queryVectors.spec());
+        }
+        return queryVectors.spec().getLocalPath().orElseThrow();
+    }
+
+    /**
+     * Gets the normalized query vectors path (local file only).
+     */
+    public Path getNormalizedQueryPath() {
+        return getQueryPath().normalize();
+    }
+
+    /**
+     * Gets the inline range spec, if provided.
      */
     public String getInlineRange() {
         return queryVectors.rangeSpec();
     }
 
     /**
-     * Checks if an inline range was specified
-     * @return true if a range was specified, false otherwise
+     * Gets the inline range if present
      */
-    public boolean hasInlineRange() {
-        return queryVectors.rangeSpec() != null && !queryVectors.rangeSpec().isEmpty();
+    public Optional<RangeOption.Range> getRange() {
+        return Optional.ofNullable(queryVectors.range());
     }
 
     /**
-     * Validates that the query vectors file exists
-     * @throws IllegalArgumentException if the file doesn't exist
+     * Checks if a range was specified
+     */
+    public boolean hasRange() {
+        return queryVectors.range() != null;
+    }
+
+    /**
+     * Validates that the query vectors file exists for local file specs
      */
     public void validateQueryVectors() {
-        if (!Files.exists(queryVectors.path())) {
-            throw new IllegalArgumentException("Query vectors file does not exist: " + queryVectors.path());
+        if (queryVectors.spec().isLocalFile()) {
+            Path path = queryVectors.spec().getLocalPath().orElseThrow();
+            if (!Files.exists(path)) {
+                throw new IllegalArgumentException("Query vectors file does not exist: " + path);
+            }
         }
-    }
-
-    /**
-     * Gets the normalized path as a string
-     * @return The normalized path string
-     */
-    public String getNormalizedPath() {
-        return queryVectors.path().normalize().toString();
     }
 
     @Override
@@ -94,20 +119,18 @@ public class QueryVectorsFileOption {
     /**
      * Record representing query vectors file configuration
      */
-    public record QueryVectors(Path path, String rangeSpec) {
+    public record QueryVectors(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
         public QueryVectors {
-            if (path == null) {
-                throw new IllegalArgumentException("Query vectors path cannot be null");
+            if (spec == null) {
+                throw new IllegalArgumentException("Query vectors spec cannot be null");
             }
-            path = path.normalize();
         }
 
         @Override
         public String toString() {
-            if (rangeSpec != null && !rangeSpec.isEmpty()) {
-                return path + ":" + rangeSpec;
-            }
-            return path.toString();
+            return rangeSpec != null && !rangeSpec.isEmpty()
+                ? spec + rangeSpec
+                : spec.toString();
         }
     }
 
@@ -121,21 +144,20 @@ public class QueryVectorsFileOption {
                 throw new CommandLine.TypeConversionException("Query vectors file path cannot be empty");
             }
 
-            // Check for inline range specification
-            int colonIndex = value.lastIndexOf(':');
-            if (colonIndex > 0) {
-                // Check if this might be a range specification
-                String potentialRange = value.substring(colonIndex + 1);
-                // Simple heuristic: if it starts with a digit or '[', it's likely a range
-                if (!potentialRange.isEmpty() &&
-                    (Character.isDigit(potentialRange.charAt(0)) || potentialRange.charAt(0) == '[')) {
-                    String pathPart = value.substring(0, colonIndex);
-                    return new QueryVectors(Paths.get(pathPart), potentialRange);
+            VectorDataSpecParser.Parsed parsed = VectorDataSpecParser.parse(value);
+            VectorDataSpec spec = parsed.spec();
+            if (spec.isFacet()) {
+                TestDataKind kind = spec.getFacetKind().orElseThrow();
+                if (kind != TestDataKind.query_vectors) {
+                    throw new CommandLine.TypeConversionException(
+                        "Query vectors spec must use facet 'query_vectors', got: " + kind.name());
                 }
             }
-
-            // No range specification found
-            return new QueryVectors(Paths.get(value), null);
+            if (spec.isRemote()) {
+                throw new CommandLine.TypeConversionException(
+                    "Remote vector specs are not supported for --query: " + spec);
+            }
+            return new QueryVectors(spec, parsed.range(), parsed.rangeSpec());
         }
     }
 }

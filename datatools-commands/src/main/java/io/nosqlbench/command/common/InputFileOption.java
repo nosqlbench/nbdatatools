@@ -20,7 +20,7 @@ import picocli.CommandLine;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Optional;
 
 /**
  * Shared input file option with optional inline range specification support.
@@ -29,58 +29,58 @@ import java.nio.file.Paths;
 public class InputFileOption {
 
     /**
-     * Immutable input file specification with optional inline range.
+     * Immutable input spec with optional inline range.
      * Implements CharSequence to allow direct use as a string in most contexts.
-     * Supports file paths with optional range specifications in the format: {@code path/to/file:rangespec}
+     * Supports specs with optional range suffixes in the format: {@code spec[range]}
      * <p>
      * Examples:
      * <ul>
      *   <li>{@code input.fvec} - plain file path</li>
-     *   <li>{@code input.fvec:1000} - first 1000 elements</li>
-     *   <li>{@code input.fvec:[0,1000)} - elements 0 to 999</li>
-     *   <li>{@code input.fvec:10..99} - elements 10 to 99 inclusive</li>
+     *   <li>{@code input.fvec[0,1000)} - elements 0 to 999</li>
+     *   <li>{@code dataset.profile.base[0,1000)} - dataset facet with range</li>
      * </ul>
      *
-     * @param path            the input file path (never null)
+     * @param spec            the vector data spec (never null)
      * @param inlineRangeSpec optional range specification extracted from path, or null
      */
-    public record InputFile(Path path, String inlineRangeSpec) implements CharSequence {
+    public record InputFile(VectorDataSpec spec, RangeOption.Range range, String inlineRangeSpec)
+        implements CharSequence {
 
         /**
          * Compact constructor with validation.
          */
         public InputFile {
-            if (path == null) {
-                throw new IllegalArgumentException("Input path cannot be null");
+            if (spec == null) {
+                throw new IllegalArgumentException("Input spec cannot be null");
             }
         }
 
         /**
          * Creates an InputFile without inline range specification.
          */
-        public InputFile(Path path) {
-            this(path, null);
+        public InputFile(VectorDataSpec spec) {
+            this(spec, null, null);
         }
 
         /**
          * Gets the normalized absolute path.
          */
         public Path normalizedPath() {
-            return path.normalize().toAbsolutePath();
+            return spec.getLocalPath().orElseThrow().normalize().toAbsolutePath();
         }
 
         /**
          * Checks if an inline range specification was provided.
          */
         public boolean hasInlineRange() {
-            return inlineRangeSpec != null && !inlineRangeSpec.isEmpty();
+            return range != null;
         }
 
         /**
          * Checks if the input file exists.
          */
         public boolean exists() {
-            return Files.exists(path);
+            return spec.isLocalFile() && Files.exists(spec.getLocalPath().orElseThrow());
         }
 
         /**
@@ -88,7 +88,7 @@ public class InputFileOption {
          */
         public void validate() {
             if (!exists()) {
-                throw new IllegalStateException("Input file does not exist: " + path);
+                throw new IllegalStateException("Input file does not exist: " + spec);
             }
         }
 
@@ -96,17 +96,17 @@ public class InputFileOption {
 
         @Override
         public int length() {
-            return path.toString().length();
+            return spec.toString().length();
         }
 
         @Override
         public char charAt(int index) {
-            return path.toString().charAt(index);
+            return spec.toString().charAt(index);
         }
 
         @Override
         public CharSequence subSequence(int start, int end) {
-            return path.toString().subSequence(start, end);
+            return spec.toString().subSequence(start, end);
         }
 
         /**
@@ -114,10 +114,9 @@ public class InputFileOption {
          */
         @Override
         public String toString() {
-            if (hasInlineRange()) {
-                return path + " (range: " + inlineRangeSpec + ")";
-            }
-            return path.toString();
+            return inlineRangeSpec != null && !inlineRangeSpec.isEmpty()
+                ? spec + inlineRangeSpec
+                : spec.toString();
         }
     }
 
@@ -133,55 +132,17 @@ public class InputFileOption {
                 throw new IllegalArgumentException("Input file path cannot be empty");
             }
 
-            String[] parts = parsePathWithRange(value);
-            Path actualPath = Paths.get(parts[0]);
-            String rangeSpec = parts[1];
-
-            return new InputFile(actualPath, rangeSpec);
-        }
-
-        /**
-         * Parses a path string that may include an inline range specification.
-         * Format: "path/to/file:rangespec" where rangespec uses the same formats as RangeOption.
-         *
-         * @param pathString the path string to parse
-         * @return an array with [actualPath, rangeSpec], where rangeSpec may be null
-         */
-        private String[] parsePathWithRange(String pathString) {
-            if (pathString == null || pathString.isEmpty()) {
-                return new String[]{pathString, null};
-            }
-
-            // Find the last colon that's not part of a Windows drive letter (e.g., C:)
-            int colonIndex = -1;
-
-            // Skip potential Windows drive letter (e.g., "C:")
-            int searchStart = 0;
-            if (pathString.length() >= 2 && pathString.charAt(1) == ':') {
-                searchStart = 2;
-            }
-
-            // Look for a colon after the drive letter position
-            colonIndex = pathString.indexOf(':', searchStart);
-
-            if (colonIndex == -1) {
-                // No range specification found
-                return new String[]{pathString, null};
-            }
-
-            // Split into path and range spec
-            String actualPath = pathString.substring(0, colonIndex);
-            String rangeSpec = pathString.substring(colonIndex + 1);
-
-            return new String[]{actualPath, rangeSpec};
+            VectorDataSpecParser.Parsed parsed = VectorDataSpecParser.parse(value);
+            return new InputFile(parsed.spec(), parsed.range(), parsed.rangeSpec());
         }
     }
 
     @CommandLine.Option(
         names = {"-i", "--input"},
-        description = "The input file path. Can include inline range: 'file:rangespec' (e.g., 'input.fvec:1000' or 'input.fvec:[0,1000)')",
+        description = "The input vector spec with optional range suffix (e.g., input.fvec[0,1000))",
         required = true,
-        converter = InputFileConverter.class
+        converter = InputFileConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class
     )
     private InputFile inputFile;
 
@@ -197,7 +158,7 @@ public class InputFileOption {
      * Gets the input file path.
      */
     public Path getInputPath() {
-        return inputFile != null ? inputFile.path() : null;
+        return inputFile != null ? inputFile.spec().getLocalPath().orElseThrow() : null;
     }
 
     /**
@@ -222,13 +183,36 @@ public class InputFileOption {
     }
 
     /**
+     * Gets the vector spec.
+     */
+    public VectorDataSpec getSpec() {
+        return inputFile != null ? inputFile.spec() : null;
+    }
+
+    /**
+     * Gets the local file path if this is a local file spec.
+     */
+    public Optional<Path> getLocalPath() {
+        return inputFile != null ? inputFile.spec().getLocalPath() : Optional.empty();
+    }
+
+    /**
+     * Gets the parsed range, if any.
+     */
+    public Optional<RangeOption.Range> getRange() {
+        return inputFile != null ? Optional.ofNullable(inputFile.range()) : Optional.empty();
+    }
+
+    /**
      * Validates the input file exists.
      */
     public void validate() {
         if (inputFile == null) {
             throw new IllegalStateException("Input file is required");
         }
-        inputFile.validate();
+        if (inputFile.spec().isLocalFile()) {
+            inputFile.validate();
+        }
     }
 
     /**

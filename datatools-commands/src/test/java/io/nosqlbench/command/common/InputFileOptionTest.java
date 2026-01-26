@@ -41,31 +41,33 @@ class InputFileOptionTest {
     class InputFileRecordTest {
 
         @Test
-        @DisplayName("should create InputFile with path only")
-        void shouldCreateWithPathOnly() {
-            Path path = Path.of("test.txt");
-            InputFileOption.InputFile inputFile = new InputFileOption.InputFile(path);
+        @DisplayName("should create InputFile with spec only")
+        void shouldCreateWithSpecOnly() {
+            VectorDataSpec spec = VectorDataSpec.parse("test.fvec");
+            InputFileOption.InputFile inputFile = new InputFileOption.InputFile(spec);
 
-            assertThat(inputFile.path()).isEqualTo(path);
+            assertThat(inputFile.spec()).isEqualTo(spec);
             assertThat(inputFile.inlineRangeSpec()).isNull();
             assertThat(inputFile.hasInlineRange()).isFalse();
         }
 
         @Test
-        @DisplayName("should create InputFile with path and range")
-        void shouldCreateWithPathAndRange() {
-            Path path = Path.of("test.txt");
-            InputFileOption.InputFile inputFile = new InputFileOption.InputFile(path, "100");
+        @DisplayName("should create InputFile with spec and range")
+        void shouldCreateWithSpecAndRange() {
+            VectorDataSpec spec = VectorDataSpec.parse("test.fvec");
+            RangeOption.Range range = new RangeOption.Range(0, 100);
+            InputFileOption.InputFile inputFile = new InputFileOption.InputFile(spec, range, "[0,100)");
 
-            assertThat(inputFile.path()).isEqualTo(path);
-            assertThat(inputFile.inlineRangeSpec()).isEqualTo("100");
+            assertThat(inputFile.spec()).isEqualTo(spec);
+            assertThat(inputFile.range()).isEqualTo(range);
+            assertThat(inputFile.inlineRangeSpec()).isEqualTo("[0,100)");
             assertThat(inputFile.hasInlineRange()).isTrue();
         }
 
         @Test
-        @DisplayName("should reject null path")
-        void shouldRejectNullPath() {
-            assertThatThrownBy(() -> new InputFileOption.InputFile(null, "100"))
+        @DisplayName("should reject null spec")
+        void shouldRejectNullSpec() {
+            assertThatThrownBy(() -> new InputFileOption.InputFile(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cannot be null");
         }
@@ -73,8 +75,9 @@ class InputFileOptionTest {
         @Test
         @DisplayName("should normalize path")
         void shouldNormalizePath() throws IOException {
-            Path file = Files.createFile(tempDir.resolve("test.txt"));
-            InputFileOption.InputFile inputFile = new InputFileOption.InputFile(file);
+            Path file = Files.createFile(tempDir.resolve("test.fvec"));
+            VectorDataSpec spec = VectorDataSpec.parse(file.toString());
+            InputFileOption.InputFile inputFile = new InputFileOption.InputFile(spec);
 
             assertThat(inputFile.normalizedPath()).isAbsolute();
         }
@@ -85,8 +88,8 @@ class InputFileOptionTest {
             Path existing = Files.createFile(tempDir.resolve("existing.txt"));
             Path nonExisting = tempDir.resolve("nonexisting.txt");
 
-            assertThat(new InputFileOption.InputFile(existing).exists()).isTrue();
-            assertThat(new InputFileOption.InputFile(nonExisting).exists()).isFalse();
+            assertThat(new InputFileOption.InputFile(VectorDataSpec.parse(existing.toString())).exists()).isTrue();
+            assertThat(new InputFileOption.InputFile(VectorDataSpec.parse(nonExisting.toString())).exists()).isFalse();
         }
 
         @Test
@@ -95,37 +98,37 @@ class InputFileOptionTest {
             Path existing = Files.createFile(tempDir.resolve("existing.txt"));
             Path nonExisting = tempDir.resolve("nonexisting.txt");
 
-            InputFileOption.InputFile existingFile = new InputFileOption.InputFile(existing);
+            InputFileOption.InputFile existingFile = new InputFileOption.InputFile(VectorDataSpec.parse(existing.toString()));
             assertThatNoException().isThrownBy(existingFile::validate);
 
-            InputFileOption.InputFile nonExistingFile = new InputFileOption.InputFile(nonExisting);
+            InputFileOption.InputFile nonExistingFile = new InputFileOption.InputFile(VectorDataSpec.parse(nonExisting.toString()));
             assertThatThrownBy(nonExistingFile::validate)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("does not exist");
         }
 
         @Test
-        @DisplayName("should implement CharSequence for path")
+        @DisplayName("should implement CharSequence for spec")
         void shouldImplementCharSequence() {
-            Path path = Path.of("/path/to/test.txt");
-            InputFileOption.InputFile inputFile = new InputFileOption.InputFile(path);
+            VectorDataSpec spec = VectorDataSpec.parse("/path/to/test.fvec");
+            InputFileOption.InputFile inputFile = new InputFileOption.InputFile(spec);
 
-            String pathString = path.toString();
-            assertThat(inputFile.length()).isEqualTo(pathString.length());
-            assertThat(inputFile.charAt(0)).isEqualTo(pathString.charAt(0));
-            assertThat(inputFile.subSequence(0, 5).toString()).isEqualTo(pathString.substring(0, 5));
+            String specString = spec.toString();
+            assertThat(inputFile.length()).isEqualTo(specString.length());
+            assertThat(inputFile.charAt(0)).isEqualTo(specString.charAt(0));
+            assertThat(inputFile.subSequence(0, 5).toString()).isEqualTo(specString.substring(0, 5));
         }
 
         @Test
-        @DisplayName("toString should include inline range when present")
+        @DisplayName("toString should include inline range spec when present")
         void shouldFormatToStringWithRange() {
-            Path path = Path.of("test.txt");
+            VectorDataSpec spec = VectorDataSpec.parse("test.fvec");
 
-            InputFileOption.InputFile withRange = new InputFileOption.InputFile(path, "100");
-            assertThat(withRange.toString()).contains("test.txt").contains("range: 100");
+            InputFileOption.InputFile withRange = new InputFileOption.InputFile(spec, new RangeOption.Range(0, 100), "[0,100)");
+            assertThat(withRange.toString()).isEqualTo("test.fvec[0,100)");
 
-            InputFileOption.InputFile withoutRange = new InputFileOption.InputFile(path);
-            assertThat(withoutRange.toString()).isEqualTo("test.txt");
+            InputFileOption.InputFile withoutRange = new InputFileOption.InputFile(spec);
+            assertThat(withoutRange.toString()).isEqualTo("test.fvec");
         }
     }
 
@@ -138,39 +141,25 @@ class InputFileOptionTest {
         @Test
         @DisplayName("should parse plain file path")
         void shouldParsePlainPath() {
-            InputFileOption.InputFile inputFile = converter.convert("test.txt");
+            InputFileOption.InputFile inputFile = converter.convert("test.fvec");
 
-            assertThat(inputFile.path()).isEqualTo(Path.of("test.txt"));
+            assertThat(inputFile.spec().getLocalPath().orElseThrow().toString()).isEqualTo("test.fvec");
             assertThat(inputFile.inlineRangeSpec()).isNull();
         }
 
         @ParameterizedTest
         @CsvSource({
-            "test.txt:100, test.txt, 100",
-            "test.txt:10..20, test.txt, 10..20",
-            "'test.txt:[0,100)', test.txt, '[0,100)'",
-            "/path/to/file.fvec:500, /path/to/file.fvec, 500"
+            "test.fvec[100], test.fvec, [100]",
+            "test.fvec[10..20], test.fvec, [10..20]",
+            "'test.fvec[0,100)', test.fvec, '[0,100)'",
+            "/path/to/file.fvec[500], /path/to/file.fvec, [500]"
         })
-        @DisplayName("should parse path with inline range spec")
-        void shouldParsePathWithRange(String input, String expectedPath, String expectedRange) {
+        @DisplayName("should parse spec with inline range suffix")
+        void shouldParseSpecWithRange(String input, String expectedSpec, String expectedRange) {
             InputFileOption.InputFile inputFile = converter.convert(input);
 
-            assertThat(inputFile.path()).isEqualTo(Path.of(expectedPath));
+            assertThat(inputFile.spec().toString()).isEqualTo(expectedSpec);
             assertThat(inputFile.inlineRangeSpec()).isEqualTo(expectedRange);
-        }
-
-        @Test
-        @DisplayName("should handle Windows drive letters")
-        void shouldHandleWindowsDriveLetters() {
-            // Windows path without range
-            InputFileOption.InputFile file1 = converter.convert("C:\\data\\test.txt");
-            assertThat(file1.path().toString()).isEqualTo("C:\\data\\test.txt");
-            assertThat(file1.inlineRangeSpec()).isNull();
-
-            // Windows path with range (colon after drive letter should not be treated as range separator)
-            InputFileOption.InputFile file2 = converter.convert("C:\\data\\test.txt:100");
-            assertThat(file2.path().toString()).isEqualTo("C:\\data\\test.txt");
-            assertThat(file2.inlineRangeSpec()).isEqualTo("100");
         }
 
         @Test
@@ -193,7 +182,7 @@ class InputFileOptionTest {
         @Test
         @DisplayName("should parse --input with plain path")
         void shouldParsePlainPath() throws IOException {
-            Path file = Files.createFile(tempDir.resolve("test.txt"));
+            Path file = Files.createFile(tempDir.resolve("test.fvec"));
             DummyCommand command = new DummyCommand();
             new CommandLine(command).parseArgs("--input", file.toString());
 
@@ -204,20 +193,20 @@ class InputFileOptionTest {
 
         @Test
         @DisplayName("should parse --input with inline range")
-        void shouldParsePathWithInlineRange() {
+        void shouldParseSpecWithInlineRange() {
             DummyCommand command = new DummyCommand();
-            new CommandLine(command).parseArgs("--input", "test.txt:100");
+            new CommandLine(command).parseArgs("--input", "test.fvec[100]");
 
             assertThat(command.inputFileOption.getInputFile()).isNotNull();
-            assertThat(command.inputFileOption.getInputPath().toString()).isEqualTo("test.txt");
+            assertThat(command.inputFileOption.getInputPath().toString()).isEqualTo("test.fvec");
             assertThat(command.inputFileOption.hasInlineRange()).isTrue();
-            assertThat(command.inputFileOption.getInlineRangeSpec()).isEqualTo("100");
+            assertThat(command.inputFileOption.getInlineRangeSpec()).isEqualTo("[100]");
         }
 
         @Test
         @DisplayName("should provide normalized path")
         void shouldProvideNormalizedPath() throws IOException {
-            Path file = Files.createFile(tempDir.resolve("test.txt"));
+            Path file = Files.createFile(tempDir.resolve("test.fvec"));
             DummyCommand command = new DummyCommand();
             new CommandLine(command).parseArgs("--input", file.toString());
 
@@ -244,12 +233,12 @@ class InputFileOptionTest {
         @DisplayName("toString should format appropriately")
         void shouldFormatToString() {
             DummyCommand withRange = new DummyCommand();
-            new CommandLine(withRange).parseArgs("--input", "test.txt:100");
-            assertThat(withRange.inputFileOption.toString()).contains("test.txt").contains("100");
+            new CommandLine(withRange).parseArgs("--input", "test.fvec[100]");
+            assertThat(withRange.inputFileOption.toString()).isEqualTo("test.fvec[100]");
 
             DummyCommand withoutRange = new DummyCommand();
-            new CommandLine(withoutRange).parseArgs("--input", "test.txt");
-            assertThat(withoutRange.inputFileOption.toString()).contains("test.txt");
+            new CommandLine(withoutRange).parseArgs("--input", "test.fvec");
+            assertThat(withoutRange.inputFileOption.toString()).isEqualTo("test.fvec");
         }
     }
 

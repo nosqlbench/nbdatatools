@@ -23,11 +23,17 @@ import io.nosqlbench.command.common.OutputFileOption;
 import io.nosqlbench.command.common.ParallelExecutionOption;
 import io.nosqlbench.command.common.RangeOption;
 import io.nosqlbench.command.common.VerbosityOption;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.status.StatusContext;
 import io.nosqlbench.status.StatusScope;
 import io.nosqlbench.status.eventing.RunState;
@@ -87,6 +93,23 @@ public class CMD_compute_sort implements Callable<Integer> {
         description = "Directory for temporary chunk files (default: system temp)")
     private Path tempDir;
 
+    @CommandLine.Option(names = {"--allow-remote"},
+        description = "Allow catalog-backed datasets which may require downloading large files")
+    private boolean allowRemote;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
+
     @CommandLine.Mixin
     private ParallelExecutionOption parallelExecutionOption = new ParallelExecutionOption();
 
@@ -110,11 +133,15 @@ public class CMD_compute_sort implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
+    private Path resolvedInputPath;
+
     /**
      * Validates the input and output paths before execution
      */
     private void validatePaths() {
-        inputFileOption.validate();
+        if (inputFileOption.getSpec().isLocalFile()) {
+            inputFileOption.validate();
+        }
         // Output validation will be done later with force flag check
 
         if (chunkSize <= 0) {
@@ -126,6 +153,52 @@ public class CMD_compute_sort implements Callable<Integer> {
         if (tempDir != null) {
             tempDir = tempDir.normalize();
         }
+    }
+
+    private void requireRemoteAllowed(VectorDataSpec spec, String label) {
+        if (spec == null) {
+            return;
+        }
+        if (spec.isCatalogFacet() && !allowRemote) {
+            throw new IllegalArgumentException(
+                "Catalog-backed dataset for " + label + " may require downloading large files. " +
+                    "Re-run with --allow-remote to proceed.");
+        }
+        if (spec.isRemote()) {
+            throw new IllegalArgumentException("Remote vector specs are not supported for " + label + ": " + spec);
+        }
+    }
+
+    private Path resolveInputPath(VectorDataSpec spec, String label) throws Exception {
+        if (spec == null) {
+            throw new IllegalArgumentException("Missing vector spec for " + label);
+        }
+        if (spec.isLocalFile()) {
+            Path file = spec.getLocalPath().orElseThrow();
+            if (!Files.exists(file)) {
+                throw new IllegalArgumentException("File not found for " + label + ": " + file);
+            }
+            return file.normalize();
+        }
+        if (!spec.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source for " + label + ": " + spec);
+        }
+
+        TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     /**
@@ -290,6 +363,8 @@ public class CMD_compute_sort implements Callable<Integer> {
             // Handle range specifications: inline input path range vs --range option
             RangeOption.Range effectiveRange = null;
             try {
+                this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+
                 // Input file option automatically parses inline range during picocli processing
                 String inlineRangeSpec = inputFileOption.getInlineRangeSpec();
 
@@ -309,6 +384,8 @@ public class CMD_compute_sort implements Callable<Integer> {
                 // else: effectiveRange remains null (process all vectors)
 
                 validatePaths();
+                requireRemoteAllowed(inputFileOption.getSpec(), "--input");
+                resolvedInputPath = resolveInputPath(inputFileOption.getSpec(), "--input");
             } catch (CommandLine.ParameterException | IllegalArgumentException e) {
                 logger.error(e.getMessage());
                 return EXIT_ERROR;
@@ -323,7 +400,7 @@ public class CMD_compute_sort implements Callable<Integer> {
             // Dry-run mode: show what would be done and exit
             if (dryRun) {
                 printMessage("DRY RUN MODE - no files will be modified");
-                printMessage("Input: " + inputFileOption.getInputPath());
+                printMessage("Input: " + resolvedInputPath);
                 printMessage("Output: " + outputFileOption.getOutputPath());
                 if (effectiveRange != null) {
                     printMessage("Range: " + effectiveRange.toString() + " - would sort " + effectiveRange.size() + " vectors");
@@ -357,7 +434,7 @@ public class CMD_compute_sort implements Callable<Integer> {
                 ResourceConfig resourceConfig = calculateResourceConfig();
 
                 printMessage("Starting external merge sort...");
-                printMessage("Input: " + inputFileOption.getInputPath());
+                printMessage("Input: " + resolvedInputPath);
                 printMessage("Output: " + outputPath);
                 if (effectiveRange != null) {
                     printMessage("Range: " + effectiveRange.toString() + " - sorting " + effectiveRange.size() + " vectors");
@@ -374,7 +451,7 @@ public class CMD_compute_sort implements Callable<Integer> {
                 FileType fileType = FileType.xvec;
 
                 // Determine data type from file extension
-                Path inputPath = inputFileOption.getNormalizedInputPath();
+                Path inputPath = resolvedInputPath.normalize();
                 String fileName = inputPath.getFileName().toString().toLowerCase();
                 if (fileName.endsWith(".fvec") || fileName.endsWith(".fvecs")) {
                     sortFile(ctx, fileType, float[].class, actualTempDir, resourceConfig, effectiveRange);
@@ -589,7 +666,7 @@ public class CMD_compute_sort implements Callable<Integer> {
         AtomicInteger totalVectors = new AtomicInteger(0);
 
         // Open random access reader to get file size and initialize dimensions
-        Path inputPath = inputFileOption.getNormalizedInputPath();
+        Path inputPath = resolvedInputPath.normalize();
         VectorFileArray<T> reader = VectorFileIO.randomAccess(fileType, dataClass, inputPath);
         int totalVectorsInFile = reader.size();
 

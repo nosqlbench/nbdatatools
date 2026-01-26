@@ -20,11 +20,19 @@ package io.nosqlbench.command.convert.subcommands;
 import io.nosqlbench.command.convert.ConversionProgress;
 import io.nosqlbench.command.convert.MultiFileVectorIterator;
 import io.nosqlbench.command.convert.SingleFileConverter;
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbdatatools.api.fileio.VectorStreamStore;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
 import io.nosqlbench.nbvectors.datasource.parquet.conversion.ConverterType;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -78,8 +86,27 @@ public class CMD_convert_file implements Callable<Integer> {
 
     @CommandLine.Option(names = {"-i", "--input"},
         description = "Input vector file path (supports wildcards and fvec, ivec, bvec, csv, json formats)",
-        required = true)
-    private Path inputPath;
+        required = true,
+        converter = VectorDataSpecConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class)
+    private VectorDataSpec inputSpec;
+
+    @CommandLine.Option(names = {"--allow-remote"},
+        description = "Allow catalog-backed datasets which may require downloading large files")
+    private boolean allowRemote;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
 
     @CommandLine.Option(names = {"-o", "--output"},
         description = "Output vector file path",
@@ -149,10 +176,12 @@ public class CMD_convert_file implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
+            this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+
             // Resolve input path (may contain wildcards)
-            List<Path> inputFiles = resolveWildcardPath(inputPath);
+            List<Path> inputFiles = resolveInputFiles();
             if (inputFiles.isEmpty()) {
-                logger.error("No input files found for: {}", inputPath);
+                logger.error("No input files found for: {}", inputSpec);
                 return EXIT_ERROR;
             }
 
@@ -210,7 +239,7 @@ public class CMD_convert_file implements Callable<Integer> {
                         detectedInputFormat,
                         detectedOutputFormat
                     );
-                    logger.info("Input: {} files from {}", inputFiles.size(), inputPath);
+                    logger.info("Input: {} files from {}", inputFiles.size(), inputSpec);
                     logger.info("Output: {}", outputPath);
                 }
 
@@ -251,7 +280,7 @@ public class CMD_convert_file implements Callable<Integer> {
                 inputFormat,
                 outputFormat
             );
-            logger.info("Input: Files matching {}", inputPath);
+            logger.info("Input: Files matching {}", inputSpec);
             if (Files.isDirectory(outputPath)) {
                 logger.info("Output: Files will be created in directory {}", outputPath);
             } else {
@@ -696,6 +725,46 @@ public class CMD_convert_file implements Callable<Integer> {
         // Otherwise use the parent of the input file and the output format extension
         return inputPath.getParent() != null ? inputPath.getParent().resolve(outputFileName) :
             Path.of(outputFileName);
+    }
+
+    private List<Path> resolveInputFiles() throws Exception {
+        if (inputSpec.isLocalFile()) {
+            Path path = inputSpec.getLocalPath().orElseThrow();
+            return resolveWildcardPath(path);
+        }
+
+        Path resolved = resolveInputFile(inputSpec);
+        return List.of(resolved);
+    }
+
+    private Path resolveInputFile(VectorDataSpec spec) throws Exception {
+        if (spec.isCatalogFacet() && !allowRemote) {
+            throw new IllegalArgumentException(
+                "Catalog-backed dataset '" + spec + "' may require downloading large files. " +
+                    "Re-run with --allow-remote to proceed.");
+        }
+        if (spec.isRemote()) {
+            throw new IllegalArgumentException("Remote vector specs are not supported: " + spec);
+        }
+        if (!spec.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source: " + spec);
+        }
+
+        TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     private List<Path> resolveWildcardPath(Path path) throws IOException {

@@ -25,6 +25,8 @@ import io.nosqlbench.command.common.DistancesFileOption;
 import io.nosqlbench.command.common.DistanceMetricOption;
 import io.nosqlbench.command.common.DistanceMetricOption.DistanceMetric;
 import io.nosqlbench.command.common.RangeOption;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.command.compute.KnnOptimizationProvider;
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
@@ -33,6 +35,10 @@ import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.status.StatusContext;
 import io.nosqlbench.status.StatusScope;
 import io.nosqlbench.status.StatusSinkMode;
@@ -71,7 +77,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 ///
 /// Range Specification:
 /// - Via --range option: --range 1000, --range [0,1000), or --range 0..999
-/// - Inline with base file path: -b base.fvec:1000, -b base.fvec:[0,1000), or -b base.fvec:0..999
+/// - Inline with base file path: -b base.fvec[0,1000), or -b base.fvec[0,1000]
 /// - Currently only ranges starting from 0 are supported
 @CommandLine.Command(name = "knn",
     description = "Compute k-nearest neighbors ground truth dataset from base and query vectors")
@@ -102,6 +108,25 @@ public class CMD_compute_knn implements Callable<Integer> {
 
     @CommandLine.Mixin
     private RangeOption rangeOption = new RangeOption();
+
+    @CommandLine.Option(names = {"--allow-remote"},
+        description = "Allow catalog-backed datasets which may require downloading large files")
+    private boolean allowRemote;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(
+        names = {"--dataset-cache-dir"},
+        description = "Directory for cached dataset files"
+    )
+    private Path datasetCacheDir;
 
     @CommandLine.Option(
         names = {"--cache-dir"},
@@ -159,11 +184,15 @@ public class CMD_compute_knn implements Callable<Integer> {
      * Validates the input and output paths before execution.
      */
     private void validatePaths() {
-        // Validate base vectors file exists
-        baseVectorsOption.validateBaseVectors();
+        // Validate base vectors file exists for local file specs
+        if (baseVectorsOption.getSpec().isLocalFile()) {
+            baseVectorsOption.validateBaseVectors();
+        }
 
-        // Validate query vectors file exists
-        queryVectorsOption.validateQueryVectors();
+        // Validate query vectors file exists for local file specs
+        if (queryVectorsOption.getSpec().isLocalFile()) {
+            queryVectorsOption.validateQueryVectors();
+        }
 
         // Validate indices output file
         indicesFileOption.validateIndicesOutput();
@@ -173,6 +202,52 @@ public class CMD_compute_knn implements Callable<Integer> {
 
         // Validate distances output file
         distancesFileOption.validateDistancesOutput(indicesFileOption.isForce());
+    }
+
+    private void requireRemoteAllowed(VectorDataSpec spec, String label) {
+        if (spec == null) {
+            return;
+        }
+        if (spec.isCatalogFacet() && !allowRemote) {
+            throw new IllegalArgumentException(
+                "Catalog-backed dataset for " + label + " may require downloading large files. " +
+                    "Re-run with --allow-remote to proceed.");
+        }
+        if (spec.isRemote()) {
+            throw new IllegalArgumentException("Remote vector specs are not supported for " + label + ": " + spec);
+        }
+    }
+
+    private Path resolveInputPath(VectorDataSpec spec, String label) throws Exception {
+        if (spec == null) {
+            throw new IllegalArgumentException("Missing vector spec for " + label);
+        }
+        if (spec.isLocalFile()) {
+            Path file = spec.getLocalPath().orElseThrow();
+            if (!Files.exists(file)) {
+                throw new IllegalArgumentException("File not found for " + label + ": " + file);
+            }
+            return file.normalize();
+        }
+        if (!spec.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source for " + label + ": " + spec);
+        }
+
+        TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(spec, configdir, catalogs, datasetCacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     /**
@@ -1790,9 +1865,11 @@ public class CMD_compute_knn implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
+        this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+
         // Get the paths from the new mixins
-        Path baseVectorsPath = baseVectorsOption.getBasePath();
-        Path queryVectorsPath = queryVectorsOption.getQueryPath();
+        Path baseVectorsPath = null;
+        Path queryVectorsPath = null;
 
         // Handle range specifications: inline path range vs --range option
         RangeOption.Range effectiveRange = null;
@@ -1801,6 +1878,12 @@ public class CMD_compute_knn implements Callable<Integer> {
             distancesFileOption.setIndicesPath(indicesFileOption.getNormalizedIndicesPath());
 
             validatePaths();
+
+            requireRemoteAllowed(baseVectorsOption.getSpec(), "--base");
+            requireRemoteAllowed(queryVectorsOption.getSpec(), "--query");
+
+            baseVectorsPath = resolveInputPath(baseVectorsOption.getSpec(), "--base");
+            queryVectorsPath = resolveInputPath(queryVectorsOption.getSpec(), "--query");
 
             String pathFromPathSpec = baseVectorsOption.getInlineRange();
 

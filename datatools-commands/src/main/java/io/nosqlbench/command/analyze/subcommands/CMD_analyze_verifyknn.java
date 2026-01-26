@@ -36,6 +36,8 @@ import io.nosqlbench.command.common.BaseVectorsInputFileOption;
 import io.nosqlbench.command.common.QueryVectorsInputFileOption;
 import io.nosqlbench.command.common.IndicesInputFileOption;
 import io.nosqlbench.command.common.DistancesInputFileOption;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.vectordata.discovery.DatasetLoader;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataView;
@@ -44,6 +46,10 @@ import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 import io.nosqlbench.vectordata.spec.datasets.types.IntVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -116,6 +122,23 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
   @Parameters(description = "The dataset directory or URL to load (supports dataset.yaml and remote URLs; defaults to current directory if no explicit path specified)", arity = "0..*")
   private List<Path> datasetPaths = new ArrayList<>();
 
+  @Option(names = {"--allow-remote"},
+      description = "Allow catalog-backed datasets which may require downloading large files")
+  private boolean allowRemote;
+
+  @Option(names = {"--catalog"},
+      description = "A directory, remote url, or other catalog container")
+  private List<String> catalogs = new ArrayList<>();
+
+  @Option(names = {"--configdir"},
+      description = "The directory to use for configuration files",
+      defaultValue = "~/.config/vectordata")
+  private Path configdir;
+
+  @Option(names = {"--cache-dir"},
+      description = "Directory for cached dataset files")
+  private Path cacheDir;
+
   @Option(names = {"-d", "--distance_function"},
       description = "Valid values: ${COMPLETION-CANDIDATES} (overrides dataset/metric)")
   private DistanceFunction distanceFunction;
@@ -169,6 +192,8 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
 
     int errors = 0;
     try {
+      this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+
       // Detect which mode we're in
       boolean explicitFileMode = isExplicitFileMode();
 
@@ -218,6 +243,13 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
         String.join(", ", missing));
     }
 
+    requireRemoteAllowed(baseVectorsOption.getSpec(), "--base");
+    requireRemoteAllowed(queryVectorsOption.getSpec(), "--query");
+    requireRemoteAllowed(indicesOption.getSpec(), "--indices");
+    if (distancesOption.isSpecified()) {
+      requireRemoteAllowed(distancesOption.getSpec(), "--distances");
+    }
+
     // Validate files exist
     baseVectorsOption.validateBaseVectors();
     queryVectorsOption.validateQueryVectors();
@@ -236,9 +268,9 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
     int errors = 0;
 
     // Load vectors from files using the existing XvecImpl classes with MAFileChannel
-    Path basePath = baseVectorsOption.getNormalizedBasePath();
-    Path queryPath = queryVectorsOption.getNormalizedQueryPath();
-    Path indicesPath = indicesOption.getNormalizedIndicesPath();
+    Path basePath = resolveInputPath(baseVectorsOption.getSpec(), "--base");
+    Path queryPath = resolveInputPath(queryVectorsOption.getSpec(), "--query");
+    Path indicesPath = resolveInputPath(indicesOption.getSpec(), "--indices");
 
     String baseRange = baseVectorsOption.getInlineRange();
     String queryRange = queryVectorsOption.getInlineRange();
@@ -309,6 +341,52 @@ public class CMD_analyze_verifyknn implements Callable<Integer> {
     }
 
     return errors;
+  }
+
+  private void requireRemoteAllowed(VectorDataSpec spec, String label) {
+    if (spec == null) {
+      return;
+    }
+    if (spec.isCatalogFacet() && !allowRemote) {
+      throw new IllegalArgumentException(
+        "Catalog-backed dataset for " + label + " may require downloading large files. " +
+            "Re-run with --allow-remote to proceed.");
+    }
+    if (spec.isRemote()) {
+      throw new IllegalArgumentException("Remote vector specs are not supported for " + label + ": " + spec);
+    }
+  }
+
+  private Path resolveInputPath(VectorDataSpec spec, String label) throws Exception {
+    if (spec == null) {
+      throw new IllegalArgumentException("Missing vector spec for " + label);
+    }
+    if (spec.isLocalFile()) {
+      Path file = spec.getLocalPath().orElseThrow();
+      if (!Files.exists(file)) {
+        throw new IllegalArgumentException("File not found for " + label + ": " + file);
+      }
+      return file.normalize();
+    }
+    if (!spec.isFacet()) {
+      throw new IllegalArgumentException("Unsupported vector data source for " + label + ": " + spec);
+    }
+
+    TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+    DatasetView<?> view = VectorDataSpecSupport
+      .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+      .orElseThrow(() -> new IllegalArgumentException(
+        "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+    if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+      throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+    }
+    if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+      throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+    }
+
+    view.prebuffer().get();
+    return cacheAccessor.getCacheFilePath();
   }
 
   /**

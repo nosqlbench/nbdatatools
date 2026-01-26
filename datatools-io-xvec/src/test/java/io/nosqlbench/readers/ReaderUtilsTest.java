@@ -24,8 +24,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -86,6 +88,20 @@ class ReaderUtilsTest {
     assertTrue(result.isBigEndianValid(), "Big-endian interpretation should be valid");
     assertTrue(result.isEndianMismatch(), "File should be flagged as endian mismatch");
     assertEquals(1, result.getBigEndianVectorCount(), "Vector count should match produced payload");
+  }
+
+  @Test
+  void detectsStandardLittleEndianLayoutWithAsyncChannel() throws IOException {
+    Path file = writeXvec(tempDir.resolve("little-async.fvec"), ByteOrder.LITTLE_ENDIAN, 4, 4);
+
+    try (AsynchronousFileChannel channel = AsynchronousFileChannel.open(file, StandardOpenOption.READ)) {
+      ReaderUtils.EndianCheckResult result = ReaderUtils.checkXvecEndianness(channel, file.toString(), 4);
+
+      assertTrue(result.isLittleEndianValid(), "Little-endian interpretation should be valid");
+      assertFalse(result.isEndianMismatch(), "File should not be flagged as endian mismatch");
+      assertEquals(4, result.getLittleEndianDimension(), "Dimension should match written value");
+      assertEquals(1, result.getLittleEndianVectorCount(), "Vector count should match written value");
+    }
   }
 
   private Path writeXvec(Path file, ByteOrder headerOrder, int dimension, int elementWidth) throws IOException {

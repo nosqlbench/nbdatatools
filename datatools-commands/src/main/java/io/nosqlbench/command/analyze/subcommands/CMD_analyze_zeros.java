@@ -17,9 +17,17 @@ package io.nosqlbench.command.analyze.subcommands;
  * under the License.
  */
 
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -44,8 +52,27 @@ import java.util.concurrent.Callable;
 public class CMD_analyze_zeros implements Callable<Integer> {
     private static final Logger logger = LogManager.getLogger(CMD_analyze_zeros.class);
 
-    @CommandLine.Parameters(description = "Files to count zero vectors in", arity = "1..*")
-    private List<Path> files = new ArrayList<>();
+    @CommandLine.Parameters(description = "Vector data sources to count zero vectors in", arity = "1..*",
+        converter = VectorDataSpecConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class)
+    private List<VectorDataSpec> vectors = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--allow-remote"},
+        description = "Allow catalog-backed datasets which may require downloading large files")
+    private boolean allowRemote;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
 
     /// Execute the command to count zero vectors in the specified files
     /// 
@@ -53,15 +80,13 @@ public class CMD_analyze_zeros implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            int totalFiles = files.size();
+            this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+            int totalFiles = vectors.size();
             int currentFileIndex = 0;
 
-            for (Path file : files) {
+            for (VectorDataSpec spec : vectors) {
                 currentFileIndex++;
-                if (!Files.exists(file)) {
-                    logger.error("File not found: {}", file);
-                    continue;
-                }
+                Path file = resolveInputFile(spec);
 
                 String fileExtension = getFileExtension(file);
                 long zeroVectors = 0;
@@ -110,6 +135,40 @@ public class CMD_analyze_zeros implements Callable<Integer> {
             logger.error("Error processing files", e);
             return 1;
         }
+    }
+
+    private Path resolveInputFile(VectorDataSpec spec) throws Exception {
+        if (spec.isLocalFile()) {
+            Path file = spec.getLocalPath().orElseThrow();
+            if (!Files.exists(file)) {
+                throw new IllegalArgumentException("File not found: " + file);
+            }
+            return file;
+        }
+        if (spec.isCatalogFacet() && !allowRemote) {
+            throw new IllegalArgumentException(
+                "Catalog-backed dataset '" + spec + "' may require downloading large files. " +
+                    "Re-run with --allow-remote to proceed.");
+        }
+        if (!spec.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source: " + spec);
+        }
+
+        TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     /// Get the file extension from a path

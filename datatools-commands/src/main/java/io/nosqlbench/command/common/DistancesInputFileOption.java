@@ -19,6 +19,8 @@ package io.nosqlbench.command.common;
 import picocli.CommandLine;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.util.Optional;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 
 /**
  * Mixin for distances input file option.
@@ -28,24 +30,26 @@ public class DistancesInputFileOption {
 
     @CommandLine.Option(
         names = {"--distances"},
-        description = "Input file path for neighbor distances (optional, for distance verification)"
+        description = "Neighbor distances spec (optional)",
+        converter = DistancesConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class
     )
-    private Path distancesPath;
+    private Distances distances;
 
     /**
      * Gets the distances file path
      * @return The distances file path, or null if not specified
      */
-    public Path getDistancesPath() {
-        return distancesPath;
+    public VectorDataSpec getSpec() {
+        return distances != null ? distances.spec() : null;
     }
 
     /**
      * Gets the normalized distances file path
      * @return The normalized path to the distances file, or null if not specified
      */
-    public Path getNormalizedDistancesPath() {
-        return distancesPath != null ? distancesPath.normalize() : null;
+    public Optional<Path> getLocalPath() {
+        return distances != null ? distances.spec().getLocalPath() : Optional.empty();
     }
 
     /**
@@ -53,7 +57,7 @@ public class DistancesInputFileOption {
      * @return true if specified, false otherwise
      */
     public boolean isSpecified() {
-        return distancesPath != null;
+        return distances != null;
     }
 
     /**
@@ -61,13 +65,61 @@ public class DistancesInputFileOption {
      * @throws IllegalArgumentException if the file doesn't exist
      */
     public void validateDistancesInput() {
-        if (distancesPath != null && !Files.exists(distancesPath)) {
-            throw new IllegalArgumentException("Distances input file does not exist: " + distancesPath);
+        if (distances != null && distances.spec().isLocalFile()) {
+            Path path = distances.spec().getLocalPath().orElseThrow();
+            if (!Files.exists(path)) {
+                throw new IllegalArgumentException("Distances input file does not exist: " + path);
+            }
         }
     }
 
     @Override
     public String toString() {
-        return "DistancesInputFileOption{distancesPath=" + distancesPath + "}";
+        return "DistancesInputFileOption{distances=" + distances + "}";
+    }
+
+    /**
+     * Record representing distances file configuration
+     */
+    public record Distances(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
+        public Distances {
+            if (spec == null) {
+                throw new IllegalArgumentException("Distances spec cannot be null");
+            }
+        }
+
+        @Override
+        public String toString() {
+            return rangeSpec != null && !rangeSpec.isEmpty()
+                ? spec + rangeSpec
+                : spec.toString();
+        }
+    }
+
+    /**
+     * Custom converter for parsing distances file specification
+     */
+    public static class DistancesConverter implements CommandLine.ITypeConverter<Distances> {
+        @Override
+        public Distances convert(String value) throws Exception {
+            if (value == null || value.isEmpty()) {
+                throw new CommandLine.TypeConversionException("Distances file path cannot be empty");
+            }
+
+            VectorDataSpecParser.Parsed parsed = VectorDataSpecParser.parse(value);
+            VectorDataSpec spec = parsed.spec();
+            if (spec.isFacet()) {
+                TestDataKind kind = spec.getFacetKind().orElseThrow();
+                if (kind != TestDataKind.neighbor_distances) {
+                    throw new CommandLine.TypeConversionException(
+                        "Distances spec must use facet 'neighbor_distances', got: " + kind.name());
+                }
+            }
+            if (spec.isRemote()) {
+                throw new CommandLine.TypeConversionException(
+                    "Remote vector specs are not supported for --distances: " + spec);
+            }
+            return new Distances(spec, parsed.range(), parsed.rangeSpec());
+        }
     }
 }

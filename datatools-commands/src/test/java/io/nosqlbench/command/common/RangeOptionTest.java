@@ -180,6 +180,34 @@ class RangeOptionTest {
         }
 
         @ParameterizedTest
+        @CsvSource({
+            "'[10,20]', 10, 21",
+            "'(10,20]', 11, 21",
+            "'(10,20)', 11, 20"
+        })
+        @DisplayName("should parse bracket variants with open/closed bounds")
+        void shouldParseBracketVariants(String input, long expectedStart, long expectedEnd) {
+            RangeOption.Range range = converter.convert(input);
+
+            assertThat(range.start()).isEqualTo(expectedStart);
+            assertThat(range.end()).isEqualTo(expectedEnd);
+        }
+
+        @ParameterizedTest
+        @CsvSource({
+            "'[0]', 0, 1",
+            "'[5]', 5, 6",
+            "'[100]', 100, 101"
+        })
+        @DisplayName("should parse single index '[n]' as [n, n+1)")
+        void shouldParseSingleIndex(String input, long expectedStart, long expectedEnd) {
+            RangeOption.Range range = converter.convert(input);
+
+            assertThat(range.start()).isEqualTo(expectedStart);
+            assertThat(range.end()).isEqualTo(expectedEnd);
+        }
+
+        @ParameterizedTest
         @ValueSource(strings = {"", "   ", "\t"})
         @DisplayName("should reject empty or whitespace input")
         void shouldRejectEmptyInput(String input) {
@@ -203,6 +231,15 @@ class RangeOptionTest {
             assertThatThrownBy(() -> converter.convert(input))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid range format");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"(10)", "[10)", "(10]"})
+        @DisplayName("should reject single-value ranges without [n] syntax")
+        void shouldRejectSingleValueNonBracketed(String input) {
+            assertThatThrownBy(() -> converter.convert(input))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Single-value range must be specified as [n]");
         }
     }
 

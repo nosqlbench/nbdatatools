@@ -18,10 +18,18 @@ package io.nosqlbench.command.analyze.subcommands;
  */
 
 import io.nosqlbench.common.types.VectorFileExtension;
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.nbdatatools.api.fileio.BoundedVectorFileStream;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -53,11 +61,17 @@ public class CMD_analyze_find implements Callable<Integer> {
     private static final int ORDER_CHECK_SIZE = 100;
     private static final int TOP_MATCHES = 10;
 
-    @CommandLine.Option(names = {"-s", "--source"}, description = "Source file containing the vector to find", required = true)
-    private Path sourceFile;
+    @CommandLine.Option(names = {"-s", "--source"}, description = "Source data containing the vector to find",
+        required = true,
+        converter = VectorDataSpecConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class)
+    private VectorDataSpec sourceVectors;
 
-    @CommandLine.Option(names = {"-t", "--target"}, description = "Target file to search in", required = true)
-    private Path targetFile;
+    @CommandLine.Option(names = {"-t", "--target"}, description = "Target data to search in",
+        required = true,
+        converter = VectorDataSpecConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class)
+    private VectorDataSpec targetVectors;
 
     @CommandLine.Option(names = {"-i", "--index"}, description = "Zero-based index of vector in source file", required = true)
     private int vectorIndex;
@@ -65,21 +79,30 @@ public class CMD_analyze_find implements Callable<Integer> {
     @CommandLine.Option(names = {"--progress"}, description = "Show progress updates (default: auto-detect)")
     private Boolean showProgress;
 
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
+
     private volatile long vectorsScanned = 0;
     private volatile long totalVectors = 0;
+    private Path sourceFile;
+    private Path targetFile;
 
     @Override
     public Integer call() throws Exception {
         try {
-            // Validate files exist
-            if (!Files.exists(sourceFile)) {
-                System.err.println("Error: Source file not found: " + sourceFile);
-                return EXIT_ERROR;
-            }
-            if (!Files.exists(targetFile)) {
-                System.err.println("Error: Target file not found: " + targetFile);
-                return EXIT_ERROR;
-            }
+            this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+            sourceFile = resolveInputFile(sourceVectors, "source");
+            targetFile = resolveInputFile(targetVectors, "target");
 
             // Detect file types
             VectorFileExtension sourceExt = getVectorFileExtension(sourceFile);
@@ -116,6 +139,35 @@ public class CMD_analyze_find implements Callable<Integer> {
             logger.error("Error during find operation", e);
             return EXIT_ERROR;
         }
+    }
+
+    private Path resolveInputFile(VectorDataSpec spec, String label) throws Exception {
+        if (spec.isLocalFile()) {
+            Path file = spec.getLocalPath().orElseThrow();
+            if (!Files.exists(file)) {
+                throw new IllegalArgumentException("File not found for " + label + ": " + file);
+            }
+            return file;
+        }
+        if (!spec.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source for " + label + ": " + spec);
+        }
+
+        TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     private <T> int findVector(FileType sourceType, FileType targetType, Class<T> dataClass) throws IOException {

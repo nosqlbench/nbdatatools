@@ -17,6 +17,14 @@ package io.nosqlbench.command.info.subcommands;
  * under the License.
  */
 
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecConverter;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -30,6 +38,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 
 /// Show metadata and structure of a vector file.
@@ -84,10 +94,25 @@ public class CMD_info_file implements Callable<Integer> {
 
     @CommandLine.Option(
         names = {"--input", "-i"},
-        description = "Path to the vector file",
-        required = true
+        description = "Vector data source",
+        required = true,
+        converter = VectorDataSpecConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class
     )
-    private Path inputPath;
+    private VectorDataSpec vectors;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
 
     @CommandLine.Option(
         names = {"--sample", "-s"},
@@ -101,13 +126,13 @@ public class CMD_info_file implements Callable<Integer> {
     )
     private boolean showHex = false;
 
+    private Path inputPath;
+
     @Override
     public Integer call() {
         try {
-            if (!Files.exists(inputPath)) {
-                System.err.println("Error: File not found: " + inputPath);
-                return 1;
-            }
+            this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+            inputPath = resolveInputFile();
 
             String fileName = inputPath.getFileName().toString().toLowerCase();
             String extension = getExtension(fileName);
@@ -139,6 +164,35 @@ public class CMD_info_file implements Callable<Integer> {
             System.err.println("Error: " + e.getMessage());
             return 1;
         }
+    }
+
+    private Path resolveInputFile() throws Exception {
+        if (vectors.isLocalFile()) {
+            Path file = vectors.getLocalPath().orElseThrow();
+            if (!Files.exists(file)) {
+                throw new IllegalArgumentException("File not found: " + file);
+            }
+            return file;
+        }
+        if (!vectors.isFacet()) {
+            throw new IllegalArgumentException("Unsupported vector data source: " + vectors);
+        }
+
+        TestDataKind facetKind = vectors.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(vectors, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + vectors));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        view.prebuffer().get();
+        return cacheAccessor.getCacheFilePath();
     }
 
     private void printFileInfo(long fileSize, Instant lastModified, String extension, VectorFileInfo info) {

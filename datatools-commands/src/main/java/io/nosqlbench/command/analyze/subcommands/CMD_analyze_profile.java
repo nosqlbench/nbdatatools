@@ -19,6 +19,9 @@ package io.nosqlbench.command.analyze.subcommands;
 
 import io.nosqlbench.command.analyze.VectorLoadingProvider;
 import io.nosqlbench.command.common.BaseVectorsFileOption;
+import io.nosqlbench.command.common.VectorDataCompletionCandidates;
+import io.nosqlbench.command.common.VectorDataSpec;
+import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.command.common.RangeOption;
 import io.nosqlbench.command.compute.VectorNormalizationDetector;
 import io.nosqlbench.common.types.VectorFileExtension;
@@ -73,6 +76,10 @@ import io.nosqlbench.vshapes.stream.TransposedChunkDataSource;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
+import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -80,6 +87,8 @@ import picocli.CommandLine;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -148,9 +157,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>The input file supports inline range specification for processing a subset of vectors:
  * <ul>
  *   <li><b>file.fvec</b>: Process all vectors in the file</li>
- *   <li><b>file.fvec:1000</b>: Process the first 1000 vectors (indices 0-999)</li>
- *   <li><b>file.fvec:[100,500)</b>: Process vectors 100-499 (half-open interval)</li>
- *   <li><b>file.fvec:100..499</b>: Process vectors 100-499 (inclusive)</li>
+ *   <li><b>file.fvec[0,1000)</b>: Process the first 1000 vectors (indices 0-999)</li>
+ *   <li><b>file.fvec[100,500)</b>: Process vectors 100-499 (half-open interval)</li>
+ *   <li><b>file.fvec[100,500]</b>: Process vectors 100-500 (inclusive)</li>
  * </ul>
  *
  * <h2>Usage Examples</h2>
@@ -168,10 +177,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * nbvectors analyze profile -b large_vectors.fvec -o model.json --memory-budget 0.4
  *
  * # Profile only the first 10000 vectors
- * nbvectors analyze profile -b base_vectors.fvec:10000 -o model.json
+ * nbvectors analyze profile -b base_vectors.fvec[0,10000) -o model.json
  *
  * # Profile a specific range of vectors
- * nbvectors analyze profile -b base_vectors.fvec:[5000,15000) -o model.json
+ * nbvectors analyze profile -b base_vectors.fvec[5000,15000) -o model.json
  *
  * # Force Normal distribution with truncation bounds
  * nbvectors analyze profile -b base_vectors.fvec -o model.json --model-type normal --truncated
@@ -236,11 +245,25 @@ public class CMD_analyze_profile implements Callable<Integer> {
     /// Not required when --from-model is used (auto-generated as bridge_<epoch>.fvec).
     @CommandLine.Option(
         names = {"-b", "--base"},
-        description = "Base vectors file path (supports inline range e.g., file.fvec:1000). " +
+        description = "Base vectors file path (supports inline range e.g., file.fvec[0,1000)). " +
             "Auto-generated as bridge_<epoch>.fvec when using --from-model if not specified.",
-        converter = BaseVectorsFileOption.BaseVectorsConverter.class
+        converter = BaseVectorsFileOption.BaseVectorsConverter.class,
+        completionCandidates = VectorDataCompletionCandidates.class
     )
     private BaseVectorsFileOption.BaseVectors baseVectors;
+
+    @CommandLine.Option(names = {"--catalog"},
+        description = "A directory, remote url, or other catalog container")
+    private List<String> catalogs = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--configdir"},
+        description = "The directory to use for configuration files",
+        defaultValue = "~/.config/vectordata")
+    private Path configdir;
+
+    @CommandLine.Option(names = {"--cache-dir"},
+        description = "Directory for cached dataset files")
+    private Path cacheDir;
 
     /// Output JSON file for VectorSpaceModel config.
     /// Not required when --from-model is used (auto-generated as model_<epoch>.json).
@@ -434,9 +457,12 @@ public class CMD_analyze_profile implements Callable<Integer> {
 
     /// Detected or assumed normalization status. Set during call().
     private Boolean detectedNormalized = null;
+    private String sourceLabel = "extracted";
 
     @Override
     public Integer call() {
+        this.configdir = VectorDataSpecSupport.expandPath(this.configdir);
+
         // Set up output logging if requested
         TeeOutputStream.OutputCapture outputCapture = null;
         if (logOutputDir != null) {
@@ -521,21 +547,17 @@ public class CMD_analyze_profile implements Callable<Integer> {
                     System.err.println("Error: --output file is required (or use --from-model for auto-generation)");
                     return 1;
                 }
-                // Validate base vectors file exists
-                if (!java.nio.file.Files.exists(baseVectors.path())) {
+                // Validate base vectors file exists for local file specs
+                if (baseVectors.spec().isLocalFile() && !java.nio.file.Files.exists(baseVectors.path())) {
                     System.err.println("Error: Base vectors file does not exist: " + baseVectors.path());
                     return 1;
                 }
             }
 
-            Path inputFile = baseVectors.path();
+            Path inputFile = resolveInputFile(baseVectors);
 
             // Parse inline range if specified
-            RangeOption.Range inlineRange = null;
-            if (baseVectors.rangeSpec() != null && !baseVectors.rangeSpec().isEmpty()) {
-                RangeOption.RangeConverter converter = new RangeOption.RangeConverter();
-                inlineRange = converter.convert(baseVectors.rangeSpec());
-            }
+            RangeOption.Range inlineRange = baseVectors.range();
 
             String fileExtension = getFileExtension(inputFile);
             VectorFileExtension vectorFileExtension = VectorFileExtension.fromExtension(fileExtension);
@@ -693,6 +715,42 @@ public class CMD_analyze_profile implements Callable<Integer> {
         String fileName = file.getFileName().toString();
         int lastDotIndex = fileName.lastIndexOf('.');
         return lastDotIndex > 0 ? fileName.substring(lastDotIndex + 1) : "";
+    }
+
+    private Path resolveInputFile(BaseVectorsFileOption.BaseVectors baseVectors) throws Exception {
+        VectorDataSpec spec = baseVectors.spec();
+        if (spec.isLocalFile()) {
+            Path inputFile = spec.getLocalPath().orElseThrow();
+            sourceLabel = inputFile.getFileName().toString();
+            return inputFile;
+        }
+        if (!spec.isFacet()) {
+            throw new IllegalArgumentException("Unsupported base vectors spec: " + spec);
+        }
+
+        TestDataKind facetKind = spec.getFacetKind().orElseThrow();
+        DatasetView<?> view = VectorDataSpecSupport
+            .resolveDatasetView(spec, configdir, catalogs, cacheDir)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Facet '" + facetKind.name() + "' is not available for " + spec));
+
+        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+            throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
+        }
+
+        if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {
+            throw new IllegalStateException("Facet '" + facetKind.name() + "' does not expose a cache file path.");
+        }
+
+        try {
+            view.prebuffer().get();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to prebuffer dataset for " + spec + ": " + e.getMessage(), e);
+        }
+
+        Path inputFile = cacheAccessor.getCacheFilePath();
+        sourceLabel = inputFile.getFileName().toString();
+        return inputFile;
     }
 
     /**
@@ -2681,7 +2739,7 @@ public class CMD_analyze_profile implements Callable<Integer> {
         for (int i = 0; i < comparisons.size() && i < maxPlots; i++) {
             DimensionComparison c = comparisons.get(i);
             ScalarModel model = c.extracted;  // Use extracted model for plotting
-            String source = baseVectors != null ? baseVectors.path().getFileName().toString() : "extracted";
+            String source = sourceLabel;
 
             System.out.println();
             System.out.printf("Dimension %d:%n", c.dimension);

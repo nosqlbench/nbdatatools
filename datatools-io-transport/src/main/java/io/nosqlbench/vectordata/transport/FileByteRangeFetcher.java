@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -169,22 +170,12 @@ public class FileByteRangeFetcher implements ChunkedTransportClient {
         
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Open a new FileChannel for this streaming operation
-                // Each streaming result gets its own channel to avoid interference
-                FileChannel channel = FileChannel.open(filePath, StandardOpenOption.READ);
-                
-                // Position the channel at the requested offset
-                channel.position(offset);
-                
-                // Create a limited channel that only reads up to actualLength
-                ReadableByteChannel limitedChannel = new LimitedReadableByteChannel(channel, actualLength);
-                
-                return new FileStreamingFetchResult(channel, limitedChannel, offset, length, 
-                                                  actualLength, getSource());
-                
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to create streaming channel for range [" + 
-                                         offset + "-" + (offset + length - 1) + "]", e);
+                ReadableByteChannel baseChannel = new AsyncReadableByteChannel(asyncChannel, offset);
+                ReadableByteChannel limitedChannel = new LimitedReadableByteChannel(baseChannel, actualLength);
+                return new AsyncStreamingFetchResult(limitedChannel, offset, length, actualLength, getSource());
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to create streaming channel for range [" +
+                    offset + "-" + (offset + length - 1) + "]", e);
             }
         });
     }
@@ -277,6 +268,108 @@ public class FileByteRangeFetcher implements ChunkedTransportClient {
     private void validateNotClosed() throws IOException {
         if (closed.get()) {
             throw new IOException("FileByteRangeFetcher has been closed");
+        }
+    }
+
+    private static final class AsyncStreamingFetchResult implements StreamingFetchResult {
+        private final ReadableByteChannel limitedChannel;
+        private final long offset;
+        private final long requestedLength;
+        private final long actualLength;
+        private final String source;
+        private volatile boolean closed = false;
+
+        private AsyncStreamingFetchResult(ReadableByteChannel limitedChannel, long offset,
+                                          long requestedLength, long actualLength, String source) {
+            this.limitedChannel = limitedChannel;
+            this.offset = offset;
+            this.requestedLength = requestedLength;
+            this.actualLength = actualLength;
+            this.source = source;
+        }
+
+        @Override
+        public ReadableByteChannel getDataChannel() {
+            if (closed) {
+                throw new IllegalStateException("StreamingFetchResult has been closed");
+            }
+            return limitedChannel;
+        }
+
+        @Override
+        public long getOffset() {
+            return offset;
+        }
+
+        @Override
+        public long getRequestedLength() {
+            return requestedLength;
+        }
+
+        @Override
+        public long getActualLength() {
+            return actualLength;
+        }
+
+        @Override
+        public boolean isSuccessful() {
+            return !closed;
+        }
+
+        @Override
+        public String getSource() {
+            return source;
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (!closed) {
+                closed = true;
+                limitedChannel.close();
+            }
+        }
+    }
+
+    private static final class AsyncReadableByteChannel implements ReadableByteChannel {
+        private final AsynchronousFileChannel channel;
+        private long position;
+        private volatile boolean open = true;
+
+        private AsyncReadableByteChannel(AsynchronousFileChannel channel, long position) {
+            this.channel = channel;
+            this.position = position;
+        }
+
+        @Override
+        public int read(ByteBuffer dst) throws IOException {
+            if (!open) {
+                throw new IOException("Channel is closed");
+            }
+            if (!dst.hasRemaining()) {
+                return 0;
+            }
+            try {
+                int bytesRead = channel.read(dst, position).get();
+                if (bytesRead > 0) {
+                    position += bytesRead;
+                }
+                return bytesRead;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted while reading from async channel", e);
+            } catch (ExecutionException e) {
+                throw new IOException("Failed to read from async channel", e.getCause());
+            }
+        }
+
+        @Override
+        public boolean isOpen() {
+            return open && channel.isOpen();
+        }
+
+        @Override
+        public void close() throws IOException {
+            open = false;
         }
     }
 }
