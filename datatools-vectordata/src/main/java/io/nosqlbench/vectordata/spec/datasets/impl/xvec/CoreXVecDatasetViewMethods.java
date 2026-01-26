@@ -97,11 +97,19 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
 
   @Override
   public CompletableFuture<Void> prebuffer(long startIncl, long endExcl) {
-    if (channel instanceof Prebufferable<?>) {
-      return ((Prebufferable<?>)channel).prebuffer(startIncl, endExcl);
-    } else {
+    if (startIncl >= endExcl) {
       return CompletableFuture.completedFuture(null);
     }
+    if (channel instanceof MAFileChannel) {
+      long length = endExcl - startIncl;
+      return ((MAFileChannel) channel).prebuffer(startIncl, length);
+    }
+    if (channel instanceof Prebufferable<?>) {
+      @SuppressWarnings("unchecked")
+      Prebufferable<T> prebufferable = (Prebufferable<T>) channel;
+      return prebufferable.prebuffer(startIncl, endExcl);
+    }
+    return CompletableFuture.completedFuture(null);
   }
 
   @Override
@@ -126,11 +134,19 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
         }
       }
 
-      if (this.channel instanceof Prebufferable<?>) {
-        return ((Prebufferable<?>)channel).prebuffer(minStart, maxEnd);
-      } else {
+      if (minStart >= maxEnd) {
         return CompletableFuture.completedFuture(null);
       }
+      if (this.channel instanceof MAFileChannel) {
+        long length = maxEnd - minStart;
+        return ((MAFileChannel) this.channel).prebuffer(minStart, length);
+      }
+      if (this.channel instanceof Prebufferable<?>) {
+        @SuppressWarnings("unchecked")
+        Prebufferable<T> prebufferable = (Prebufferable<T>) this.channel;
+        return prebufferable.prebuffer(minStart, maxEnd);
+      }
+      return CompletableFuture.completedFuture(null);
     } catch (IOException e) {
       CompletableFuture<Void> failed = new CompletableFuture<>();
       failed.completeExceptionally(e);

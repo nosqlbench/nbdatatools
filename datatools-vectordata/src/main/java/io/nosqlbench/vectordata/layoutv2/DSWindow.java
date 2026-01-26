@@ -52,16 +52,79 @@ public class DSWindow extends ArrayList<DSInterval> {
   /// @param data The list of data maps to create the window from
   /// @return A new DSWindow instance
   public static DSWindow fromData(Object data) {
-    DSWindow window = new DSWindow();
     List<DSInterval> intervals = new ArrayList<>();
-    if (data==null) {
+    if (data == null) {
       return ALL;
-    } else if (data instanceof Map) {
+    } else if (data instanceof DSWindow) {
+      return (DSWindow) data;
+    } else if (data instanceof CharSequence) {
+      String spec = data.toString().trim();
+      if (spec.isEmpty()) {
+        return ALL;
+      }
+      try {
+        DSInterval interval = DSInterval.parse(spec);
+        intervals.add(interval);
+        return new DSWindow(intervals);
+      } catch (RuntimeException ignored) {
+        // fall through to multi-interval parsing
+      }
+
+      String innerSpec = spec;
+      if ((innerSpec.startsWith("[") || innerSpec.startsWith("(")) &&
+          (innerSpec.endsWith("]") || innerSpec.endsWith(")"))) {
+        innerSpec = innerSpec.substring(1, innerSpec.length() - 1).trim();
+      }
+
+      List<String> parts = splitTopLevel(innerSpec);
+      for (String part : parts) {
+        String trimmed = part.trim();
+        if (!trimmed.isEmpty()) {
+          intervals.add(DSInterval.parse(trimmed));
+        }
+      }
+      if (intervals.isEmpty()) {
+        throw new RuntimeException("invalid window format:" + data);
+      }
+      return new DSWindow(intervals);
+    } else if (data instanceof Number) {
+      long end = ((Number) data).longValue();
+      intervals.add(new DSInterval(0, end));
+      return new DSWindow(intervals);
+    } else if (data instanceof Map<?, ?>) {
+      Map<?, ?> map = (Map<?, ?>) data;
+      if (map.containsKey("intervals")) {
+        return fromData(map.get("intervals"));
+      }
       intervals.add(DSInterval.fromData(data));
+      return new DSWindow(intervals);
     } else if (data instanceof List<?>) {
       List<?> intervalObjs = (List<?>) data;
       intervals = intervalObjs.stream().map(DSInterval::fromData).collect(java.util.stream.Collectors.toList());
+      return new DSWindow(intervals);
     }
-    return new DSWindow(intervals);
+    throw new RuntimeException("invalid window format:" + data);
+  }
+
+  private static List<String> splitTopLevel(String spec) {
+    List<String> parts = new ArrayList<>();
+    StringBuilder current = new StringBuilder();
+    int depth = 0;
+    for (int i = 0; i < spec.length(); i++) {
+      char c = spec.charAt(i);
+      if (c == '[' || c == '(') {
+        depth++;
+      } else if (c == ']' || c == ')') {
+        depth = Math.max(0, depth - 1);
+      }
+      if (c == ',' && depth == 0) {
+        parts.add(current.toString());
+        current.setLength(0);
+        continue;
+      }
+      current.append(c);
+    }
+    parts.add(current.toString());
+    return parts;
   }
 }

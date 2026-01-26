@@ -50,7 +50,7 @@ public final class DatasetProfileSpec {
   }
 
   /// Parse the provided specification into dataset and optional profile parts.
-  /// Supports escaping the ':' delimiter with a backslash. Leading and trailing
+  /// Supports escaping the ':' or '.' delimiter with a backslash. Leading and trailing
   /// whitespace around each component is trimmed.
   ///
   /// @param spec The raw dataset or dataset:profile string
@@ -85,9 +85,13 @@ public final class DatasetProfileSpec {
         escaping = true;
         continue;
       }
-      if (ch == ':' && profileBuilder == null) {
+      if ((ch == ':' || ch == '.') && profileBuilder == null) {
         profileBuilder = new StringBuilder();
         continue;
+      }
+      if ((ch == ':' || ch == '.') && profileBuilder != null) {
+        throw new IllegalArgumentException(
+            "dataset spec must contain only one separator. Use dataset.profile.facet when specifying a facet: '" + spec + "'");
       }
       if (profileBuilder == null) {
         datasetBuilder.append(ch);
@@ -104,6 +108,9 @@ public final class DatasetProfileSpec {
     if (dataset.isEmpty()) {
       throw new IllegalArgumentException("dataset component must not be empty in spec '" + spec + "'");
     }
+    if (dataset.contains(".")) {
+      throw new IllegalArgumentException("dataset names must not contain '.', got: '" + dataset + "'");
+    }
 
     String profile = profileBuilder != null ? profileBuilder.toString().trim() : null;
     if (profile != null && profile.isEmpty()) {
@@ -117,6 +124,9 @@ public final class DatasetProfileSpec {
   public static DatasetProfileSpec of(String dataset, String profile) {
     if (dataset == null || dataset.trim().isEmpty()) {
       throw new IllegalArgumentException("dataset must not be null or empty");
+    }
+    if (dataset.contains(".")) {
+      throw new IllegalArgumentException("dataset names must not contain '.', got: '" + dataset + "'");
     }
     return new DatasetProfileSpec(dataset.trim(), profile != null ? profile.trim() : null);
   }
@@ -143,6 +153,6 @@ public final class DatasetProfileSpec {
     if (!hasProfile()) {
       return dataset;
     }
-    return dataset + ":" + profile;
+    return dataset + "." + profile;
   }
 }

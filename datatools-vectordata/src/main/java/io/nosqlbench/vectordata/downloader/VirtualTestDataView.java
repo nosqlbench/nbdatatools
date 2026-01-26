@@ -34,10 +34,12 @@ import io.nosqlbench.vectordata.spec.tokens.SpecToken;
 import io.nosqlbench.vectordata.spec.tokens.Templatizer;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
 import io.nosqlbench.vectordata.layoutv2.DSView;
+import io.nosqlbench.vectordata.layoutv2.DSWindow;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
@@ -114,8 +116,9 @@ public class VirtualTestDataView implements TestDataView {
       URL sourceUrl = resolveSourceUrl(dsView);
       Path contentPath = resolveContentPath(dsView);
       MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      DSWindow window = resolveWindow(dsView);
       BaseVectorsXvecImpl newview = new BaseVectorsXvecImpl(
-          channel, channel.size(), dsView.getWindow(), extractExtension(sourceUrl));
+          channel, channel.size(), window, extractExtension(sourceUrl));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -185,8 +188,9 @@ public class VirtualTestDataView implements TestDataView {
       URL sourceUrl = resolveSourceUrl(dsView);
       Path contentPath = resolveContentPath(dsView);
       MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      DSWindow window = resolveWindow(dsView);
       QueryVectorsXvecImpl newview = new QueryVectorsXvecImpl(
-          channel, channel.size(), dsView.getWindow(), extractExtension(sourceUrl));
+          channel, channel.size(), window, extractExtension(sourceUrl));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -211,8 +215,9 @@ public class VirtualTestDataView implements TestDataView {
       URL sourceUrl = resolveSourceUrl(dsView);
       Path contentPath = resolveContentPath(dsView);
       MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      DSWindow window = resolveWindow(dsView);
       NeighborIndicesXvecImpl newview = new NeighborIndicesXvecImpl(
-          channel, channel.size(), dsView.getWindow(), extractExtension(sourceUrl));
+          channel, channel.size(), window, extractExtension(sourceUrl));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -237,8 +242,9 @@ public class VirtualTestDataView implements TestDataView {
       URL sourceUrl = resolveSourceUrl(dsView);
       Path contentPath = resolveContentPath(dsView);
       MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      DSWindow window = resolveWindow(dsView);
       NeighborDistancesXvecImpl newview = new NeighborDistancesXvecImpl(
-          channel, channel.size(), dsView.getWindow(), extractExtension(sourceUrl));
+          channel, channel.size(), window, extractExtension(sourceUrl));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -432,9 +438,41 @@ public class VirtualTestDataView implements TestDataView {
     if (view.getSource() == null || view.getSource().getPath() == null) {
       throw new IllegalArgumentException("No source path defined for view " + view.getName());
     }
-    return cachedir.resolve(datasetEntry.name())
-        .resolve(profile.getName())
-        .resolve(view.getSource().getPath());
+    Path datasetRoot = cachedir.resolve(datasetEntry.name());
+    Path sharedPath = datasetRoot.resolve(view.getSource().getPath());
+    Path legacyPath = datasetRoot.resolve(profile.getName()).resolve(view.getSource().getPath());
+    if (existsEither(sharedPath)) {
+      return sharedPath;
+    }
+    if (existsEither(legacyPath)) {
+      return legacyPath;
+    }
+    return sharedPath;
+  }
+
+  private DSWindow resolveWindow(DSView view) {
+    if (view == null) {
+      return null;
+    }
+    DSWindow viewWindow = view.getWindow();
+    if (viewWindow != null && !viewWindow.isEmpty()) {
+      return viewWindow;
+    }
+    if (view.getSource() != null) {
+      DSWindow sourceWindow = view.getSource().getWindow();
+      if (sourceWindow != null && !sourceWindow.isEmpty()) {
+        return sourceWindow;
+      }
+    }
+    return viewWindow;
+  }
+
+  private boolean existsEither(Path contentPath) {
+    if (Files.exists(contentPath)) {
+      return true;
+    }
+    Path merklePath = contentPath.resolveSibling(contentPath.getFileName() + ".mrkl");
+    return Files.exists(merklePath);
   }
 
   private String extractExtension(URL sourceUrl) {
@@ -447,7 +485,7 @@ public class VirtualTestDataView implements TestDataView {
   }
 
   /// Prebuffers all datasets in this test data view.
-  /// For Virtual datasets using DSWindow, this determines the prebuffer range from the DSWindow intervals.
+  /// Dataset views handle DSWindow-based range selection internally.
   ///
   /// @return A future that completes when all prebuffering is done
   @Override
@@ -456,61 +494,24 @@ public class VirtualTestDataView implements TestDataView {
 
     // Prebuffer base vectors if available
     getBaseVectors().ifPresent(baseVectors -> {
-      CompletableFuture<Void> future = prebufferWithDSWindow(ViewKind.base, baseVectors);
-      futures.add(future);
+      futures.add(baseVectors.prebuffer());
     });
 
     // Prebuffer query vectors if available
     getQueryVectors().ifPresent(queryVectors -> {
-      CompletableFuture<Void> future = prebufferWithDSWindow(ViewKind.query, queryVectors);
-      futures.add(future);
+      futures.add(queryVectors.prebuffer());
     });
 
     // Prebuffer neighbor indices if available
     getNeighborIndices().ifPresent(neighborIndices -> {
-      CompletableFuture<Void> future = prebufferWithDSWindow(ViewKind.indices, neighborIndices);
-      futures.add(future);
+      futures.add(neighborIndices.prebuffer());
     });
 
     // Prebuffer neighbor distances if available
     getNeighborDistances().ifPresent(neighborDistances -> {
-      CompletableFuture<Void> future = prebufferWithDSWindow(ViewKind.neighbors, neighborDistances);
-      futures.add(future);
+      futures.add(neighborDistances.prebuffer());
     });
 
     return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-  }
-
-  /// Helper method to prebuffer a dataset using its DSWindow configuration
-  private CompletableFuture<Void> prebufferWithDSWindow(ViewKind viewKind, io.nosqlbench.vectordata.spec.datasets.types.DatasetView<?> dataset) {
-    Optional<DSView> oView = getMatchingView(viewKind);
-    if (!oView.isPresent()) {
-      // If no DSWindow is configured, prebuffer the whole dataset
-      return dataset.prebuffer();
-    }
-
-    DSView dsView = oView.get();
-    io.nosqlbench.vectordata.layoutv2.DSWindow window = dsView.getWindow();
-    
-    if (window == null || window.isEmpty()) {
-      // If window is null or empty, prebuffer the whole dataset
-      return dataset.prebuffer();
-    }
-
-    // Calculate the range from DSWindow intervals
-    long minStart = Long.MAX_VALUE;
-    long maxEnd = Long.MIN_VALUE;
-    
-    for (io.nosqlbench.vectordata.layoutv2.DSInterval interval : window) {
-      minStart = Math.min(minStart, interval.getMinIncl());
-      maxEnd = Math.max(maxEnd, interval.getMaxExcl());
-    }
-
-    // Use the calculated range if valid, otherwise prebuffer whole dataset
-    if (minStart != Long.MAX_VALUE && maxEnd != Long.MIN_VALUE && minStart < maxEnd) {
-      return dataset.prebuffer(minStart, maxEnd);
-    } else {
-      return dataset.prebuffer();
-    }
   }
 }

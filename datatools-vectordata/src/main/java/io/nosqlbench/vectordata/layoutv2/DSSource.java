@@ -50,7 +50,7 @@ public class DSSource {
   ///   - Parentheses: file.ext(window)
   ///   - Brackets: file.ext[window]
   private static final Pattern SOURCE_SPEC_PATTERN = Pattern.compile(
-      "^(?<path>.+?)(?<window>\\([^)]+\\)|\\[[^\\]]+\\])?$"
+      "^(?<path>.+?)(?<window>[\\[(][^\\])]+[\\])])?$"
   );
 
   /// The path to the data source
@@ -232,15 +232,7 @@ public class DSSource {
       String windowSpec = matcher.group("window");
 
       if (windowSpec != null && !windowSpec.isEmpty()) {
-        // Strip outer delimiters: (...) -> ..., [...] -> ...
-        String innerWindow = windowSpec;
-        if (innerWindow.startsWith("(") && innerWindow.endsWith(")")) {
-          innerWindow = innerWindow.substring(1, innerWindow.length() - 1);
-        } else if (innerWindow.startsWith("[") && innerWindow.endsWith("]")) {
-          innerWindow = innerWindow.substring(1, innerWindow.length() - 1);
-        }
-
-        DSWindow window = DSWindow.fromData(innerWindow);
+        DSWindow window = DSWindow.fromData(windowSpec);
         return new DSSource(path, window);
       }
 

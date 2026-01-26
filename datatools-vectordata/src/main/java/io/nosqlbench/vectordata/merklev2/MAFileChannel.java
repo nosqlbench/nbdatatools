@@ -261,6 +261,7 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
         initializeMetrics();
     }
 
+
     /**
      * Creates a new MAFileChannel with a custom scheduler and space check override.
      *
@@ -541,6 +542,7 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
             final int startChunk = merkleShape.getChunkIndexForPosition(position);
             final int endChunk = merkleShape.getChunkIndexForPosition(
                 Math.min(position + length - 1, merkleShape.getTotalContentSize() - 1));
+
             
             // Count initially valid chunks (already downloaded)
             int initiallyValidChunks = 0;
@@ -843,66 +845,68 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
                 // Collect all download futures for concurrent execution
                 List<CompletableFuture<Void>> allDownloadFutures = new java.util.ArrayList<>();
                 
-            // Process the range iteratively until complete
-            while (remainingLength > 0 && totalProcessed < length) {
-                // Calculate next segment size
-                long segmentLength = Math.min(remainingLength, MAX_TRANSPORT_CHUNK_SIZE);
-                
-                // Get required chunks for this segment
-                int segmentStartChunk = merkleShape.getChunkIndexForPosition(currentPosition);
-                int segmentEndChunk = merkleShape.getChunkIndexForPosition(
+                // Process the range iteratively until complete
+                while (remainingLength > 0 && totalProcessed < length) {
+                    // Calculate next segment size
+                    long segmentLength = Math.min(remainingLength, MAX_TRANSPORT_CHUNK_SIZE);
+
+                    // Get required chunks for this segment
+                    int segmentStartChunk = merkleShape.getChunkIndexForPosition(currentPosition);
+                    int segmentEndChunk = merkleShape.getChunkIndexForPosition(
                     Math.min(currentPosition + segmentLength - 1, merkleShape.getTotalContentSize() - 1));
-                
-                // Find chunks that still need downloading in this segment  
-                List<Integer> requiredChunks = new java.util.ArrayList<>();
-                for (int chunk = segmentStartChunk; chunk <= segmentEndChunk; chunk++) {
-                    if (!merkleState.isValid(chunk)) {
-                        requiredChunks.add(chunk);
+
+                    // Find chunks that still need downloading in this segment  
+                    List<Integer> requiredChunks = new java.util.ArrayList<>();
+                    for (int chunk = segmentStartChunk; chunk <= segmentEndChunk; chunk++) {
+                        if (!merkleState.isValid(chunk)) {
+                            requiredChunks.add(chunk);
+                        }
                     }
-                }
-                
-                // If no chunks needed in this segment, move to next
-                if (requiredChunks.isEmpty()) {
-                    currentPosition += segmentLength;
-                    remainingLength -= segmentLength;
-                    totalProcessed += segmentLength;
-                    continue;
-                }
-                
-                // Use the scheduler to determine optimal nodes for this segment, 
-                // with intelligent filtering for transport limits
-                List<SchedulingDecision> allDecisions = chunkScheduler.selectOptimalNodes(
+
+
+                    // If no chunks needed in this segment, move to next
+                    if (requiredChunks.isEmpty()) {
+                        currentPosition += segmentLength;
+                        remainingLength -= segmentLength;
+                        totalProcessed += segmentLength;
+                        continue;
+                    }
+
+                    // Use the scheduler to determine optimal nodes for this segment, 
+                    // with intelligent filtering for transport limits
+                    List<SchedulingDecision> allDecisions = chunkScheduler.selectOptimalNodes(
                     requiredChunks, merkleShape, merkleState);
-                
-                // Filter and adapt decisions to respect transport limits
-                List<SchedulingDecision> transportCompatibleDecisions = new java.util.ArrayList<>();
-                List<Integer> chunksNeedingFallback = new java.util.ArrayList<>();
-                
-                for (SchedulingDecision decision : allDecisions) {
-                    int nodeIndex = decision.nodeIndex();
-                    MerkleShape.MerkleNodeRange byteRange = merkleShape.getByteRangeForNode(nodeIndex);
-                    
-                    if (byteRange.getLength() <= MAX_TRANSPORT_CHUNK_SIZE) {
-                        // This node is transport-compatible, use as-is
-                        transportCompatibleDecisions.add(decision);
-                    } else {
-                        // This node is too large, fall back to leaf nodes for its covered chunks
-                        for (Integer chunkIndex : decision.coveredChunks()) {
-                            if (requiredChunks.contains(chunkIndex) && !merkleState.isValid(chunkIndex)) {
-                                chunksNeedingFallback.add(chunkIndex);
+
+
+                    // Filter and adapt decisions to respect transport limits
+                    List<SchedulingDecision> transportCompatibleDecisions = new java.util.ArrayList<>();
+                    List<Integer> chunksNeedingFallback = new java.util.ArrayList<>();
+
+                    for (SchedulingDecision decision : allDecisions) {
+                        int nodeIndex = decision.nodeIndex();
+                        MerkleShape.MerkleNodeRange byteRange = merkleShape.getByteRangeForNode(nodeIndex);
+
+                        if (byteRange.getLength() <= MAX_TRANSPORT_CHUNK_SIZE) {
+                            // This node is transport-compatible, use as-is
+                            transportCompatibleDecisions.add(decision);
+                        } else {
+                            // This node is too large, fall back to leaf nodes for its covered chunks
+                            for (Integer chunkIndex : decision.coveredChunks()) {
+                                if (requiredChunks.contains(chunkIndex) && !merkleState.isValid(chunkIndex)) {
+                                    chunksNeedingFallback.add(chunkIndex);
+                                }
                             }
                         }
                     }
-                }
-                
-                // Create leaf node decisions for chunks that need fallback
-                for (Integer chunkIndex : chunksNeedingFallback) {
-                    int leafNodeIndex = merkleShape.chunkIndexToLeafNode(chunkIndex);
-                    MerkleShape.MerkleNodeRange leafByteRange = merkleShape.getByteRangeForNode(leafNodeIndex);
-                    
-                    // Even leaf nodes might be too large in pathological cases, skip if so
-                    if (leafByteRange.getLength() <= MAX_TRANSPORT_CHUNK_SIZE) {
-                        SchedulingDecision leafDecision = new SchedulingDecision(
+
+                    // Create leaf node decisions for chunks that need fallback
+                    for (Integer chunkIndex : chunksNeedingFallback) {
+                        int leafNodeIndex = merkleShape.chunkIndexToLeafNode(chunkIndex);
+                        MerkleShape.MerkleNodeRange leafByteRange = merkleShape.getByteRangeForNode(leafNodeIndex);
+
+                        // Even leaf nodes might be too large in pathological cases, skip if so
+                        if (leafByteRange.getLength() <= MAX_TRANSPORT_CHUNK_SIZE) {
+                            SchedulingDecision leafDecision = new SchedulingDecision(
                             leafNodeIndex,
                             SchedulingReason.TRANSPORT_SIZE_FALLBACK,
                             0, // priority
@@ -910,132 +914,133 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
                             List.of(chunkIndex), // required chunks
                             List.of(chunkIndex), // covered chunks (same for leaf nodes)
                             "Fallback to leaf node due to transport size limit (" + 
-                                leafByteRange.getLength() + " bytes)"
-                        );
-                        transportCompatibleDecisions.add(leafDecision);
+                            leafByteRange.getLength() + " bytes)"
+                            );
+                            transportCompatibleDecisions.add(leafDecision);
+                        }
                     }
-                }
-                
-                // Create tasks from transport-compatible decisions
-                OptimizedChunkQueue.SchedulingResult result = chunkQueue.executeSchedulingWithTasks(wrapper -> {
-                    for (SchedulingDecision decision : transportCompatibleDecisions) {
-                        int nodeIndex = decision.nodeIndex();
-                        MerkleShape.MerkleNodeRange byteRange = merkleShape.getByteRangeForNode(nodeIndex);
-                        MerkleShape.MerkleNodeRange leafRange = merkleShape.getLeafRangeForNode(nodeIndex);
-                        
-                        // Create download task for this node
-                        ChunkScheduler.NodeDownloadTask task = new DecisionBasedDownloadTask(
+
+                    // Create tasks from transport-compatible decisions
+                    OptimizedChunkQueue.SchedulingResult result = chunkQueue.executeSchedulingWithTasks(wrapper -> {
+                        for (SchedulingDecision decision : transportCompatibleDecisions) {
+                            int nodeIndex = decision.nodeIndex();
+                            MerkleShape.MerkleNodeRange byteRange = merkleShape.getByteRangeForNode(nodeIndex);
+                            MerkleShape.MerkleNodeRange leafRange = merkleShape.getLeafRangeForNode(nodeIndex);
+
+                            // Create download task for this node
+                            ChunkScheduler.NodeDownloadTask task = new DecisionBasedDownloadTask(
                             nodeIndex,
                             byteRange.getStart(),
                             byteRange.getLength(),
                             merkleShape.isLeafNode(nodeIndex),
                             leafRange,
                             wrapper.getOrCreateFuture(nodeIndex)
-                        );
-                        
-                        wrapper.offerTask(task);
-                    }
-                });
-                
-                // Collect futures from this segment
-                List<CompletableFuture<Void>> currentSegmentFutures = result.tasks().stream()
+                            );
+
+                            wrapper.offerTask(task);
+                        }
+                    });
+
+
+                    // Collect futures from this segment
+                    List<CompletableFuture<Void>> currentSegmentFutures = result.tasks().stream()
                     .map(ChunkScheduler.NodeDownloadTask::getFuture)
                     .collect(java.util.stream.Collectors.toList());
-                
-                // Don't wait for this segment - collect futures for concurrent execution
-                // This allows all downloads to run concurrently instead of segment-by-segment
-                
-                if (requiredChunks.isEmpty()) {
-                    // No downloads needed for this segment, continue to next
-                } else if (currentSegmentFutures.isEmpty()) {
-                    // If we had required chunks but no futures, something went wrong
-                    throw new RuntimeException("No download tasks created for required chunks " + 
+
+                    // Don't wait for this segment - collect futures for concurrent execution
+                    // This allows all downloads to run concurrently instead of segment-by-segment
+
+                    if (requiredChunks.isEmpty()) {
+                        // No downloads needed for this segment, continue to next
+                    } else if (currentSegmentFutures.isEmpty()) {
+                        // If we had required chunks but no futures, something went wrong
+                        throw new RuntimeException("No download tasks created for required chunks " + 
                         requiredChunks + " at position " + currentPosition + 
                         ". This may indicate all nodes exceed transport limits.");
-                } else {
-                    // Add futures to collection for concurrent execution and attach progress tracking
-                    for (ChunkScheduler.NodeDownloadTask task : result.tasks()) {
-                        CompletableFuture<Void> future = task.getFuture();
-                        
-                        // Determine how many chunks this task covers
-                        int chunksForThisTask;
-                        if (task.isLeafNode()) {
-                            // Leaf nodes always cover exactly 1 chunk
-                            chunksForThisTask = 1;
-                        } else {
-                            // Internal nodes cover multiple chunks - calculate from leaf range
-                            MerkleShape.MerkleNodeRange leafRange = task.getLeafRange();
-                            chunksForThisTask = (int)(leafRange.getEnd() - leafRange.getStart());
-                        }
-                        
-                        // Attach completion handler for progress tracking
-                        CompletableFuture<Void> progressTrackingFuture = future.whenComplete((v, throwable) -> {
-                            if (throwable == null) {
-                                // Successfully completed - increment progress counter by the number of chunks this task covers
-                                progressCounter.addAndGet(chunksForThisTask);
+                    } else {
+                        // Add futures to collection for concurrent execution and attach progress tracking
+                        for (ChunkScheduler.NodeDownloadTask task : result.tasks()) {
+                            CompletableFuture<Void> future = task.getFuture();
+
+                            // Determine how many chunks this task covers
+                            int chunksForThisTask;
+                            if (task.isLeafNode()) {
+                                // Leaf nodes always cover exactly 1 chunk
+                                chunksForThisTask = 1;
+                            } else {
+                                // Internal nodes cover multiple chunks - calculate from leaf range
+                                MerkleShape.MerkleNodeRange leafRange = task.getLeafRange();
+                                chunksForThisTask = (int)(leafRange.getEnd() - leafRange.getStart());
                             }
-                        });
-                        allDownloadFutures.add(progressTrackingFuture);
+
+                            // Attach completion handler for progress tracking
+                            CompletableFuture<Void> progressTrackingFuture = future.whenComplete((v, throwable) -> {
+                                if (throwable == null) {
+                                    // Successfully completed - increment progress counter by the number of chunks this task covers
+                                    progressCounter.addAndGet(chunksForThisTask);
+                                }
+                            });
+                            allDownloadFutures.add(progressTrackingFuture);
+                        }
+                        chunksDownloaded += requiredChunks.size();
                     }
-                    chunksDownloaded += requiredChunks.size();
-                }
-                
-                // Move to next segment
-                currentPosition += segmentLength;
-                remainingLength -= segmentLength;
-                totalProcessed += segmentLength;
-                
-                // Safety check: verify we're making progress
-                int currentChunksValid = 0;
-                int totalChunksNeeded = merkleShape.getChunkIndexForPosition(
+
+                    // Move to next segment
+                    currentPosition += segmentLength;
+                    remainingLength -= segmentLength;
+                    totalProcessed += segmentLength;
+
+                    // Safety check: verify we're making progress
+                    int currentChunksValid = 0;
+                    int totalChunksNeeded = merkleShape.getChunkIndexForPosition(
                     Math.min(position + length - 1, merkleShape.getTotalContentSize() - 1)) -
                     merkleShape.getChunkIndexForPosition(position) + 1;
-                
-                for (int i = 0; i < totalChunksNeeded; i++) {
-                    int chunkIndex = merkleShape.getChunkIndexForPosition(position) + i;
-                    if (merkleState.isValid(chunkIndex)) {
-                        currentChunksValid++;
+
+                    for (int i = 0; i < totalChunksNeeded; i++) {
+                        int chunkIndex = merkleShape.getChunkIndexForPosition(position) + i;
+                        if (merkleState.isValid(chunkIndex)) {
+                            currentChunksValid++;
+                        }
+                    }
+
+                    // Log progress for large operations
+                    if (length > MAX_TRANSPORT_CHUNK_SIZE && currentChunksValid > 0) {
+                        double progressPercent = (double) currentChunksValid / totalChunksNeeded * 100.0;
+                        // This would be logged if logging was available - for now just track progress
                     }
                 }
+            
+                // Wait for all concurrent downloads to complete before validation
+                if (!allDownloadFutures.isEmpty()) {
+                    CompletableFuture.allOf(allDownloadFutures.toArray(new CompletableFuture[0])).join();
+                }
                 
-                // Log progress for large operations
-                if (length > MAX_TRANSPORT_CHUNK_SIZE && currentChunksValid > 0) {
-                    double progressPercent = (double) currentChunksValid / totalChunksNeeded * 100.0;
-                    // This would be logged if logging was available - for now just track progress
+                // Final validation: ensure all required chunks are now valid
+                // Use the provided startChunk and endChunk parameters
+                
+                List<Integer> stillInvalidChunks = new java.util.ArrayList<>();
+                for (int chunk = startChunk; chunk <= endChunk; chunk++) {
+                    if (!merkleState.isValid(chunk)) {
+                        stillInvalidChunks.add(chunk);
+                    }
                 }
-            }
+
             
-            // Wait for all concurrent downloads to complete before validation
-            if (!allDownloadFutures.isEmpty()) {
-                CompletableFuture.allOf(allDownloadFutures.toArray(new CompletableFuture[0])).join();
-            }
-            
-            // Final validation: ensure all required chunks are now valid
-            // Use the provided startChunk and endChunk parameters
-            
-            List<Integer> stillInvalidChunks = new java.util.ArrayList<>();
-            for (int chunk = startChunk; chunk <= endChunk; chunk++) {
-                if (!merkleState.isValid(chunk)) {
-                    stillInvalidChunks.add(chunk);
+                if (!stillInvalidChunks.isEmpty()) {
+                    throw new RuntimeException("Iterative prebuffering incomplete. " + 
+                        stillInvalidChunks.size() + " chunks remain invalid after processing: " + 
+                        stillInvalidChunks + ". This may indicate chunks larger than transport limit (" + 
+                        MAX_TRANSPORT_CHUNK_SIZE + " bytes) or scheduler issues.");
                 }
-            }
-            
-            if (!stillInvalidChunks.isEmpty()) {
-                throw new RuntimeException("Iterative prebuffering incomplete. " + 
-                    stillInvalidChunks.size() + " chunks remain invalid after processing: " + 
-                    stillInvalidChunks + ". This may indicate chunks larger than transport limit (" + 
-                    MAX_TRANSPORT_CHUNK_SIZE + " bytes) or scheduler issues.");
-            }
-            
-            // Ensure any final BitSet updates are persisted before declaring success
+                
+                // Ensure any final BitSet updates are persisted before declaring success
             if (merkleState instanceof MerkleDataImpl) {
-                ((MerkleDataImpl) merkleState).ensureStatePersisted().thenRun(() -> {
-                    // Successfully completed all iterative processing
+                try {
+                    ((MerkleDataImpl) merkleState).persistStateNow();
                     completionFuture.complete(null);
-                }).exceptionally(throwable -> {
-                    completionFuture.completeExceptionally(throwable);
-                    return null;
-                });
+                } catch (Exception e) {
+                    completionFuture.completeExceptionally(e);
+                }
             } else {
                 // For non-MerkleDataImpl implementations, complete immediately
                 completionFuture.complete(null);

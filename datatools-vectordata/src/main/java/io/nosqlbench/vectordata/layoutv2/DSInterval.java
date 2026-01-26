@@ -22,7 +22,6 @@ import io.nosqlbench.vectordata.utils.UnitConversions;
 
 import java.util.Map;
 import java.util.StringJoiner;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /// Represents an interval with inclusive minimum and exclusive maximum boundaries.
@@ -89,25 +88,71 @@ public class DSInterval {
   ///     A string spec for interval, like '[10..1000)'
   /// @return A DSInterval object
   public static DSInterval parse(String interval) {
-    Matcher matcher = PATTERN.matcher(interval);
-    if (matcher.matches()) {
-      String u1 = matcher.group("start").replaceAll("_", "");
-      long start = UnitConversions.longCountFor(u1)
-          .orElseThrow(() -> new RuntimeException("invalid intervals format:" + interval));
-      if (matcher.group("end") == null) {
-        return new DSInterval(0, start);
-      }
-
-      String u2 = matcher.group("end").replaceAll("_", "");
-      long end = UnitConversions.longCountFor(u2)
-          .orElseThrow(() -> new RuntimeException("invalid " + "intervals format:" + interval));
-      return new DSInterval(start, end);
+    if (interval == null || interval.isBlank()) {
+      throw new RuntimeException("invalid intervals format:" + interval);
     }
-    throw new RuntimeException(
-        "invalid intervals format:" + interval + ", expected [startInclusive..end] "
-        + "or any similar pattern with optional ( or [, digits, .. or - or "
-        + "→, digits, and optional ) or ], like '[10..1000)', or '10 → 20' " + "for example.");
+    String trimmed = interval.trim();
 
+    boolean hasWrapper = (trimmed.startsWith("[") || trimmed.startsWith("("))
+        && (trimmed.endsWith("]") || trimmed.endsWith(")"));
+    boolean startClosed = trimmed.startsWith("[");
+    boolean endClosed = trimmed.endsWith("]");
+    String inner = hasWrapper ? trimmed.substring(1, trimmed.length() - 1).trim() : trimmed;
+
+    String[] parts = splitInterval(inner);
+    if (parts.length == 1) {
+      long single = parseCount(parts[0], interval);
+      if (hasWrapper) {
+        if (!startClosed || !endClosed) {
+          throw new RuntimeException(
+              "Single-value interval must be specified as [n]. Got: " + interval);
+        }
+        return new DSInterval(single, single + 1);
+      }
+      return new DSInterval(0, single);
+    }
+    if (parts.length != 2) {
+      throw new RuntimeException(
+          "invalid intervals format:" + interval + ", expected [start..end], [start,end), "
+              + "start..end, or similar patterns.");
+    }
+
+    long start = parseCount(parts[0], interval);
+    long end = parseCount(parts[1], interval);
+
+    if (hasWrapper) {
+      if (!startClosed) {
+        start += 1;
+      }
+      if (endClosed) {
+        end += 1;
+      }
+    } else {
+      end += 1;
+    }
+    return new DSInterval(start, end);
+  }
+
+  private static String[] splitInterval(String inner) {
+    if (inner.contains("..")) {
+      return inner.split("\\.\\.", 2);
+    }
+    if (inner.contains("→")) {
+      return inner.split("→", 2);
+    }
+    if (inner.contains("-")) {
+      return inner.split("-", 2);
+    }
+    if (inner.contains(",")) {
+      return inner.split(",", 2);
+    }
+    return new String[]{inner};
+  }
+
+  private static long parseCount(String value, String original) {
+    String normalized = value.trim().replaceAll("_", "");
+    return UnitConversions.longCountFor(normalized)
+        .orElseThrow(() -> new RuntimeException("invalid intervals format:" + original));
   }
 
 

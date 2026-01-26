@@ -49,6 +49,7 @@ public class TaskExecutor implements AutoCloseable {
     private final Thread observerThread;
     private final int maxConcurrentDownloads;
     private final Semaphore downloadSemaphore;
+
     
     /// Creates a new task executor.
     /// 
@@ -147,6 +148,7 @@ public class TaskExecutor implements AutoCloseable {
         int nodeIndex = task.getNodeIndex();
         long start = task.getOffset();
         long length = task.getSize();
+
         
         logger.fine("Executing download task for node " + nodeIndex + 
                    " (offset=" + start + ", length=" + length + ")");

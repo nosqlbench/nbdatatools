@@ -794,6 +794,30 @@ public class MerkleDataImpl implements MerkleData {
     }
 
     /**
+     * Forces a state persistence pass, regardless of the current version marker.
+     * This is intended for callers that must guarantee an up-to-date on-disk view.
+     */
+    public void persistStateNow() {
+        if (!isFileChannel || persistenceScheduler == null) {
+            return;
+        }
+        BitSet snapshot;
+        lock.readLock().lock();
+        try {
+            snapshot = (BitSet) validChunks.clone();
+        } finally {
+            lock.readLock().unlock();
+        }
+        try {
+            writeStateValidChunksToFile(channel, snapshot, shape);
+            channel.force(false);
+            lastPersistedVersion = stateVersion.get();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to persist merkle state", e);
+        }
+    }
+
+    /**
      * Ensures that any pending state changes are persisted to disk.
      * Returns a CompletableFuture that completes when persistence is done.
      * 
