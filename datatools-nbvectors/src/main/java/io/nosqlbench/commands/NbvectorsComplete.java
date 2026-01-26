@@ -71,16 +71,28 @@ public class NbvectorsComplete implements Runnable {
             candidates);
 
         String prefix = line.currentArgPrefix();
+        String normalizedPrefix = normalizePrefix(prefix);
         List<String> suffixCandidates = new ArrayList<>(candidates.size());
         for (CharSequence candidate : candidates) {
-            suffixCandidates.add(candidate.toString());
+            String value = candidate.toString();
+            if (!prefix.isEmpty() && value.startsWith(prefix)) {
+                value = value.substring(prefix.length());
+            } else if (!normalizedPrefix.isEmpty() && value.startsWith(normalizedPrefix)) {
+                value = value.substring(normalizedPrefix.length());
+            }
+            suffixCandidates.add(value);
         }
         List<String> fullCandidates = new ArrayList<>(candidates.size());
         for (CharSequence candidate : candidates) {
+            String value = candidate.toString();
             if (prefix.isEmpty()) {
-                fullCandidates.add(candidate.toString());
+                fullCandidates.add(value);
+            } else if (value.startsWith(prefix)) {
+                fullCandidates.add(value);
+            } else if (!normalizedPrefix.isEmpty() && value.startsWith(normalizedPrefix)) {
+                fullCandidates.add(value);
             } else {
-                fullCandidates.add(prefix + candidate);
+                fullCandidates.add(prefix + value);
             }
         }
 
@@ -181,5 +193,12 @@ public class NbvectorsComplete implements Runnable {
         } catch (InvalidPathException e) {
             return false;
         }
+    }
+
+    private static String normalizePrefix(String prefix) {
+        if (prefix == null || prefix.isEmpty() || prefix.indexOf(':') < 0) {
+            return prefix == null ? "" : prefix;
+        }
+        return prefix.replace(':', '.');
     }
 }
