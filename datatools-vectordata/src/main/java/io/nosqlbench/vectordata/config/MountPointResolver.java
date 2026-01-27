@@ -18,7 +18,6 @@ package io.nosqlbench.vectordata.config;
  */
 
 import io.nosqlbench.vectordata.config.exceptions.InvalidCacheDirectoryException;
-import io.nosqlbench.vectordata.config.exceptions.NoSuitableMountPointException;
 
 import java.io.IOException;
 import java.nio.file.FileStore;
@@ -72,7 +71,6 @@ public class MountPointResolver {
     ///
     /// @param cacheDirValue the cache_dir value from settings
     /// @return the resolved absolute path
-    /// @throws NoSuitableMountPointException if auto:* cannot find a suitable mount
     /// @throws InvalidCacheDirectoryException if the value/path is invalid
     public static Path resolve(String cacheDirValue) {
         if (cacheDirValue == null || cacheDirValue.trim().isEmpty()) {
@@ -174,41 +172,32 @@ public class MountPointResolver {
     ///
     /// @param includeRoot whether to include the root filesystem in selection
     /// @return the resolved cache directory path
-    /// @throws NoSuitableMountPointException if no suitable mount point is found
+    /// If no suitable mount point is found, falls back to the default cache directory.
     public static Path findOptimalCacheDirectory(boolean includeRoot) {
-        List<MountPointInfo> mounts = listWritableMountPoints();
+        return selectCacheDirectory(listWritableMountPoints(), includeRoot);
+    }
 
-        if (mounts.isEmpty()) {
-            String directive = includeRoot ? "auto:largest-any" : "auto:largest-non-root";
-            throw new NoSuitableMountPointException(
-                directive,
-                "No writable mount points found on this system"
-            );
+    static Path selectCacheDirectory(List<MountPointInfo> mounts, boolean includeRoot) {
+        if (mounts == null || mounts.isEmpty()) {
+            return resolveDefault();
         }
 
-        // Filter by root preference
         List<MountPointInfo> candidates = mounts.stream()
             .filter(m -> includeRoot || !m.isRoot())
             .collect(Collectors.toList());
 
         if (candidates.isEmpty()) {
-            throw new NoSuitableMountPointException(
-                "auto:largest-non-root",
-                "No non-root writable mount points found. Use 'auto:largest-any' to include the root filesystem."
-            );
+            return resolveDefault();
         }
 
-        // Sort by available space (largest first)
         Optional<MountPointInfo> best = candidates.stream()
             .max(Comparator.comparingLong(MountPointInfo::availableSpace));
 
         if (best.isEmpty()) {
-            String directive = includeRoot ? "auto:largest-any" : "auto:largest-non-root";
-            throw new NoSuitableMountPointException(directive, "No suitable mount point found");
+            return resolveDefault();
         }
 
-        MountPointInfo selected = best.get();
-        return selected.mountPoint().resolve(CACHE_SUBDIR);
+        return best.get().mountPoint().resolve(CACHE_SUBDIR);
     }
 
     /// Lists all writable mount points on the system.

@@ -129,6 +129,35 @@ class MountPointResolverTest {
     }
 
     @Test
+    void selectCacheDirectory_withEmptyMounts_returnsDefault() {
+        Path resolved = MountPointResolver.selectCacheDirectory(List.of(), false);
+
+        String home = System.getProperty("user.home");
+        Path expected = Path.of(home, ".cache", "vectordata");
+        assertEquals(expected, resolved);
+    }
+
+    @Test
+    void selectCacheDirectory_withRootOnly_andNonRootPreferred_returnsDefault() {
+        MountPointInfo root = new MountPointInfo(Path.of("/"), 1000L, 500L, true);
+        Path resolved = MountPointResolver.selectCacheDirectory(List.of(root), false);
+
+        String home = System.getProperty("user.home");
+        Path expected = Path.of(home, ".cache", "vectordata");
+        assertEquals(expected, resolved);
+    }
+
+    @Test
+    void selectCacheDirectory_withMultipleCandidates_selectsLargest() {
+        MountPointInfo small = new MountPointInfo(Path.of("/mnt/small"), 1000L, 100L, false);
+        MountPointInfo large = new MountPointInfo(Path.of("/mnt/large"), 1000L, 500L, false);
+
+        Path resolved = MountPointResolver.selectCacheDirectory(List.of(small, large), false);
+
+        assertEquals(Path.of("/mnt/large").resolve(MountPointResolver.CACHE_SUBDIR), resolved);
+    }
+
+    @Test
     void listWritableMountPoints_returnsNonEmptyList() {
         // Most systems should have at least one writable mount point
         List<MountPointInfo> mounts = MountPointResolver.listWritableMountPoints();
