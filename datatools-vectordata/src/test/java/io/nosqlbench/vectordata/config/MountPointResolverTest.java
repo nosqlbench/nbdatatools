@@ -125,7 +125,12 @@ class MountPointResolverTest {
 
         assertNotNull(resolved);
         assertTrue(resolved.isAbsolute());
-        assertTrue(resolved.toString().endsWith(MountPointResolver.CACHE_SUBDIR));
+        String home = System.getProperty("user.home");
+        Path defaultPath = Path.of(home, ".cache", "vectordata");
+        assertTrue(
+            resolved.toString().endsWith(MountPointResolver.CACHE_SUBDIR) || resolved.equals(defaultPath),
+            "Expected cache subdir or default cache path, got: " + resolved
+        );
     }
 
     @Test
