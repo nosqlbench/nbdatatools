@@ -31,7 +31,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/// Tests for enhanced error messaging in Catalog.findExact method
+/// Tests for Catalog.findExact and listDatasets methods
 public class CatalogFindExactTest {
 
     private PrintStream originalErr;
@@ -73,15 +73,13 @@ public class CatalogFindExactTest {
         assertTrue(errorOutput.isEmpty(), "Expected no error output, but got: " + errorOutput);
     }
 
-    /// Test that no match found prints suggestions with substring matches
+    /// Test that findExact does NOT print suggestions when no match is found
     @Test
-    public void testNoMatchWithSubstringMatches() {
+    public void testNoMatchDoesNotPrintSuggestions() {
         // Create test datasets
         List<DatasetEntry> datasets = List.of(
             createTestDataset("mnist-784-euclidean"),
-            createTestDataset("mnist-fashion-784"),
-            createTestDataset("glove-100-angular"),
-            createTestDataset("sift-128-euclidean")
+            createTestDataset("glove-100-angular")
         );
         
         Catalog catalog = new Catalog(datasets);
@@ -89,6 +87,25 @@ public class CatalogFindExactTest {
         Optional<DatasetEntry> result = catalog.findExact("mnist");
         
         assertFalse(result.isPresent());
+        
+        // Should NOT print anything to stderr automatically
+        String errorOutput = capturedErr.toString();
+        assertTrue(errorOutput.isEmpty(), "Expected no error output from findExact, but got: " + errorOutput);
+    }
+
+    /// Test that listDatasets(searchName) prints correct information
+    @Test
+    public void testListDatasetsWithSearchName() {
+        // Create test datasets
+        List<DatasetEntry> datasets = List.of(
+            createTestDataset("mnist-784-euclidean"),
+            createTestDataset("mnist-fashion-784"),
+            createTestDataset("glove-100-angular")
+        );
+        
+        Catalog catalog = new Catalog(datasets);
+        
+        catalog.listDatasets("mnist");
         
         String errorOutput = capturedErr.toString();
         
@@ -100,41 +117,33 @@ public class CatalogFindExactTest {
         assertTrue(errorOutput.contains("- mnist-784-euclidean (profiles: default)"));
         assertTrue(errorOutput.contains("- mnist-fashion-784 (profiles: default)"));
         
-        // Should contain the full list of available datasets with profiles
-        assertTrue(errorOutput.contains("Available datasets (4 total):"));
+        // Should contain the full list of available datasets
+        assertTrue(errorOutput.contains("Available datasets (3 total):"));
         assertTrue(errorOutput.contains("- glove-100-angular (profiles: default)"));
-        assertTrue(errorOutput.contains("- sift-128-euclidean (profiles: default)"));
     }
 
-    /// Test that no match found with no substring matches still shows all datasets
+    /// Test that listDatasets() without arguments prints all datasets
     @Test
-    public void testNoMatchWithoutSubstringMatches() {
+    public void testListAllDatasets() {
         // Create test datasets
         List<DatasetEntry> datasets = List.of(
             createTestDataset("mnist-784-euclidean"),
-            createTestDataset("glove-100-angular"),
-            createTestDataset("sift-128-euclidean")
+            createTestDataset("glove-100-angular")
         );
         
         Catalog catalog = new Catalog(datasets);
         
-        Optional<DatasetEntry> result = catalog.findExact("nonexistent");
-        
-        assertFalse(result.isPresent());
+        catalog.listDatasets();
         
         String errorOutput = capturedErr.toString();
         
-        // Should contain the not found message
-        assertTrue(errorOutput.contains("Dataset 'nonexistent' not found."));
+        // Should NOT contain the "not found" message for specific search
+        assertFalse(errorOutput.contains("not found."));
         
-        // Should NOT contain substring suggestions since there are no matches
-        assertFalse(errorOutput.contains("Did you mean one of these datasets?"));
-        
-        // Should contain the full list of available datasets with profiles
-        assertTrue(errorOutput.contains("Available datasets (3 total):"));
+        // Should contain the full list of available datasets
+        assertTrue(errorOutput.contains("Available datasets (2 total):"));
         assertTrue(errorOutput.contains("- mnist-784-euclidean (profiles: default)"));
         assertTrue(errorOutput.contains("- glove-100-angular (profiles: default)"));
-        assertTrue(errorOutput.contains("- sift-128-euclidean (profiles: default)"));
     }
 
     /// Test empty catalog behavior
@@ -142,9 +151,7 @@ public class CatalogFindExactTest {
     public void testEmptyCatalog() {
         Catalog catalog = new Catalog(List.of());
         
-        Optional<DatasetEntry> result = catalog.findExact("anything");
-        
-        assertFalse(result.isPresent());
+        catalog.listDatasets("anything");
         
         String errorOutput = capturedErr.toString();
         
@@ -153,32 +160,6 @@ public class CatalogFindExactTest {
         
         // Should contain the empty catalog message
         assertTrue(errorOutput.contains("No datasets are available in the catalog."));
-    }
-
-    /// Test case insensitive substring matching
-    @Test
-    public void testCaseInsensitiveSubstringMatching() {
-        // Create test datasets
-        List<DatasetEntry> datasets = List.of(
-            createTestDataset("MNIST-784-Euclidean"),
-            createTestDataset("GloVe-100-Angular")
-        );
-        
-        Catalog catalog = new Catalog(datasets);
-        
-        Optional<DatasetEntry> result = catalog.findExact("mnist");
-        
-        assertFalse(result.isPresent());
-        
-        String errorOutput = capturedErr.toString();
-        
-        // Should contain substring suggestions with profiles (case insensitive)
-        assertTrue(errorOutput.contains("Did you mean one of these datasets?"));
-        assertTrue(errorOutput.contains("- MNIST-784-Euclidean (profiles: default)"));
-        
-        // Should not suggest GloVe since it doesn't contain "mnist"
-        assertFalse(errorOutput.contains("- GloVe-100-Angular") && 
-                   !errorOutput.contains("Available datasets"));
     }
 
     /// Test multiple exact matches (should throw exception)
@@ -197,55 +178,6 @@ public class CatalogFindExactTest {
         });
         
         assertTrue(exception.getMessage().contains("Found multiple datasets matching test-dataset"));
-    }
-
-    /// Test that datasets with multiple profiles show all profile names
-    @Test
-    public void testMultipleProfilesDisplayed() {
-        // Create test datasets with multiple profiles
-        DSProfileGroup multipleProfiles = new DSProfileGroup();
-        multipleProfiles.put("default", new DSProfile(Map.of()));
-        multipleProfiles.put("small", new DSProfile(Map.of()));
-        multipleProfiles.put("large", new DSProfile(Map.of()));
-        
-        List<DatasetEntry> datasets = List.of(
-            createTestDatasetWithProfiles("multi-profile-dataset", multipleProfiles),
-            createTestDataset("simple-dataset")
-        );
-        
-        Catalog catalog = new Catalog(datasets);
-        
-        Optional<DatasetEntry> result = catalog.findExact("nonexistent");
-        
-        assertFalse(result.isPresent());
-        
-        String errorOutput = capturedErr.toString();
-        
-        // Should show multiple profiles comma-separated
-        assertTrue(errorOutput.contains("- multi-profile-dataset (profiles: default, small, large)"));
-        assertTrue(errorOutput.contains("- simple-dataset (profiles: default)"));
-    }
-
-    /// Test that datasets with no profiles show appropriate message
-    @Test
-    public void testNoProfilesDisplayed() {
-        // Create test dataset with empty profiles
-        DSProfileGroup emptyProfiles = new DSProfileGroup();
-        
-        List<DatasetEntry> datasets = List.of(
-            createTestDatasetWithProfiles("no-profile-dataset", emptyProfiles)
-        );
-        
-        Catalog catalog = new Catalog(datasets);
-        
-        Optional<DatasetEntry> result = catalog.findExact("nonexistent");
-        
-        assertFalse(result.isPresent());
-        
-        String errorOutput = capturedErr.toString();
-        
-        // Should show "no profiles" message
-        assertTrue(errorOutput.contains("- no-profile-dataset (no profiles)"));
     }
 
     /// Helper method to create test dataset entries

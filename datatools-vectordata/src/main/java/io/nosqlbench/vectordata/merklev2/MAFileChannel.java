@@ -1033,18 +1033,9 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
                         MAX_TRANSPORT_CHUNK_SIZE + " bytes) or scheduler issues.");
                 }
                 
-                // Ensure any final BitSet updates are persisted before declaring success
-            if (merkleState instanceof MerkleDataImpl) {
-                try {
-                    ((MerkleDataImpl) merkleState).persistStateNow();
-                    completionFuture.complete(null);
-                } catch (Exception e) {
-                    completionFuture.completeExceptionally(e);
-                }
-            } else {
-                // For non-MerkleDataImpl implementations, complete immediately
+                // Ensure all downloaded data is flushed to disk and state is persisted before declaring success
+                force(true);
                 completionFuture.complete(null);
-            }
                 
             } catch (Exception e) {
                 // Complete the future exceptionally if anything fails

@@ -693,15 +693,8 @@ public class MerkleDataImpl implements MerkleData {
 
     @Override
     public void flush() {
-        lock.readLock().lock();
-        try {
-            if (!closed && isFileChannel) {
-                channel.force(false);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to flush", e);
-        } finally {
-            lock.readLock().unlock();
+        if (!closed && isFileChannel) {
+            persistStateNow();
         }
     }
 

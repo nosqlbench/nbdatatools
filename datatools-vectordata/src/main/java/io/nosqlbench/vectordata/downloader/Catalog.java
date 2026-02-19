@@ -217,8 +217,7 @@ public class Catalog {
     } else if (found.size() > 1) {
       throw new RuntimeException("Found multiple datasets matching " + name + ": " + found);
     } else {
-      // No exact match found - provide helpful suggestions
-      printDatasetSuggestions(name);
+      // No exact match found
       return Optional.empty();
     }
   }
@@ -265,12 +264,19 @@ public class Catalog {
         .orElseThrow(() -> new IllegalArgumentException("Dataset '" + datasetName + "' not found"));
   }
 
+  /// Lists all available datasets in the catalog to stderr.
+  public void listDatasets() {
+    listDatasets("");
+  }
+
   /// Prints helpful suggestions to stderr when a dataset is not found.
   /// Lists all available datasets with their profiles and highlights any that contain the search term as a substring.
   /// @param searchName
   ///     The name that was searched for
-  private void printDatasetSuggestions(String searchName) {
-    System.err.println("Dataset '" + searchName + "' not found.");
+  public void listDatasets(String searchName) {
+    if (searchName != null && !searchName.isEmpty()) {
+      System.err.println("Dataset '" + searchName + "' not found.");
+    }
     
     if (datasets.isEmpty()) {
       System.err.println("No datasets are available in the catalog.");
@@ -348,8 +354,9 @@ public class Catalog {
     if (found.size() == 1) {
       return Optional.of(found.get(0));
     } else if (found.size() > 1) {
+      String matchedNames = found.stream().map(DatasetEntry::name).collect(Collectors.joining(", "));
       throw new RuntimeException(
-          "Found multiple datasets matching " + regex + ": " + found + ":" + datasets);
+          "Found multiple datasets matching " + regex + ": " + matchedNames);
     } else {
       return Optional.empty();
     }
