@@ -53,7 +53,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testImplementsInterfaces() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         // Should implement both BaseVectors and QueryVectors
         assertThat(view).isInstanceOf(BaseVectors.class);
@@ -62,21 +62,21 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testGetDimensions() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         assertThat(view.getVectorDimensions()).isEqualTo(DIMENSIONS);
     }
 
     @Test
     void testGetCount() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         assertThat(view.getCount()).isEqualTo(COUNT);
     }
 
     @Test
     void testGetUnboundedCount() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator);
 
         // Unbounded should return model's unique vectors count
         assertThat(view.getCount()).isGreaterThan(0);
@@ -85,7 +85,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testGetSingleVector() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         float[] vector = view.get(42);
 
@@ -94,7 +94,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testDeterminism() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         // Same index should always return same vector
         float[] v1 = view.get(42);
@@ -105,7 +105,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testGetRange() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         float[][] batch = view.getRange(0, 10);
 
@@ -122,7 +122,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testGetIndexed() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         Indexed<float[]> indexed = view.getIndexed(42);
 
@@ -133,7 +133,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testGetIndexedRange() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         Indexed<float[]>[] range = view.getIndexedRange(10, 15);
 
@@ -146,7 +146,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testPrebufferIsNoop() throws ExecutionException, InterruptedException {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         // Prebuffer should return immediately (no-op for generator-backed views)
         CompletableFuture<Void> future = view.prebuffer(0, 100);
@@ -159,7 +159,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testToList() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, 100);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, 100);
 
         List<float[]> list = view.toList();
 
@@ -171,7 +171,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testToListWithTransform() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, 10);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, 10);
 
         List<Integer> lengths = view.toList(v -> v.length);
 
@@ -181,7 +181,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testIterator() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, 10);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, 10);
 
         int count = 0;
         for (float[] vector : view) {
@@ -193,7 +193,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testUnboundedThrowsOnIteration() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator);
 
         assertThatThrownBy(view::iterator)
             .isInstanceOf(UnsupportedOperationException.class)
@@ -202,7 +202,7 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testUnboundedThrowsOnToList() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator);
 
         assertThatThrownBy(view::toList)
             .isInstanceOf(UnsupportedOperationException.class)
@@ -211,14 +211,14 @@ public class VirtdataFloatVectorsViewTest {
 
     @Test
     void testGetDataType() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         assertThat(view.getDataType()).isEqualTo(float[].class);
     }
 
     @Test
     void testGetGenerator() {
-        VirtdataFloatVectorsView view = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         assertThat(view.getGenerator()).isSameAs(generator);
     }

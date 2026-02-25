@@ -20,7 +20,7 @@ package io.nosqlbench.vectordata.downloader;
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,7 +70,7 @@ public class CohereFileDiagnosticTest {
             
             // Get the profile and data view
             ProfileSelector profiles = dataset.select();
-            TestDataView dataView = profiles.profile("10m");
+            VectorTestDataView dataView = profiles.profile("10m");
             
             // Try to get the file path directly if possible
             // This might not work depending on the implementation, but let's try

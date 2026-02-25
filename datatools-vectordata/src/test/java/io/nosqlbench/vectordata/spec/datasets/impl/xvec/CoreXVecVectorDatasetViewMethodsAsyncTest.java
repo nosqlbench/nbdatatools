@@ -19,17 +19,15 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
 
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Method;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 /// Tests for the async methods in CoreXVecDatasetViewMethods
-public class CoreXVecDatasetViewMethodsAsyncTest {
+public class CoreXVecVectorDatasetViewMethodsAsyncTest {
 
     /// Test that async methods exist and have correct signatures
     @Test
     public void testAsyncMethodsExist() throws NoSuchMethodException {
-        Class<?> clazz = CoreXVecDatasetViewMethods.class;
+        Class<?> clazz = CoreXVecVectorDatasetViewMethods.class;
 
         // Test that getAsync method exists
         var getAsync = clazz.getDeclaredMethod("getAsync", long.class);

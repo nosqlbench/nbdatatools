@@ -17,6 +17,9 @@ package io.nosqlbench.vectordata.discovery;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.discovery.vector.FilesystemVectorTestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
+import io.nosqlbench.vectordata.downloader.VirtualVectorTestDataView;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -24,12 +27,12 @@ import java.lang.reflect.Method;
 import static org.junit.jupiter.api.Assertions.*;
 
 /// Tests for the prebuffer() method in TestDataView interface and its implementations
-public class TestDataViewPrebufferTest {
+public class TestDataViewPrebufferVectorTest {
 
     /// Test that the TestDataView interface has the prebuffer method
     @Test
     public void testTestDataViewInterfaceHasPrebufferMethod() throws NoSuchMethodException {
-        Class<?> clazz = TestDataView.class;
+        Class<?> clazz = VectorTestDataView.class;
 
         // Test that prebuffer method exists
         Method prebufferMethod = clazz.getDeclaredMethod("prebuffer");
@@ -40,7 +43,7 @@ public class TestDataViewPrebufferTest {
     /// Test that FilesystemTestDataView implements the prebuffer method
     @Test
     public void testFilesystemTestDataViewHasPrebufferMethod() throws NoSuchMethodException {
-        Class<?> clazz = FilesystemTestDataView.class;
+        Class<?> clazz = FilesystemVectorTestDataView.class;
 
         // Test that prebuffer method exists
         Method prebufferMethod = clazz.getDeclaredMethod("prebuffer");
@@ -51,7 +54,7 @@ public class TestDataViewPrebufferTest {
     /// Test that VirtualTestDataView implements the prebuffer method
     @Test
     public void testVirtualTestDataViewHasPrebufferMethod() throws NoSuchMethodException {
-        Class<?> clazz = io.nosqlbench.vectordata.downloader.VirtualTestDataView.class;
+        Class<?> clazz = VirtualVectorTestDataView.class;
 
         // Test that prebuffer method exists
         Method prebufferMethod = clazz.getDeclaredMethod("prebuffer");

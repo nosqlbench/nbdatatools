@@ -21,7 +21,7 @@ package io.nosqlbench.vectordata.downloader;
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vectordata.util.TempTestServerSetup;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +32,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -99,7 +98,7 @@ public class CatalogAccessTest {
     System.out.println("Found dataset: " + ds.name());
     System.out.println("Attributes: " + ds.attributes());
     ProfileSelector profiles = ds.select();
-    TestDataView defaultView = profiles.profile("default");
+    VectorTestDataView defaultView = profiles.profile("default");
     BaseVectors basev =
         defaultView.getBaseVectors().orElseThrow(() -> new RuntimeException("base vectors not found"));
     int count = basev.getCount();
@@ -197,7 +196,7 @@ public class CatalogAccessTest {
     System.out.println("Found dataset: " + ds.name());
     System.out.println("Attributes: " + ds.attributes());
     ProfileSelector profiles = ds.select();
-    TestDataView defaultView = profiles.profile("default");
+    VectorTestDataView defaultView = profiles.profile("default");
     BaseVectors basev =
         defaultView.getBaseVectors().orElseThrow(() -> new RuntimeException("base vectors not found"));
     int count = basev.getCount();

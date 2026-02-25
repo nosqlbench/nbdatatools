@@ -22,19 +22,16 @@ import io.nosqlbench.jetty.testserver.JettyFileServerFixture;
 import org.junit.jupiter.api.Assumptions;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
-import io.nosqlbench.vectordata.downloader.Catalog;
-import io.nosqlbench.vectordata.downloader.DatasetEntry;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/// Integration tests for {@link VirtualTestDataView} ensuring multi-view prebuffer support.
-public class VirtualTestDataViewIntegrationTest {
+/// Integration tests for {@link VirtualVectorTestDataView} ensuring multi-view prebuffer support.
+public class VirtualTestDataViewIntegrationVectorTest {
 
   @TempDir
   private Path tempDir;
@@ -59,7 +56,7 @@ public class VirtualTestDataViewIntegrationTest {
           .orElseThrow(() -> new IllegalStateException("Expected testxvec dataset in catalog"));
 
       ProfileSelector selector = dataset.select().setCacheDir(tempDir.toString());
-      TestDataView view = selector.profile("default");
+      VectorTestDataView view = selector.profile("default");
 
       assertTrue(view.getBaseVectors().isPresent(), "base vectors should be available");
       assertTrue(view.getQueryVectors().isPresent(), "query vectors should be available");

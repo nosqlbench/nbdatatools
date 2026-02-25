@@ -54,7 +54,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /// mvn test -Paccuracy -pl datatools-vectordata
 /// ```
 ///
-/// @see VirtdataFloatVectorsView
+/// @see VirtdataFloatVectorsViewVector
 /// @see StatisticalTestSuite
 @Tag("accuracy")
 public class VirtdataFloatVectorsViewAccuracyTest {
@@ -64,14 +64,14 @@ public class VirtdataFloatVectorsViewAccuracyTest {
     private static final long UNIQUE_VECTORS = 10_000_000L;
 
     private static VectorGenerator<VectorSpaceModel> generator;
-    private static VirtdataFloatVectorsView view;
+    private static VirtdataFloatVectorsViewVector view;
     private static VectorSpaceModel model;
 
     @BeforeAll
     static void setup() {
         model = new VectorSpaceModel(UNIQUE_VECTORS, DIMENSIONS, 0.0, 1.0);
         generator = new DimensionDistributionGenerator(model);
-        view = new VirtdataFloatVectorsView(generator, COUNT);
+        view = new VirtdataFloatVectorsViewVector(generator, COUNT);
     }
 
     static Stream<Arguments> dimensionProvider() {
@@ -172,7 +172,7 @@ public class VirtdataFloatVectorsViewAccuracyTest {
     void testStatisticalProperties_DimensionDistribution(int dims, String description) {
         VectorSpaceModel testModel = new VectorSpaceModel(1_000_000L, dims, 0.0, 1.0);
         VectorGenerator<VectorSpaceModel> testGen = new DimensionDistributionGenerator(testModel);
-        VirtdataFloatVectorsView testView = new VirtdataFloatVectorsView(testGen, 50_000);
+        VirtdataFloatVectorsViewVector testView = new VirtdataFloatVectorsViewVector(testGen, 50_000);
 
         // Sample vectors and compute per-dimension statistics
         int samples = 10_000;
@@ -265,7 +265,7 @@ public class VirtdataFloatVectorsViewAccuracyTest {
     void testDimensionAccuracy_CorrectDimensionality(int dims, String description) {
         VectorSpaceModel testModel = new VectorSpaceModel(1_000_000L, dims, 0.0, 1.0);
         VectorGenerator<VectorSpaceModel> testGen = new DimensionDistributionGenerator(testModel);
-        VirtdataFloatVectorsView testView = new VirtdataFloatVectorsView(testGen, 1000);
+        VirtdataFloatVectorsViewVector testView = new VirtdataFloatVectorsViewVector(testGen, 1000);
 
         assertEquals(dims, testView.getVectorDimensions());
 
@@ -282,8 +282,8 @@ public class VirtdataFloatVectorsViewAccuracyTest {
     @Test
     void testQQCorrelation_AcrossViews() {
         // Create two views from the same model
-        VirtdataFloatVectorsView view1 = new VirtdataFloatVectorsView(generator, COUNT);
-        VirtdataFloatVectorsView view2 = new VirtdataFloatVectorsView(generator, COUNT);
+        VirtdataFloatVectorsViewVector view1 = new VirtdataFloatVectorsViewVector(generator, COUNT);
+        VirtdataFloatVectorsViewVector view2 = new VirtdataFloatVectorsViewVector(generator, COUNT);
 
         int samples = 5000;
         float[] norms1 = new float[samples];
@@ -334,7 +334,7 @@ public class VirtdataFloatVectorsViewAccuracyTest {
 
     @Test
     void testEdgeCases_UnboundedViewStillDeterministic() {
-        VirtdataFloatVectorsView unbounded = new VirtdataFloatVectorsView(generator);
+        VirtdataFloatVectorsViewVector unbounded = new VirtdataFloatVectorsViewVector(generator);
 
         float[] v1 = unbounded.get(12345);
         float[] v2 = unbounded.get(12345);

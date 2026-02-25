@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.merklev2;
 
 import io.nosqlbench.vectordata.VectorTestData;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
@@ -88,19 +88,19 @@ public class MerkleCatalogIntegrationTest {
         
         // Select the default profile and test full vector access through catalog API
         ProfileSelector selector = datasetEntry.select();
-        TestDataView testDataView = selector.profile("default");
+        VectorTestDataView vectorTestDataView = selector.profile("default");
         
         System.out.println("Selected profile: default");  
-        System.out.println("Profile name: " + testDataView.getName());
-        System.out.println("Profile URL: " + testDataView.getUrl());
-        System.out.println("License: " + testDataView.getLicense());
-        System.out.println("Model: " + testDataView.getModel());
-        System.out.println("Vendor: " + testDataView.getVendor());
-        System.out.println("Distance function: " + testDataView.getDistanceFunction());
+        System.out.println("Profile name: " + vectorTestDataView.getName());
+        System.out.println("Profile URL: " + vectorTestDataView.getUrl());
+        System.out.println("License: " + vectorTestDataView.getLicense());
+        System.out.println("Model: " + vectorTestDataView.getModel());
+        System.out.println("Vendor: " + vectorTestDataView.getVendor());
+        System.out.println("Distance function: " + vectorTestDataView.getDistanceFunction());
         
         // Test full vector access through the authentic catalog path
         // This should now work because we created the .mref file in the correct location
-        var baseVectorsOpt = testDataView.getBaseVectors();
+        var baseVectorsOpt = vectorTestDataView.getBaseVectors();
         assertTrue(baseVectorsOpt.isPresent(), "Base vectors should be available through catalog API");
         
         BaseVectors baseVectors = baseVectorsOpt.get();

@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSProfileGroup;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
@@ -70,7 +70,7 @@ public class CatalogDatasetProfileSelectionTest {
     assertNotSame(selector, presetSelector);
     assertEquals("default", presetSelector.presetProfile().orElseThrow());
 
-    TestDataView view = presetSelector.profile("default");
+    VectorTestDataView view = presetSelector.profile("default");
     assertEquals("default", view.getName());
     assertEquals(1, selector.profileCallCount());
 
@@ -92,7 +92,7 @@ public class CatalogDatasetProfileSelectionTest {
     assertEquals(2, selector.profileCallCount());
 
     // Direct profile helper
-    TestDataView directView = catalog.profile("mnist:default");
+    VectorTestDataView directView = catalog.profile("mnist:default");
     assertEquals("default", directView.getName());
     assertEquals(3, selector.profileCallCount());
 
@@ -118,17 +118,17 @@ public class CatalogDatasetProfileSelectionTest {
 
   private static final class RecordingProfileSelector implements ProfileSelector {
     private final String expectedProfile;
-    private final TestDataView view;
+    private final VectorTestDataView view;
     private int profileCallCount;
     private String cacheDir;
 
     private RecordingProfileSelector(String expectedProfile) {
       this.expectedProfile = expectedProfile;
-      this.view = new StubTestDataView(expectedProfile);
+      this.view = new StubVectorTestDataView(expectedProfile);
     }
 
     @Override
-    public TestDataView profile(String profileName) {
+    public VectorTestDataView profile(String profileName) {
       if (!expectedProfile.equals(profileName)) {
         throw new IllegalArgumentException("Unexpected profile: " + profileName);
       }
@@ -151,10 +151,10 @@ public class CatalogDatasetProfileSelectionTest {
     }
   }
 
-  private static final class StubTestDataView implements TestDataView {
+  private static final class StubVectorTestDataView implements VectorTestDataView {
     private final String name;
 
-    private StubTestDataView(String name) {
+    private StubVectorTestDataView(String name) {
       this.name = name;
     }
 

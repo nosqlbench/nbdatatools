@@ -21,7 +21,7 @@ package io.nosqlbench.vectordata.internalapi.datasets.impl.xvec;
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
-import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecVectorDatasetViewMethods;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith(JettyFileServerExtension.class)
-public class CoreXVecDatasetViewMethodsTest {
+public class CoreXVecVectorDatasetViewMethodsTest {
 
     @TempDir
     Path tempDir;
@@ -92,17 +92,17 @@ public class CoreXVecDatasetViewMethodsTest {
         Path fvecCache = tempDir.resolve("fvec_cache.dat");
         
         MAFileChannel bvecChannel = new MAFileChannel(bvecCache, bvecFile.resolveSibling(bvecFile.getFileName() + ".mrkl"), bvecFile.toUri().toString());
-        CoreXVecDatasetViewMethods<?> bvecView = new CoreXVecDatasetViewMethods<>(
+        CoreXVecVectorDatasetViewMethods<?> bvecView = new CoreXVecVectorDatasetViewMethods<>(
             bvecChannel, Files.size(bvecFile), null, "bvecs");
         assertEquals(Byte.BYTES, bvecView.componentBytes());
 
         MAFileChannel ivecChannel = new MAFileChannel(ivecCache, ivecFile.resolveSibling(ivecFile.getFileName() + ".mrkl"), ivecFile.toUri().toString());
-        CoreXVecDatasetViewMethods<?> ivecView = new CoreXVecDatasetViewMethods<>(
+        CoreXVecVectorDatasetViewMethods<?> ivecView = new CoreXVecVectorDatasetViewMethods<>(
             ivecChannel, Files.size(ivecFile), null, "ivecs");
         assertEquals(Integer.BYTES, ivecView.componentBytes());
 
         MAFileChannel fvecChannel = new MAFileChannel(fvecCache, fvecFile.resolveSibling(fvecFile.getFileName() + ".mrkl"), fvecFile.toUri().toString());
-        CoreXVecDatasetViewMethods<?> fvecView = new CoreXVecDatasetViewMethods<>(
+        CoreXVecVectorDatasetViewMethods<?> fvecView = new CoreXVecVectorDatasetViewMethods<>(
             fvecChannel, Files.size(fvecFile), null, "fvecs");
         assertEquals(Float.BYTES, fvecView.componentBytes());
 
@@ -178,12 +178,12 @@ public class CoreXVecDatasetViewMethodsTest {
         Path httpFvecCache = tempDir.resolve("http_fvec_cache.dat");
         
         MAFileChannel httpBvecChannel = new MAFileChannel(httpBvecCache, localBvecFile.resolveSibling(localBvecFile.getFileName() + ".mrkl"), bvecHttpUrl);
-        CoreXVecDatasetViewMethods<?> httpBvecView = new CoreXVecDatasetViewMethods<>(
+        CoreXVecVectorDatasetViewMethods<?> httpBvecView = new CoreXVecVectorDatasetViewMethods<>(
             httpBvecChannel, Files.size(bvecServerFile), null, "bvecs");
         assertEquals(Byte.BYTES, httpBvecView.componentBytes());
 
         MAFileChannel httpFvecChannel = new MAFileChannel(httpFvecCache, localFvecFile.resolveSibling(localFvecFile.getFileName() + ".mrkl"), fvecHttpUrl);
-        CoreXVecDatasetViewMethods<?> httpFvecView = new CoreXVecDatasetViewMethods<>(
+        CoreXVecVectorDatasetViewMethods<?> httpFvecView = new CoreXVecVectorDatasetViewMethods<>(
             httpFvecChannel, Files.size(fvecServerFile), null, "fvecs");
         assertEquals(Float.BYTES, httpFvecView.componentBytes());
 
@@ -247,7 +247,7 @@ public class CoreXVecDatasetViewMethodsTest {
         MAFileChannel channel = new MAFileChannel(cacheFile, bvecFile.resolveSibling(bvecFile.getFileName() + ".mrkl"), fileUrl);
 
         // Create the view
-        CoreXVecDatasetViewMethods<byte[]> view = new CoreXVecDatasetViewMethods<>(
+        CoreXVecVectorDatasetViewMethods<byte[]> view = new CoreXVecVectorDatasetViewMethods<>(
             channel, Files.size(bvecFile), null, "bvecs");
 
         // Test component bytes

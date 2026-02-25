@@ -20,7 +20,7 @@ package io.nosqlbench.vectordata.downloader.testserver;
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
@@ -114,7 +114,7 @@ public class CatalogBaseVectorsTest {
         ProfileSelector profiles = dataset.select();
         assertNotNull(profiles, "Profiles should not be null");
 
-        TestDataView defaultView = profiles.profile("default");
+        VectorTestDataView defaultView = profiles.profile("default");
         assertNotNull(defaultView, "Default profile should not be null");
 
         // 3. Access .getBaseVectors() for the base vectors API
@@ -214,7 +214,7 @@ public class CatalogBaseVectorsTest {
         DatasetEntry dataset = datasetOpt.get();
 
         // Select a profile and get BaseVectors
-        TestDataView defaultView = dataset.select().profile("default");
+        VectorTestDataView defaultView = dataset.select().profile("default");
         BaseVectors baseVectors = defaultView.getBaseVectors().orElseThrow();
 
         int count = baseVectors.getCount();

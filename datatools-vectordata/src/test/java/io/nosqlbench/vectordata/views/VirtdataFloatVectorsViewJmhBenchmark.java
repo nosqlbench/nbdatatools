@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 ///
 /// Or run the main method directly from an IDE.
 ///
-/// @see VirtdataFloatVectorsView
+/// @see VirtdataFloatVectorsViewVector
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 @State(Scope.Thread)
@@ -66,8 +66,8 @@ public class VirtdataFloatVectorsViewJmhBenchmark {
     @Param({"100", "1000", "10000"})
     private int batchSize;
 
-    private VirtdataFloatVectorsView boundedView;
-    private VirtdataFloatVectorsView unboundedView;
+    private VirtdataFloatVectorsViewVector boundedView;
+    private VirtdataFloatVectorsViewVector unboundedView;
     private long ordinal;
 
     @Setup(Level.Trial)
@@ -75,8 +75,8 @@ public class VirtdataFloatVectorsViewJmhBenchmark {
         VectorSpaceModel model = new VectorSpaceModel(10_000_000L, dimensions, 0.0, 1.0);
         VectorGenerator<VectorSpaceModel> generator = new DimensionDistributionGenerator(model);
 
-        boundedView = new VirtdataFloatVectorsView(generator, 1_000_000);
-        unboundedView = new VirtdataFloatVectorsView(generator);
+        boundedView = new VirtdataFloatVectorsViewVector(generator, 1_000_000);
+        unboundedView = new VirtdataFloatVectorsViewVector(generator);
         ordinal = 0;
     }
 
