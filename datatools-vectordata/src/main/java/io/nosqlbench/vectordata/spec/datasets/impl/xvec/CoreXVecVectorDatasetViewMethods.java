@@ -21,7 +21,7 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
 import io.nosqlbench.vectordata.layoutv2.DSInterval;
 import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
 import org.jetbrains.annotations.NotNull;
 
@@ -44,7 +44,7 @@ import java.util.function.Function;
 /// It supports different vector formats based on file extensions.
 ///
 /// @param <T> The type of vector returned by this view (e.g., float[], int[], byte[])
-public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebufferable<T> {
+public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>, Prebufferable<T> {
 
   private final AsynchronousFileChannel channel;
   private final DSWindow window;
@@ -61,7 +61,7 @@ public class CoreXVecDatasetViewMethods<T> implements DatasetView<T>, Prebuffera
   /// @param sourceSize The size of the source file in bytes
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
-  public CoreXVecDatasetViewMethods(
+  public CoreXVecVectorDatasetViewMethods(
       AsynchronousFileChannel channel,
       long sourceSize,
       DSWindow window,

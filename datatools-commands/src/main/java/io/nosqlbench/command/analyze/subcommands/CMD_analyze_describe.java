@@ -27,11 +27,11 @@ import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
 import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
@@ -137,8 +137,8 @@ public class CMD_analyze_describe implements Callable<Integer> {
             Path resolvedCacheDir = VectorDataSpecSupport.requireCacheDir(cacheDir);
             profileSelector = profileSelector.setCacheDir(resolvedCacheDir.toString());
 
-            TestDataView testDataView = profileSelector.profile(profileName);
-            return describeFacet(testDataView, facetKind);
+            VectorTestDataView vectorTestDataView = profileSelector.profile(profileName);
+            return describeFacet(vectorTestDataView, facetKind);
 
         } catch (Exception e) {
             logger.error("Failed to resolve catalog facet '{}:{}:{}': {}",
@@ -171,8 +171,8 @@ public class CMD_analyze_describe implements Callable<Integer> {
             Path resolvedCacheDir = VectorDataSpecSupport.requireCacheDir(cacheDir);
             profileSelector = profileSelector.setCacheDir(resolvedCacheDir.toString());
 
-            TestDataView testDataView = profileSelector.profile(profileName);
-            return describeFacet(testDataView, facetKind);
+            VectorTestDataView vectorTestDataView = profileSelector.profile(profileName);
+            return describeFacet(vectorTestDataView, facetKind);
 
         } catch (Exception e) {
             logger.error("Failed to resolve local facet in '{}': {}", datasetDir, e.getMessage());
@@ -196,7 +196,7 @@ public class CMD_analyze_describe implements Callable<Integer> {
     }
 
     /// Describe a specific facet from a TestDataView
-    private int describeFacet(TestDataView view, TestDataKind facetKind) {
+    private int describeFacet(VectorTestDataView view, TestDataKind facetKind) {
         switch (facetKind) {
             case base_vectors -> {
                 Optional<BaseVectors> baseVectors = view.getBaseVectors();
@@ -239,14 +239,14 @@ public class CMD_analyze_describe implements Callable<Integer> {
     }
 
     /// Describe a generic DatasetView
-    private void describeDatasetView(String facetName, DatasetView<?> datasetView, String dataType) {
+    private void describeDatasetView(String facetName, VectorDatasetView<?> vectorDatasetView, String dataType) {
         System.out.println("Dataset Facet Description:");
         System.out.printf("- Facet: %s%n", facetName);
         System.out.printf("- Data Type: %s%n", dataType);
-        System.out.printf("- Dimensions: %d%n", datasetView.getVectorDimensions());
-        System.out.printf("- Vector Count: %d%n", datasetView.getCount());
+        System.out.printf("- Dimensions: %d%n", vectorDatasetView.getVectorDimensions());
+        System.out.printf("- Vector Count: %d%n", vectorDatasetView.getCount());
 
-        int recordSize = 4 + (datasetView.getVectorDimensions() * 4); // 4 bytes for dim + float data
+        int recordSize = 4 + (vectorDatasetView.getVectorDimensions() * 4); // 4 bytes for dim + float data
         System.out.printf("- Record Size: %d bytes%n", recordSize);
     }
 

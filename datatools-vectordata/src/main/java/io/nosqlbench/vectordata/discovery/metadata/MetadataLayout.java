@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
+package io.nosqlbench.vectordata.discovery.metadata;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,10 +18,5 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 
-import java.util.concurrent.CompletableFuture;
-
-public interface Prebufferable<T> {
-  CompletableFuture<Void> prebuffer(long startIncl, long endExcl);
-
-  CompletableFuture<Void> prebuffer();
+public interface MetadataLayout {
 }

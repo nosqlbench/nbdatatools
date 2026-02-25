@@ -10,7 +10,7 @@
 /// - {@link io.nosqlbench.vectordata.downloader.ResourceTransportService}: Download orchestration
 /// - {@link io.nosqlbench.vectordata.downloader.ChunkedResourceTransportService}: Chunked download management
 /// - {@link io.nosqlbench.vectordata.downloader.DownloadProgress}: Progress tracking
-/// - {@link io.nosqlbench.vectordata.downloader.VirtualTestDataView}: Virtual access to remote datasets
+/// - {@link io.nosqlbench.vectordata.downloader.VirtualVectorTestDataView}: Virtual access to remote datasets
 /// - {@link io.nosqlbench.vectordata.downloader.DatasetEntry}: Dataset metadata
 ///
 /// ## Usage Example

@@ -19,12 +19,12 @@ package io.nosqlbench.command.datasets.subcommands;
 
 import io.nosqlbench.command.common.DatasetCompletionCandidates;
 import io.nosqlbench.vectordata.config.VectorDataSettings;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSInterval;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
 import io.nosqlbench.vectordata.layoutv2.DSView;
@@ -135,12 +135,12 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
                 .setCacheDir(cacheDir.toString());
 
             // Get the TestDataView using the standard profile() method
-            TestDataView testDataView = profileSelector.profile(profileName);
+            VectorTestDataView vectorTestDataView = profileSelector.profile(profileName);
 
             System.out.println("Prebuffering dataset: " + spec.dataset() + ":" + profileName);
             if (verbose) {
-                System.out.println("Test data view: " + testDataView.getName());
-                System.out.println("URL: " + testDataView.getUrl());
+                System.out.println("Test data view: " + vectorTestDataView.getName());
+                System.out.println("URL: " + vectorTestDataView.getUrl());
             }
             
             Instant startTime = Instant.now();
@@ -155,35 +155,35 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
             CompletableFuture<Void> prebufferFuture;
             if (viewsToPrebuffer.contains("*")) {
                 // Prebuffer all views
-                prebufferFuture = testDataView.prebuffer();
+                prebufferFuture = vectorTestDataView.prebuffer();
                 System.out.println("Prebuffering all views");
             } else {
                 // Prebuffer only selected views
                 List<CompletableFuture<Void>> futures = new ArrayList<>();
                 
                 if (viewsToPrebuffer.contains("base_vectors")) {
-                    testDataView.getBaseVectors().ifPresent(baseVectors -> {
+                    vectorTestDataView.getBaseVectors().ifPresent(baseVectors -> {
                         System.out.println("Prebuffering base_vectors");
                         futures.add(baseVectors.prebuffer());
                     });
                 }
                 
                 if (viewsToPrebuffer.contains("query_vectors")) {
-                    testDataView.getQueryVectors().ifPresent(queryVectors -> {
+                    vectorTestDataView.getQueryVectors().ifPresent(queryVectors -> {
                         System.out.println("Prebuffering query_vectors");
                         futures.add(queryVectors.prebuffer());
                     });
                 }
                 
                 if (viewsToPrebuffer.contains("neighbor_indices")) {
-                    testDataView.getNeighborIndices().ifPresent(neighborIndices -> {
+                    vectorTestDataView.getNeighborIndices().ifPresent(neighborIndices -> {
                         System.out.println("Prebuffering neighbor_indices");
                         futures.add(neighborIndices.prebuffer());
                     });
                 }
                 
                 if (viewsToPrebuffer.contains("neighbor_distances")) {
-                    testDataView.getNeighborDistances().ifPresent(neighborDistances -> {
+                    vectorTestDataView.getNeighborDistances().ifPresent(neighborDistances -> {
                         System.out.println("Prebuffering neighbor_distances");
                         futures.add(neighborDistances.prebuffer());
                     });

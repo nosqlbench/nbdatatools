@@ -18,7 +18,7 @@
 package io.nosqlbench.command.common;
 
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 
 import java.nio.file.Path;
 import java.util.AbstractList;
@@ -26,30 +26,30 @@ import java.util.AbstractList;
 /// Adapter to expose a DatasetView as a VectorFileArray.
 public final class DatasetViewVectorFileArray<T> extends AbstractList<T> implements VectorFileArray<T> {
 
-    private final DatasetView<T> datasetView;
+    private final VectorDatasetView<T> vectorDatasetView;
     private final String name;
 
-    public DatasetViewVectorFileArray(DatasetView<T> datasetView, String name) {
-        if (datasetView == null) {
+    public DatasetViewVectorFileArray(VectorDatasetView<T> vectorDatasetView, String name) {
+        if (vectorDatasetView == null) {
             throw new IllegalArgumentException("datasetView must not be null");
         }
-        this.datasetView = datasetView;
+        this.vectorDatasetView = vectorDatasetView;
         this.name = name != null ? name : "dataset";
     }
 
     @Override
     public T get(int index) {
-        return datasetView.get(index);
+        return vectorDatasetView.get(index);
     }
 
     @Override
     public int size() {
-        return datasetView.getCount();
+        return vectorDatasetView.getCount();
     }
 
     @Override
     public int getSize() {
-        return datasetView.getCount();
+        return vectorDatasetView.getCount();
     }
 
     @Override

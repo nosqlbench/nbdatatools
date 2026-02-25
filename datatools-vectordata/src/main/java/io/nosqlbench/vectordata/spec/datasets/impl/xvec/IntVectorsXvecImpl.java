@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Set;
 
 /// Implementation of IntVectors backed by xvec resources.
-public class IntVectorsXvecImpl extends CoreXVecDatasetViewMethods<int[]> implements IntVectors {
+public class IntVectorsXvecImpl extends CoreXVecVectorDatasetViewMethods<int[]> implements IntVectors {
 
   /// Create a new IntVectors view for xvec data.
   /// @param channel The AsynchronousFileChannel providing access to the dataset

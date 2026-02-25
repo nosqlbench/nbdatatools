@@ -13,7 +13,7 @@
 /// - {@link io.nosqlbench.vectordata.spec.datasets.impl.xvec.NeighborDistancesXvecImpl}: Neighbor distances from xvec
 /// - {@link io.nosqlbench.vectordata.spec.datasets.impl.xvec.FloatVectorsXvecImpl}: Float vectors from xvec
 /// - {@link io.nosqlbench.vectordata.spec.datasets.impl.xvec.IntVectorsXvecImpl}: Integer vectors from xvec
-/// - {@link io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods}: Shared xvec methods
+/// - {@link io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecVectorDatasetViewMethods}: Shared xvec methods
 ///
 /// ## xvec Format
 ///

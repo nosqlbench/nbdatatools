@@ -45,13 +45,11 @@ import io.nosqlbench.vshapes.extract.DimensionStatistics;
 import io.nosqlbench.vshapes.extract.BetaModelFitter;
 import io.nosqlbench.vshapes.extract.EmpiricalModelFitter;
 import io.nosqlbench.vshapes.extract.GammaModelFitter;
-import io.nosqlbench.vshapes.extract.InternalVerifier;
 import io.nosqlbench.vshapes.extract.ModelEquivalenceAnalyzer;
 import io.nosqlbench.vshapes.extract.StatisticalEquivalenceChecker;
 import io.nosqlbench.vshapes.extract.StudentTModelFitter;
 import io.nosqlbench.vshapes.extract.ModelExtractor;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_sketch;
-import io.nosqlbench.vshapes.extract.ModelParser;
 import io.nosqlbench.vshapes.extract.NormalModelFitter;
 import io.nosqlbench.vshapes.extract.UniformModelFitter;
 import io.nosqlbench.vshapes.extract.DimensionFitReport;
@@ -60,8 +58,6 @@ import io.nosqlbench.vshapes.extract.BraillePlot;
 import io.nosqlbench.vshapes.model.CompositeScalarModel;
 import io.nosqlbench.vshapes.checkpoint.CheckpointManager;
 import io.nosqlbench.vshapes.checkpoint.CheckpointState;
-import io.nosqlbench.vshapes.trace.NdjsonTraceObserver;
-import io.nosqlbench.vshapes.trace.StateObserver;
 import io.nosqlbench.vshapes.model.NormalScalarModel;
 import io.nosqlbench.vshapes.model.ScalarModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
@@ -77,8 +73,8 @@ import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
 import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
-import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecVectorDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -90,8 +86,6 @@ import java.util.Random;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Analyze a vector dataset and build a VectorSpaceModel configuration.
@@ -729,12 +723,12 @@ public class CMD_analyze_profile implements Callable<Integer> {
         }
 
         TestDataKind facetKind = spec.getFacetKind().orElseThrow();
-        DatasetView<?> view = VectorDataSpecSupport
+        VectorDatasetView<?> view = VectorDataSpecSupport
             .resolveDatasetView(spec, configdir, catalogs, cacheDir)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Facet '" + facetKind.name() + "' is not available for " + spec));
 
-        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+        if (!(view instanceof CoreXVecVectorDatasetViewMethods<?> xvecView)) {
             throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
         }
 

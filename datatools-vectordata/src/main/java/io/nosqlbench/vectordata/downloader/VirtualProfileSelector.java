@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.downloader;
 
 
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
 
 import java.nio.file.Path;
@@ -66,7 +66,7 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
   /// @param profileName The name of the profile to select
   /// @return A TestDataView for the selected profile
   @Override
-  public TestDataView profile(String profileName) {
+  public VectorTestDataView profile(String profileName) {
     // Extract effective profile name based on the documented rules
     String effectiveProfileName = profileName;
     
@@ -90,7 +90,7 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
     if (profile==null) {
       throw new RuntimeException("profile " + effectiveProfileName + "' not found. Available profiles: " + profiles() + ", but not " + effectiveProfileName);
     }
-    VirtualTestDataView view = new VirtualTestDataView( cacheDir,datasetEntry, profile);
+    VirtualVectorTestDataView view = new VirtualVectorTestDataView( cacheDir,datasetEntry, profile);
     return view;
   }
 

@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.spec.datasets.types;
 
 
 /// a dataset consisting of arrays of float values
-public interface DoubleVectors extends DatasetView<double[]> {
+public interface DoubleVectors extends VectorDatasetView<double[]> {
   /// get a vector by its ordinal
   /// @param ordinal the ordinal of the vector to get
   /// @return the vector

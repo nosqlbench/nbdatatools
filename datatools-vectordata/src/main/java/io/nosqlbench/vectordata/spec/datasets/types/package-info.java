@@ -7,7 +7,7 @@
 /// ## Key Components
 ///
 /// ### Dataset Interfaces
-/// - {@link io.nosqlbench.vectordata.spec.datasets.types.DatasetView}: Base interface for all dataset views
+/// - {@link io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView}: Base interface for all dataset views
 /// - {@link io.nosqlbench.vectordata.spec.datasets.types.BaseVectors}: Base vector dataset
 /// - {@link io.nosqlbench.vectordata.spec.datasets.types.QueryVectors}: Query vector dataset
 /// - {@link io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices}: K-nearest neighbor indices
@@ -21,6 +21,7 @@
 /// - {@link io.nosqlbench.vectordata.spec.datasets.types.ViewKind}: Dataset view type classification
 /// - {@link io.nosqlbench.vectordata.spec.datasets.types.TestDataKind}: Test data classification
 /// - {@link io.nosqlbench.vectordata.spec.datasets.types.Indexed}: Interface for indexed elements
+/// - {@link io.nosqlbench.vectordata.spec.datasets.types.MappedDatasetView}: Element-mapping adapter for any DatasetView
 ///
 /// ## Usage Example
 ///

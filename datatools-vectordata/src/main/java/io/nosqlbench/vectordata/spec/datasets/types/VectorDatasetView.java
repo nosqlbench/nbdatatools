@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
+package io.nosqlbench.vectordata.spec.datasets.types;
 
 /*
  * Copyright (c) nosqlbench
@@ -18,10 +18,19 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
  */
 
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.function.Function;
 
-public interface Prebufferable<T> {
-  CompletableFuture<Void> prebuffer(long startIncl, long endExcl);
+/// Each dataset which is accessible through the vectordata discovery APIs
+/// must implement this interface.
+/// @see io.nosqlbench.vectordata.discovery.ProfileSelector
+/// @param <T> the type of the vector elements
+public interface VectorDatasetView<T> extends DatasetView<T> {
 
-  CompletableFuture<Void> prebuffer();
+    /// get the number of dimensions in each vector
+  /// @return the number of dimensions in each vector
+  public int getVectorDimensions();
+
 }

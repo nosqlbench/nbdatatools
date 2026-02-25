@@ -26,8 +26,8 @@ import io.nosqlbench.nbdatatools.api.fileio.VectorFileArray;
 import io.nosqlbench.nbdatatools.api.services.FileType;
 import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
 import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
-import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecVectorDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vshapes.extract.BraillePlot;
 import org.apache.logging.log4j.LogManager;
@@ -200,12 +200,12 @@ public class CMD_analyze_plot implements Callable<Integer> {
         }
 
         TestDataKind facetKind = spec.getFacetKind().orElseThrow();
-        DatasetView<?> view = VectorDataSpecSupport
+        VectorDatasetView<?> view = VectorDataSpecSupport
             .resolveDatasetView(spec, configdir, catalogs, cacheDir)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Facet '" + facetKind.name() + "' is not available for " + spec));
 
-        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+        if (!(view instanceof CoreXVecVectorDatasetViewMethods<?> xvecView)) {
             throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
         }
         if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {

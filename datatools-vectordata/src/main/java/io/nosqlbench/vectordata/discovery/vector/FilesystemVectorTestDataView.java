@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.discovery;
+package io.nosqlbench.vectordata.discovery.vector;
 
 /*
  * Copyright (c) nosqlbench
@@ -20,10 +20,10 @@ package io.nosqlbench.vectordata.discovery;
 
 import io.nosqlbench.datatools.virtdata.VectorGenerator;
 import io.nosqlbench.datatools.virtdata.VectorGeneratorIO;
+import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FView;
 import io.nosqlbench.vectordata.layout.FWindow;
-import io.nosqlbench.vectordata.layout.SourceType;
 import io.nosqlbench.vectordata.layoutv2.DSInterval;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.BaseVectorsXvecImpl;
@@ -38,7 +38,7 @@ import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vectordata.spec.tokens.SpecToken;
 import io.nosqlbench.vectordata.spec.tokens.Templatizer;
-import io.nosqlbench.vectordata.views.VirtdataFloatVectorsView;
+import io.nosqlbench.vectordata.views.VirtdataFloatVectorsViewVector;
 import io.nosqlbench.vshapes.model.VectorSpaceModel;
 import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import org.apache.logging.log4j.LogManager;
@@ -61,8 +61,8 @@ import java.util.concurrent.CompletableFuture;
 /// This class provides access to vector datasets stored in local files (fvec, ivec, etc.)
 /// using AsyncFileChannel for efficient I/O. It wires up the xvec implementations based
 /// on the profile configuration from dataset.yaml.
-public class FilesystemTestDataView implements TestDataView, AutoCloseable {
-    private static final Logger logger = LogManager.getLogger(FilesystemTestDataView.class);
+public class FilesystemVectorTestDataView implements VectorTestDataView, AutoCloseable {
+    private static final Logger logger = LogManager.getLogger(FilesystemVectorTestDataView.class);
 
     private final TestDataGroup dataGroup;
     private final FProfiles profile;
@@ -82,7 +82,7 @@ public class FilesystemTestDataView implements TestDataView, AutoCloseable {
     /// @param dataGroup The data group containing dataset metadata
     /// @param profile The profile configuration
     /// @param profileName The name of this profile
-    public FilesystemTestDataView(TestDataGroup dataGroup, FProfiles profile, String profileName) {
+    public FilesystemVectorTestDataView(TestDataGroup dataGroup, FProfiles profile, String profileName) {
         this.dataGroup = dataGroup;
         this.profile = profile;
         this.profileName = profileName;
@@ -406,7 +406,7 @@ public class FilesystemTestDataView implements TestDataView, AutoCloseable {
     /// @return A VirtdataFloatVectorsView implementing both BaseVectors and QueryVectors
     /// @throws IOException if the model file cannot be read
     /// @throws IllegalArgumentException if no generator supports the model type
-    private VirtdataFloatVectorsView loadVirtdataVectors(Path modelPath, FWindow window) throws IOException {
+    private VirtdataFloatVectorsViewVector loadVirtdataVectors(Path modelPath, FWindow window) throws IOException {
         if (!Files.exists(modelPath)) {
             throw new IOException("Virtdata model file not found: " + modelPath);
         }
@@ -432,7 +432,7 @@ public class FilesystemTestDataView implements TestDataView, AutoCloseable {
             count = windowSize > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) windowSize;
         }
 
-        return new VirtdataFloatVectorsView(generator, count);
+        return new VirtdataFloatVectorsViewVector(generator, count);
     }
 
     /// Extracts the file extension from a filename.

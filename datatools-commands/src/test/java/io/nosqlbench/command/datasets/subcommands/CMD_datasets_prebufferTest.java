@@ -21,14 +21,14 @@ package io.nosqlbench.command.datasets.subcommands;
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleShape;
 import io.nosqlbench.vectordata.merklev2.MerkleState;
 import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
-import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecVectorDatasetViewMethods;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -209,12 +209,12 @@ public class CMD_datasets_prebufferTest {
     DatasetEntry dataset = catalog.findExact("testxvec_window")
         .orElseThrow(() -> new IllegalStateException("Expected testxvec_window dataset in catalog"));
     ProfileSelector selector = dataset.select().setCacheDir(testCacheDir.toString());
-    TestDataView view = selector.profile("default");
+    VectorTestDataView view = selector.profile("default");
     BaseVectors baseVectors = view.getBaseVectors()
         .orElseThrow(() -> new IllegalStateException("Base vectors view should exist"));
 
     Path cacheFile;
-    if (baseVectors instanceof CoreXVecDatasetViewMethods<?> coreView
+    if (baseVectors instanceof CoreXVecVectorDatasetViewMethods<?> coreView
         && coreView.getChannel() instanceof CacheFileAccessor accessor) {
       cacheFile = accessor.getCacheFilePath();
     } else {

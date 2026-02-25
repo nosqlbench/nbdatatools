@@ -18,9 +18,9 @@ package io.nosqlbench.vectordata.spec.tokens;
  */
 
 
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /// This is the reference implementation of valid tokens used for configuration
 /// and templating with the vector test data format.
@@ -38,21 +37,21 @@ import java.util.stream.Collectors;
 /// The first level of tokens are the canonical tokens. The second level are shortcuts and
 /// synonyms. For users, they are treated the same when it comes to token expansion.
 /// Library and tool maintainers may choose to treat them differently if needed.
-public enum SpecToken implements Function<TestDataView, Optional<String>> {
+public enum SpecToken implements Function<VectorTestDataView, Optional<String>> {
 
   /// The number of base vectors in the dataset
   base_vectors(
-      d -> d.getBaseVectors().map(DatasetView::getCount).map(String::valueOf),
+      d -> d.getBaseVectors().map(VectorDatasetView::getCount).map(String::valueOf),
       "The number of base vectors in the dataset"
   ),
   /// The number of query vectors in the dataset
   query_vectors(
-      d -> d.getQueryVectors().map(DatasetView::getCount).map(String::valueOf),
+      d -> d.getQueryVectors().map(VectorDatasetView::getCount).map(String::valueOf),
       "The number of query vectors in the dataset"
   ),
   /// The number of neighborhoods provided; should be the same as query_vectors
   neighbor_indices(
-      d -> d.getNeighborIndices().map(DatasetView::getCount).map(String::valueOf),
+      d -> d.getNeighborIndices().map(VectorDatasetView::getCount).map(String::valueOf),
       "The number of neighborhoods provided ; should be the same as query_vectors"
   ),
   /// The model used to build this dataset
@@ -62,7 +61,7 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
   ),
   /// The number of components in the vector space
   dimensions(
-      d -> d.getBaseVectors().map(DatasetView::getVectorDimensions).map(String::valueOf),
+      d -> d.getBaseVectors().map(VectorDatasetView::getVectorDimensions).map(String::valueOf),
       "The number of components in the vector space"
   ),
   /// The maximum number of neighbors provided for each query vector
@@ -130,7 +129,7 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
   /// @param vectorData the dataset to get the token value from
   /// @return the token value
   @Override
-  public Optional<String> apply(TestDataView vectorData) {
+  public Optional<String> apply(VectorTestDataView vectorData) {
     if (this.accessor != null) {
       Optional<String> result = this.accessor.apply(vectorData);
       return result;
@@ -159,12 +158,12 @@ public enum SpecToken implements Function<TestDataView, Optional<String>> {
     }
   }
 
-  private final Function<TestDataView, Optional<String>> accessor;
+  private final Function<VectorTestDataView, Optional<String>> accessor;
 
   /// The description of the token
   public String description;
 
-  SpecToken(Function<TestDataView, Optional<String>> accessor, String description) {
+  SpecToken(Function<VectorTestDataView, Optional<String>> accessor, String description) {
     this.accessor = accessor;
     this.description = description;
   }

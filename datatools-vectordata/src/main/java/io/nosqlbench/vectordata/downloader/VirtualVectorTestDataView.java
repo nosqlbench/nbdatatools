@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
@@ -74,7 +74,7 @@ import java.util.ArrayList;
 ///                                     ↓
 ///                            Specialized Vector Views
 /// ```
-public class VirtualTestDataView implements TestDataView {
+public class VirtualVectorTestDataView implements VectorTestDataView {
 
   /// The dataset entry containing metadata about the dataset
   private final DatasetEntry datasetEntry;
@@ -93,7 +93,7 @@ public class VirtualTestDataView implements TestDataView {
   ///     The dataset entry containing metadata about the dataset
   /// @param profile 
   ///     The profile containing views of the dataset
-  public VirtualTestDataView(Path cachedir, DatasetEntry datasetEntry, DSProfile profile) {
+  public VirtualVectorTestDataView(Path cachedir, DatasetEntry datasetEntry, DSProfile profile) {
     this.datasetEntry = datasetEntry;
     this.profile = profile;
     this.cachedir = cachedir;

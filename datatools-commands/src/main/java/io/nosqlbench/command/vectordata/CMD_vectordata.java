@@ -19,14 +19,13 @@ package io.nosqlbench.command.vectordata;
 
 import io.nosqlbench.command.common.DatasetCompletionCandidates;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layout.FWindow;
-import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.TestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
 import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
@@ -36,8 +35,6 @@ import org.apache.logging.log4j.Logger;
 import org.jline.reader.Candidate;
 import picocli.CommandLine;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -199,7 +196,7 @@ class CMD_vectordata_prebuffer implements Callable<Integer> {
         try {
             try (VectordataCliSupport.DatasetSession session = VectordataCliSupport.loadDataset(datasetSpec, cacheDir)) {
                 String pname = chooseProfile(session, profile);
-                TestDataView tdv = session.selector().profile(pname);
+                VectorTestDataView tdv = session.selector().profile(pname);
                 if (viewName == null || viewName.isBlank()) {
                     tdv.prebuffer().join();
                     spec.commandLine().getOut().printf("Prebuffered all available views for profile '%s'%n", pname);
@@ -209,7 +206,7 @@ class CMD_vectordata_prebuffer implements Callable<Integer> {
                         spec.commandLine().getErr().printf("View '%s' not found in profile '%s'%n", viewName, pname);
                         return 1;
                     }
-                    DatasetView<?> dv = maybeView.get();
+                    VectorDatasetView<?> dv = maybeView.get();
                     if (rangeSpec != null && !rangeSpec.isBlank()) {
                         long[] range = parseRange(rangeSpec);
                         dv.prebuffer(range[0], range[1]).join();
@@ -348,7 +345,7 @@ class CMD_vectordata_views implements Callable<Integer> {
                     continue;
                 }
                 java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
-                TestDataView tdv = session.selector().profile(pname);
+                VectorTestDataView tdv = session.selector().profile(pname);
                 java.util.List<String> views = ViewSelector.availableViews(tdv);
                 entry.put("profile", pname);
                 entry.put("views", views);
@@ -362,7 +359,7 @@ class CMD_vectordata_views implements Callable<Integer> {
                 continue;
             }
             out.printf("Profile: %s%n", pname);
-            TestDataView view = session.selector().profile(pname);
+            VectorTestDataView view = session.selector().profile(pname);
             emitView(out, "base_vectors", view.getBaseVectors().orElse(null));
             emitView(out, "query_vectors", view.getQueryVectors().orElse(null));
             emitView(out, "neighbor_indices", view.getNeighborIndices().orElse(null));
@@ -458,13 +455,13 @@ class CMD_vectordata_size implements Callable<Integer> {
         try {
             try (VectordataCliSupport.DatasetSession session = VectordataCliSupport.loadDataset(datasetSpec, cacheDir)) {
                 String pname = chooseProfile(session, profile);
-                TestDataView tdv = session.selector().profile(pname);
+                VectorTestDataView tdv = session.selector().profile(pname);
                 var maybeView = ViewSelector.resolve(tdv, viewName);
                 if (maybeView.isEmpty()) {
                     spec.commandLine().getErr().printf("View '%s' not found in profile '%s'%n", viewName, pname);
                     return 1;
                 }
-                DatasetView<?> dv = maybeView.get();
+                VectorDatasetView<?> dv = maybeView.get();
                 emitSize(spec.commandLine().getOut(), session.name(), pname, dv, format);
             }
             return 0;
@@ -476,7 +473,7 @@ class CMD_vectordata_size implements Callable<Integer> {
         }
     }
 
-    void emitSize(PrintWriter out, String dataset, String profile, DatasetView<?> dv, String format) throws java.io.IOException {
+    void emitSize(PrintWriter out, String dataset, String profile, VectorDatasetView<?> dv, String format) throws java.io.IOException {
         String cname = ViewSelector.canonicalName(dv);
         if ("json".equalsIgnoreCase(format)) {
             java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
@@ -547,13 +544,13 @@ class CMD_vectordata_sample implements Callable<Integer> {
         try {
             try (VectordataCliSupport.DatasetSession session = VectordataCliSupport.loadDataset(datasetSpec, cacheDir)) {
                 String pname = chooseProfile(session, profile);
-                TestDataView tdv = session.selector().profile(pname);
+                VectorTestDataView tdv = session.selector().profile(pname);
                 var maybeView = ViewSelector.resolve(tdv, viewName);
                 if (maybeView.isEmpty()) {
                     spec.commandLine().getErr().printf("View '%s' not found in profile '%s'%n", viewName, pname);
                     return 1;
                 }
-                DatasetView<?> dv = maybeView.get();
+                VectorDatasetView<?> dv = maybeView.get();
                 emitSample(spec.commandLine().getOut(), dv, start, count, format);
             }
             return 0;
@@ -565,7 +562,7 @@ class CMD_vectordata_sample implements Callable<Integer> {
         }
     }
 
-    void emitSample(PrintWriter out, DatasetView<?> dv, long start, int count, String format) throws java.io.IOException {
+    void emitSample(PrintWriter out, VectorDatasetView<?> dv, long start, int count, String format) throws java.io.IOException {
         long endExclusive = Math.min(start + count, dv.getCount());
         if ("json".equalsIgnoreCase(format)) {
             java.util.List<Object> rows = new java.util.ArrayList<>();
@@ -644,13 +641,13 @@ class CMD_vectordata_cat implements Callable<Integer> {
         try {
             try (VectordataCliSupport.DatasetSession session = VectordataCliSupport.loadDataset(datasetSpec, cacheDir)) {
                 String pname = chooseProfile(session, profile);
-                TestDataView tdv = session.selector().profile(pname);
+                VectorTestDataView tdv = session.selector().profile(pname);
                 var maybeView = ViewSelector.resolve(tdv, viewName);
                 if (maybeView.isEmpty()) {
                     spec.commandLine().getErr().printf("View '%s' not found in profile '%s'%n", viewName, pname);
                     return 1;
                 }
-                DatasetView<?> dv = maybeView.get();
+                VectorDatasetView<?> dv = maybeView.get();
                 long endIdx = resolveEnd(dv, start, end, count);
                 if (start >= dv.getCount()) {
                     spec.commandLine().getErr().printf("Start index %d is >= view size %d%n", start, dv.getCount());
@@ -683,7 +680,7 @@ class CMD_vectordata_cat implements Callable<Integer> {
         }
     }
 
-    private long resolveEnd(DatasetView<?> dv, long start, Long end, Integer count) {
+    private long resolveEnd(VectorDatasetView<?> dv, long start, Long end, Integer count) {
         if (end != null) {
             return Math.min(end, dv.getCount());
         }
@@ -716,7 +713,7 @@ class CMD_vectordata_cat implements Callable<Integer> {
         return val.toString();
     }
 
-    private void writeRaw(DatasetView<?> dv, Object val, java.io.OutputStream out) throws Exception {
+    private void writeRaw(VectorDatasetView<?> dv, Object val, java.io.OutputStream out) throws Exception {
         if (val instanceof float[] fa) {
             java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(fa.length * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
             for (float f : fa) {
@@ -776,7 +773,7 @@ class CMD_vectordata_verify implements Callable<Integer> {
         try {
             try (VectordataCliSupport.DatasetSession session = VectordataCliSupport.loadDataset(datasetSpec, cacheDir)) {
                 String pname = chooseProfile(session, profile);
-                TestDataView tdv = session.selector().profile(pname);
+                VectorTestDataView tdv = session.selector().profile(pname);
                 if (viewName == null || viewName.isBlank()) {
                     tdv.prebuffer().join();
                     spec.commandLine().getOut().printf("Verified all views for profile '%s'%n", pname);
@@ -786,7 +783,7 @@ class CMD_vectordata_verify implements Callable<Integer> {
                         spec.commandLine().getErr().printf("View '%s' not found in profile '%s'%n", viewName, pname);
                         return 1;
                     }
-                    DatasetView<?> dv = maybeView.get();
+                    VectorDatasetView<?> dv = maybeView.get();
                     dv.prebuffer().join();
                     spec.commandLine().getOut().printf("Verified view '%s' for profile '%s'%n",
                         ViewSelector.canonicalName(dv), pname);
@@ -862,7 +859,7 @@ class CMD_vectordata_repl implements Callable<Integer> {
                     if (cur[0] != null) {
                         profiles = cur[0].profileNames();
                         try {
-                            TestDataView tdv = cur[0].selector().profile(profiles.get(0));
+                            VectorTestDataView tdv = cur[0].selector().profile(profiles.get(0));
                             views = ViewSelector.availableViews(tdv);
                         } catch (Exception ignored) {}
                     }
@@ -986,7 +983,7 @@ class CMD_vectordata_repl implements Callable<Integer> {
                     }
                     String v = args.length > 1 ? args[1] : "base_vectors";
                     String p = cur[0].profileNames().get(0);
-                    TestDataView tdv = cur[0].selector().profile(p);
+                    VectorTestDataView tdv = cur[0].selector().profile(p);
                     var maybeView = ViewSelector.resolve(tdv, v);
                     if (maybeView.isEmpty()) {
                         out.printf("View '%s' not found in profile '%s'%n", v, p);
@@ -1004,7 +1001,7 @@ class CMD_vectordata_repl implements Callable<Integer> {
                     long s = args.length > 2 ? Long.parseLong(args[2]) : 0;
                     int c = args.length > 3 ? Integer.parseInt(args[3]) : 5;
                     String p = cur[0].profileNames().get(0);
-                    TestDataView tdv = cur[0].selector().profile(p);
+                    VectorTestDataView tdv = cur[0].selector().profile(p);
                     var maybeView = ViewSelector.resolve(tdv, v);
                     if (maybeView.isEmpty()) {
                         out.printf("View '%s' not found in profile '%s'%n", v, p);
@@ -1020,7 +1017,7 @@ class CMD_vectordata_repl implements Callable<Integer> {
                     }
                     String v = args.length > 1 ? args[1] : null;
                     String p = cur[0].profileNames().get(0);
-                    TestDataView tdv = cur[0].selector().profile(p);
+                    VectorTestDataView tdv = cur[0].selector().profile(p);
                     if (v == null) {
                         tdv.prebuffer().join();
                         out.printf("Prebuffered all views for profile '%s'%n", p);
@@ -1044,12 +1041,12 @@ class CMD_vectordata_repl implements Callable<Integer> {
                     long s = args.length > 2 ? Long.parseLong(args[2]) : 0;
                     int c = args.length > 3 ? Integer.parseInt(args[3]) : 5;
                     String p = cur[0].profileNames().get(0);
-                    TestDataView tdv = cur[0].selector().profile(p);
+                    VectorTestDataView tdv = cur[0].selector().profile(p);
                     var maybeView = ViewSelector.resolve(tdv, v);
                     if (maybeView.isEmpty()) {
                         out.printf("View '%s' not found in profile '%s'%n", v, p);
                     } else {
-                        DatasetView<?> dv = maybeView.get();
+                        VectorDatasetView<?> dv = maybeView.get();
                         long end = Math.min(s + c, dv.getCount());
                         for (long i = s; i < end; i++) {
                             out.println(CMD_vectordata_cat.render(dv.get(i)));
@@ -1064,7 +1061,7 @@ class CMD_vectordata_repl implements Callable<Integer> {
                     }
                     String v = args.length > 1 ? args[1] : null;
                     String p = cur[0].profileNames().get(0);
-                    TestDataView tdv = cur[0].selector().profile(p);
+                    VectorTestDataView tdv = cur[0].selector().profile(p);
                     if (v == null) {
                         tdv.prebuffer().join();
                         out.printf("Verified all views for profile '%s'%n", p);

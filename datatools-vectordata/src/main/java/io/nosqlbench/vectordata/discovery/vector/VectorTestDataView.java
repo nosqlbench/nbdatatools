@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.discovery;
+package io.nosqlbench.vectordata.discovery.vector;
 
 /*
  * Copyright (c) nosqlbench
@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 /// TestDataView provides access to vector datasets and their associated metadata, including
 /// base vectors, query vectors, neighbor indices, and distance metrics. It also provides
 /// methods for accessing metadata like license, vendor, and model information.
-public interface TestDataView {
+public interface VectorTestDataView {
   /// Get the base vectors dataset
   /// @return the base vectors dataset
   Optional<BaseVectors> getBaseVectors();

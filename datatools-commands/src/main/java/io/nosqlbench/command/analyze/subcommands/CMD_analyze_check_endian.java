@@ -24,12 +24,12 @@ import io.nosqlbench.command.common.VectorDataSpecConverter;
 import io.nosqlbench.readers.ReaderUtils;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
 import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
-import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecVectorDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -141,13 +141,13 @@ public class CMD_analyze_check_endian implements Callable<Integer> {
         String label = spec.toDescription();
         System.out.printf("Analyzing %s%n", label);
 
-        Optional<TestDataView> view = resolveFacetView(spec);
+        Optional<VectorTestDataView> view = resolveFacetView(spec);
         if (view.isEmpty()) {
             return true;
         }
 
         TestDataKind facetKind = spec.getFacetKind().orElseThrow();
-        Optional<DatasetView<?>> datasetView = resolveDatasetView(view.get(), facetKind);
+        Optional<VectorDatasetView<?>> datasetView = resolveDatasetView(view.get(), facetKind);
         if (datasetView.isEmpty()) {
             System.err.printf("  Error: Facet '%s' is not available for %s.%n", facetKind.name(), spec);
             return true;
@@ -159,7 +159,7 @@ public class CMD_analyze_check_endian implements Callable<Integer> {
             return true;
         }
 
-        if (!(datasetView.get() instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+        if (!(datasetView.get() instanceof CoreXVecVectorDatasetViewMethods<?> xvecView)) {
             System.err.printf("  Error: Facet '%s' is not backed by an xvec file.%n", facetKind.name());
             return true;
         }
@@ -167,7 +167,7 @@ public class CMD_analyze_check_endian implements Callable<Integer> {
         return inspectChannel(label, xvecView.getChannel(), elementWidth);
     }
 
-    private Optional<TestDataView> resolveFacetView(VectorDataSpec spec) {
+    private Optional<VectorTestDataView> resolveFacetView(VectorDataSpec spec) {
         String profileName = spec.getProfileName().orElseThrow();
 
         try {
@@ -204,18 +204,18 @@ public class CMD_analyze_check_endian implements Callable<Integer> {
         }
     }
 
-    private Optional<DatasetView<?>> resolveDatasetView(TestDataView view, TestDataKind facetKind) {
+    private Optional<VectorDatasetView<?>> resolveDatasetView(VectorTestDataView view, TestDataKind facetKind) {
         return switch (facetKind) {
-            case base_vectors -> view.getBaseVectors().map(v -> (DatasetView<?>) v);
-            case query_vectors -> view.getQueryVectors().map(v -> (DatasetView<?>) v);
-            case neighbor_indices -> view.getNeighborIndices().map(v -> (DatasetView<?>) v);
-            case neighbor_distances -> view.getNeighborDistances().map(v -> (DatasetView<?>) v);
+            case base_vectors -> view.getBaseVectors().map(v -> (VectorDatasetView<?>) v);
+            case query_vectors -> view.getQueryVectors().map(v -> (VectorDatasetView<?>) v);
+            case neighbor_indices -> view.getNeighborIndices().map(v -> (VectorDatasetView<?>) v);
+            case neighbor_distances -> view.getNeighborDistances().map(v -> (VectorDatasetView<?>) v);
             default -> Optional.empty();
         };
     }
 
-    private int resolveElementWidth(DatasetView<?> datasetView) {
-        Class<?> dataType = datasetView.getDataType();
+    private int resolveElementWidth(VectorDatasetView<?> vectorDatasetView) {
+        Class<?> dataType = vectorDatasetView.getDataType();
         if (dataType.isArray()) {
             dataType = dataType.getComponentType();
         }

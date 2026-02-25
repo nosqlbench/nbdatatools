@@ -36,8 +36,8 @@ import io.nosqlbench.nbdatatools.api.services.VectorFileIO;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
 import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
-import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecVectorDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.status.StatusContext;
 import io.nosqlbench.status.StatusScope;
@@ -46,9 +46,6 @@ import io.nosqlbench.status.StatusTracker;
 import io.nosqlbench.status.eventing.RunState;
 import io.nosqlbench.status.eventing.StatusSource;
 import io.nosqlbench.status.eventing.StatusUpdate;
-import io.nosqlbench.status.exec.TrackedExecutorService;
-import io.nosqlbench.status.exec.TrackedExecutors;
-import io.nosqlbench.status.exec.TrackingMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -59,7 +56,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -234,12 +230,12 @@ public class CMD_compute_knn implements Callable<Integer> {
         }
 
         TestDataKind facetKind = spec.getFacetKind().orElseThrow();
-        DatasetView<?> view = VectorDataSpecSupport
+        VectorDatasetView<?> view = VectorDataSpecSupport
             .resolveDatasetView(spec, configdir, catalogs, datasetCacheDir)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Facet '" + facetKind.name() + "' is not available for " + spec));
 
-        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+        if (!(view instanceof CoreXVecVectorDatasetViewMethods<?> xvecView)) {
             throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
         }
         if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {

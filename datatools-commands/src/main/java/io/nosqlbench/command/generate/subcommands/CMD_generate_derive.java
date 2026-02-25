@@ -18,7 +18,7 @@ package io.nosqlbench.command.generate.subcommands;
  */
 
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vshapes.extract.BestFitSelector;
 import io.nosqlbench.vshapes.extract.DatasetModelExtractor;
@@ -196,7 +196,7 @@ public class CMD_generate_derive implements Callable<Integer> {
             System.out.println(ANSI_CYAN + "Loading source dataset..." + ANSI_RESET);
 
             TestDataGroup sourceDataset = new TestDataGroup(sourceDir);
-            TestDataView profile = sourceDataset.profile(profileName);
+            VectorTestDataView profile = sourceDataset.profile(profileName);
 
             if (profile == null) {
                 System.err.println("Error: Profile '" + profileName + "' not found in source dataset");
@@ -326,7 +326,7 @@ public class CMD_generate_derive implements Callable<Integer> {
     }
 
     private void createDatasetYaml(Path targetDir, String name, TestDataGroup source,
-                                   TestDataView profile, long vectorCount) throws IOException {
+                                   VectorTestDataView profile, long vectorCount) throws IOException {
 
         Path yamlPath = targetDir.resolve("dataset.yaml");
 

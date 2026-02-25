@@ -19,7 +19,7 @@ package io.nosqlbench.vectordata.spec.datasets.types;
 
 
 /// a dataset consisting of arrays of float values
-public interface FloatVectors extends DatasetView<float[]> {
+public interface FloatVectors extends VectorDatasetView<float[]> {
 
 }
 

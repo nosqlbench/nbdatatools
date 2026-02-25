@@ -21,14 +21,14 @@ import io.nosqlbench.command.common.CommandLineFormatter;
 import io.nosqlbench.command.common.DistancesFileOption;
 import io.nosqlbench.common.types.VectorFileExtension;
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layout.FInterval;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.layout.FView;
 import io.nosqlbench.vectordata.layout.FWindow;
 import io.nosqlbench.vectordata.layout.TestGroupLayout;
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.ViewKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -115,7 +115,7 @@ public class CMD_datasets_plan implements Callable<Integer> {
         private final String name;
         private final Map<ViewKind, List<FacetRecord>> byKind = new LinkedHashMap<>();
         private final Map<String, FacetRecord> byViewName = new LinkedHashMap<>();
-        private TestDataView dataView;
+        private VectorTestDataView dataView;
 
         ProfileSummary(String name) {
             this.name = name;
@@ -140,11 +140,11 @@ public class CMD_datasets_plan implements Callable<Integer> {
             return byViewName.values();
         }
 
-        void setDataView(TestDataView view) {
+        void setDataView(VectorTestDataView view) {
             this.dataView = view;
         }
 
-        Optional<TestDataView> dataView() {
+        Optional<VectorTestDataView> dataView() {
             return Optional.ofNullable(dataView);
         }
     }
@@ -661,7 +661,7 @@ public class CMD_datasets_plan implements Callable<Integer> {
     /// @param summary the profile summary
     /// @return the dimension if found in any existing file
     private static OptionalLong findDimensionInProfile(ProfileSummary summary) {
-        Optional<TestDataView> view = summary.dataView();
+        Optional<VectorTestDataView> view = summary.dataView();
         if (view.isEmpty()) {
             return OptionalLong.empty();
         }
@@ -676,7 +676,7 @@ public class CMD_datasets_plan implements Callable<Integer> {
     /// @param summary the profile summary
     /// @return the k value if found in any existing file
     private static OptionalLong findKInProfile(ProfileSummary summary) {
-        Optional<TestDataView> view = summary.dataView();
+        Optional<VectorTestDataView> view = summary.dataView();
         if (view.isEmpty()) {
             return OptionalLong.empty();
         }
@@ -687,7 +687,7 @@ public class CMD_datasets_plan implements Callable<Integer> {
         return vectorDimensions(view.get().getNeighborDistances());
     }
 
-    private static OptionalLong vectorDimensions(Optional<? extends DatasetView<?>> dataset) {
+    private static OptionalLong vectorDimensions(Optional<? extends VectorDatasetView<?>> dataset) {
         if (dataset.isPresent()) {
             return OptionalLong.of(dataset.get().getVectorDimensions());
         }

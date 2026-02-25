@@ -18,10 +18,11 @@ package io.nosqlbench.vectordata.discovery;
  */
 
 
+import io.nosqlbench.vectordata.discovery.vector.FilesystemVectorTestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layout.FGroup;
 import io.nosqlbench.vectordata.layout.FProfiles;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
-import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vectordata.spec.tokens.SpecToken;
 import io.nosqlbench.vectordata.spec.tokens.Templatizer;
 import io.nosqlbench.vectordata.utils.SHARED;
@@ -80,7 +81,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     private final Map<String, Object> attributes;
 
     /// Cache of profile views
-    private final Map<String, TestDataView> profileCache = new LinkedHashMap<>();
+    private final Map<String, VectorTestDataView> profileCache = new LinkedHashMap<>();
 
     /// The name of the dataset (derived from directory name)
     private final String datasetName;
@@ -159,7 +160,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// @return The TestDataView for the profile
     /// @throws IllegalArgumentException If the profile is not found
     @Override
-    public TestDataView profile(String profileName) {
+    public VectorTestDataView profile(String profileName) {
         // Extract effective profile name based on the documented rules
         String effectiveProfileName;
 
@@ -183,15 +184,15 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     ///
     /// @param profileName The name of the profile to get
     /// @return An Optional containing the profile, or empty if not found
-    public Optional<TestDataView> getProfileOptionally(String profileName) {
+    public Optional<VectorTestDataView> getProfileOptionally(String profileName) {
         FProfiles fprofile = this.groupProfiles.profiles().get(profileName);
         if (fprofile == null) {
             return Optional.empty();
         }
 
-        TestDataView profile = profileCache.computeIfAbsent(
+        VectorTestDataView profile = profileCache.computeIfAbsent(
             profileName,
-            p -> new FilesystemTestDataView(this, fprofile, profileName)
+            p -> new FilesystemVectorTestDataView(this, fprofile, profileName)
         );
         return Optional.of(profile);
     }
@@ -199,7 +200,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// Gets the default profile.
     ///
     /// @return The default profile
-    public TestDataView getDefaultProfile() {
+    public VectorTestDataView getDefaultProfile() {
         return this.profile(DEFAULT_PROFILE);
     }
 
@@ -251,7 +252,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// Gets the cache of all profiles, initializing it if empty.
     ///
     /// @return A map of profile names to profile views
-    public synchronized Map<String, TestDataView> getProfileCache() {
+    public synchronized Map<String, VectorTestDataView> getProfileCache() {
         if (profileCache.isEmpty()) {
             profileCache.putAll(getProfileNames().stream()
                 .collect(Collectors.toMap(p -> p, p -> profile(p))));
@@ -281,7 +282,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     @Override
     public void close() throws Exception {
         // Close all cached profile views if they need cleanup
-        for (TestDataView view : profileCache.values()) {
+        for (VectorTestDataView view : profileCache.values()) {
             if (view instanceof AutoCloseable) {
                 ((AutoCloseable) view).close();
             }

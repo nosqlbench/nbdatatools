@@ -17,9 +17,9 @@
 
 package io.nosqlbench.command.vectordata;
 
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
 import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
@@ -28,35 +28,35 @@ import java.util.Locale;
 import java.util.Optional;
 
 class ViewSelector {
-    static Optional<DatasetView<?>> resolve(TestDataView tdv, String viewName) {
+    static Optional<VectorDatasetView<?>> resolve(VectorTestDataView tdv, String viewName) {
         String v = viewName.toLowerCase(Locale.ROOT);
         switch (v) {
             case "base":
             case "base_vectors":
-                return tdv.getBaseVectors().map(DatasetView.class::cast);
+                return tdv.getBaseVectors().map(VectorDatasetView.class::cast);
             case "query":
             case "query_vectors":
-                return tdv.getQueryVectors().map(DatasetView.class::cast);
+                return tdv.getQueryVectors().map(VectorDatasetView.class::cast);
             case "neighbor_indices":
             case "neighbors":
             case "indices":
-                return tdv.getNeighborIndices().map(DatasetView.class::cast);
+                return tdv.getNeighborIndices().map(VectorDatasetView.class::cast);
             case "neighbor_distances":
             case "distances":
-                return tdv.getNeighborDistances().map(DatasetView.class::cast);
+                return tdv.getNeighborDistances().map(VectorDatasetView.class::cast);
             default:
                 return Optional.empty();
         }
     }
 
-    static String canonicalName(DatasetView<?> view) {
+    static String canonicalName(VectorDatasetView<?> view) {
         if (view instanceof BaseVectors) return "base_vectors";
         if (view instanceof QueryVectors) return "query_vectors";
         if (view instanceof NeighborIndices) return "neighbor_indices";
         if (view instanceof NeighborDistances) return "neighbor_distances";
         return "view";
     }
-    static java.util.List<String> availableViews(TestDataView tdv) {
+    static java.util.List<String> availableViews(VectorTestDataView tdv) {
         java.util.List<String> names = new java.util.ArrayList<>();
         tdv.getBaseVectors().ifPresent(v -> names.add("base_vectors"));
         tdv.getQueryVectors().ifPresent(v -> names.add("query_vectors"));

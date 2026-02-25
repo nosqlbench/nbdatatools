@@ -6,7 +6,7 @@
 ///
 /// ## Key Components
 ///
-/// - {@link io.nosqlbench.vectordata.discovery.TestDataView}: Primary interface for accessing datasets
+/// - {@link io.nosqlbench.vectordata.discovery.vector.VectorTestDataView}: Primary interface for accessing datasets
 /// - {@link io.nosqlbench.vectordata.discovery.TestDataGroup}: Organized collection of filesystem datasets
 /// - {@link io.nosqlbench.vectordata.discovery.TestDataSources}: Factory for creating data sources
 /// - {@link io.nosqlbench.vectordata.discovery.ProfileSelector}: Selector for specific dataset profiles

@@ -31,9 +31,7 @@ import io.nosqlbench.command.common.CommandLineFormatter;
 import io.nosqlbench.command.common.RangeOption;
 import io.nosqlbench.vectordata.discovery.DatasetLoader;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.TestDataView;
-import io.nosqlbench.vectordata.layout.FInterval;
-import io.nosqlbench.vectordata.layout.FWindow;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.Indexed;
 import io.nosqlbench.vectordata.spec.datasets.types.IntVectors;
@@ -44,10 +42,8 @@ import picocli.CommandLine;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
 
 /// This command efficiently verifies KNN answer keys across multiple profiles in a dataset.
 /// It loads the base vectors once and tests all profiles against them in a single pass,
@@ -173,7 +169,7 @@ public class CMD_analyze_verifyprofiles implements Callable<Integer> {
         List<ProfileState> profileStates = new ArrayList<>();
         for (String profileName : profilesToVerify) {
             try {
-                TestDataView profile = dataGroup.profile(profileName);
+                VectorTestDataView profile = dataGroup.profile(profileName);
                 ProfileState state = loadProfileState(profileName, profile);
                 profileStates.add(state);
                 logger.info("Loaded profile '{}': {} queries, base range [{}, {}), K={}",
@@ -254,7 +250,7 @@ public class CMD_analyze_verifyprofiles implements Callable<Integer> {
     /**
      * Load the state for a single profile
      */
-    private ProfileState loadProfileState(String profileName, TestDataView profile) {
+    private ProfileState loadProfileState(String profileName, VectorTestDataView profile) {
         ProfileState state = new ProfileState();
         state.profileName = profileName;
         state.profile = profile;
@@ -666,7 +662,7 @@ public class CMD_analyze_verifyprofiles implements Callable<Integer> {
      */
     private static class ProfileState {
         String profileName;
-        TestDataView profile;
+        VectorTestDataView profile;
         FloatVectors baseVectors;
         FloatVectors queryVectors;
         IntVectors neighborIndices;

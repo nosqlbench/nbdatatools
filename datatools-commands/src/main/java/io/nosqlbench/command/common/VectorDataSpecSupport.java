@@ -20,10 +20,10 @@ package io.nosqlbench.command.common;
 import io.nosqlbench.vectordata.config.VectorDataSettings;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 
 import java.nio.file.Path;
@@ -58,10 +58,10 @@ public final class VectorDataSpecSupport {
         return VectorDataSettings.load().getCacheDirectory();
     }
 
-    public static TestDataView resolveFacetView(VectorDataSpec spec,
-                                                Path configDir,
-                                                List<String> catalogs,
-                                                Path cacheDir) {
+    public static VectorTestDataView resolveFacetView(VectorDataSpec spec,
+                                                      Path configDir,
+                                                      List<String> catalogs,
+                                                      Path cacheDir) {
         if (!spec.isFacet()) {
             throw new IllegalArgumentException("Spec is not a facet: " + spec);
         }
@@ -91,25 +91,25 @@ public final class VectorDataSpecSupport {
         return selector.profile(profileName);
     }
 
-    public static Optional<DatasetView<?>> resolveDatasetView(TestDataView view, TestDataKind facetKind) {
+    public static Optional<VectorDatasetView<?>> resolveDatasetView(VectorTestDataView view, TestDataKind facetKind) {
         return switch (facetKind) {
-            case base_vectors -> view.getBaseVectors().map(v -> (DatasetView<?>) v);
-            case query_vectors -> view.getQueryVectors().map(v -> (DatasetView<?>) v);
-            case neighbor_indices -> view.getNeighborIndices().map(v -> (DatasetView<?>) v);
-            case neighbor_distances -> view.getNeighborDistances().map(v -> (DatasetView<?>) v);
+            case base_vectors -> view.getBaseVectors().map(v -> (VectorDatasetView<?>) v);
+            case query_vectors -> view.getQueryVectors().map(v -> (VectorDatasetView<?>) v);
+            case neighbor_indices -> view.getNeighborIndices().map(v -> (VectorDatasetView<?>) v);
+            case neighbor_distances -> view.getNeighborDistances().map(v -> (VectorDatasetView<?>) v);
             default -> Optional.empty();
         };
     }
 
-    public static Optional<DatasetView<?>> resolveDatasetView(VectorDataSpec spec,
-                                                              Path configDir,
-                                                              List<String> catalogs,
-                                                              Path cacheDir) {
+    public static Optional<VectorDatasetView<?>> resolveDatasetView(VectorDataSpec spec,
+                                                                    Path configDir,
+                                                                    List<String> catalogs,
+                                                                    Path cacheDir) {
         if (!spec.isFacet()) {
             return Optional.empty();
         }
         TestDataKind kind = spec.getFacetKind().orElseThrow();
-        TestDataView view = resolveFacetView(spec, configDir, catalogs, cacheDir);
+        VectorTestDataView view = resolveFacetView(spec, configDir, catalogs, cacheDir);
         return resolveDatasetView(view, kind);
     }
 }

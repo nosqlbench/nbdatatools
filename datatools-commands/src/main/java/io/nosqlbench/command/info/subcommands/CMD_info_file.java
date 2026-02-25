@@ -22,8 +22,8 @@ import io.nosqlbench.command.common.VectorDataSpec;
 import io.nosqlbench.command.common.VectorDataSpecConverter;
 import io.nosqlbench.command.common.VectorDataSpecSupport;
 import io.nosqlbench.vectordata.merklev2.CacheFileAccessor;
-import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecDatasetViewMethods;
-import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.CoreXVecVectorDatasetViewMethods;
+import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -179,12 +179,12 @@ public class CMD_info_file implements Callable<Integer> {
         }
 
         TestDataKind facetKind = vectors.getFacetKind().orElseThrow();
-        DatasetView<?> view = VectorDataSpecSupport
+        VectorDatasetView<?> view = VectorDataSpecSupport
             .resolveDatasetView(vectors, configdir, catalogs, cacheDir)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Facet '" + facetKind.name() + "' is not available for " + vectors));
 
-        if (!(view instanceof CoreXVecDatasetViewMethods<?> xvecView)) {
+        if (!(view instanceof CoreXVecVectorDatasetViewMethods<?> xvecView)) {
             throw new IllegalArgumentException("Facet '" + facetKind.name() + "' is not backed by an xvec file.");
         }
         if (!(xvecView.getChannel() instanceof CacheFileAccessor cacheAccessor)) {

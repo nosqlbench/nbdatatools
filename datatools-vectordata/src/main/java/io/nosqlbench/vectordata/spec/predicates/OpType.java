@@ -32,7 +32,9 @@ public enum OpType {
   /// less than or equal `<=`
   LE("<="),
   /// in set
-  IN("IN");
+  IN("IN"),
+  /// regex match
+  MATCHES("MATCHES");
 
   private final String symbol;
 

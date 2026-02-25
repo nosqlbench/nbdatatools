@@ -31,6 +31,7 @@ import io.nosqlbench.command.info.CMD_info;
 import io.nosqlbench.command.merkle.CMD_merkle;
 import io.nosqlbench.command.vectordata.CMD_vectordata;
 import io.nosqlbench.command.version.CMD_version;
+import io.nosqlbench.slabtastic.cli.CMD_slab;
 import picocli.CommandLine;
 
 /// A collection of tools for working with vector test data
@@ -52,7 +53,8 @@ import picocli.CommandLine;
     CMD_info.class,
     CMD_merkle.class,
     CMD_vectordata.class,
-    CMD_version.class
+    CMD_version.class,
+    CMD_slab.class
 })
 public class CommandBundler {
 

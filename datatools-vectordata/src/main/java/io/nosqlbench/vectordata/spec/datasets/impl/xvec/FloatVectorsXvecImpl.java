@@ -19,7 +19,6 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
 
 
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
-import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
 
 import java.nio.channels.AsynchronousFileChannel;
@@ -28,7 +27,7 @@ import java.nio.channels.AsynchronousFileChannel;
 ///
 /// This class provides methods for accessing float vectors stored in xvec files,
 /// extending the core functionality provided by CoreXVecDatasetViewMethods.
-public class FloatVectorsXvecImpl extends CoreXVecDatasetViewMethods<float[]> implements FloatVectors {
+public class FloatVectorsXvecImpl extends CoreXVecVectorDatasetViewMethods<float[]> implements FloatVectors {
   /// Creates a new FloatVectorsXvecImpl instance.
   ///
   /// @param channel The MAFileChannel to read from

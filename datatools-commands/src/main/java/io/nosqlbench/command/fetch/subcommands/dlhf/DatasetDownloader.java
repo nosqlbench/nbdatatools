@@ -20,21 +20,25 @@ package io.nosqlbench.command.fetch.subcommands.dlhf;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpHead;
-import org.apache.hc.client5.http.fluent.Request;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.HttpEntity;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -47,6 +51,8 @@ public class DatasetDownloader implements AutoCloseable {
   private static final String HF_VIEWER_API =
       "https://datasets-server.huggingface.co/parquet?dataset=";
   private static final String HF_DOWNLOAD_BASE = "https://huggingface.co/datasets/";
+  private static final int MAX_ERROR_PAYLOAD_CHARS = 800;
+  private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
   private final String TOKEN;
   private final String dsName;
   private final Path target;
@@ -118,25 +124,17 @@ public class DatasetDownloader implements AutoCloseable {
       return client.execute(
           head, response -> {
             if (response.getCode() != 200) {
-              String errorBody = "";
-              try {
-                if (response.getEntity() != null) {
-                  // Read the entity content as a string
-                  try (var content = response.getEntity().getContent()) {
-                    java.util.Scanner s = new java.util.Scanner(content).useDelimiter("\\A");
-                    errorBody = s.hasNext() ? s.next() : "";
-                  }
-                }
-              } catch (Exception ignored) {
-                // Ignore any errors reading the body
-              }
-              throw new IOException(
-                  "HTTP " + response.getCode() + " error while getting file size for " + url + 
-                  (errorBody.isEmpty() ? "" : ": " + errorBody));
+              throw new IOException(formatHttpErrorMessage(
+                  response.getCode(),
+                  response.getReasonPhrase(),
+                  "getting file size for",
+                  url,
+                  readHttpEntity(response.getEntity())
+              ));
             }
 
             if (response.getEntity() == null) {
-              display.log("No entity in response for {}, will download full file", url);
+              display.log("No entity in response for %s, will download full file", url);
               return -1L;
             }
 
@@ -174,7 +172,7 @@ public class DatasetDownloader implements AutoCloseable {
                 display.log("Starting download of file: %s", file.filename);
                 downloadFile(file);
               } catch (Exception e) {
-                display.log("Failed to download file: %s", file.filename);
+                display.log("Failed to download file: %s (%s)", file.filename, summarizeThrowable(e));
               }
             }, executor
         );
@@ -223,17 +221,33 @@ public class DatasetDownloader implements AutoCloseable {
     String parquetMetadataUrl = HF_VIEWER_API + datasetName;
     display.log("Fetching parquet metadata from URL: %s", parquetMetadataUrl);
 
-    Request request = Request.get(parquetMetadataUrl).addHeader("Accept", "application/json");
+    HttpGet request = new HttpGet(parquetMetadataUrl);
+    request.setHeader(HttpHeaders.ACCEPT, "application/json");
 
     if (TOKEN != null && !TOKEN.isEmpty()) {
-      request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN);
+      request.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN);
     }
 
     display.setAction("Reading parquet metadata");
 
-    String response = request.execute().returnContent().asString();
-    ObjectMapper mapper = new ObjectMapper();
-    JsonNode root = mapper.readTree(response);
+    String response;
+    try (CloseableHttpClient client = HttpClients.createDefault()) {
+      response = client.execute(request, httpResponse -> {
+        String responseBody = readHttpEntity(httpResponse.getEntity());
+        int statusCode = httpResponse.getCode();
+        if (statusCode < 200 || statusCode >= 300) {
+          throw new IOException(formatHttpErrorMessage(
+              statusCode,
+              httpResponse.getReasonPhrase(),
+              "fetching parquet metadata from",
+              parquetMetadataUrl,
+              responseBody
+          ));
+        }
+        return responseBody;
+      });
+    }
+    JsonNode root = JSON_MAPPER.readTree(response);
 
     display.setAction("Analyzing parquet files");
 
@@ -321,20 +335,14 @@ public class DatasetDownloader implements AutoCloseable {
       // Check the HTTP status code before attempting to read the stream
       int statusCode = conn.getResponseCode();
       if (statusCode < 200 || statusCode >= 300) {
-        String errorBody = "";
-        try {
-          // When there's an error, the error stream contains the response body
-          try (java.io.InputStream errorStream = conn.getErrorStream()) {
-            if (errorStream != null) {
-              java.util.Scanner s = new java.util.Scanner(errorStream).useDelimiter("\\A");
-              errorBody = s.hasNext() ? s.next() : "";
-            }
-          }
-        } catch (Exception ignored) {
-          // Ignore any errors reading the body
-        }
-        throw new IOException("HTTP " + statusCode + " error while downloading " + fileInfo.path() + 
-                             (errorBody.isEmpty() ? "" : ": " + errorBody));
+        String errorBody = readHttpConnectionErrorBody(conn);
+        throw new IOException(formatHttpErrorMessage(
+            statusCode,
+            conn.getResponseMessage(),
+            "downloading",
+            fileInfo.path() + " from " + fileInfo.url(),
+            errorBody
+        ));
       }
 
       try (InputStream in = conn.getInputStream();
@@ -355,7 +363,7 @@ public class DatasetDownloader implements AutoCloseable {
 
     } catch (Exception e) {
       progress.failed = true;
-      progress.error = e.getMessage();
+      progress.error = summarizeThrowable(e);
       stats.incrementFailedFiles();  // Add failed counter
       display.log("Failed to download %s: %s", fileInfo.path(), e.getMessage());
       try {
@@ -365,6 +373,154 @@ public class DatasetDownloader implements AutoCloseable {
         display.log("Failed to clean up partial download file: %s", outFile);
       }
       throw e;
+    }
+  }
+
+  static String formatHttpErrorMessage(
+      int statusCode,
+      String reasonPhrase,
+      String operation,
+      String resource,
+      String payload
+  ) {
+    StringBuilder message = new StringBuilder();
+    message.append("HTTP ").append(statusCode);
+    if (reasonPhrase != null && !reasonPhrase.isBlank()) {
+      message.append(" ").append(reasonPhrase.trim());
+    }
+    message.append(" while ").append(operation).append(" ").append(resource);
+
+    String payloadSummary = summarizeErrorPayload(payload);
+    if (!payloadSummary.isBlank()) {
+      message.append(". Response payload: ").append(payloadSummary);
+    }
+    return message.toString();
+  }
+
+  static String summarizeErrorPayload(String payload) {
+    if (payload == null) {
+      return "";
+    }
+    String trimmed = payload.trim();
+    if (trimmed.isEmpty()) {
+      return "";
+    }
+
+    String summarized = summarizeJsonPayload(trimmed);
+    if (summarized.isBlank()) {
+      summarized = collapseWhitespace(trimmed);
+    }
+    if (summarized.length() > MAX_ERROR_PAYLOAD_CHARS) {
+      summarized = summarized.substring(0, MAX_ERROR_PAYLOAD_CHARS) + "... [truncated]";
+    }
+    return summarized;
+  }
+
+  private static String summarizeJsonPayload(String payload) {
+    try {
+      JsonNode root = JSON_MAPPER.readTree(payload);
+      Set<String> messages = new LinkedHashSet<>();
+      collectJsonValue(messages, root.path("error"));
+      collectJsonValue(messages, root.path("message"));
+      collectJsonValue(messages, root.path("detail"));
+      collectJsonValue(messages, root.path("cause"));
+      collectJsonValue(messages, root.path("errors"));
+
+      if (messages.isEmpty() && !root.isMissingNode() && !root.isNull()) {
+        collectJsonValue(messages, root);
+      }
+      return collapseWhitespace(String.join(" | ", messages));
+    } catch (Exception ignored) {
+      return "";
+    }
+  }
+
+  private static void collectJsonValue(Set<String> messages, JsonNode node) {
+    if (node == null || node.isMissingNode() || node.isNull()) {
+      return;
+    }
+    if (node.isTextual() || node.isNumber() || node.isBoolean()) {
+      String value = node.asText().trim();
+      if (!value.isEmpty()) {
+        messages.add(value);
+      }
+      return;
+    }
+    if (node.isArray()) {
+      for (JsonNode child : node) {
+        collectJsonValue(messages, child);
+      }
+      return;
+    }
+    if (node.isObject()) {
+      if (node.has("message")) {
+        collectJsonValue(messages, node.get("message"));
+      }
+      if (node.has("detail")) {
+        collectJsonValue(messages, node.get("detail"));
+      }
+      if (node.has("error")) {
+        collectJsonValue(messages, node.get("error"));
+      }
+      if (messages.isEmpty()) {
+        messages.add(node.toString());
+      }
+      return;
+    }
+    String asText = node.asText().trim();
+    if (!asText.isEmpty()) {
+      messages.add(asText);
+    }
+  }
+
+  private static String collapseWhitespace(String value) {
+    return value.replaceAll("\\s+", " ").trim();
+  }
+
+  private static String summarizeThrowable(Throwable throwable) {
+    Throwable root = throwable;
+    while (root.getCause() != null && root.getCause() != root) {
+      root = root.getCause();
+    }
+    String message = root.getMessage();
+    return message == null || message.isBlank() ? root.getClass().getSimpleName() : message;
+  }
+
+  private static String readHttpConnectionErrorBody(HttpURLConnection conn) {
+    String body = readInputStream(conn.getErrorStream());
+    if (body.isBlank()) {
+      body = readHttpConnectionBody(conn);
+    }
+    return body;
+  }
+
+  private static String readHttpConnectionBody(HttpURLConnection conn) {
+    try {
+      return readInputStream(conn.getInputStream());
+    } catch (IOException ignored) {
+      return "";
+    }
+  }
+
+  private static String readHttpEntity(HttpEntity entity) {
+    if (entity == null) {
+      return "";
+    }
+    try (InputStream input = entity.getContent()) {
+      return readInputStream(input);
+    } catch (Exception ignored) {
+      return "";
+    }
+  }
+
+  private static String readInputStream(InputStream stream) {
+    if (stream == null) {
+      return "";
+    }
+    try (InputStream input = stream) {
+      return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (Exception ignored) {
+      return "";
     }
   }
 

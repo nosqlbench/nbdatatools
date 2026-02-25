@@ -68,7 +68,7 @@ import java.util.function.Function;
 /// @see BaseVectors
 /// @see QueryVectors
 /// @see io.nosqlbench.vectordata.layout.SourceType#VIRTDATA
-public class VirtdataFloatVectorsView implements BaseVectors, QueryVectors {
+public class VirtdataFloatVectorsViewVector implements BaseVectors, QueryVectors {
 
     private final VectorGenerator<?> generator;
     private final int count;
@@ -82,7 +82,7 @@ public class VirtdataFloatVectorsView implements BaseVectors, QueryVectors {
     /// @param generator the initialized vector generator
     /// @param count the number of vectors (use UNBOUNDED for open-ended)
     /// @throws IllegalArgumentException if generator is not initialized
-    public VirtdataFloatVectorsView(VectorGenerator<?> generator, int count) {
+    public VirtdataFloatVectorsViewVector(VectorGenerator<?> generator, int count) {
         if (!generator.isInitialized()) {
             throw new IllegalArgumentException("VectorGenerator must be initialized before creating view");
         }
@@ -95,7 +95,7 @@ public class VirtdataFloatVectorsView implements BaseVectors, QueryVectors {
     ///
     /// @param generator the initialized vector generator
     /// @throws IllegalArgumentException if generator is not initialized
-    public VirtdataFloatVectorsView(VectorGenerator<?> generator) {
+    public VirtdataFloatVectorsViewVector(VectorGenerator<?> generator) {
         this(generator, UNBOUNDED);
     }
 

@@ -21,7 +21,7 @@ package io.nosqlbench.vectordata.downloader;
 import com.google.gson.reflect.TypeToken;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.utils.SHARED;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -245,14 +245,14 @@ public class Catalog {
   /// Convenience method that returns the TestDataView for a dataset:profile specification.
   /// @param datasetAndProfile combined dataset and profile
   /// @return The resolved TestDataView
-  public TestDataView profile(String datasetAndProfile) {
+  public VectorTestDataView profile(String datasetAndProfile) {
     return profile(DatasetProfileSpec.parse(datasetAndProfile));
   }
 
   /// Convenience method that returns the TestDataView for a pre-parsed specification.
   /// @param spec normalized dataset/profile specification
   /// @return The resolved TestDataView
-  public TestDataView profile(DatasetProfileSpec spec) {
+  public VectorTestDataView profile(DatasetProfileSpec spec) {
     return spec.profile()
         .map(profile -> select(spec).profile(profile))
         .orElseThrow(() -> new IllegalArgumentException(

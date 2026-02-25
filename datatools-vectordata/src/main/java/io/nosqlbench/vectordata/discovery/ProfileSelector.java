@@ -17,6 +17,8 @@ package io.nosqlbench.vectordata.discovery;
  * under the License.
  */
 
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
+
 import java.util.Optional;
 import java.util.Set;
 
@@ -34,7 +36,7 @@ public interface ProfileSelector extends AutoCloseable {
   ///
   /// @param profileName The name of the profile to select
   /// @return A TestDataView for the selected profile
-  TestDataView profile(String profileName);
+  VectorTestDataView profile(String profileName);
   /// Sets the cache directory for downloaded datasets.
   ///
   /// @param cacheDir The directory to use for caching
@@ -51,7 +53,7 @@ public interface ProfileSelector extends AutoCloseable {
   /// Resolve the preset profile, if one was provided. This is primarily intended for callers who
   /// used a dataset:profile spec and would otherwise have to repeat the profile name. Implementations
   /// can override this for caching or specialized behavior.
-  default TestDataView profile() {
+  default VectorTestDataView profile() {
     return presetProfile()
         .map(this::profile)
         .orElseThrow(() -> new IllegalStateException("No preset profile specified"));
