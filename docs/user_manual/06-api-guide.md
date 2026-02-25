@@ -56,7 +56,7 @@ DatasetView<double[]> doubleVectors = ...; // For high precision
 Load a complete test dataset from a directory containing `dataset.yaml`:
 
 ```java
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import java.nio.file.Paths;
 
 TestDataView testData = TestDataView.open(Paths.get("datasets/mteb-lite"));
@@ -100,7 +100,7 @@ The `DatasetLoader` class provides a single, unified API for loading datasets fr
 ```java
 import io.nosqlbench.vectordata.discovery.DatasetLoader;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 
 // Load from any source - automatic detection
 try (ProfileSelector dataset = DatasetLoader.load("/path/to/dataset")) {
@@ -286,7 +286,7 @@ ProfileSelector ds3 = DatasetLoader.load(datasetUrl);
 ```java
 import io.nosqlbench.vectordata.discovery.DatasetLoader;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.TestDataView;
+import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
 
 public class DatasetLoaderExample {
