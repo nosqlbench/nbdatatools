@@ -338,13 +338,19 @@
             <release>25</release>
           </configuration>
         </plugin>
-
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>3.1.0</version>
+          <configuration>
+            <executable>java</executable>
+            <skip>true</skip>
+          </configuration>
+        </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>3.11.2</version>
-          <configuration>
-          </configuration>
           <executions>
             <execution>
               <id>attach-javadoc</id>
@@ -378,13 +384,6 @@
               </goals>
               <configuration>
                 <rules>
-                  <!--                <requireProperty>-->
-                  <!--                  <property>java.vendor.version</property>-->
-                  <!--                  <regex>.*GraalVM.*</regex>-->
-                  <!--                  <message>-->
-                  <!--                    You must use a GraalVM JDK. The detected JDK is not GraalVM.-->
-                  <!--                  </message>-->
-                  <!--                </requireProperty>-->
                   <requireJavaVersion>
                     <!-- This is here to allow for java 11 bytecode while allowing markdown docs in the source, for example -->
                     <version>[25,)</version>

@@ -32,6 +32,11 @@
     <artifactId>datatools-commands</artifactId>
     <version>${revision}</version>
   </dependency>
+  <dependency>
+    <groupId>io.nosqlbench</groupId>
+    <artifactId>datatools-slabtastic</artifactId>
+    <version>${revision}</version>
+  </dependency>
   </dependencies>
 
   <repositories>

@@ -16,12 +16,6 @@
     <relativePath>datatools-mvn-defaults</relativePath>
   </parent>
 
-  <!-- NOTE: This reactor project uses the container project for defaults.
-             If necessary, a separate defaults module should be created. -->
-
-  <dependencies>
-  </dependencies>
-
   <modules>
     <module>datatools-commands</module>
     <module>datatools-mvn-defaults</module>
@@ -35,17 +29,51 @@
     <module>datatools-vectordata</module>
     <module>datatools-status-api</module>
     <module>datatools-virtdata</module>
+    <module>datatools-optimizers</module>
+    <module>datatools-predicated</module>
+    <module>datatools-slabtastic</module>
   </modules>
 
   <profiles>
     <profile>
       <id>all</id>
       <properties>
-        <!-- Enable all performance tests that are disabled by default -->
         <skipPerformanceTests>false</skipPerformanceTests>
       </properties>
     </profile>
   </profiles>
+
+  <repositories>
+    <repository>
+      <name>Central Portal Snapshots</name>
+      <id>central-portal-snapshots</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
+  <scm>
+    <connection>scm:git:git://github.com/nosqlbench/nbdatatools.git</connection>
+    <developerConnection>scm:git:ssh://github.com:nosqlbench/nbdatatools.git</developerConnection>
+    <url>https://github.com/nosqlbench/nbdatatools/tree/main</url>
+  </scm>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>central</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+    </snapshotRepository>
+    <repository>
+      <id>central</id>
+      <url>https://central.sonatype.com/</url>
+    </repository>
+  </distributionManagement>
+
   <developers>
     <developer>
       <name>Jonathan Shook</name>
@@ -73,13 +101,6 @@
       <plugin>
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>
-<!--        <version>0.7.0</version>-->
-<!--        <extensions>true</extensions>-->
-<!--        <configuration>-->
-<!--          <excludeArtifacts>-->
-<!--            <artifact>nbdatatools</artifact>-->
-<!--          </excludeArtifacts>-->
-<!--        </configuration>-->
       </plugin>
       <plugin>
         <groupId>org.apache.rat</groupId>
