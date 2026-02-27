@@ -49,7 +49,11 @@ import java.util.concurrent.atomic.AtomicLong;
 /// - Mixed access patterns
 /// - Long-running applications that can benefit from learning
 public class AdaptiveChunkScheduler implements ChunkScheduler {
-    
+
+    /// Creates a new adaptive chunk scheduler.
+    public AdaptiveChunkScheduler() {
+    }
+
     /// Performance tracking - note: in real implementation this would be external state
     private final AtomicLong totalBytesDownloaded = new AtomicLong(0);
     private final AtomicLong totalDownloadTime = new AtomicLong(0);

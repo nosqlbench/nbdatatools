@@ -73,6 +73,11 @@ import java.util.concurrent.locks.ReentrantLock;
 @CommandLine.Command(name = "ivec-extract",
     description = "Extract indices from an ivec file using a range specification")
 public class CMD_generate_ivecExtract implements Callable<Integer> {
+
+  /// Creates a new CMD_generate_ivecExtract instance.
+  public CMD_generate_ivecExtract() {
+  }
+
   private static final Logger logger = LogManager.getLogger(CMD_generate_ivecExtract.class);
 
   // JLine terminal display components

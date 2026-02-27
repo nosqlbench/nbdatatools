@@ -30,6 +30,10 @@ public class ChunkBoundary {
     /// The ending byte position of this chunk (exclusive)
     private final long endExclusive;
     
+    /// Creates a new chunk boundary.
+    /// @param chunkIndex the zero-based index of this chunk
+    /// @param startInclusive the starting byte position (inclusive)
+    /// @param endExclusive the ending byte position (exclusive)
     public ChunkBoundary(int chunkIndex, long startInclusive, long endExclusive) {
         if (chunkIndex < 0) {
             throw new IllegalArgumentException("Chunk index cannot be negative: " + chunkIndex);
@@ -46,17 +50,20 @@ public class ChunkBoundary {
         this.endExclusive = endExclusive;
     }
     
-    /// @return The zero-based index of this chunk
+    /// Get the zero-based index of this chunk.
+    /// @return the zero-based index of this chunk
     public int chunkIndex() {
         return chunkIndex;
     }
     
-    /// @return The starting byte position of this chunk (inclusive)
+    /// Get the starting byte position of this chunk (inclusive).
+    /// @return the starting byte position of this chunk (inclusive)
     public long startInclusive() {
         return startInclusive;
     }
     
-    /// @return The ending byte position of this chunk (exclusive)
+    /// Get the ending byte position of this chunk (exclusive).
+    /// @return the ending byte position of this chunk (exclusive)
     public long endExclusive() {
         return endExclusive;
     }

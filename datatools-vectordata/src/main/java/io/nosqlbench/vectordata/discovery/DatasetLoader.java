@@ -61,6 +61,9 @@ import java.util.Map;
 /// }
 /// </pre>
 public class DatasetLoader {
+    /// Utility class with static methods only.
+    private DatasetLoader() {
+    }
     private static final Logger logger = LogManager.getLogger(DatasetLoader.class);
 
     /// Loads a dataset from a URL string or local path string.

@@ -34,10 +34,14 @@ public class FGroup {
   private final Map<String, FProfiles> profiles;
   private final static Type type = new TypeToken<>(){}.getType();
 
+  /// Creates a new group with the given profiles.
+  /// @param profiles a map of profile names to profile definitions
   public FGroup(Map<String, FProfiles> profiles) {
     this.profiles = profiles;
   }
 
+  /// Get the map of profile names to profile definitions.
+  /// @return the profiles map
   public Map<String, FProfiles> profiles() {
     return profiles;
   }

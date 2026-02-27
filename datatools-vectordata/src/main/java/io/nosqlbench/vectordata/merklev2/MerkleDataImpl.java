@@ -65,7 +65,8 @@ public class MerkleDataImpl implements MerkleData {
     private final ScheduledExecutorService persistenceScheduler;
     private static final Logger logger = Logger.getLogger(MerkleDataImpl.class.getName());
 
-    // Public access for testing
+    /// Returns whether this merkle data has been closed.
+    /// @return true if closed
     public boolean closed() {
         return closed;
     }
@@ -362,6 +363,12 @@ public class MerkleDataImpl implements MerkleData {
         return new MerkleDataImpl(shape, hashes, validChunks);
     }
     
+    /// Creates a MerkleDataImpl backed by a FileChannel with the given valid chunks.
+    ///
+    /// @param shape       the merkle shape
+    /// @param channel     the file channel containing merkle data
+    /// @param validChunks the BitSet indicating which chunks are valid
+    /// @return a MerkleDataImpl backed by the given FileChannel and BitSet
     public static MerkleDataImpl createFromFileChannelAndBitSet(MerkleShape shape, FileChannel channel, BitSet validChunks) {
         return new MerkleDataImpl(shape, channel, validChunks);
     }

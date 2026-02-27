@@ -24,6 +24,10 @@ import picocli.CommandLine;
  */
 public class BatchProcessingOption {
 
+    /// Creates a new BatchProcessingOption with default settings.
+    public BatchProcessingOption() {
+    }
+
     /**
      * Immutable batch processing configuration.
      * Specifies threading, memory limits, and batch size for parallel operations.
@@ -56,6 +60,7 @@ public class BatchProcessingOption {
 
         /**
          * Gets the effective thread count, auto-detecting if set to 0.
+         * @return the effective thread count
          */
         public int effectiveThreads() {
             return threads > 0 ? threads : Runtime.getRuntime().availableProcessors();
@@ -63,6 +68,7 @@ public class BatchProcessingOption {
 
         /**
          * Gets the memory limit in bytes.
+         * @return the memory limit in bytes
          */
         public long memoryLimitBytes() {
             return memoryLimitMB * 1024 * 1024;
@@ -70,6 +76,7 @@ public class BatchProcessingOption {
 
         /**
          * Checks if memory limit is enabled (non-zero).
+         * @return true if a memory limit is set
          */
         public boolean hasMemoryLimit() {
             return memoryLimitMB > 0;
@@ -77,6 +84,7 @@ public class BatchProcessingOption {
 
         /**
          * Checks if parallel processing is enabled (threads > 1).
+         * @return true if parallel processing is enabled
          */
         public boolean isParallel() {
             return effectiveThreads() > 1;
@@ -117,6 +125,7 @@ public class BatchProcessingOption {
     /**
      * Gets the BatchConfig record constructed from the options.
      * Validation happens when the record is created.
+     * @return the batch configuration
      */
     public BatchConfig getBatchConfig() {
         return new BatchConfig(threads, memoryLimitMB, batchSize);
@@ -124,6 +133,7 @@ public class BatchProcessingOption {
 
     /**
      * Gets the effective thread count, auto-detecting if set to 0.
+     * @return the effective thread count
      */
     public int getEffectiveThreadCount() {
         return getBatchConfig().effectiveThreads();
@@ -131,6 +141,7 @@ public class BatchProcessingOption {
 
     /**
      * Gets the raw thread count value (may be 0 for auto-detect).
+     * @return the raw thread count
      */
     public int getThreads() {
         return threads;
@@ -138,6 +149,7 @@ public class BatchProcessingOption {
 
     /**
      * Gets the memory limit in bytes.
+     * @return the memory limit in bytes
      */
     public long getMemoryLimitBytes() {
         return getBatchConfig().memoryLimitBytes();
@@ -145,6 +157,7 @@ public class BatchProcessingOption {
 
     /**
      * Gets the memory limit in megabytes.
+     * @return the memory limit in megabytes
      */
     public long getMemoryLimitMB() {
         return memoryLimitMB;
@@ -152,6 +165,7 @@ public class BatchProcessingOption {
 
     /**
      * Gets the batch size.
+     * @return the batch size
      */
     public int getBatchSize() {
         return batchSize;
@@ -159,6 +173,7 @@ public class BatchProcessingOption {
 
     /**
      * Checks if memory limit is enabled (non-zero).
+     * @return true if a memory limit is set
      */
     public boolean hasMemoryLimit() {
         return getBatchConfig().hasMemoryLimit();
@@ -166,6 +181,7 @@ public class BatchProcessingOption {
 
     /**
      * Checks if parallel processing is enabled (threads > 1).
+     * @return true if parallel processing is enabled
      */
     public boolean isParallel() {
         return getBatchConfig().isParallel();

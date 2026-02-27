@@ -37,6 +37,9 @@ import java.util.concurrent.Callable;
 )
 public class CMD_slab_namespaces implements Callable<Integer> {
 
+    /// Creates a new instance of the namespaces subcommand.
+    public CMD_slab_namespaces() {}
+
     @CommandLine.Parameters(index = "0", description = "Path to the slabtastic file")
     private Path file;
 

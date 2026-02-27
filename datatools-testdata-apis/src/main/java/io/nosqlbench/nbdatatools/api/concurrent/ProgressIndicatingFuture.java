@@ -24,6 +24,8 @@ import java.util.function.Supplier;
 /**
  * A wrapper that adds progress tracking to an existing CompletableFuture using callbacks
  * to retrieve progress values. The callbacks are assumed to be thread-safe and non-blocking.
+ *
+ * @param <T> The result type returned by the underlying future
  */
 public class ProgressIndicatingFuture<T> extends CompletableFuture<T> implements
                                                                             ProgressIndicator<T>

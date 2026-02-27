@@ -63,6 +63,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_analyze_stats implements Callable<Integer> {
 
+    /// Creates a new CMD_analyze_stats instance.
+    public CMD_analyze_stats() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_stats.class);
 
     // ANSI color codes

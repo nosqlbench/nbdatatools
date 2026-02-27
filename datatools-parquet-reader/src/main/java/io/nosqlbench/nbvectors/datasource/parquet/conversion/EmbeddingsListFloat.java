@@ -33,6 +33,8 @@ import java.util.function.Function;
 ///   ...
 /// ```
 public class EmbeddingsListFloat implements Function<Group, float[]> {
+  /// Creates a new EmbeddingsListFloat converter.
+  public EmbeddingsListFloat() {}
   @Override
   public float[] apply(Group group) {
     Group embeddings = group.getGroup("embeddings", 0);

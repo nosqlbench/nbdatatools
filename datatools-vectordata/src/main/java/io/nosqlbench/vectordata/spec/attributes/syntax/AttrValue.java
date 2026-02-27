@@ -46,6 +46,10 @@ public class AttrValue<T> {
     /// the value of the attribute
     private final T value;
     
+    /// Creates a new attribute value.
+    /// @param type the type of attribute
+    /// @param literal the textual representation of the attribute
+    /// @param value the parsed value of the attribute
     public AttrValue(ValueType type, String literal, T value) {
         // Example of a simple validation:
         if (literal == null || literal.isEmpty()) {
@@ -56,16 +60,19 @@ public class AttrValue<T> {
         this.value = value;
     }
     
+    /// Get the type of attribute.
     /// @return the type of attribute
     public ValueType type() {
         return type;
     }
     
+    /// Get the textual representation of the attribute.
     /// @return the textual representation of the attribute
     public String literal() {
         return literal;
     }
     
+    /// Get the value of the attribute.
     /// @return the value of the attribute
     public T value() {
         return value;

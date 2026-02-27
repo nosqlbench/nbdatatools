@@ -2411,6 +2411,8 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
         return name.substring(0, maxWidth - 3) + "...";
     }
 
+    /// Returns whether this sink has been closed.
+    /// @return true if the sink is closed
     public boolean isClosed() {
         return closed.get();
     }
@@ -2839,6 +2841,9 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
      * @see ConsolePanelSink
      */
     public static class Builder {
+        /// Creates a new builder with default settings.
+        public Builder() {}
+
         private long refreshRateMs = 250;
         private long completedRetentionMs = 5000;
         private boolean useColors = true;
@@ -2849,26 +2854,43 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
         private Terminal terminalOverride;
         private boolean quietMode = false;
 
+        /// Sets the refresh rate for the console panel.
+        /// @param duration the refresh interval amount
+        /// @param unit the time unit of the duration
+        /// @return this builder
         public Builder withRefreshRate(long duration, TimeUnit unit) {
             this.refreshRateMs = unit.toMillis(duration);
             return this;
         }
 
+        /// Sets how long completed tasks are retained in the display.
+        /// @param duration the retention interval amount
+        /// @param unit the time unit of the duration
+        /// @return this builder
         public Builder withCompletedTaskRetention(long duration, TimeUnit unit) {
             this.completedRetentionMs = unit.toMillis(duration);
             return this;
         }
 
+        /// Sets whether ANSI color output is enabled.
+        /// @param useColors true to enable color output
+        /// @return this builder
         public Builder withColorOutput(boolean useColors) {
             this.useColors = useColors;
             return this;
         }
 
+        /// Sets the maximum number of log lines to display.
+        /// @param maxLogLines the maximum number of log lines
+        /// @return this builder
         public Builder withMaxLogLines(int maxLogLines) {
             this.maxLogLines = maxLogLines;
             return this;
         }
 
+        /// Sets whether System.out and System.err should be captured.
+        /// @param capture true to capture system streams
+        /// @return this builder
         public Builder withCaptureSystemStreams(boolean capture) {
             this.captureSystemStreams = capture;
             return this;
@@ -2898,6 +2920,9 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
             return this;
         }
 
+        /// Sets the refresh rate in milliseconds.
+        /// @param refreshRateMs the refresh rate in milliseconds
+        /// @return this builder
         public Builder withRefreshRateMs(long refreshRateMs) {
             this.refreshRateMs = refreshRateMs;
             return this;
@@ -2960,6 +2985,8 @@ public class ConsolePanelSink implements StatusSink, AutoCloseable {
             return this;
         }
 
+        /// Builds the configured {@link ConsolePanelSink}.
+        /// @return a new ConsolePanelSink instance
         public ConsolePanelSink build() {
             return new ConsolePanelSink(this);
         }

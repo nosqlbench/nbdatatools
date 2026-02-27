@@ -24,6 +24,11 @@
 /// - **Random-accessible**: Given the pages page and per-page offset arrays, any
 ///   record can be located by global ordinal via O(log2 n) binary search over the
 ///   page index followed by constant-time local lookup.
+/// - **Multi-batch readable**: The {@link io.nosqlbench.slabtastic.SlabReader#getAll}
+///   API reads multiple records in a single call, coalescing ordinals that share the
+///   same page into a single I/O operation and dispatching all page reads
+///   asynchronously. Results are returned in submission order with partial success
+///   support via {@link io.nosqlbench.slabtastic.BatchResult}.
 /// - **Sparse**: Ordinal values may not be fully contiguous between the minimum and
 ///   maximum ordinals in a file. APIs that read ordinals must be able to signal
 ///   that a requested ordinal is not present (via {@link java.util.Optional#empty()}).
@@ -71,7 +76,9 @@
 /// ## Entry points
 ///
 /// - {@link io.nosqlbench.slabtastic.SlabWriter} — sequential/append file writer
-/// - {@link io.nosqlbench.slabtastic.SlabReader} — random-access file reader
+/// - {@link io.nosqlbench.slabtastic.SlabReader} — random-access and multi-batch file reader
+/// - {@link io.nosqlbench.slabtastic.BatchRequest} — single request within a multi-batch read
+/// - {@link io.nosqlbench.slabtastic.BatchResult} — ordered results from a multi-batch read
 /// - {@link io.nosqlbench.slabtastic.SlabConstants} — format constants
 /// - {@link io.nosqlbench.slabtastic.cli.CMD_slab} — CLI maintenance tool
 ///

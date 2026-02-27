@@ -37,10 +37,16 @@ import java.util.concurrent.Callable;
     description = "Display the hash path from a leaf node to the root for a given chunk index"
 )
 public class CMD_merkle_path implements Callable<Integer> {
+
+    /// Creates a new CMD_merkle_path instance.
+    public CMD_merkle_path() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_merkle_path.class);
 
-    // File extensions for merkle tree files
+    /// File extension for Merkle tree files
     public static final String MRKL = ".mrkl";
+    /// File extension for Merkle reference files
     public static final String MREF = ".mref";
 
     @Parameters(index = "0", description = "File to process")

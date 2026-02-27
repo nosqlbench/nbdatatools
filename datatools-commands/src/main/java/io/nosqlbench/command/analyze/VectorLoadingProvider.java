@@ -41,6 +41,11 @@ import java.util.Random;
  * </ul>
  */
 public class VectorLoadingProvider {
+
+    /// Creates a new VectorLoadingProvider instance.
+    public VectorLoadingProvider() {
+    }
+
     private static final Logger logger = LogManager.getLogger(VectorLoadingProvider.class);
     private static final boolean MMAP_AVAILABLE;
 
@@ -221,6 +226,7 @@ public class VectorLoadingProvider {
 
     /**
      * Check if memory-mapped loading is available.
+     * @return true if memory-mapped loading is supported
      */
     public static boolean isMemoryMappedAvailable() {
         return MMAP_AVAILABLE;
@@ -413,6 +419,9 @@ public class VectorLoadingProvider {
      */
     @FunctionalInterface
     public interface ProgressCallback {
+        /// Called when loading progress updates.
+        /// @param progress the progress ratio (0.0 to 1.0)
+        /// @param message the progress message
         void onProgress(double progress, String message);
     }
 }

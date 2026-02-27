@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 /// Common interface for progress tracking during merkle tree building.
 /// This interface allows different progress implementations to be used
 /// interchangeably in command-line tools and progress reporters.
+/// @param <T> the result type of the merkle build operation
 public interface MerkleBuildProgress<T> {
     
     /// Gets the CompletableFuture that completes when the merkle build is done.

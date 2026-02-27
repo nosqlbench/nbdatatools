@@ -49,6 +49,18 @@ public class Merklev2Footer {
     /// the length of the footer in bytes
     private final byte footerLength;
     
+    /// Constructs a Merklev2Footer with the given parameters.
+    ///
+    /// @param chunkSize        the size of each chunk in bytes
+    /// @param totalContentSize the total size of the data in bytes
+    /// @param totalChunks      the total number of chunks
+    /// @param leafCount        the number of leaf nodes
+    /// @param capLeaf          the capacity for leaf nodes
+    /// @param nodeCount        the total number of nodes
+    /// @param offset           the offset where leaf nodes start
+    /// @param internalNodeCount the number of internal nodes
+    /// @param bitSetSize       the size of the BitSet in bytes
+    /// @param footerLength     the length of the footer in bytes
     public Merklev2Footer(long chunkSize, long totalContentSize, int totalChunks, int leafCount, int capLeaf, int nodeCount, int offset, int internalNodeCount, int bitSetSize, byte footerLength) {
         this.chunkSize = chunkSize;
         this.totalContentSize = totalContentSize;
@@ -62,51 +74,61 @@ public class Merklev2Footer {
         this.footerLength = footerLength;
     }
     
+    /// Returns the chunk size.
     /// @return the size of each chunk in bytes
     public long chunkSize() {
         return chunkSize;
     }
     
+    /// Returns the total content size.
     /// @return the total size of the data in bytes
     public long totalContentSize() {
         return totalContentSize;
     }
     
+    /// Returns the total number of chunks.
     /// @return the total number of chunks
     public int totalChunks() {
         return totalChunks;
     }
     
+    /// Returns the leaf count.
     /// @return the number of leaf nodes in the merkle tree
     public int leafCount() {
         return leafCount;
     }
     
+    /// Returns the leaf capacity.
     /// @return the capacity for leaf nodes (next power of 2 >= leafCount)
     public int capLeaf() {
         return capLeaf;
     }
     
+    /// Returns the total node count.
     /// @return the total number of nodes in the merkle tree
     public int nodeCount() {
         return nodeCount;
     }
     
+    /// Returns the leaf offset.
     /// @return the offset where leaf nodes start in the merkle tree array
     public int offset() {
         return offset;
     }
     
+    /// Returns the internal node count.
     /// @return the number of internal nodes in the merkle tree
     public int internalNodeCount() {
         return internalNodeCount;
     }
     
+    /// Returns the BitSet size.
     /// @return the size of the BitSet in bytes
     public int bitSetSize() {
         return bitSetSize;
     }
     
+    /// Returns the footer length.
     /// @return the length of the footer in bytes
     public byte footerLength() {
         return footerLength;

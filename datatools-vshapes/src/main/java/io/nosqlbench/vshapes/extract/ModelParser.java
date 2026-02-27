@@ -38,6 +38,9 @@ import java.util.regex.Pattern;
  */
 public class ModelParser {
 
+    /// Creates a new ModelParser.
+    private ModelParser() {}
+
     // Glyphs matching CMD_analyze_profile
     private static final String GLYPH_NORMAL = "𝒩";       // U+1D4A9
     private static final String GLYPH_UNIFORM = "▭";      // U+25AD

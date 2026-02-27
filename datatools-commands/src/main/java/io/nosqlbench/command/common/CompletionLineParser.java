@@ -26,9 +26,18 @@ public final class CompletionLineParser {
     private CompletionLineParser() {
     }
 
+    /// A parsed command line with argument positions.
+    ///
+    /// @param args the list of parsed arguments
+    /// @param argIndex the index of the current argument
+    /// @param positionInArg the cursor position within the current argument
+    /// @param currentArgPrefix the text of the current argument up to the cursor
     public record ParsedLine(List<String> args, int argIndex, int positionInArg, String currentArgPrefix) {
     }
 
+    /// Parses the completion line from COMP_LINE and COMP_POINT environment variables.
+    ///
+    /// @return a parsed line if the environment variables are set, empty otherwise
     public static Optional<ParsedLine> parseFromEnv() {
         String line = System.getenv("COMP_LINE");
         String point = System.getenv("COMP_POINT");
@@ -44,6 +53,11 @@ public final class CompletionLineParser {
         return Optional.of(parse(line, cursor));
     }
 
+    /// Parses a command line string at the given cursor position.
+    ///
+    /// @param line the command line string
+    /// @param cursor the cursor position
+    /// @return the parsed line result
     public static ParsedLine parse(String line, int cursor) {
         String safeLine = line == null ? "" : line;
         int safeCursor = Math.max(0, Math.min(cursor, safeLine.length()));
@@ -55,6 +69,11 @@ public final class CompletionLineParser {
         return new ParsedLine(args, argIndex, positionInArg, currentPrefix);
     }
 
+    /// Splits a command line string into individual arguments, handling quoting and escaping.
+    ///
+    /// @param line the command line string to split
+    /// @param includeTrailingEmpty whether to include an empty trailing argument when the line ends with whitespace
+    /// @return the list of argument strings
     public static List<String> splitCommandLine(String line, boolean includeTrailingEmpty) {
         List<String> args = new ArrayList<>();
         if (line == null) {

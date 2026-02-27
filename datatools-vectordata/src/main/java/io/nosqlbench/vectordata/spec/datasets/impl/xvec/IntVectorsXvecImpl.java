@@ -21,6 +21,7 @@ import io.nosqlbench.vectordata.layoutv2.DSWindow;
 import io.nosqlbench.vectordata.spec.datasets.types.IntVectors;
 
 import java.nio.channels.AsynchronousFileChannel;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,6 +37,14 @@ public class IntVectorsXvecImpl extends CoreXVecVectorDatasetViewMethods<int[]> 
   /// @param extension The file extension (used to derive the vector format)
   public IntVectorsXvecImpl(AsynchronousFileChannel channel, long sourceSize, DSWindow window, String extension) {
     super(channel, sourceSize, window, extension);
+  }
+
+  /// Create a new IntVectors view backed by a memory-mapped file.
+  /// @param filePath The path to the xvec file
+  /// @param window The configured window describing the slice of data to expose
+  /// @param extension The file extension (used to derive the vector format)
+  public IntVectorsXvecImpl(Path filePath, DSWindow window, String extension) {
+    super(filePath, window, extension);
   }
 
   /// {@inheritDoc}

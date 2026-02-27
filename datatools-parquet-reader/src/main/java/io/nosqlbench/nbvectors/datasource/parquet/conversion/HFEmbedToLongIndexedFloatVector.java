@@ -26,6 +26,8 @@ import java.util.function.Function;
 
 /// Convert a Parquet [Group] into a LongIndexedFloatVector
 public class HFEmbedToLongIndexedFloatVector implements Function<Group, LongIndexedFloatVector> {
+  /// Creates a new HFEmbedToLongIndexedFloatVector converter.
+  public HFEmbedToLongIndexedFloatVector() {}
 
   @Override
   public LongIndexedFloatVector apply(Group group) {

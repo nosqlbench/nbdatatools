@@ -187,6 +187,8 @@ per namespace followed by a namespaces page (type 3) at EOF.
 | `SlabReader(Path)` | Open and bootstrap from file tail |
 | `get(long)` | `Optional<ByteBuffer>` — default namespace lookup |
 | `get(String, long)` | `Optional<ByteBuffer>` — namespace-aware lookup; empty for missing ordinals, throws `IllegalArgumentException` for unknown namespaces |
+| `getAll(List<BatchRequest>)` | `BatchResult` — multi-batch read with page coalescing and async I/O; results in submission order |
+| `getAll(long...)` | `BatchResult` — multi-batch convenience for default namespace |
 | `pages()` | `List<PageSummary>` of all data pages in the default namespace |
 | `pages(String)` | `List<PageSummary>` of all data pages in the specified namespace |
 | `pageCount()` | Number of data pages in the default namespace |
@@ -201,6 +203,25 @@ Namespace-aware methods (`get(String, long)`, `pages(String)`, `pageCount(String
 `recordCount(String)`) throw `IllegalArgumentException` for unknown namespaces. The
 no-arg convenience methods (`get(long)`, `pages()`, etc.) always operate on the default
 namespace, which is present in every valid file.
+
+### `BatchRequest` (record)
+
+| Method | Description |
+|---|---|
+| `BatchRequest(String, long)` | Create a request for the given namespace and ordinal |
+| `of(long)` | Factory for default namespace |
+| `of(String, long)` | Factory for specific namespace |
+
+### `BatchResult` (record)
+
+| Method | Description |
+|---|---|
+| `get(int)` | `Optional<ByteBuffer>` at the given index (submission order) |
+| `size()` | Number of results |
+| `isComplete()` | True if every slot is present |
+| `hasPartialFailure()` | True if any slot is empty |
+| `presentCount()` | Number of present slots |
+| `emptyCount()` | Number of empty slots |
 
 ### `PageHeader` (record)
 

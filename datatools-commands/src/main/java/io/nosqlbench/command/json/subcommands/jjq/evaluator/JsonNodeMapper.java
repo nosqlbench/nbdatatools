@@ -26,6 +26,8 @@ import java.util.function.Function;
 
 /// A function to convert a string to a JSON node
 public class JsonNodeMapper implements Function<String, JsonNode> {
+  /// Creates a new JsonNodeMapper instance.
+  public JsonNodeMapper() {}
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 

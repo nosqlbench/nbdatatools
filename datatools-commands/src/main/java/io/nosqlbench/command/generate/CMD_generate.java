@@ -25,6 +25,7 @@ import io.nosqlbench.command.generate.subcommands.CMD_generate_fvecExtract;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_ivecExtract;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_ivecShuffle;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_mktestdata;
+import io.nosqlbench.command.generate.subcommands.CMD_generate_predicated;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_sketch;
 import io.nosqlbench.command.generate.subcommands.CMD_generate_vectors;
 import io.nosqlbench.nbdatatools.api.services.BundledCommand;
@@ -47,6 +48,7 @@ import java.util.List;
 /// - `ivec-extract`: Extract indices from an ivec file using a range specification
 /// - `fvec-extract`: Extract data from floating-point vector files
 /// - `mktestdata`: Make basic base, query, and ground truth data from a vector space
+/// - `predicated`: Generate a predicated demo dataset with metadata, predicates, and ground-truth results
 /// - `vectors`: Generate vector files with specified types and dimensions
 ///
 /// The generated data maintains consistent statistical properties and can be
@@ -68,7 +70,7 @@ import java.util.List;
         "dimensions (vectors), and making basic base, query, and ground truth data (mktestdata).",
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:warning", "2:error"},
-    subcommands = {CMD_generate_dataset.class, CMD_generate_derive.class, CMD_generate_from_model.class, CMD_generate_ivecShuffle.class, CMD_generate_ivecExtract.class, CMD_generate_fvecExtract.class, CMD_generate_vectors.class, CMD_generate_mktestdata.class, CMD_generate_sketch.class, CommandLine.HelpCommand.class})
+    subcommands = {CMD_generate_dataset.class, CMD_generate_derive.class, CMD_generate_from_model.class, CMD_generate_ivecShuffle.class, CMD_generate_ivecExtract.class, CMD_generate_fvecExtract.class, CMD_generate_vectors.class, CMD_generate_mktestdata.class, CMD_generate_predicated.class, CMD_generate_sketch.class, CommandLine.HelpCommand.class})
 
 public class CMD_generate implements BundledCommand {
   /// Logger for this class

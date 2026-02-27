@@ -25,6 +25,10 @@ import java.util.List;
 /// Utility class for formatting command line information from picocli CommandSpec
 public class CommandLineFormatter {
 
+    /// Creates a new CommandLineFormatter instance.
+    public CommandLineFormatter() {
+    }
+
     /// Get the full command line string from the root command to the current command
     /// @param spec The CommandSpec of the current command
     /// @return The full command line (e.g., "nbvectors analyze verify_knn")

@@ -78,6 +78,11 @@ import java.util.concurrent.Callable;
         "vectors in fvec format",
     exitCodeList = {"0: success", "1: warning", "2: error"})
 public class CMD_generate_mktestdata implements Callable<Integer> {
+
+  /// Creates a new CMD_generate_mktestdata instance.
+  public CMD_generate_mktestdata() {
+  }
+
   private static final Logger logger = LogManager.getLogger(CMD_generate_mktestdata.class);
 
   private static final int EXIT_SUCCESS = 0;
@@ -134,6 +139,9 @@ public class CMD_generate_mktestdata implements Callable<Integer> {
 
   private Path resolvedInputPath;
 
+  /// Entry point for standalone execution.
+  ///
+  /// @param args command line arguments
   public static void main(String[] args) {
     CMD_generate_mktestdata cmd = new CMD_generate_mktestdata();
     int exitCode = new CommandLine(cmd).execute(args);

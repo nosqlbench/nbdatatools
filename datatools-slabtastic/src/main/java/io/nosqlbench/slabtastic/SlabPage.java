@@ -192,31 +192,37 @@ public class SlabPage implements SlabConstants {
 
     /// Returns the total serialized size of this page in bytes (always a
     /// multiple of 512).
+    /// @return the page size in bytes
     public int serializedSize() {
         return pageSize;
     }
 
     /// Returns the starting ordinal for this page.
+    /// @return the first ordinal in this page
     public long startOrdinal() {
         return startOrdinal;
     }
 
     /// Returns the number of records in this page.
+    /// @return the record count
     public int recordCount() {
         return records.size();
     }
 
     /// Returns the page type.
+    /// @return the page type byte
     public byte pageType() {
         return pageType;
     }
 
     /// Returns the namespace index for this page.
+    /// @return the namespace index
     public byte namespaceIndex() {
         return namespaceIndex;
     }
 
     /// Returns a {@link PageFooter} matching this page's metadata.
+    /// @return the page footer
     public PageFooter footer() {
         return new PageFooter(
             startOrdinal, records.size(), pageSize,

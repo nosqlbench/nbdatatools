@@ -72,6 +72,9 @@ public final class AnalysisResults {
 
     /**
      * Creates an AnalysisResults with results and errors (no timing).
+     *
+     * @param results map of analyzer type to result object
+     * @param errors map of analyzer type to error (if any failed)
      */
     public AnalysisResults(Map<String, Object> results, Map<String, Throwable> errors) {
         this(results, errors, 0);
@@ -79,6 +82,8 @@ public final class AnalysisResults {
 
     /**
      * Creates an AnalysisResults with only results (no errors).
+     *
+     * @param results map of analyzer type to result object
      */
     public AnalysisResults(Map<String, Object> results) {
         this(results, Collections.emptyMap(), 0);

@@ -34,6 +34,10 @@ import java.util.concurrent.Callable;
     description = "Display JFR flame graph in terminal using Unicode and 256-color")
 public class CMD_analyze_flamegraph implements Callable<Integer> {
 
+    /// Creates a new CMD_analyze_flamegraph instance.
+    public CMD_analyze_flamegraph() {
+    }
+
     @CommandLine.Parameters(index = "0", description = "JFR recording file (.jfr)")
     private Path jfrFile;
 
@@ -443,6 +447,9 @@ public class CMD_analyze_flamegraph implements Callable<Integer> {
         }
     }
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         CMD_analyze_flamegraph cmd = new CMD_analyze_flamegraph();
         int exitCode = new CommandLine(cmd).execute(args);

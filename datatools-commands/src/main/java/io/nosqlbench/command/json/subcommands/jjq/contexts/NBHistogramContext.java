@@ -30,6 +30,8 @@ import java.util.stream.Collectors;
 public class NBHistogramContext extends ConcurrentHashMap<String, AtomicLong>
     implements StatefulShutdown
 {
+  /// Creates a new NBHistogramContext instance.
+  public NBHistogramContext() {}
 
   /// {@inheritDoc}
   @Override
@@ -72,12 +74,19 @@ public class NBHistogramContext extends ConcurrentHashMap<String, AtomicLong>
     /// the frequency of the entry
     private final long freq;
     
+    /// Creates a new entry with the given id and frequency.
+    /// @param id the id of the entry
+    /// @param freq the frequency of the entry
     public entry(long id, long freq) {
       this.id = id;
       this.freq = freq;
     }
-    
+
+    /// Returns the id of the entry.
+    /// @return the id
     public long id() { return id; }
+    /// Returns the frequency of the entry.
+    /// @return the frequency
     public long freq() { return freq; }
   }
 

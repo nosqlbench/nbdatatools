@@ -36,6 +36,10 @@ import org.apache.logging.log4j.core.config.plugins.Plugin;
 @Order(100)
 public class CustomConfigurationFactory extends ConfigurationFactory {
 
+  /// Creates a new CustomConfigurationFactory instance.
+  public CustomConfigurationFactory() {
+  }
+
   /// create a configuration
   static Configuration createConfiguration(final String name, ConfigurationBuilder<BuiltConfiguration> builder) {
     builder.setConfigurationName(name);

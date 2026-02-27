@@ -29,6 +29,10 @@ import java.util.Set;
  */
 public class ISACapabilityDetector {
 
+    /// Creates a new ISACapabilityDetector instance.
+    public ISACapabilityDetector() {
+    }
+
     private static final Set<String> cpuFlags = new HashSet<>();
     private static boolean initialized = false;
 
@@ -65,6 +69,7 @@ public class ISACapabilityDetector {
 
     /**
      * Check if AVX-512 is supported by the CPU.
+     * @return true if AVX-512 is supported
      */
     public static boolean supportsAVX512() {
         if (!initialized) return false;
@@ -74,6 +79,7 @@ public class ISACapabilityDetector {
 
     /**
      * Check if AVX2 is supported by the CPU.
+     * @return true if AVX2 is supported
      */
     public static boolean supportsAVX2() {
         if (!initialized) return false;
@@ -82,6 +88,7 @@ public class ISACapabilityDetector {
 
     /**
      * Check if AVX is supported by the CPU.
+     * @return true if AVX is supported
      */
     public static boolean supportsAVX() {
         if (!initialized) return false;
@@ -90,6 +97,7 @@ public class ISACapabilityDetector {
 
     /**
      * Get the best SIMD capability supported by this CPU.
+     * @return a description of the best SIMD capability
      */
     public static String getBestSIMDCapability() {
         if (supportsAVX512()) {
@@ -106,6 +114,7 @@ public class ISACapabilityDetector {
     /**
      * Check if Panama optimizations would benefit on this CPU.
      * Returns true if AVX2 or better is available.
+     * @return true if Panama optimizations would benefit
      */
     public static boolean shouldUsePanama() {
         return supportsAVX2() || supportsAVX512();
@@ -113,6 +122,7 @@ public class ISACapabilityDetector {
 
     /**
      * Get all detected CPU flags for debugging.
+     * @return a copy of all detected CPU flags
      */
     public static Set<String> getAllFlags() {
         return new HashSet<>(cpuFlags);
@@ -120,6 +130,7 @@ public class ISACapabilityDetector {
 
     /**
      * Check if detection succeeded.
+     * @return true if CPU flag detection was successful
      */
     public static boolean isAvailable() {
         return initialized;

@@ -24,6 +24,9 @@ import picocli.CommandLine;
  */
 public class ValueRangeOption {
 
+    /// Creates a new ValueRangeOption instance.
+    public ValueRangeOption() {}
+
     /**
      * Immutable value range specification for numeric bounds in vector generation.
      * Represents a range [min, max) for generating random values.
@@ -51,6 +54,7 @@ public class ValueRangeOption {
 
         /**
          * Gets the range size (max - min).
+         * @return the range size
          */
         public float size() {
             return max - min;
@@ -58,6 +62,8 @@ public class ValueRangeOption {
 
         /**
          * Checks if a value is within the range [min, max).
+         * @param value the value to check
+         * @return true if the value is within range
          */
         public boolean contains(float value) {
             return value >= min && value < max;
@@ -66,6 +72,8 @@ public class ValueRangeOption {
         /**
          * Normalizes a value from [0, 1] to [min, max].
          * Useful for converting uniform random values to the desired range.
+         * @param normalizedValue the value in [0, 1] to denormalize
+         * @return the denormalized value in [min, max]
          */
         public float denormalize(float normalizedValue) {
             return min + normalizedValue * (max - min);
@@ -73,6 +81,8 @@ public class ValueRangeOption {
 
         /**
          * Normalizes a value from [min, max] to [0, 1].
+         * @param value the value to normalize
+         * @return the normalized value in [0, 1]
          */
         public float normalize(float value) {
             return (value - min) / (max - min);
@@ -104,6 +114,7 @@ public class ValueRangeOption {
     /**
      * Gets the ValueRange record constructed from min/max options.
      * Validation happens when the record is created.
+     * @return the value range
      */
     public ValueRange getValueRange() {
         return new ValueRange(min, max);
@@ -111,6 +122,7 @@ public class ValueRangeOption {
 
     /**
      * Gets the minimum value.
+     * @return the minimum value
      */
     public float getMin() {
         return min;
@@ -118,6 +130,7 @@ public class ValueRangeOption {
 
     /**
      * Gets the maximum value.
+     * @return the maximum value
      */
     public float getMax() {
         return max;
@@ -125,6 +138,7 @@ public class ValueRangeOption {
 
     /**
      * Gets the range size (max - min).
+     * @return the size of the range
      */
     public float getRange() {
         return max - min;
@@ -139,6 +153,8 @@ public class ValueRangeOption {
 
     /**
      * Checks if a value is within the range [min, max).
+     * @param value the value to check
+     * @return true if the value is in range
      */
     public boolean contains(float value) {
         return getValueRange().contains(value);
@@ -146,6 +162,8 @@ public class ValueRangeOption {
 
     /**
      * Normalizes a value from [0, 1] to [min, max].
+     * @param normalizedValue the value in [0, 1] to denormalize
+     * @return the denormalized value in [min, max]
      */
     public float denormalize(float normalizedValue) {
         return getValueRange().denormalize(normalizedValue);

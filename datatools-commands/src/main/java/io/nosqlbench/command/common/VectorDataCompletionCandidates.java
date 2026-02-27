@@ -45,6 +45,8 @@ import java.util.regex.Pattern;
 /// source <(nbvectors generate-completion)
 /// ```
 public class VectorDataCompletionCandidates implements Iterable<String> {
+    /// Creates a new VectorDataCompletionCandidates instance.
+    public VectorDataCompletionCandidates() {}
 
     private static final Path DEFAULT_CONFIG_DIR = Path.of(
         System.getProperty("user.home"), ".config", "vectordata");
@@ -250,6 +252,9 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
     /// Completion candidates that only include facet specifications.
     /// Use this when only facets are valid (not files or URLs).
     public static class FacetsOnly implements Iterable<String> {
+        /// Creates a new FacetsOnly instance.
+        public FacetsOnly() {}
+
         @Override
         public Iterator<String> iterator() {
             List<String> candidates = new ArrayList<>();
@@ -263,6 +268,9 @@ public class VectorDataCompletionCandidates implements Iterable<String> {
     /// Completion candidates that include common vector file extensions.
     /// Useful for commands that primarily work with local files.
     public static class WithFileExtensions implements Iterable<String> {
+        /// Creates a new WithFileExtensions instance.
+        public WithFileExtensions() {}
+
         @Override
         public Iterator<String> iterator() {
             List<String> candidates = new ArrayList<>();

@@ -40,6 +40,10 @@ import static picocli.CommandLine.Option;
 @Selector("jjq")
 public class CMD_jjq implements Callable<Integer> {
 
+  /// Creates a new CMD_jjq instance.
+  public CMD_jjq() {
+  }
+
   @Option(names = {"-i", "--in"}, required = true)
   private Path inFile;
 

@@ -64,6 +64,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_analyze_model_diff implements Callable<Integer> {
 
+    /// Creates a new CMD_analyze_model_diff instance.
+    public CMD_analyze_model_diff() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_model_diff.class);
 
     // ANSI color codes

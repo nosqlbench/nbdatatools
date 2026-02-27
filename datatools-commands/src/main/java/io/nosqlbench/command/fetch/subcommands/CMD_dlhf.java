@@ -70,7 +70,9 @@ public class CMD_dlhf implements Callable<Integer> {
   @CommandLine.Option(names = {"--token", "-t"}, description = "The token to use for the download")
   private String token;
 
-  /// Run DownloadHF directly
+  /// Run DownloadHF directly.
+  ///
+  /// @param args command line arguments
   public static void main(String[] args) {
     int exitCode = new CommandLine(new CMD_dlhf()).execute(args);
     System.exit(exitCode);

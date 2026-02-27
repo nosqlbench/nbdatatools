@@ -59,6 +59,10 @@ import java.util.stream.Collectors;
         "or distance files.")
 public class CMD_datasets_plan implements Callable<Integer> {
 
+    /// Creates a new CMD_datasets_plan instance.
+    public CMD_datasets_plan() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_datasets_plan.class);
     private static final Pattern REMOTE_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9+.-]*://.+");
 

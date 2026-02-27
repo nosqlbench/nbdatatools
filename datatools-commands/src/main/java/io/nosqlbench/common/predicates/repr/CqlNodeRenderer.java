@@ -25,6 +25,9 @@ import io.nosqlbench.vectordata.spec.predicates.PNode;
 /// A renderer for cql syntax
 public class CqlNodeRenderer implements PredicateRepresenter {
 
+  /// Creates a new CqlNodeRenderer instance.
+  public CqlNodeRenderer() {
+  }
 
   @Override
   public String apply(PNode<?> node) {
@@ -41,7 +44,7 @@ public class CqlNodeRenderer implements PredicateRepresenter {
 
   private String reprPredicate(PredicateNode p) {
     StringBuilder sb = new StringBuilder();
-    sb.append("F").append(p.field());
+    sb.append(p.fieldName() != null ? p.fieldName() : "F" + p.field());
     if (isChar(p.op().symbol())) {
       sb.append(" ");
     }

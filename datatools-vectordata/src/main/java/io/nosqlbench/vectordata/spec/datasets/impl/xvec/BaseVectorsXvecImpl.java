@@ -23,20 +23,30 @@ import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 
 import java.nio.channels.AsynchronousFileChannel;
+import java.nio.file.Path;
 
 /// Implementation of BaseVectors interface for xvec file format.
 /// This class extends FloatVectorsXvecImpl to provide base vector functionality
 /// for xvec files, which store vectors in a binary format.
 public class BaseVectorsXvecImpl extends FloatVectorsXvecImpl implements BaseVectors {
-  /// Creates a new BaseVectorsXvecImpl instance.
+  /// Creates a new BaseVectorsXvecImpl instance backed by a channel.
   ///
-  /// @param channel The MAFileChannel to read from
+  /// @param channel The AsynchronousFileChannel to read from
   /// @param sourceSize The size of the source file in bytes
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
   public BaseVectorsXvecImpl(AsynchronousFileChannel channel, long sourceSize, DSWindow window, String extension)
   {
     super(channel, sourceSize, window, extension);
+  }
+
+  /// Creates a new BaseVectorsXvecImpl instance backed by a memory-mapped file.
+  ///
+  /// @param filePath The path to the xvec file
+  /// @param window The window to use for accessing the data
+  /// @param extension The file extension indicating the vector format
+  public BaseVectorsXvecImpl(Path filePath, DSWindow window, String extension) {
+    super(filePath, window, extension);
   }
 
   @Override

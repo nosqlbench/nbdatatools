@@ -305,6 +305,8 @@ public final class ModelRecoveryVerifier {
     ) {
         /**
          * Returns a formatted summary of the recovery result.
+         *
+         * @return the formatted summary
          */
         public String formatSummary() {
             StringBuilder sb = new StringBuilder();
@@ -321,6 +323,10 @@ public final class ModelRecoveryVerifier {
 
         /**
          * Returns true if recovery meets the specified thresholds.
+         *
+         * @param minRecoveryRate the minimum acceptable recovery rate
+         * @param maxWeightErrorThreshold the maximum acceptable weight error
+         * @return true if thresholds are met
          */
         public boolean meetsThresholds(double minRecoveryRate, double maxWeightErrorThreshold) {
             return recoveryRate >= minRecoveryRate && maxWeightError <= maxWeightErrorThreshold;
@@ -356,6 +362,10 @@ public final class ModelRecoveryVerifier {
     ) {
         /**
          * Returns true if recovery is acceptable.
+         *
+         * @param maxLocationError the maximum acceptable location error
+         * @param maxRelativeWidthError the maximum acceptable relative width error
+         * @return true if recovery is acceptable
          */
         public boolean isAcceptable(double maxLocationError, double maxRelativeWidthError) {
             return typeMatches &&

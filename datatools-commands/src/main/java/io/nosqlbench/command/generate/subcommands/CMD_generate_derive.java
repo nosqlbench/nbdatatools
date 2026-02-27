@@ -99,6 +99,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_generate_derive implements Callable<Integer> {
 
+    /// Creates a new CMD_generate_derive instance.
+    public CMD_generate_derive() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_generate_derive.class);
 
     // ANSI color codes
@@ -402,6 +406,9 @@ public class CMD_generate_derive implements Callable<Integer> {
         Files.deleteIfExists(path);
     }
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         int exitCode = new CommandLine(new CMD_generate_derive()).execute(args);
         System.exit(exitCode);

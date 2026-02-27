@@ -36,10 +36,16 @@ public final class VectorDataSpecSupport {
     private VectorDataSpecSupport() {
     }
 
+    /// Checks if the given spec requires remote access.
+    /// @param spec the vector data specification
+    /// @return true if the spec requires remote resources
     public static boolean requiresRemote(VectorDataSpec spec) {
         return spec.isCatalogFacet() || spec.isRemote();
     }
 
+    /// Expands home directory variables in the given path.
+    /// @param path the path to expand
+    /// @return the expanded path, or null if input was null
     public static Path expandPath(Path path) {
         if (path == null) {
             return null;
@@ -50,6 +56,9 @@ public final class VectorDataSpecSupport {
         return Path.of(expanded);
     }
 
+    /// Resolves the cache directory, falling back to the configured default.
+    /// @param cacheDir the explicit cache directory, or null
+    /// @return the resolved cache directory
     public static Path requireCacheDir(Path cacheDir) {
         Path resolved = expandPath(cacheDir);
         if (resolved != null) {
@@ -58,6 +67,12 @@ public final class VectorDataSpecSupport {
         return VectorDataSettings.load().getCacheDirectory();
     }
 
+    /// Resolves a facet spec into a VectorTestDataView.
+    /// @param spec the facet specification
+    /// @param configDir the configuration directory
+    /// @param catalogs additional catalog paths
+    /// @param cacheDir the cache directory
+    /// @return the resolved vector test data view
     public static VectorTestDataView resolveFacetView(VectorDataSpec spec,
                                                       Path configDir,
                                                       List<String> catalogs,
@@ -91,16 +106,31 @@ public final class VectorDataSpecSupport {
         return selector.profile(profileName);
     }
 
+    /// Resolves a dataset view for the given facet kind.
+    /// @param view the vector test data view
+    /// @param facetKind the kind of facet to resolve
+    /// @return the resolved dataset view, or empty
     public static Optional<VectorDatasetView<?>> resolveDatasetView(VectorTestDataView view, TestDataKind facetKind) {
         return switch (facetKind) {
             case base_vectors -> view.getBaseVectors().map(v -> (VectorDatasetView<?>) v);
             case query_vectors -> view.getQueryVectors().map(v -> (VectorDatasetView<?>) v);
             case neighbor_indices -> view.getNeighborIndices().map(v -> (VectorDatasetView<?>) v);
             case neighbor_distances -> view.getNeighborDistances().map(v -> (VectorDatasetView<?>) v);
+            case filtered_neighbor_indices -> view.getFilteredNeighborIndices().map(v -> (VectorDatasetView<?>) v);
+            case filtered_neighbor_distances -> view.getFilteredNeighborDistances().map(v -> (VectorDatasetView<?>) v);
+            case metadata_predicates, predicate_results, metadata_layout, metadata_content ->
+                // Predicate kinds are handled via predicateProfile(), not through VectorTestDataView
+                Optional.empty();
             default -> Optional.empty();
         };
     }
 
+    /// Resolves a facet spec directly into a dataset view.
+    /// @param spec the facet specification
+    /// @param configDir the configuration directory
+    /// @param catalogs additional catalog paths
+    /// @param cacheDir the cache directory
+    /// @return the resolved dataset view, or empty
     public static Optional<VectorDatasetView<?>> resolveDatasetView(VectorDataSpec spec,
                                                                     Path configDir,
                                                                     List<String> catalogs,

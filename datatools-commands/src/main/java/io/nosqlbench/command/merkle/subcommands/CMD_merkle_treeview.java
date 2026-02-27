@@ -42,10 +42,16 @@ import java.util.concurrent.Callable;
     description = "Render a TUI-style tree view of a Merkle tree structure"
 )
 public class CMD_merkle_treeview implements Callable<Integer> {
+
+    /// Creates a new CMD_merkle_treeview instance.
+    public CMD_merkle_treeview() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_merkle_treeview.class);
 
-    // File extensions for merkle tree files
+    /// File extension for Merkle tree files
     public static final String MRKL = ".mrkl";
+    /// File extension for Merkle reference files
     public static final String MREF = ".mref";
 
     // ANSI color codes

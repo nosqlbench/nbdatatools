@@ -84,6 +84,7 @@ import java.util.Objects;
 @ModelType(BetaPrimeScalarModel.MODEL_TYPE)
 public class BetaPrimeScalarModel implements ScalarModel {
 
+    /// The model type identifier for beta prime distributions.
     public static final String MODEL_TYPE = "beta_prime";
 
     @SerializedName("alpha")

@@ -42,6 +42,15 @@ public class NodeCandidate {
     /// Human-readable explanation of this candidate
     private final String explanation;
     
+    /// Constructs a NodeCandidate with the given parameters.
+    ///
+    /// @param nodeIndex             the merkle tree node index
+    /// @param isLeafNode            whether this is a leaf node
+    /// @param coveredRequiredChunks set of required chunks this node covers
+    /// @param coveredAllChunks      set of all chunks this node would download
+    /// @param estimatedBytes        estimated download size in bytes
+    /// @param efficiency            efficiency ratio (0.0 to 1.0)
+    /// @param explanation           human-readable explanation of this candidate
     public NodeCandidate(int nodeIndex, boolean isLeafNode, Set<Integer> coveredRequiredChunks, Set<Integer> coveredAllChunks, long estimatedBytes, double efficiency, String explanation) {
         if (nodeIndex < 0) {
             throw new IllegalArgumentException("Node index cannot be negative: " + nodeIndex);
@@ -72,36 +81,43 @@ public class NodeCandidate {
         this.explanation = explanation;
     }
     
+    /// Returns the node index.
     /// @return The merkle tree node index
     public int nodeIndex() {
         return nodeIndex;
     }
-    
+
+    /// Returns whether this is a leaf node.
     /// @return Whether this is a leaf node or internal node
     public boolean isLeafNode() {
         return isLeafNode;
     }
-    
+
+    /// Returns the covered required chunks.
     /// @return Set of required chunks this node would cover
     public Set<Integer> coveredRequiredChunks() {
         return coveredRequiredChunks;
     }
-    
+
+    /// Returns the covered chunks including prefetch.
     /// @return Set of all chunks this node would download (including prefetch)
     public Set<Integer> coveredAllChunks() {
         return coveredAllChunks;
     }
-    
+
+    /// Returns the estimated download size.
     /// @return Estimated download size for this node
     public long estimatedBytes() {
         return estimatedBytes;
     }
-    
+
+    /// Returns the efficiency ratio.
     /// @return Efficiency ratio (required chunks / all chunks)
     public double efficiency() {
         return efficiency;
     }
-    
+
+    /// Returns a human-readable explanation.
     /// @return Human-readable explanation of this candidate
     public String explanation() {
         return explanation;

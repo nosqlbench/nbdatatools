@@ -69,6 +69,11 @@ import java.util.concurrent.atomic.AtomicLong;
 @CommandLine.Command(name = "sort",
     description = "Sort vectors from xvec format files using memory-efficient external merge sort")
 public class CMD_compute_sort implements Callable<Integer> {
+
+    /// Creates a new CMD_compute_sort instance.
+    public CMD_compute_sort() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_compute_sort.class);
 
     private static final int EXIT_SUCCESS = 0;
@@ -1471,6 +1476,9 @@ public class CMD_compute_sort implements Callable<Integer> {
         }
     }
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         CMD_compute_sort cmd = new CMD_compute_sort();
         int exitCode = new CommandLine(cmd).execute(args);

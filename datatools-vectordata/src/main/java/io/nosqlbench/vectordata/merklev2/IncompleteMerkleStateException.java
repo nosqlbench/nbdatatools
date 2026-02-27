@@ -21,9 +21,14 @@ package io.nosqlbench.vectordata.merklev2;
 /// This occurs when not all chunks have been validated and marked as valid in the state.
 public class IncompleteMerkleStateException extends RuntimeException {
     
+    /// The number of valid chunks.
     private final int validChunkCount;
+    /// The total number of chunks.
     private final int totalChunkCount;
     
+    /// Creates a new exception for incomplete merkle state.
+    /// @param validChunkCount the number of valid chunks
+    /// @param totalChunkCount the total number of chunks
     public IncompleteMerkleStateException(int validChunkCount, int totalChunkCount) {
         super(String.format("Cannot create MerkleRef from incomplete MerkleState. Only %d of %d chunks are valid.", 
               validChunkCount, totalChunkCount));
@@ -31,10 +36,14 @@ public class IncompleteMerkleStateException extends RuntimeException {
         this.totalChunkCount = totalChunkCount;
     }
     
+    /// Get the number of valid chunks.
+    /// @return the valid chunk count
     public int getValidChunkCount() {
         return validChunkCount;
     }
     
+    /// Get the total number of chunks.
+    /// @return the total chunk count
     public int getTotalChunkCount() {
         return totalChunkCount;
     }

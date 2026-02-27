@@ -76,6 +76,13 @@ public class DatasetDownloader implements AutoCloseable {
     /// the file size
     private final long size;
     
+    /// Creates a new ParquetFileData instance.
+    /// @param dataset the dataset name
+    /// @param config the config name
+    /// @param split the split name
+    /// @param url the download URL
+    /// @param filename the filename
+    /// @param size the file size in bytes
     public ParquetFileData(String dataset, String config, String split, String url, String filename, long size) {
       this.dataset = dataset;
       this.config = config;
@@ -85,11 +92,23 @@ public class DatasetDownloader implements AutoCloseable {
       this.size = size;
     }
     
+    /// Returns the dataset name.
+    /// @return the dataset name
     public String dataset() { return dataset; }
+    /// Returns the config name.
+    /// @return the config name
     public String config() { return config; }
+    /// Returns the split name.
+    /// @return the split name
     public String split() { return split; }
+    /// Returns the download URL.
+    /// @return the download URL
     public String url() { return url; }
+    /// Returns the filename.
+    /// @return the filename
     public String filename() { return filename; }
+    /// Returns the file size in bytes.
+    /// @return the file size in bytes
     public long size() { return size; }
 
     /// get the fully qualified path

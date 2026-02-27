@@ -28,6 +28,10 @@ import java.nio.file.Files;
  */
 public class DistancesFileOption {
 
+    /// Creates a new DistancesFileOption instance.
+    public DistancesFileOption() {
+    }
+
     @CommandLine.Option(
         names = {"-d", "--distances"},
         description = "Output file path for distances (optional, derived from indices if not specified)"
@@ -164,8 +168,11 @@ public class DistancesFileOption {
 
     /**
      * Record representing distances file configuration
+     * @param path the distances file path
+     * @param force whether to force overwrite
      */
     public record DistancesFile(Path path, boolean force) implements CharSequence {
+        /// Compact constructor with validation.
         public DistancesFile {
             if (path == null) {
                 throw new IllegalArgumentException("Distances path cannot be null");
@@ -193,10 +200,14 @@ public class DistancesFileOption {
             return path.toString();
         }
 
+        /// Returns the normalized path.
+        /// @return the normalized path
         public Path normalize() {
             return path.normalize();
         }
 
+        /// Checks if the distances file exists.
+        /// @return true if the file exists
         public boolean exists() {
             return Files.exists(path);
         }

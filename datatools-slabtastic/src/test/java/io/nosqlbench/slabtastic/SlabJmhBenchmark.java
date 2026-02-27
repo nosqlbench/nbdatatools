@@ -146,6 +146,31 @@ public class SlabJmhBenchmark implements SlabConstants {
         }
     }
 
+    /// Measures multi-batch read throughput with 64 random ordinals per
+    /// invocation.
+    @Benchmark
+    public void multiBatchRead(Blackhole bh) {
+        long[] ordinals = new long[64];
+        for (int i = 0; i < 64; i++) {
+            ordinals[i] = rng.nextInt(totalRecords);
+        }
+        BatchResult result = reader.getAll(ordinals);
+        bh.consume(result);
+    }
+
+    /// Measures multi-batch read throughput with 64 sequential ordinals
+    /// (order sensitivity per spec).
+    @Benchmark
+    public void multiBatchReadOrdered(Blackhole bh) {
+        int start = rng.nextInt(totalRecords - 64);
+        long[] ordinals = new long[64];
+        for (int i = 0; i < 64; i++) {
+            ordinals[i] = start + i;
+        }
+        BatchResult result = reader.getAll(ordinals);
+        bh.consume(result);
+    }
+
     /// Measures sequential write throughput (writes 1000 records per invocation).
     @Benchmark
     public void sequentialWrite(Blackhole bh) throws IOException {

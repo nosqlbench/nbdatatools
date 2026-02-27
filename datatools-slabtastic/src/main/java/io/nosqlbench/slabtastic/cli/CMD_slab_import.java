@@ -60,6 +60,9 @@ import java.util.concurrent.Callable;
 )
 public class CMD_slab_import implements Callable<Integer>, SlabConstants {
 
+    /// Creates a new instance of the import subcommand.
+    public CMD_slab_import() {}
+
     @CommandLine.Parameters(index = "0", description = "Target slabtastic file to create or append to")
     private Path target;
 

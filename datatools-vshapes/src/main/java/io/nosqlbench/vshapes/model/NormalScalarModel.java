@@ -80,6 +80,7 @@ import java.util.Objects;
 @ModelType(NormalScalarModel.MODEL_TYPE)
 public class NormalScalarModel implements ScalarModel {
 
+    /// The model type identifier for normal distributions.
     public static final String MODEL_TYPE = "normal";
 
     @SerializedName("mean")

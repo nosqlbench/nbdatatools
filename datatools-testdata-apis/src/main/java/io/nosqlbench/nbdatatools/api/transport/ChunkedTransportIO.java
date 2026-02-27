@@ -48,6 +48,9 @@ import java.util.ServiceLoader;
 /// ```
 public class ChunkedTransportIO {
 
+    /// Utility class; not intended for instantiation.
+    private ChunkedTransportIO() {}
+
     /// Creates an appropriate ChunkedTransportClient instance for the given URL.
     /// 
     /// The method uses ServiceLoader to find transport providers and selects the first

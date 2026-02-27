@@ -717,6 +717,8 @@ public final class BestFitSelector {
     ) {}
 
     /// Returns the list of fitters used by this selector.
+    ///
+    /// @return a copy of the fitters list
     public List<ComponentModelFitter> getFitters() {
         return new ArrayList<>(fitters);
     }

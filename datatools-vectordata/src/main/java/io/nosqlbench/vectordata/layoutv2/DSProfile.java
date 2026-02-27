@@ -18,6 +18,8 @@ package io.nosqlbench.vectordata.layoutv2;
  */
 
 
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -106,7 +108,19 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
       if ("maxk".equals(key)) {
         return;
       }
-      viewMap.put(key, DSView.fromData(v));
+      // Normalize key to canonical TestDataKind name when possible
+      String canonicalKey = TestDataKind.fromOptionalString(key)
+          .map(TestDataKind::name)
+          .orElse(key);
+      DSView view;
+      if (v instanceof CharSequence) {
+        // Handle string view values (e.g., "base.fvec") by parsing as source
+        DSSource source = DSSource.fromData(v.toString());
+        view = new DSView(canonicalKey, source, source.getWindow());
+      } else {
+        view = DSView.fromData(v);
+      }
+      viewMap.put(canonicalKey, view);
     });
     DSProfile profile = new DSProfile(viewMap);
     profile.maxk = maxk;

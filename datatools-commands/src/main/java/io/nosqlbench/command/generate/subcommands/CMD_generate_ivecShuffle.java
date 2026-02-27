@@ -42,6 +42,11 @@ import java.util.concurrent.Callable;
 @CommandLine.Command(name = "ivec-shuffle",
     description = "Generate a deterministically shuffled sequence of integers and save as ivec file")
 public class CMD_generate_ivecShuffle implements Callable<Integer> {
+
+  /// Creates a new CMD_generate_ivecShuffle instance.
+  public CMD_generate_ivecShuffle() {
+  }
+
   private static final int EXIT_SUCCESS = 0;
   private static final int EXIT_FILE_EXISTS = 1;
   private static final int EXIT_ERROR = 2;
@@ -65,6 +70,9 @@ public class CMD_generate_ivecShuffle implements Callable<Integer> {
   @CommandLine.Spec
   private CommandLine.Model.CommandSpec spec;
 
+  /// Entry point for standalone execution.
+  ///
+  /// @param args command line arguments
   public static void main(String[] args) {
     CMD_generate_ivecShuffle cmd = new CMD_generate_ivecShuffle();
     int exitCode = new CommandLine(cmd).execute(args);

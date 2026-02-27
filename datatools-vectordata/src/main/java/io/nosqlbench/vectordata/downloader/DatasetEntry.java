@@ -43,6 +43,12 @@ public class DatasetEntry {
     /// Tags associated with the dataset for categorization
     private final Map<String, String> tags;
     
+    /// Creates a new dataset entry.
+    /// @param name the name of the dataset
+    /// @param url the URL where the dataset can be downloaded from
+    /// @param attributes additional attributes associated with the dataset
+    /// @param profiles the profiles available for this dataset
+    /// @param tags tags associated with the dataset for categorization
     public DatasetEntry(String name, URL url, Map<String, String> attributes, DSProfileGroup profiles, Map<String, String> tags) {
         this.name = name;
         this.url = url;
@@ -51,27 +57,32 @@ public class DatasetEntry {
         this.tags = tags;
     }
     
-    /// @return The name of the dataset
+    /// Get the name of the dataset.
+    /// @return the name of the dataset
     public String name() {
         return name;
     }
     
-    /// @return The URL where the dataset can be downloaded from
+    /// Get the URL where the dataset can be downloaded from.
+    /// @return the URL where the dataset can be downloaded from
     public URL url() {
         return url;
     }
     
-    /// @return Additional attributes associated with the dataset
+    /// Get the additional attributes associated with the dataset.
+    /// @return additional attributes associated with the dataset
     public Map<String, String> attributes() {
         return attributes;
     }
     
-    /// @return The profiles available for this dataset
+    /// Get the profiles available for this dataset.
+    /// @return the profiles available for this dataset
     public DSProfileGroup profiles() {
         return profiles;
     }
     
-    /// @return Tags associated with the dataset for categorization
+    /// Get the tags associated with the dataset for categorization.
+    /// @return tags associated with the dataset for categorization
     public Map<String, String> tags() {
         return tags;
     }

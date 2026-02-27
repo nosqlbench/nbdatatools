@@ -204,6 +204,11 @@ import java.util.concurrent.Callable;
     description = "Analyzes vectors to compute per-dimension distribution models and saves as JSON",
     exitCodeList = {"0: success", "1: error processing file"})
 public class CMD_analyze_profile implements Callable<Integer> {
+
+    /// Creates a new CMD_analyze_profile instance.
+    public CMD_analyze_profile() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_profile.class);
 
     /// ANSI color codes for CVD-friendly (colorblind accessible) verification output.
@@ -226,13 +231,20 @@ public class CMD_analyze_profile implements Callable<Integer> {
     private static final String ANSI_BG_RED = "\u001B[101m";  // Bright red background
     private static final String ANSI_BG_BLUE = "\u001B[104m"; // Bright blue background (CVD-friendly)
 
+    /// Distribution model type selection.
     public enum ModelType {
-        auto,       // Automatic best-fit selection (Normal, Uniform, Empirical)
-        pearson,    // Full Pearson family (Normal, Beta, Gamma, StudentT, etc.)
-        normal,     // Force Normal distribution
-        uniform,    // Force Uniform distribution
-        empirical,  // Force empirical histogram
-        parametric  // Parametric distributions only (no empirical)
+        /// Automatic best-fit selection (Normal, Uniform, Empirical)
+        auto,
+        /// Full Pearson family (Normal, Beta, Gamma, StudentT, etc.)
+        pearson,
+        /// Force Normal distribution
+        normal,
+        /// Force Uniform distribution
+        uniform,
+        /// Force empirical histogram
+        empirical,
+        /// Parametric distributions only (no empirical)
+        parametric
     }
 
     /// Base vectors file path with optional inline range.

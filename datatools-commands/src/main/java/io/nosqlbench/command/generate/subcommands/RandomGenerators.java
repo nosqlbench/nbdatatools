@@ -35,7 +35,9 @@ import java.util.List;
  * excellent statistical properties.
  */
 public class RandomGenerators {
-    
+    /// Creates a new RandomGenerators instance.
+    public RandomGenerators() {}
+
     /**
      * Available PRNG algorithms with different characteristics.
      * XO_SHI_RO_256_PP is recommended for most applications due to its

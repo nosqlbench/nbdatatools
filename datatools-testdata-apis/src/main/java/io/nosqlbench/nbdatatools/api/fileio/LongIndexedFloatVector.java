@@ -28,15 +28,22 @@ public class LongIndexedFloatVector implements Comparable<LongIndexedFloatVector
     /// the vector component values
     private final float[] vector;
 
+    /// Creates a new indexed float vector.
+    /// @param index the dataset index of this vector
+    /// @param vector the vector component values
     public LongIndexedFloatVector(long index, float[] vector) {
         this.index = index;
         this.vector = vector;
     }
 
+    /// Returns the dataset index of this vector.
+    /// @return the index
     public long index() {
         return index;
     }
 
+    /// Returns the vector component values.
+    /// @return the float array of vector components
     public float[] vector() {
         return vector;
     }
@@ -45,6 +52,7 @@ public class LongIndexedFloatVector implements Comparable<LongIndexedFloatVector
     return Long.compare(index, o.index);
   }
 
+  /// Comparator that orders vectors by their component values rather than by index.
   public static Comparator<LongIndexedFloatVector> BY_VECTOR_SHAPE = new Comparator<LongIndexedFloatVector>() {
 
     @Override

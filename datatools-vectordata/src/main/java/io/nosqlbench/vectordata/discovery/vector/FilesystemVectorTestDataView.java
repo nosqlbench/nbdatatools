@@ -21,10 +21,8 @@ package io.nosqlbench.vectordata.discovery.vector;
 import io.nosqlbench.datatools.virtdata.VectorGenerator;
 import io.nosqlbench.datatools.virtdata.VectorGeneratorIO;
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
-import io.nosqlbench.vectordata.layout.FProfiles;
-import io.nosqlbench.vectordata.layout.FView;
-import io.nosqlbench.vectordata.layout.FWindow;
-import io.nosqlbench.vectordata.layoutv2.DSInterval;
+import io.nosqlbench.vectordata.layoutv2.DSProfile;
+import io.nosqlbench.vectordata.layoutv2.DSView;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.BaseVectorsXvecImpl;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.QueryVectorsXvecImpl;
@@ -50,7 +48,6 @@ import java.net.URL;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -65,7 +62,7 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
     private static final Logger logger = LogManager.getLogger(FilesystemVectorTestDataView.class);
 
     private final TestDataGroup dataGroup;
-    private final FProfiles profile;
+    private final DSProfile profile;
     private final String profileName;
 
     // Lazily loaded vector datasets
@@ -73,6 +70,8 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
     private QueryVectors queryVectors;
     private NeighborIndices neighborIndices;
     private NeighborDistances neighborDistances;
+    private NeighborIndices filteredNeighborIndices;
+    private NeighborDistances filteredNeighborDistances;
 
     // Track opened channels for cleanup
     private final Map<String, AsynchronousFileChannel> openChannels = new LinkedHashMap<>();
@@ -82,7 +81,7 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
     /// @param dataGroup The data group containing dataset metadata
     /// @param profile The profile configuration
     /// @param profileName The name of this profile
-    public FilesystemVectorTestDataView(TestDataGroup dataGroup, FProfiles profile, String profileName) {
+    public FilesystemVectorTestDataView(TestDataGroup dataGroup, DSProfile profile, String profileName) {
         this.dataGroup = dataGroup;
         this.profile = profile;
         this.profileName = profileName;
@@ -94,18 +93,18 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
             return Optional.of(baseVectors);
         }
 
-        FView view = profile.views().get(TestDataKind.base_vectors.name());
+        DSView view = profile.get(TestDataKind.base_vectors.name());
         if (view == null) {
             return Optional.empty();
         }
 
         try {
-            String filename = view.source().inpath();
+            String filename = view.getSource().getPath();
             Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
 
             // Check for virtdata source
-            if (view.source().isVirtdata()) {
-                baseVectors = loadVirtdataVectors(filePath, view.window());
+            if (view.getSource().isVirtdata()) {
+                baseVectors = loadVirtdataVectors(filePath, view.getWindow());
                 logger.debug("Base vectors (virtdata) for profile '{}': model={}, count={}",
                     profileName, filename, baseVectors.getCount());
                 return Optional.of(baseVectors);
@@ -117,20 +116,13 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
                 return Optional.empty();
             }
 
-            long fileSize = Files.size(filePath);
-            AsynchronousFileChannel channel = AsynchronousFileChannel.open(
-                filePath,
-                StandardOpenOption.READ
-            );
-            openChannels.put("base_vectors", channel);
-
             String extension = getFileExtension(filename);
-            DSWindow window = convertWindow(view.window());
+            DSWindow window = normalizeWindow(view.getWindow());
 
             logger.debug("Base vectors for profile '{}': file={}, window={}",
-                profileName, filename, view.window());
+                profileName, filename, view.getWindow());
 
-            baseVectors = new BaseVectorsXvecImpl(channel, fileSize, window, extension);
+            baseVectors = new BaseVectorsXvecImpl(filePath, window, extension);
             logger.debug("Base vectors count after windowing: {}", baseVectors.getCount());
             return Optional.of(baseVectors);
 
@@ -145,18 +137,18 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
             return Optional.of(queryVectors);
         }
 
-        FView view = profile.views().get(TestDataKind.query_vectors.name());
+        DSView view = profile.get(TestDataKind.query_vectors.name());
         if (view == null) {
             return Optional.empty();
         }
 
         try {
-            String filename = view.source().inpath();
+            String filename = view.getSource().getPath();
             Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
 
             // Check for virtdata source
-            if (view.source().isVirtdata()) {
-                queryVectors = loadVirtdataVectors(filePath, view.window());
+            if (view.getSource().isVirtdata()) {
+                queryVectors = loadVirtdataVectors(filePath, view.getWindow());
                 logger.debug("Query vectors (virtdata) for profile '{}': model={}, count={}",
                     profileName, filename, queryVectors.getCount());
                 return Optional.of(queryVectors);
@@ -168,18 +160,11 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
                 return Optional.empty();
             }
 
-            long fileSize = Files.size(filePath);
-            AsynchronousFileChannel channel = AsynchronousFileChannel.open(
-                filePath,
-                StandardOpenOption.READ
-            );
-            openChannels.put("query_vectors", channel);
-
             String extension = getFileExtension(filename);
-            DSWindow window = convertWindow(view.window());
+            DSWindow window = normalizeWindow(view.getWindow());
 
             // Use QueryVectorsXvecImpl for proper typing
-            queryVectors = new QueryVectorsXvecImpl(channel, fileSize, window, extension);
+            queryVectors = new QueryVectorsXvecImpl(filePath, window, extension);
             return Optional.of(queryVectors);
 
         } catch (IOException e) {
@@ -193,42 +178,29 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
             return Optional.of(neighborIndices);
         }
 
-        FView view = profile.views().get(TestDataKind.neighbor_indices.name());
+        DSView view = profile.get(TestDataKind.neighbor_indices.name());
         if (view == null) {
             return Optional.empty();
         }
 
-        try {
-            String filename = view.source().inpath();
-            Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
+        String filename = view.getSource().getPath();
+        Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
 
-            if (!Files.exists(filePath)) {
-                logger.warn("Neighbor indices file not found: {}", filePath);
-                return Optional.empty();
-            }
-
-            long fileSize = Files.size(filePath);
-            AsynchronousFileChannel channel = AsynchronousFileChannel.open(
-                filePath,
-                StandardOpenOption.READ
-            );
-            openChannels.put("neighbor_indices", channel);
-
-            String extension = getFileExtension(filename);
-            DSWindow window = convertWindow(view.window());
-
-            logger.debug("Neighbor indices for profile '{}': file={}, window={}",
-                profileName, filename, view.window());
-
-            // Use NeighborIndicesXvecImpl for proper typing
-            neighborIndices = new NeighborIndicesXvecImpl(channel, fileSize, window, extension);
-            logger.debug("Neighbor indices count: {}, maxK: {}",
-                neighborIndices.getCount(), neighborIndices.getMaxK());
-            return Optional.of(neighborIndices);
-
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load neighbor indices: " + e.getMessage(), e);
+        if (!Files.exists(filePath)) {
+            logger.warn("Neighbor indices file not found: {}", filePath);
+            return Optional.empty();
         }
+
+        String extension = getFileExtension(filename);
+        DSWindow window = normalizeWindow(view.getWindow());
+
+        logger.debug("Neighbor indices for profile '{}': file={}, window={}",
+            profileName, filename, view.getWindow());
+
+        neighborIndices = new NeighborIndicesXvecImpl(filePath, window, extension);
+        logger.debug("Neighbor indices count: {}, maxK: {}",
+            neighborIndices.getCount(), neighborIndices.getMaxK());
+        return Optional.of(neighborIndices);
     }
 
     @Override
@@ -237,37 +209,81 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
             return Optional.of(neighborDistances);
         }
 
-        FView view = profile.views().get(TestDataKind.neighbor_distances.name());
+        DSView view = profile.get(TestDataKind.neighbor_distances.name());
         if (view == null) {
             return Optional.empty();
         }
 
-        try {
-            String filename = view.source().inpath();
-            Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
+        String filename = view.getSource().getPath();
+        Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
 
-            if (!Files.exists(filePath)) {
-                logger.warn("Neighbor distances file not found: {}", filePath);
-                return Optional.empty();
-            }
-
-            long fileSize = Files.size(filePath);
-            AsynchronousFileChannel channel = AsynchronousFileChannel.open(
-                filePath,
-                StandardOpenOption.READ
-            );
-            openChannels.put("neighbor_distances", channel);
-
-            String extension = getFileExtension(filename);
-            DSWindow window = convertWindow(view.window());
-
-            // Use NeighborDistancesXvecImpl for proper typing
-            neighborDistances = new NeighborDistancesXvecImpl(channel, fileSize, window, extension);
-            return Optional.of(neighborDistances);
-
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load neighbor distances: " + e.getMessage(), e);
+        if (!Files.exists(filePath)) {
+            logger.warn("Neighbor distances file not found: {}", filePath);
+            return Optional.empty();
         }
+
+        String extension = getFileExtension(filename);
+        DSWindow window = normalizeWindow(view.getWindow());
+
+        neighborDistances = new NeighborDistancesXvecImpl(filePath, window, extension);
+        return Optional.of(neighborDistances);
+    }
+
+    @Override
+    public Optional<NeighborIndices> getFilteredNeighborIndices() {
+        if (filteredNeighborIndices != null) {
+            return Optional.of(filteredNeighborIndices);
+        }
+
+        DSView view = profile.get(TestDataKind.filtered_neighbor_indices.name());
+        if (view == null) {
+            return Optional.empty();
+        }
+
+        String filename = view.getSource().getPath();
+        Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
+
+        if (!Files.exists(filePath)) {
+            logger.warn("Filtered neighbor indices file not found: {}", filePath);
+            return Optional.empty();
+        }
+
+        String extension = getFileExtension(filename);
+        DSWindow window = normalizeWindow(view.getWindow());
+
+        logger.debug("Filtered neighbor indices for profile '{}': file={}, window={}",
+            profileName, filename, view.getWindow());
+
+        filteredNeighborIndices = new NeighborIndicesXvecImpl(filePath, window, extension);
+        logger.debug("Filtered neighbor indices count: {}, maxK: {}",
+            filteredNeighborIndices.getCount(), filteredNeighborIndices.getMaxK());
+        return Optional.of(filteredNeighborIndices);
+    }
+
+    @Override
+    public Optional<NeighborDistances> getFilteredNeighborDistances() {
+        if (filteredNeighborDistances != null) {
+            return Optional.of(filteredNeighborDistances);
+        }
+
+        DSView view = profile.get(TestDataKind.filtered_neighbor_distances.name());
+        if (view == null) {
+            return Optional.empty();
+        }
+
+        String filename = view.getSource().getPath();
+        Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
+
+        if (!Files.exists(filePath)) {
+            logger.warn("Filtered neighbor distances file not found: {}", filePath);
+            return Optional.empty();
+        }
+
+        String extension = getFileExtension(filename);
+        DSWindow window = normalizeWindow(view.getWindow());
+
+        filteredNeighborDistances = new NeighborDistancesXvecImpl(filePath, window, extension);
+        return Optional.of(filteredNeighborDistances);
     }
 
     @Override
@@ -353,11 +369,21 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
             .map(nd -> nd.prebuffer())
             .orElse(CompletableFuture.completedFuture(null));
 
+        CompletableFuture<Void> filteredIndicesFuture = getFilteredNeighborIndices()
+            .map(fi -> fi.prebuffer())
+            .orElse(CompletableFuture.completedFuture(null));
+
+        CompletableFuture<Void> filteredDistancesFuture = getFilteredNeighborDistances()
+            .map(fd -> fd.prebuffer())
+            .orElse(CompletableFuture.completedFuture(null));
+
         return CompletableFuture.allOf(
             baseVectorsFuture,
             queryVectorsFuture,
             neighborIndicesFuture,
-            neighborDistancesFuture
+            neighborDistancesFuture,
+            filteredIndicesFuture,
+            filteredDistancesFuture
         );
     }
 
@@ -375,24 +401,18 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
         openChannels.clear();
     }
 
-    /// Converts an FWindow to a DSWindow.
+    /// Normalizes a DSWindow for use with xvec implementations.
     ///
-    /// @param fwindow The FWindow to convert
-    /// @return The converted DSWindow, or null for ALL windows
-    private DSWindow convertWindow(FWindow fwindow) {
-        if (fwindow == FWindow.ALL || fwindow.intervals().isEmpty()) {
-            return null; // null means ALL for xvec implementations
+    /// @param window The DSWindow to normalize
+    /// @return The window, or null for ALL windows (null means ALL for xvec implementations)
+    private DSWindow normalizeWindow(DSWindow window) {
+        if (window == null || window == DSWindow.ALL || window.isEmpty()) {
+            return null;
         }
-
-        // For now, only support single interval windows
-        if (fwindow.intervals().size() > 1) {
-            throw new UnsupportedOperationException(
-                "Multiple interval windows not yet supported for filesystem datasets");
+        // Check for the sentinel ALL value (single interval with -1,-1)
+        if (window.size() == 1 && window.get(0).getMinIncl() == -1 && window.get(0).getMaxExcl() == -1) {
+            return null;
         }
-
-        var interval = fwindow.intervals().get(0);
-        DSWindow window = new DSWindow();
-        window.add(new DSInterval(interval.minIncl(), interval.maxExcl()));
         return window;
     }
 
@@ -406,7 +426,7 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
     /// @return A VirtdataFloatVectorsView implementing both BaseVectors and QueryVectors
     /// @throws IOException if the model file cannot be read
     /// @throws IllegalArgumentException if no generator supports the model type
-    private VirtdataFloatVectorsViewVector loadVirtdataVectors(Path modelPath, FWindow window) throws IOException {
+    private VirtdataFloatVectorsViewVector loadVirtdataVectors(Path modelPath, DSWindow window) throws IOException {
         if (!Files.exists(modelPath)) {
             throw new IOException("Virtdata model file not found: " + modelPath);
         }
@@ -419,15 +439,16 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
 
         // Determine count from window
         int count;
-        if (window == null || window == FWindow.ALL || window.intervals().isEmpty()) {
+        DSWindow normalized = normalizeWindow(window);
+        if (normalized == null) {
             // Use model's unique vectors as count, capped at Integer.MAX_VALUE
             long unique = model.uniqueVectors();
             count = unique > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) unique;
         } else {
             // Use window size as count
             long windowSize = 0;
-            for (var interval : window.intervals()) {
-                windowSize += interval.maxExcl() - interval.minIncl();
+            for (var interval : normalized) {
+                windowSize += interval.getMaxExcl() - interval.getMinIncl();
             }
             count = windowSize > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) windowSize;
         }

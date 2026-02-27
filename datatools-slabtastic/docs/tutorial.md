@@ -225,6 +225,48 @@ slab import multi-ns.slab --from data.txt -n my-namespace --format text --append
 
 ---
 
+## Step 9: Multi-batch reads
+
+When you need to read many records at once, use the multi-batch API. It coalesces reads for
+ordinals that share the same page into a single I/O operation and dispatches all page reads
+asynchronously. Results are returned in submission order.
+
+```java
+import io.nosqlbench.slabtastic.BatchRequest;
+import io.nosqlbench.slabtastic.BatchResult;
+
+try (var reader = new SlabReader(file)) {
+    // Convenience: default namespace, multiple ordinals
+    BatchResult result = reader.getAll(0, 2, 4);
+
+    for (int i = 0; i < result.size(); i++) {
+        if (result.get(i).isPresent()) {
+            byte[] bytes = new byte[result.get(i).get().remaining()];
+            result.get(i).get().get(bytes);
+            System.out.println("slot " + i + ": " + new String(bytes));
+        } else {
+            System.out.println("slot " + i + ": (empty)");
+        }
+    }
+
+    // Cross-namespace batch
+    List<BatchRequest> requests = List.of(
+        BatchRequest.of("vectors", 0),
+        BatchRequest.of("labels", 0),
+        BatchRequest.of("vectors", 1)
+    );
+    BatchResult nsResult = reader.getAll(requests);
+    System.out.println("complete: " + nsResult.isComplete());
+    System.out.println("present: " + nsResult.presentCount());
+    System.out.println("empty: " + nsResult.emptyCount());
+}
+```
+
+Unknown namespaces and out-of-range ordinals produce empty slots rather than exceptions,
+enabling partial success. Use `isComplete()` and `hasPartialFailure()` to inspect the result.
+
+---
+
 ## Next steps
 
 - Read the [how-to guide](how-to.md) for common maintenance tasks

@@ -279,16 +279,22 @@ public class TaskExecutor implements AutoCloseable {
     }
     
     /// Gets the number of tasks currently in the queue.
+    ///
+    /// @return the current queue size
     public int getQueueSize() {
         return chunkQueue.getPendingTaskCount();
     }
     
     /// Gets the number of active downloads.
+    ///
+    /// @return the number of active downloads
     public int getActiveDownloads() {
         return maxConcurrentDownloads - downloadSemaphore.availablePermits();
     }
     
     /// Gets the number of pending task futures.
+    ///
+    /// @return the number of pending futures
     public int getPendingFutures() {
         return chunkQueue.getInFlightCount();
     }

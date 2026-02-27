@@ -69,6 +69,11 @@ import java.util.concurrent.atomic.AtomicInteger;
     description = "Convert vector data between different file formats (fvec, ivec, bvec, csv, json)",
     exitCodeList = {"0: success", "1: warning", "2: error"})
 public class CMD_convert_file implements Callable<Integer> {
+
+    /// Creates a new CMD_convert_file instance.
+    public CMD_convert_file() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_convert_file.class);
 
     private static final int EXIT_SUCCESS = 0;
@@ -79,7 +84,16 @@ public class CMD_convert_file implements Callable<Integer> {
      * Callback interface for conversion progress and completion.
      */
     public interface ConversionCallback {
+        /// Called when a conversion completes successfully.
+        ///
+        /// @param inputFile the input file path
+        /// @param outputFile the output file path
+        /// @param vectorsProcessed the number of vectors processed
         void onSuccess(Path inputFile, Path outputFile, int vectorsProcessed);
+
+        /// Called when a conversion fails.
+        ///
+        /// @param message the error message
         void onError(String message);
     }
 

@@ -24,11 +24,16 @@ import java.nio.file.Path;
 import java.util.AbstractList;
 
 /// Adapter to expose a DatasetView as a VectorFileArray.
+///
+/// @param <T> the vector element type
 public final class DatasetViewVectorFileArray<T> extends AbstractList<T> implements VectorFileArray<T> {
 
     private final VectorDatasetView<T> vectorDatasetView;
     private final String name;
 
+    /// Creates a new DatasetViewVectorFileArray wrapping the given dataset view.
+    /// @param vectorDatasetView the dataset view to wrap
+    /// @param name the name for this array
     public DatasetViewVectorFileArray(VectorDatasetView<T> vectorDatasetView, String name) {
         if (vectorDatasetView == null) {
             throw new IllegalArgumentException("datasetView must not be null");

@@ -78,6 +78,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 @CommandLine.Command(name = "knn",
     description = "Compute k-nearest neighbors ground truth dataset from base and query vectors")
 public class CMD_compute_knn implements Callable<Integer> {
+
+    /// Creates a new CMD_compute_knn instance.
+    public CMD_compute_knn() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_compute_knn.class);
 
     private static final int EXIT_SUCCESS = 0;
@@ -138,11 +143,15 @@ public class CMD_compute_knn implements Callable<Integer> {
     )
     private int partitionSize = 1_000_000;
 
-    /// SIMD optimization strategy options
+    /// SIMD optimization strategy options.
     public enum SimdStrategy {
+        /// Automatically select fastest strategy (defaults to BATCH)
         AUTO("Automatically select fastest strategy (defaults to BATCH)"),
+        /// Process queries individually with SIMD across dimensions
         PER_QUERY("Process queries individually with SIMD across dimensions"),
+        /// Process 8-16 queries simultaneously with transposed SIMD (DEFAULT, FASTEST)
         BATCH("Process 8-16 queries simultaneously with transposed SIMD (DEFAULT, FASTEST)"),
+        /// Alias for BATCH
         BATCHED("Alias for BATCH");
 
         private final String description;
@@ -151,10 +160,16 @@ public class CMD_compute_knn implements Callable<Integer> {
             this.description = description;
         }
 
+        /// Gets the human-readable description of this strategy.
+        ///
+        /// @return the description
         public String getDescription() {
             return description;
         }
 
+        /// Checks if this strategy uses batched processing.
+        ///
+        /// @return true if batched
         public boolean isBatched() {
             return this == BATCH || this == BATCHED;
         }
@@ -1853,6 +1868,9 @@ public class CMD_compute_knn implements Callable<Integer> {
         logger.info("Saved final cache: {} and {}", cacheNeighbors.getFileName(), cacheDistances.getFileName());
     }
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         CMD_compute_knn cmd = new CMD_compute_knn();
         int exitCode = new CommandLine(cmd).execute(args);

@@ -28,6 +28,10 @@ import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
  */
 public class BaseVectorsInputFileOption {
 
+    /// Creates a new BaseVectorsInputFileOption with default settings.
+    public BaseVectorsInputFileOption() {
+    }
+
     @CommandLine.Option(
         names = {"--base"},
         description = "Base vectors spec with optional range suffix (e.g., file.fvec[0,1000) or dataset.profile.base[0,1000))",
@@ -46,6 +50,7 @@ public class BaseVectorsInputFileOption {
 
     /**
      * Gets the local file path if this is a local file spec
+     * @return optional containing the local path, or empty
      */
     public Optional<Path> getLocalPath() {
         return baseVectors != null ? baseVectors.spec().getLocalPath() : Optional.empty();
@@ -53,6 +58,7 @@ public class BaseVectorsInputFileOption {
 
     /**
      * Gets the normalized base vectors path (local file only).
+     * @return the normalized path, or null if not specified
      */
     public Path getNormalizedBasePath() {
         if (baseVectors == null) {
@@ -66,6 +72,7 @@ public class BaseVectorsInputFileOption {
 
     /**
      * Gets the inline range specification, if any.
+     * @return the range spec string, or null
      */
     public String getInlineRange() {
         return baseVectors != null ? baseVectors.rangeSpec() : null;
@@ -73,6 +80,7 @@ public class BaseVectorsInputFileOption {
 
     /**
      * Gets the inline range if present
+     * @return optional containing the range, or empty
      */
     public Optional<RangeOption.Range> getRange() {
         return baseVectors != null ? Optional.ofNullable(baseVectors.range()) : Optional.empty();
@@ -114,8 +122,12 @@ public class BaseVectorsInputFileOption {
 
     /**
      * Record representing base vectors file configuration
+     * @param spec the vector data spec
+     * @param range the parsed range, or null
+     * @param rangeSpec the raw range spec string, or null
      */
     public record BaseVectors(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
+        /// Validates the spec is not null.
         public BaseVectors {
             if (spec == null) {
                 throw new IllegalArgumentException("Base vectors spec cannot be null");
@@ -134,6 +146,10 @@ public class BaseVectorsInputFileOption {
      * Custom converter for parsing base vectors file specification
      */
     public static class BaseVectorsConverter implements CommandLine.ITypeConverter<BaseVectors> {
+        /// Creates a new BaseVectorsConverter.
+        public BaseVectorsConverter() {
+        }
+
         @Override
         public BaseVectors convert(String value) throws Exception {
             if (value == null || value.isEmpty()) {

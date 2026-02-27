@@ -36,6 +36,11 @@ public class DownloadProgress {
     /// The CompletableFuture that will complete when the download is done
     private final CompletableFuture<DownloadResult> future;
     
+    /// Creates a new download progress tracker.
+    /// @param targetPath the path where the file is being downloaded
+    /// @param totalBytes the total number of bytes to download
+    /// @param currentBytes the counter tracking bytes downloaded so far
+    /// @param future the future that will complete when the download is done
     public DownloadProgress(Path targetPath, long totalBytes, AtomicLong currentBytes, CompletableFuture<DownloadResult> future) {
         this.targetPath = targetPath;
         this.totalBytes = totalBytes;
@@ -43,22 +48,26 @@ public class DownloadProgress {
         this.future = future;
     }
     
-    /// @return The path where the file is being downloaded
+    /// Get the path where the file is being downloaded.
+    /// @return the path where the file is being downloaded
     public Path targetPath() {
         return targetPath;
     }
     
-    /// @return The total number of bytes to download
+    /// Get the total number of bytes to download.
+    /// @return the total number of bytes to download
     public long totalBytes() {
         return totalBytes;
     }
     
-    /// @return The current number of bytes downloaded
+    /// Get the current number of bytes downloaded.
+    /// @return the current number of bytes downloaded
     public AtomicLong currentBytes() {
         return currentBytes;
     }
     
-    /// @return The CompletableFuture that will complete when the download is done
+    /// Get the CompletableFuture that will complete when the download is done.
+    /// @return the CompletableFuture that will complete when the download is done
     public CompletableFuture<DownloadResult> future() {
         return future;
     }

@@ -47,6 +47,9 @@ public class AccuracyReport {
         StatisticalTestSuite.TestResult cosineDistributionKS,
         StatisticalTestSuite.TestResult normDistributionKS
     ) {
+        /// Returns whether all geometric tests passed.
+        ///
+        /// @return true if all geometric tests passed
         public boolean allPassed() {
             return distanceDistributionKS.passed()
                 && cosineDistributionKS.passed()
@@ -303,26 +306,38 @@ public class AccuracyReport {
         return " ".repeat(Math.max(0, padding)) + s;
     }
 
-    /** Returns the dataset name. @return the dataset name */
+    /// Returns the dataset name.
+    ///
+    /// @return the dataset name
     public String getDatasetName() { return datasetName; }
 
-    /** Returns the number of original samples. @return sample count */
+    /// Returns the number of original samples.
+    ///
+    /// @return sample count
     public int getOriginalSamples() { return originalSamples; }
 
-    /** Returns the number of synthetic samples. @return sample count */
+    /// Returns the number of synthetic samples.
+    ///
+    /// @return sample count
     public int getSyntheticSamples() { return syntheticSamples; }
 
-    /** Returns per-dimension accuracy results. @return list of dimension results */
+    /// Returns per-dimension accuracy results.
+    ///
+    /// @return list of dimension results
     public List<StatisticalTestSuite.DimensionAccuracy> getDimensionResults() {
         return new ArrayList<>(dimensionResults);
     }
 
-    /** Returns the correlation comparison results. @return correlation comparison or null */
+    /// Returns the correlation comparison results.
+    ///
+    /// @return correlation comparison or null
     public CorrelationAnalysis.CorrelationComparison getCorrelationComparison() {
         return correlationComparison;
     }
 
-    /** Returns the geometric metrics. @return geometric metrics or null */
+    /// Returns the geometric metrics.
+    ///
+    /// @return geometric metrics or null
     public GeometricMetrics getGeometricMetrics() { return geometricMetrics; }
 
     /**

@@ -34,18 +34,26 @@ public class FInterval {
   /// The exclusive maximum bound of the interval
   private final long maxExcl;
 
+  /// Creates a new interval with the given bounds.
+  /// @param minIncl the inclusive minimum bound
+  /// @param maxExcl the exclusive maximum bound
   public FInterval(long minIncl, long maxExcl) {
     this.minIncl = minIncl;
     this.maxExcl = maxExcl;
   }
 
+  /// Get the inclusive minimum bound.
+  /// @return the inclusive minimum bound
   public long minIncl() {
     return minIncl;
   }
 
+  /// Get the exclusive maximum bound.
+  /// @return the exclusive maximum bound
   public long maxExcl() {
     return maxExcl;
   }
+  /// The pattern for parsing an interval spec
   public final static Pattern PATTERN = Pattern.compile(
       "[(\\[]? \\s*\n" +
           "(?<start>\\d[\\d_]*\\w*) \\s*\n" +

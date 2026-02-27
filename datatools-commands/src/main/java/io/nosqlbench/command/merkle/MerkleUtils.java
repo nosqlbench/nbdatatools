@@ -44,13 +44,17 @@ import java.util.Set;
 /// Utility class for Merkle tree operations.
 /// This class contains shared functionality used by the various Merkle tree subcommands.
 public class MerkleUtils {
+    /// Creates a new MerkleUtils instance.
+    public MerkleUtils() {}
+
     private static final Logger logger = LogManager.getLogger(MerkleUtils.class);
 
-    // File extensions for merkle tree files
+    /// File extension for legacy Merkle tree files.
     public static final String MRKL = ".mrkl";
+    /// File extension for Merkle reference files.
     public static final String MREF = ".mref";
 
-    // Default extensions to use when a single directory is provided and no extensions are specified
+    /// Default file extensions used when a single directory is provided and no extensions are specified.
     public static final Set<String> DEFAULT_EXTENSIONS;
 
     static {

@@ -31,6 +31,11 @@ import java.util.regex.Pattern;
 /// Usage: `java -cp benchmarks.jar ...JmhJsonScoreExtractor <json-file>`
 public class JmhJsonScoreExtractor {
 
+    private JmhJsonScoreExtractor() {}
+
+    /// Entry point for standalone extraction.
+    /// @param args command-line arguments; first argument is the JSON file path
+    /// @throws IOException if the file cannot be read
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
             System.err.println("Usage: JmhJsonScoreExtractor <json-file>");
@@ -48,6 +53,9 @@ public class JmhJsonScoreExtractor {
     ///
     /// Looks for `"score"` within the `"primaryMetric"` section of the
     /// first result object in the JSON array.
+    /// @param jsonFile the JMH JSON result file
+    /// @return the extracted score, or -1 if not found
+    /// @throws IOException if the file cannot be read
     public static double extractScore(Path jsonFile) throws IOException {
         String json = Files.readString(jsonFile);
         int pmIdx = json.indexOf("\"primaryMetric\"");

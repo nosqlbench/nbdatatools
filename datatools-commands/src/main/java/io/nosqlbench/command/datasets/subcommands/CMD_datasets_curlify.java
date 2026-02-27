@@ -77,6 +77,10 @@ import java.util.regex.Pattern;
         "  - A dataset:profile:facet or dataset.profile.facet specification")
 public class CMD_datasets_curlify implements Callable<Integer> {
 
+    /// Creates a new CMD_datasets_curlify instance.
+    public CMD_datasets_curlify() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_datasets_curlify.class);
     private static final Pattern REMOTE_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9+.-]*://.+");
 

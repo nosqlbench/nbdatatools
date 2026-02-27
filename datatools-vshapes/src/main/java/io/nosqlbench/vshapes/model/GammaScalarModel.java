@@ -97,6 +97,7 @@ import java.util.Objects;
 @ModelType(GammaScalarModel.MODEL_TYPE)
 public class GammaScalarModel implements ScalarModel {
 
+    /// The model type identifier for gamma distributions.
     public static final String MODEL_TYPE = "gamma";
 
     @SerializedName("shape")

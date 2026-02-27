@@ -315,6 +315,8 @@ public final class CompositeModelFitter implements ComponentModelFitter {
     ) {
         /**
          * Returns a formatted summary for user display.
+         *
+         * @return formatted summary string
          */
         public String formatSummary() {
             return String.format(

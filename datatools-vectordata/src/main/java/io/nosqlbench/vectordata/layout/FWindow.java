@@ -33,10 +33,14 @@ public class FWindow {
   /// The list of intervals that make up this window
   private final List<FInterval> intervals;
 
+  /// Creates a new window with the given intervals.
+  /// @param intervals the list of intervals that make up this window
   public FWindow(List<FInterval> intervals) {
     this.intervals = intervals;
   }
 
+  /// Get the list of intervals that make up this window.
+  /// @return the list of intervals
   public List<FInterval> intervals() {
     return intervals;
   }

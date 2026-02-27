@@ -56,6 +56,10 @@ public class MultiFileVectorIterator implements Iterator<float[]> {
    Expected vector dimension
    @param verbose
    Whether to log verbose information
+   @param filetype
+   The file type of the input files
+   @param dataType
+   The data type of the vectors
    @throws Exception
    If there's an error opening files or inconsistent dimensions
    */

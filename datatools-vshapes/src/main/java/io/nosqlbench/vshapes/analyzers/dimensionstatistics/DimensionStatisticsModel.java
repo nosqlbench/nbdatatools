@@ -106,11 +106,15 @@ public final class DimensionStatisticsModel {
     }
 
     /// Returns the total number of vectors analyzed.
+    ///
+    /// @return the vector count
     public long vectorCount() {
         return vectorCount;
     }
 
     /// Returns the number of dimensions.
+    ///
+    /// @return the dimension count
     public int dimensions() {
         return statistics.length;
     }
@@ -125,11 +129,15 @@ public final class DimensionStatisticsModel {
     }
 
     /// Returns a copy of all dimension statistics.
+    ///
+    /// @return a copy of the statistics array
     public DimensionStatistics[] getAllStatistics() {
         return statistics.clone();
     }
 
     /// Returns the mean values across all dimensions.
+    ///
+    /// @return the means array
     public double[] getMeans() {
         double[] means = new double[statistics.length];
         for (int d = 0; d < statistics.length; d++) {
@@ -139,6 +147,8 @@ public final class DimensionStatisticsModel {
     }
 
     /// Returns the standard deviations across all dimensions.
+    ///
+    /// @return the standard deviations array
     public double[] getStdDevs() {
         double[] stdDevs = new double[statistics.length];
         for (int d = 0; d < statistics.length; d++) {
@@ -148,6 +158,8 @@ public final class DimensionStatisticsModel {
     }
 
     /// Returns the skewness values across all dimensions.
+    ///
+    /// @return the skewness values array
     public double[] getSkewnesses() {
         double[] skewnesses = new double[statistics.length];
         for (int d = 0; d < statistics.length; d++) {
@@ -157,6 +169,8 @@ public final class DimensionStatisticsModel {
     }
 
     /// Returns the kurtosis values across all dimensions.
+    ///
+    /// @return the kurtosis values array
     public double[] getKurtoses() {
         double[] kurtoses = new double[statistics.length];
         for (int d = 0; d < statistics.length; d++) {
@@ -166,6 +180,8 @@ public final class DimensionStatisticsModel {
     }
 
     /// Returns a summary of the model.
+    ///
+    /// @return the summary string
     public String getSummary() {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("DimensionStatisticsModel: %d dimensions, %d vectors%n",

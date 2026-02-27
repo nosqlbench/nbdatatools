@@ -21,6 +21,7 @@ import io.nosqlbench.vectordata.layoutv2.DSWindow;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
 
 import java.nio.channels.AsynchronousFileChannel;
+import java.nio.file.Path;
 
 /// Neighbor distance view backed by xvec formatted data.
 ///
@@ -29,13 +30,21 @@ import java.nio.channels.AsynchronousFileChannel;
 /// following the decorator pattern for orthogonal channel implementation support.
 public class NeighborDistancesXvecImpl extends FloatVectorsXvecImpl implements NeighborDistances {
 
-  /// Create a new NeighborDistances view for xvec data.
+  /// Create a new NeighborDistances view for xvec data via channel.
   /// @param channel The AsynchronousFileChannel providing access to the dataset (includes MAFileChannel)
   /// @param sourceSize The size of the source file in bytes
   /// @param window The configured window describing the slice of data to expose
   /// @param extension The file extension (used to derive the vector format)
   public NeighborDistancesXvecImpl(AsynchronousFileChannel channel, long sourceSize, DSWindow window, String extension) {
     super(channel, sourceSize, window, extension);
+  }
+
+  /// Create a new NeighborDistances view backed by a memory-mapped file.
+  /// @param filePath The path to the xvec file
+  /// @param window The configured window describing the slice of data to expose
+  /// @param extension The file extension (used to derive the vector format)
+  public NeighborDistancesXvecImpl(Path filePath, DSWindow window, String extension) {
+    super(filePath, window, extension);
   }
 
   /// {@inheritDoc}

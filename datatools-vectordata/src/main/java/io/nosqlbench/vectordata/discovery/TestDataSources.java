@@ -39,23 +39,33 @@ public class TestDataSources {
   /// optional catalog locations that will be loaded if available but won't cause errors if missing  
   private final List<URL> optionalLocations;
   
+  /// Creates a new TestDataSources with the given locations.
+  ///
+  /// @param locations the required catalog locations
+  /// @param optionalLocations the optional catalog locations
   public TestDataSources(List<URL> locations, List<URL> optionalLocations) {
     this.locations = locations;
     this.optionalLocations = optionalLocations;
   }
   
+  /// Returns the required catalog locations.
+  ///
   /// @return the locations to search for datasets
   public List<URL> locations() {
     return locations;
   }
   
+  /// Returns the optional catalog locations.
+  ///
   /// @return optional catalog locations that will be loaded if available but won't cause errors if missing
   public List<URL> optionalLocations() {
     return optionalLocations;
   }
 
+  /// The default configuration directory path.
   public static String DEFAULT_CONFIG_DIR="~/.config/vectordata";
-  /// Creates a TestDataSources with default configuration from ~/.config/nbvectors/catalogs.yaml
+
+  /// Creates a TestDataSources with empty default configuration.
   public TestDataSources() {
     this(new ArrayList<URL>(), new ArrayList<URL>());
     //    this(loadConfig(Path.of("~/.config/nbvectors")));

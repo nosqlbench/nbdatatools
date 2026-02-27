@@ -18,6 +18,8 @@ package io.nosqlbench.vectordata.discovery.metadata;
  */
 
 
+import io.nosqlbench.vectordata.spec.predicates.PredicateContext;
+
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -26,7 +28,21 @@ import java.util.concurrent.CompletableFuture;
 /// TestDataView provides access to vector datasets and their associated metadata, including
 /// base vectors, query vectors, neighbor indices, and distance metrics. It also provides
 /// methods for accessing metadata like license, vendor, and model information.
+/// @param <T> the predicate value type
 public interface PredicateTestDataView<T> {
+
+  /// Returns the {@link PredicateContext} used for decoding and accessing field
+  /// information on predicates loaded by this view.
+  ///
+  /// Consumers should use this context to call {@code ctx.fieldName(pred)} or
+  /// {@code ctx.fieldIndex(pred)} rather than accessing predicate fields directly,
+  /// as the underlying predicates may use indexed or named field representations.
+  ///
+  /// @return the predicate context, or empty if not yet initialized
+  default Optional<PredicateContext> getPredicateContext() {
+    return Optional.empty();
+  }
+
   /// Get the base vectors dataset
   /// @return the base vectors dataset
   Optional<Predicates<T>> getPredicatesView();

@@ -24,6 +24,10 @@ import picocli.CommandLine;
  */
 public class RangeOption {
 
+    /// Creates a new RangeOption instance.
+    public RangeOption() {
+    }
+
     /**
      * Immutable range specification representing a half-open interval [start, end).
      *
@@ -48,6 +52,7 @@ public class RangeOption {
 
         /**
          * Gets the size of this range (number of elements).
+         * @return the number of elements in the range
          */
         public long size() {
             return end - start;
@@ -55,6 +60,7 @@ public class RangeOption {
 
         /**
          * Checks if the range start is zero.
+         * @return true if the start index is zero
          */
         public boolean hasZeroStart() {
             return start == 0;
@@ -87,6 +93,8 @@ public class RangeOption {
 
         /**
          * Checks if an index is within this range.
+         * @param index the index to check
+         * @return true if the index is within [start, end)
          */
         public boolean contains(long index) {
             return index >= start && index < end;
@@ -106,6 +114,10 @@ public class RangeOption {
      * Supports formats: n, m..n, [m,n)
      */
     public static class RangeConverter implements CommandLine.ITypeConverter<Range> {
+
+        /// Creates a new RangeConverter instance.
+        public RangeConverter() {
+        }
 
         @Override
         public Range convert(String value) {
@@ -197,6 +209,7 @@ public class RangeOption {
     /**
      * Gets the parsed Range record.
      * Parsing happens automatically via picocli - no manual parse() call needed.
+     * @return the range, or null if not specified
      */
     public Range getRange() {
         return range;
@@ -204,6 +217,7 @@ public class RangeOption {
 
     /**
      * Checks if a range was specified.
+     * @return true if a range was provided
      */
     public boolean isRangeSpecified() {
         return range != null;
@@ -211,6 +225,7 @@ public class RangeOption {
 
     /**
      * Gets the range start (inclusive).
+     * @return the start index, or 0 if not specified
      */
     public long getRangeStart() {
         return range != null ? range.start() : 0;
@@ -218,6 +233,7 @@ public class RangeOption {
 
     /**
      * Gets the range end (exclusive).
+     * @return the end index, or Long.MAX_VALUE if not specified
      */
     public long getRangeEnd() {
         return range != null ? range.end() : Long.MAX_VALUE;
@@ -225,6 +241,7 @@ public class RangeOption {
 
     /**
      * Gets the range size (number of elements in the range).
+     * @return the range size, or Long.MAX_VALUE if not specified
      */
     public long getRangeSize() {
         return range != null ? range.size() : Long.MAX_VALUE;
@@ -232,6 +249,8 @@ public class RangeOption {
 
     /**
      * Applies range constraints to a total count.
+     * @param totalCount the total number of available elements
+     * @return the effective range constrained to available elements
      */
     public Range getEffectiveRange(long totalCount) {
         if (range == null) {

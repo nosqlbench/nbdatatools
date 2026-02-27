@@ -29,21 +29,27 @@ public final class DatasetProfileSpec {
   private final String dataset;
   private final String profile;
 
+  /// Creates a new dataset profile specification.
+  /// @param dataset the dataset name
+  /// @param profile the optional profile name, or null
   public DatasetProfileSpec(String dataset, String profile) {
     this.dataset = Objects.requireNonNull(dataset, "dataset");
     this.profile = profile;
   }
 
-  /// @return The dataset name component
+  /// Get the dataset name component.
+  /// @return the dataset name component
   public String dataset() {
     return dataset;
   }
 
-  /// @return An optional profile component if one was provided
+  /// Get the optional profile component.
+  /// @return an optional profile component if one was provided
   public Optional<String> profile() {
     return Optional.ofNullable(profile);
   }
 
+  /// Check whether a profile component was provided.
   /// @return true when a profile component was provided
   public boolean hasProfile() {
     return profile != null && !profile.isEmpty();
@@ -121,6 +127,9 @@ public final class DatasetProfileSpec {
   }
 
   /// Create a spec from discrete dataset and profile values.
+  /// @param dataset the dataset name
+  /// @param profile the optional profile name, or null
+  /// @return a normalized DatasetProfileSpec
   public static DatasetProfileSpec of(String dataset, String profile) {
     if (dataset == null || dataset.trim().isEmpty()) {
       throw new IllegalArgumentException("dataset must not be null or empty");

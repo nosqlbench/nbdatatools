@@ -59,6 +59,8 @@ public final class CorrelationAnalysis {
     ) {
         /**
          * Fraction of significant correlations preserved.
+         *
+         * @return the preservation rate between 0.0 and 1.0
          */
         public double preservationRate() {
             return significantCorrelations > 0
@@ -68,6 +70,8 @@ public final class CorrelationAnalysis {
 
         /**
          * Fraction of significant correlations lost.
+         *
+         * @return the loss rate between 0.0 and 1.0
          */
         public double lossRate() {
             return 1.0 - preservationRate();

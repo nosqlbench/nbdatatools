@@ -21,6 +21,7 @@ import java.nio.file.Path;
 
 /// Optional decorator interface for exposing the local cache file path.
 public interface CacheFileAccessor {
-    /// @return The path to the local cache file backing this channel
+    /// Get the path to the local cache file backing this channel.
+    /// @return the path to the local cache file backing this channel
     Path getCacheFilePath();
 }

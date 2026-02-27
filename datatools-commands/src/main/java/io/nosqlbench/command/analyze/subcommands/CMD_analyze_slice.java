@@ -53,6 +53,11 @@ import java.util.concurrent.Callable;
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:error"})
 public class CMD_analyze_slice implements Callable<Integer> {
+
+    /// Creates a new CMD_analyze_slice instance.
+    public CMD_analyze_slice() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_slice.class);
 
     private static final int EXIT_SUCCESS = 0;

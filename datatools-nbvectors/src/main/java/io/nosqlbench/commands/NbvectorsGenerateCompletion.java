@@ -35,6 +35,9 @@ import java.io.PrintWriter;
 )
 public class NbvectorsGenerateCompletion implements Runnable {
 
+    /// Creates a new NbvectorsGenerateCompletion command.
+    public NbvectorsGenerateCompletion() {}
+
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 

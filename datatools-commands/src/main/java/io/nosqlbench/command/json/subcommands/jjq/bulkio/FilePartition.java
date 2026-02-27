@@ -45,6 +45,11 @@ public class FilePartition {
   private final long end;
   private final String id;
 
+  /// Creates a new FilePartition for the given byte range.
+  /// @param path the file path
+  /// @param start the starting byte offset
+  /// @param end the ending byte offset
+  /// @param id the partition identifier
   public FilePartition(Path path, long start, long end, String id) {
     this.path = path;
     this.start = start;
@@ -52,18 +57,26 @@ public class FilePartition {
     this.id = id;
   }
 
+  /// Returns the file path.
+  /// @return the file path
   public Path path() {
     return path;
   }
 
+  /// Returns the starting byte offset.
+  /// @return the starting byte offset
   public long start() {
     return start;
   }
 
+  /// Returns the ending byte offset.
+  /// @return the ending byte offset
   public long end() {
     return end;
   }
 
+  /// Returns the partition identifier.
+  /// @return the partition identifier
   public String id() {
     return id;
   }

@@ -38,10 +38,17 @@ public class VectorTestData {
   /// Loads test data from a dataset directory or descriptor.
   ///
   /// @param path The path to the dataset directory or dataset.yaml file
+  /// @return A TestDataGroup loaded from the given path
+  /// @throws IOException if the path cannot be read
   public static TestDataGroup load(String path) throws IOException {
     return load(Path.of(path));
   }
 
+  /// Loads test data from a dataset directory or descriptor.
+  ///
+  /// @param path The path to the dataset directory or dataset.yaml file
+  /// @return A TestDataGroup loaded from the given path
+  /// @throws IOException if the path cannot be read
   public static TestDataGroup load(Path path) throws IOException {
     return new TestDataGroup(path);
   }

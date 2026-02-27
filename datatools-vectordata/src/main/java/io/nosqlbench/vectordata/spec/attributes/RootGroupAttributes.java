@@ -47,6 +47,15 @@ public class RootGroupAttributes {
     /// Any tags associated with the data
     private final Map<String, String> tags;
     
+    /// Creates a new RootGroupAttributes.
+    ///
+    /// @param model the model name
+    /// @param url the model URL
+    /// @param distance_function the distance function
+    /// @param notes optional notes
+    /// @param license the data license
+    /// @param vendor the data vendor
+    /// @param tags associated tags
     public RootGroupAttributes(String model, String url, DistanceFunction distance_function, Optional<String> notes, String license, String vendor, Map<String, String> tags) {
         this.model = model;
         this.url = url;
@@ -57,36 +66,50 @@ public class RootGroupAttributes {
         this.tags = tags;
     }
     
+    /// Returns the model name.
+    ///
     /// @return The name of the model used to generate the data, if any.
     public String model() {
         return model;
     }
     
+    /// Returns the model URL.
+    ///
     /// @return The URL of the model used to generate the data, if any, hugging face scorecard preferred
     public String url() {
         return url;
     }
     
+    /// Returns the distance function.
+    ///
     /// @return The distance function used to compute distance between vectors
     public DistanceFunction distance_function() {
         return distance_function;
     }
     
+    /// Returns optional notes.
+    ///
     /// @return Any notes about the data, if any
     public Optional<String> notes() {
         return notes;
     }
     
+    /// Returns the data license.
+    ///
     /// @return The license for the data
     public String license() {
         return license;
     }
     
+    /// Returns the data vendor.
+    ///
     /// @return The vendor of the data
     public String vendor() {
         return vendor;
     }
     
+    /// Returns associated tags.
+    ///
     /// @return Any tags associated with the data
     public Map<String, String> tags() {
         return tags;

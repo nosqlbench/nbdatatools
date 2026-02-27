@@ -37,6 +37,10 @@ import picocli.CommandLine;
 /// - `https://example.com/datasets/sift/dataset.yaml` - Remote dataset.yaml URL
 public class DatasetSpecConverter implements CommandLine.ITypeConverter<DatasetSpec> {
 
+    /// Creates a new DatasetSpecConverter instance.
+    public DatasetSpecConverter() {
+    }
+
     @Override
     public DatasetSpec convert(String value) throws Exception {
         try {

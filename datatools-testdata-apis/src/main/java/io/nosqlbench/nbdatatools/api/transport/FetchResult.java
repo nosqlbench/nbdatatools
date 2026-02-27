@@ -40,6 +40,7 @@ import java.nio.ByteBuffer;
 /// ByteBuffer data = progress.getData();
 /// long bytesTransferred = progress.getBytesTransferred();
 /// ```
+/// @param <T> The concrete subtype for the self-referential generic pattern
 public class FetchResult<T extends FetchResult<T>> {
     
     private final ByteBuffer data;

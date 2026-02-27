@@ -29,6 +29,10 @@ import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
  */
 public class BaseVectorsFileOption {
 
+    /// Creates a new BaseVectorsFileOption with default settings.
+    public BaseVectorsFileOption() {
+    }
+
     @CommandLine.Option(
         names = {"-b", "--base"},
         description = "Base vectors spec with optional range suffix (e.g., file.fvec[0,1000) or dataset.profile.base[0,1000))",
@@ -48,6 +52,7 @@ public class BaseVectorsFileOption {
 
     /**
      * Gets the base vectors spec
+     * @return the vector data spec
      */
     public VectorDataSpec getSpec() {
         return baseVectors.spec();
@@ -55,6 +60,7 @@ public class BaseVectorsFileOption {
 
     /**
      * Gets the base vectors path (local file only).
+     * @return the local file path
      */
     public Path getBasePath() {
         return requireLocalPath(baseVectors.spec(), "Base vectors");
@@ -62,6 +68,7 @@ public class BaseVectorsFileOption {
 
     /**
      * Gets the normalized base vectors path (local file only).
+     * @return the normalized path
      */
     public Path getNormalizedBasePath() {
         return getBasePath().normalize();
@@ -69,6 +76,7 @@ public class BaseVectorsFileOption {
 
     /**
      * Gets the inline range spec, if provided.
+     * @return the range spec string
      */
     public String getInlineRange() {
         return baseVectors.rangeSpec();
@@ -76,6 +84,7 @@ public class BaseVectorsFileOption {
 
     /**
      * Gets the local file path if this is a local file spec
+     * @return optional containing the local path, or empty
      */
     public Optional<Path> getLocalPath() {
         return baseVectors.spec().getLocalPath();
@@ -83,6 +92,7 @@ public class BaseVectorsFileOption {
 
     /**
      * Gets the inline range if present
+     * @return optional containing the range, or empty
      */
     public Optional<RangeOption.Range> getRange() {
         return Optional.ofNullable(baseVectors.range());
@@ -90,6 +100,7 @@ public class BaseVectorsFileOption {
 
     /**
      * Checks if a range was specified
+     * @return true if a range was specified
      */
     public boolean hasRange() {
         return baseVectors.range() != null;
@@ -121,18 +132,29 @@ public class BaseVectorsFileOption {
 
     /**
      * Record representing base vectors file configuration
+     * @param spec the vector data spec
+     * @param range the parsed range, or null
+     * @param rangeSpec the raw range spec string, or null
      */
     public record BaseVectors(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
+        /// Validates the spec is not null.
         public BaseVectors {
             if (spec == null) {
                 throw new IllegalArgumentException("Base vectors spec cannot be null");
             }
         }
 
+        /// Creates a BaseVectors from a local path and range spec.
+        ///
+        /// @param path the local file path
+        /// @param rangeSpec the raw range spec string
         public BaseVectors(Path path, String rangeSpec) {
             this(VectorDataSpec.parse(path.toString()), null, rangeSpec);
         }
 
+        /// Gets the local file path, throwing if this is not a local file spec.
+        ///
+        /// @return the local file path
         public Path path() {
             if (!spec.isLocalFile()) {
                 throw new IllegalArgumentException("Base vectors spec must be a local file: " + spec);
@@ -152,6 +174,10 @@ public class BaseVectorsFileOption {
      * Custom converter for parsing base vectors file specification
      */
     public static class BaseVectorsConverter implements CommandLine.ITypeConverter<BaseVectors> {
+        /// Creates a new BaseVectorsConverter.
+        public BaseVectorsConverter() {
+        }
+
         @Override
         public BaseVectors convert(String value) throws Exception {
             if (value == null || value.isEmpty()) {

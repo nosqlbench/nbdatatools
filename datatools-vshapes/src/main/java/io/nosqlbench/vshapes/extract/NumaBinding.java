@@ -179,6 +179,8 @@ public final class NumaBinding {
     /**
      * Returns true if NUMA is supported and detected on this system.
      * <p>Uses non-privileged sysfs detection first.</p>
+     *
+     * @return true if NUMA is available
      */
     public static boolean isAvailable() {
         return DETECTED_AVAILABLE || LibNumaHolder.AVAILABLE;
@@ -187,6 +189,9 @@ public final class NumaBinding {
     /**
      * Binds the current thread to run on CPUs of the specified NUMA node.
      * <p>Triggers loading of libnuma native bindings.</p>
+     *
+     * @param node the NUMA node
+     * @return 0 on success, -1 on failure
      */
     public static int runOnNode(int node) {
         if (!LibNumaHolder.AVAILABLE || LibNumaHolder.NUMA_RUN_ON_NODE == null) {
@@ -215,6 +220,11 @@ public final class NumaBinding {
 
     /**
      * Allocates memory on a specific NUMA node.
+     *
+     * @param size the allocation size in bytes
+     * @param node the NUMA node
+     * @param arena the memory arena
+     * @return the allocated memory segment, or null on failure
      */
     public static MemorySegment allocOnNode(long size, int node, Arena arena) {
         if (!LibNumaHolder.AVAILABLE || LibNumaHolder.NUMA_ALLOC_ONNODE == null) {
@@ -241,6 +251,8 @@ public final class NumaBinding {
     /**
      * Returns the maximum NUMA node ID on this system.
      * <p>Uses non-privileged sysfs detection first.</p>
+     *
+     * @return the maximum node ID
      */
     public static int maxNode() {
         if (DETECTED_AVAILABLE) return DETECTED_MAX_NODE;
@@ -256,6 +268,8 @@ public final class NumaBinding {
 
     /**
      * Returns the number of NUMA nodes on this system.
+     *
+     * @return the node count
      */
     public static int nodeCount() {
         return maxNode() + 1;
@@ -263,6 +277,9 @@ public final class NumaBinding {
 
     /**
      * Convenience method to bind thread and set local allocation policy.
+     *
+     * @param node the NUMA node
+     * @return true if binding succeeded
      */
     public static boolean bindThreadToNode(int node) {
         if (!LibNumaHolder.AVAILABLE) { // Triggers lazy load

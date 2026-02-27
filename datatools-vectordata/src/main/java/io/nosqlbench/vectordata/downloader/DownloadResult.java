@@ -38,6 +38,11 @@ public class DownloadResult {
     /// Any exception that occurred during the download, or null if successful
     private final Exception error;
     
+    /// Creates a new download result.
+    /// @param path the path where the file was downloaded
+    /// @param status the status of the download
+    /// @param bytes the number of bytes downloaded
+    /// @param error any exception that occurred during the download, or null if successful
     public DownloadResult(Path path, DownloadStatus status, long bytes, Exception error) {
         this.path = path;
         this.status = status;
@@ -45,22 +50,26 @@ public class DownloadResult {
         this.error = error;
     }
     
-    /// @return The path where the file was downloaded
+    /// Get the path where the file was downloaded.
+    /// @return the path where the file was downloaded
     public Path path() {
         return path;
     }
     
-    /// @return The status of the download (DOWNLOADED, SKIPPED, or FAILED)
+    /// Get the status of the download.
+    /// @return the status of the download (DOWNLOADED, SKIPPED, or FAILED)
     public DownloadStatus status() {
         return status;
     }
     
-    /// @return The number of bytes downloaded
+    /// Get the number of bytes downloaded.
+    /// @return the number of bytes downloaded
     public long bytes() {
         return bytes;
     }
     
-    /// @return Any exception that occurred during the download, or null if successful
+    /// Get any exception that occurred during the download.
+    /// @return any exception that occurred during the download, or null if successful
     public Exception error() {
         return error;
     }

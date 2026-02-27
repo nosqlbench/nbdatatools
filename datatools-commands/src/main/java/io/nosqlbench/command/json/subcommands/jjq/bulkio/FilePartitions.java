@@ -22,6 +22,11 @@ import java.util.ArrayList;
 
 /// A list of FilePartitions
 public class FilePartitions extends ArrayList<FilePartition> {
+
+  /// Creates a new FilePartitions instance.
+  public FilePartitions() {
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();

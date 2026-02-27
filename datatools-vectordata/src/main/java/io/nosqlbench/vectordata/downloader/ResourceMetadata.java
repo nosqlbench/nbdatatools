@@ -34,6 +34,14 @@ public class ResourceMetadata {
     /// The ETag value for the resource
     private final String etag;
     
+    /// Creates a new ResourceMetadata with all fields.
+    ///
+    /// @param size the size of the resource in bytes, or -1 if unknown
+    /// @param supportsRanges whether the resource supports HTTP range requests
+    /// @param exists whether the resource exists
+    /// @param contentType the MIME content type of the resource
+    /// @param lastModified the last modified timestamp of the resource
+    /// @param etag the ETag value for the resource
     public ResourceMetadata(long size, boolean supportsRanges, boolean exists, String contentType, String lastModified, String etag) {
         this.size = size;
         this.supportsRanges = supportsRanges;
@@ -43,31 +51,43 @@ public class ResourceMetadata {
         this.etag = etag;
     }
     
+    /// Returns the resource size.
+    ///
     /// @return The size of the resource in bytes, or -1 if unknown
     public long size() {
         return size;
     }
     
+    /// Returns whether range requests are supported.
+    ///
     /// @return Whether the resource supports HTTP range requests
     public boolean supportsRanges() {
         return supportsRanges;
     }
     
+    /// Returns whether the resource exists.
+    ///
     /// @return Whether the resource exists
     public boolean exists() {
         return exists;
     }
     
+    /// Returns the content type.
+    ///
     /// @return The MIME content type of the resource
     public String contentType() {
         return contentType;
     }
     
+    /// Returns the last modified timestamp.
+    ///
     /// @return The last modified timestamp of the resource
     public String lastModified() {
         return lastModified;
     }
     
+    /// Returns the ETag value.
+    ///
     /// @return The ETag value for the resource
     public String etag() {
         return etag;

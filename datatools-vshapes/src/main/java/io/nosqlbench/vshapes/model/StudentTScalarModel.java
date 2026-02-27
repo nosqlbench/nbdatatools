@@ -93,6 +93,7 @@ import java.util.Objects;
 @ModelType(StudentTScalarModel.MODEL_TYPE)
 public class StudentTScalarModel implements ScalarModel {
 
+    /// The model type identifier for Student's t distributions.
     public static final String MODEL_TYPE = "student_t";
 
     @SerializedName("nu")

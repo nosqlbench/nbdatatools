@@ -55,6 +55,8 @@ public final class QQPlotGenerator {
     ) {
         /**
          * Returns the number of quantile points.
+         *
+         * @return the point count
          */
         public int size() {
             return xQuantiles.length;
@@ -62,6 +64,9 @@ public final class QQPlotGenerator {
 
         /**
          * Returns a specific point as [x, y].
+         *
+         * @param i the point index
+         * @return the [x, y] pair
          */
         public double[] point(int i) {
             return new double[] { xQuantiles[i], yQuantiles[i] };
@@ -109,6 +114,10 @@ public final class QQPlotGenerator {
 
     /**
      * Generates Q-Q plot with default 100 quantile points.
+     *
+     * @param original first sample
+     * @param synthetic second sample
+     * @return Q-Q plot data
      */
     public static QQPlotData generateQQPlot(float[] original, float[] synthetic) {
         return generateQQPlot(original, synthetic, 100);
@@ -258,6 +267,9 @@ public final class QQPlotGenerator {
 
     /**
      * Renders a compact Q-Q plot (40x15).
+     *
+     * @param data the Q-Q plot data
+     * @return the ASCII rendered plot
      */
     public static String renderAsciiQQPlot(QQPlotData data) {
         return renderAsciiQQPlot(data, 40, 15);
@@ -368,6 +380,9 @@ public final class QQPlotGenerator {
     ) {
         /**
          * Returns true if deviations are within acceptable bounds.
+         *
+         * @param tolerance the maximum acceptable deviation
+         * @return true if within tolerance
          */
         public boolean withinTolerance(double tolerance) {
             return maxAbsDeviation < tolerance;

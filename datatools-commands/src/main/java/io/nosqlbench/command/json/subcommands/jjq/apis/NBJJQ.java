@@ -26,6 +26,8 @@ import java.util.Map;
 
 /// A convenience class for accessing stateful context for CMD_jjq
 public class NBJJQ {
+  /// Creates a new NBJJQ instance.
+  public NBJJQ() {}
 
   /// get the state context for a scope
   /// @param scope the jq scope

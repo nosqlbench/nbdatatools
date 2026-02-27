@@ -62,12 +62,19 @@ public class LinePartitioner implements Iterable<LinePartitioner.Extent> {
     /// the ending offset, exclusive
     private final long end;
     
+    /// Creates a new extent with the given start and end offsets.
+    /// @param start the starting offset, inclusive
+    /// @param end the ending offset, exclusive
     public Extent(long start, long end) {
       this.start = start;
       this.end = end;
     }
-    
+
+    /// Returns the starting offset, inclusive.
+    /// @return the starting offset
     public long start() { return start; }
+    /// Returns the ending offset, exclusive.
+    /// @return the ending offset
     public long end() { return end; }
     
     /// partition the extent into a list of extents

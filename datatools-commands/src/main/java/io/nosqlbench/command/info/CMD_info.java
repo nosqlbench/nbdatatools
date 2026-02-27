@@ -37,6 +37,11 @@ import java.util.concurrent.Callable;
         CMD_info_file.class
     })
 public class CMD_info implements Callable<Integer>, BundledCommand {
+
+    /// Creates a new CMD_info instance.
+    public CMD_info() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_info.class);
 
     /// Run CMD_info

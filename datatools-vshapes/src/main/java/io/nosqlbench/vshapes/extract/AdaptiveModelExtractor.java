@@ -93,18 +93,29 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
     /// Default number of unique vectors for generated model
     public static final long DEFAULT_UNIQUE_VECTORS = 1_000_000;
 
-    /// Strategy used for a dimension
+    /// Strategy used for a dimension.
     public enum Strategy {
+        /// Pure parametric model fit.
         PARAMETRIC,
+        /// 2-mode composite model.
         COMPOSITE_2,
+        /// 3-mode composite model.
         COMPOSITE_3,
+        /// 4-mode composite model.
         COMPOSITE_4,
+        /// 5-mode composite model.
         COMPOSITE_5,
+        /// 6-mode composite model.
         COMPOSITE_6,
+        /// 7-mode composite model.
         COMPOSITE_7,
+        /// 8-mode composite model.
         COMPOSITE_8,
+        /// 9-mode composite model.
         COMPOSITE_9,
+        /// 10-mode composite model.
         COMPOSITE_10,
+        /// Empirical fallback model.
         EMPIRICAL
     }
 
@@ -394,6 +405,8 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
         String details
     ) {
         /// Returns true if a composite model was used.
+        ///
+        /// @return true if a composite strategy was selected
         public boolean isComposite() {
             return switch (strategyUsed) {
                 case COMPOSITE_2, COMPOSITE_3, COMPOSITE_4, COMPOSITE_5,
@@ -403,11 +416,15 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
         }
 
         /// Returns true if empirical fallback was used.
+        ///
+        /// @return true if the empirical strategy was selected
         public boolean isEmpirical() {
             return strategyUsed == Strategy.EMPIRICAL;
         }
 
         /// Returns true if a parametric model was used.
+        ///
+        /// @return true if the parametric strategy was selected
         public boolean isParametric() {
             return strategyUsed == Strategy.PARAMETRIC;
         }
@@ -468,6 +485,9 @@ public final class AdaptiveModelExtractor implements ModelExtractor {
 
     /// Builder for AdaptiveModelExtractor.
     public static class Builder {
+        /// Creates a new Builder with default settings.
+        public Builder() {}
+
         private BestFitSelector parametricSelector = BestFitSelector.pearsonSelector();
         private VerificationLevel verificationLevel = VerificationLevel.BALANCED;
         private double driftThreshold = InternalVerifier.DEFAULT_DRIFT_THRESHOLD;

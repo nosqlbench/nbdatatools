@@ -93,6 +93,10 @@ public final class ModeDetector {
     ) {
         /**
          * Creates a unimodal result.
+         *
+         * @param peakLocation the location of the single peak
+         * @param dipStatistic the dip test statistic
+         * @return a unimodal detection result
          */
         public static ModeDetectionResult unimodal(double peakLocation, double dipStatistic) {
             return new ModeDetectionResult(

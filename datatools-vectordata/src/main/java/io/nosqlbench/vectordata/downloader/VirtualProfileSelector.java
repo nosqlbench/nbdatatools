@@ -19,11 +19,20 @@ package io.nosqlbench.vectordata.downloader;
 
 
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
+import io.nosqlbench.vectordata.discovery.metadata.PredicateTestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
+import io.nosqlbench.vectordata.layoutv2.DSView;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+import io.nosqlbench.vectordata.spec.predicates.PNode;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /// Implementation of ProfileSelector for virtual profiles.
@@ -102,6 +111,66 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
   public ProfileSelector setCacheDir(String cacheDir) {
     this.cacheDir = Path.of(cacheDir.replace("~", System.getProperty("user.home")));
     return this;
+  }
+
+  private static final Set<String> PREDICATE_KEYS = Set.of(
+      TestDataKind.metadata_predicates.name(),
+      TestDataKind.predicate_results.name(),
+      TestDataKind.metadata_layout.name(),
+      TestDataKind.metadata_content.name()
+  );
+
+  @Override
+  public Optional<PredicateTestDataView<?>> predicateProfile(String profileName) {
+    String effectiveProfileName = profileName;
+    if (profileName.contains(":")) {
+      int lastColonIndex = profileName.lastIndexOf(':');
+      effectiveProfileName = profileName.substring(lastColonIndex + 1);
+    } else if (profileName.equals(datasetEntry.name())) {
+      effectiveProfileName = "default";
+    }
+
+    DSProfile profile = datasetEntry.profiles().get(effectiveProfileName);
+    if (profile == null) {
+      profile = datasetEntry.profiles().get(effectiveProfileName.toLowerCase());
+    }
+    if (profile == null) {
+      profile = datasetEntry.profiles().get(effectiveProfileName.toUpperCase());
+    }
+    if (profile == null) {
+      return Optional.empty();
+    }
+
+    // Check if profile has any predicate-related keys
+    boolean hasPredicate = profile.keySet().stream().anyMatch(PREDICATE_KEYS::contains);
+    if (!hasPredicate) {
+      return Optional.empty();
+    }
+
+    // Build FacetSpec map from DSView entries
+    Map<String, VirtualPredicateTestDataView.FacetSpec> facetSpecs = new LinkedHashMap<>();
+    URL baseUrl = datasetEntry.url();
+    for (String key : PREDICATE_KEYS) {
+      DSView view = profile.get(key);
+      if (view == null || view.getSource() == null) continue;
+      String sourcePath = view.getSource().getPath();
+      try {
+        URL sourceUrl = new URL(baseUrl, sourcePath);
+        String extension = sourcePath.contains(".")
+            ? sourcePath.substring(sourcePath.lastIndexOf('.') + 1)
+            : "";
+        Path cachePath = cacheDir.resolve(datasetEntry.name()).resolve(sourcePath);
+        facetSpecs.put(key, new VirtualPredicateTestDataView.FacetSpec(sourceUrl, cachePath, extension));
+      } catch (MalformedURLException e) {
+        throw new RuntimeException("Failed to resolve predicate source URL for " + key + ": " + sourcePath, e);
+      }
+    }
+
+    if (facetSpecs.isEmpty()) {
+      return Optional.empty();
+    }
+
+    return Optional.of(new VirtualPredicateTestDataView(cacheDir, datasetEntry, facetSpecs));
   }
 
   /// Closes this profile selector.

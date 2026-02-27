@@ -52,6 +52,11 @@ import java.util.concurrent.Callable;
 @CommandLine.Command(name = "from-model",
     description = "Generate vectors from a VectorSpaceModel JSON file")
 public class CMD_generate_from_model implements Callable<Integer> {
+
+    /// Creates a new CMD_generate_from_model instance.
+    public CMD_generate_from_model() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_generate_from_model.class);
 
     private static final int EXIT_SUCCESS = 0;
@@ -175,6 +180,9 @@ public class CMD_generate_from_model implements Callable<Integer> {
         }
     }
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         CMD_generate_from_model cmd = new CMD_generate_from_model();
         int exitCode = new CommandLine(cmd).execute(args);

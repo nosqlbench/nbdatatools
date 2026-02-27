@@ -99,6 +99,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_analyze_explore implements Callable<Integer> {
 
+    /// Creates a new CMD_analyze_explore instance.
+    public CMD_analyze_explore() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_explore.class);
 
     @CommandLine.Parameters(arity = "1", paramLabel = "VECTORS",

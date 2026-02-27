@@ -26,16 +26,21 @@ public class Indexed<T> {
     /// the value
     private final T value;
     
+    /// Creates a new indexed value.
+    /// @param index the index of the value
+    /// @param value the value
     public Indexed(long index, T value) {
         this.index = index;
         this.value = value;
     }
     
+    /// Get the index of the value.
     /// @return the index of the value
     public long index() {
         return index;
     }
     
+    /// Get the value.
     /// @return the value
     public T value() {
         return value;

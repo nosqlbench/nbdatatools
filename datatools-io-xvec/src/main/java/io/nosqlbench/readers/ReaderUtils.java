@@ -249,42 +249,61 @@ public final class ReaderUtils {
       this.big = big;
     }
 
+    /// Returns whether the little-endian interpretation is valid.
+    /// @return true if the little-endian interpretation is valid
     public boolean isLittleEndianValid() {
       return little.valid;
     }
 
+    /// Returns whether the big-endian interpretation is valid.
+    /// @return true if the big-endian interpretation is valid
     public boolean isBigEndianValid() {
       return big.valid;
     }
 
+    /// Returns the dimension value under the little-endian interpretation.
+    /// @return the dimension as a little-endian int
     public int getLittleEndianDimension() {
       return little.dimension;
     }
 
+    /// Returns the vector count under the little-endian interpretation.
+    /// @return the vector count as a little-endian long
     public long getLittleEndianVectorCount() {
       return little.vectorCount;
     }
 
+    /// Returns the dimension value under the big-endian interpretation.
+    /// @return the dimension as a big-endian int
     public int getBigEndianDimension() {
       return big.dimension;
     }
 
+    /// Returns the vector count under the big-endian interpretation.
+    /// @return the vector count as a big-endian long
     public long getBigEndianVectorCount() {
       return big.vectorCount;
     }
 
+    /// Returns the vector count (using the little-endian interpretation).
+    /// @return the vector count
     public long getVectorCount() {
       return little.vectorCount;
     }
 
+    /// Returns the failure reason for the little-endian interpretation, or null if valid.
+    /// @return the failure reason, or null if the little-endian interpretation is valid
     public String getLittleEndianFailureReason() {
       return little.failureReason;
     }
 
+    /// Returns the failure reason for the big-endian interpretation, or null if valid.
+    /// @return the failure reason, or null if the big-endian interpretation is valid
     public String getBigEndianFailureReason() {
       return big.failureReason;
     }
 
+    /// Checks whether the file uses a different byte order than expected.
     /// @return true if the file appears to use the opposite endian assumption from the standard little-endian layout
     public boolean isEndianMismatch() {
       return !little.valid && big.valid;

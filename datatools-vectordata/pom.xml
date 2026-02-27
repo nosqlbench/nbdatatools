@@ -18,6 +18,7 @@
 
   <properties>
     <javadoc.name>vectordata</javadoc.name>
+    <bench.args></bench.args>
   </properties>
 
   <dependencies>
@@ -44,6 +45,18 @@
       <groupId>io.nosqlbench</groupId>
       <artifactId>datatools-vshapes</artifactId>
       <version>${revision}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.nosqlbench</groupId>
+      <artifactId>datatools-slabtastic</artifactId>
+      <version>${revision}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>3.48.0.0</version>
     </dependency>
 
     <dependency>
@@ -235,6 +248,22 @@
               </compilerArgs>
             </configuration>
           </execution>
+          <!-- Test compilation with JMH annotation processor -->
+          <execution>
+            <id>default-testCompile</id>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+            <configuration>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>org.openjdk.jmh</groupId>
+                  <artifactId>jmh-generator-annprocess</artifactId>
+                  <version>1.37</version>
+                </path>
+              </annotationProcessorPaths>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
 
@@ -394,6 +423,40 @@
         <groupId>org.sonatype.central</groupId>
         <artifactId>central-publishing-maven-plugin</artifactId>
       </plugin>
+
+      <!-- Benchmark executions: invoke directly via exec:exec@bench-vector-bulk etc. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>bench-vector-bulk</id>
+            <phase>none</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <commandlineArgs>-classpath %classpath -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints io.nosqlbench.vectordata.benchmarks.VectorDataBulkAccessBenchmark ${bench.args}</commandlineArgs>
+              <classpathScope>test</classpathScope>
+              <skip>false</skip>
+            </configuration>
+          </execution>
+          <execution>
+            <id>bench-predicate-bulk</id>
+            <phase>none</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <commandlineArgs>-classpath %classpath -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints io.nosqlbench.vectordata.benchmarks.PredicateDataBulkAccessBenchmark ${bench.args}</commandlineArgs>
+              <classpathScope>test</classpathScope>
+              <skip>false</skip>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
 
     <resources>
@@ -448,6 +511,84 @@
           <!--              <fallback>false</fallback>-->
           <!--            </configuration>-->
           <!--          </plugin>-->
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>bench-predicate-format</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>predicate_format_jmh</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>java</executable>
+                  <arguments>
+                    <argument>-classpath</argument>
+                    <classpath/>
+                    <argument>org.openjdk.jmh.Main</argument>
+                    <argument>io.nosqlbench.vectordata.spec.predicates.PredicateFormatBenchmark</argument>
+                    <argument>-f</argument>
+                    <argument>1</argument>
+                    <argument>-wi</argument>
+                    <argument>2</argument>
+                    <argument>-i</argument>
+                    <argument>3</argument>
+                    <argument>-t</argument>
+                    <argument>1</argument>
+                  </arguments>
+                  <classpathScope>test</classpathScope>
+                  <skip>false</skip>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>bench-metadata-format</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>metadata_format_jmh</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>java</executable>
+                  <arguments>
+                    <argument>-classpath</argument>
+                    <classpath/>
+                    <argument>org.openjdk.jmh.Main</argument>
+                    <argument>io.nosqlbench.vectordata.spec.metadata.MetadataFormatBenchmark</argument>
+                    <argument>-f</argument>
+                    <argument>1</argument>
+                    <argument>-wi</argument>
+                    <argument>2</argument>
+                    <argument>-i</argument>
+                    <argument>3</argument>
+                    <argument>-t</argument>
+                    <argument>1</argument>
+                  </arguments>
+                  <classpathScope>test</classpathScope>
+                  <skip>false</skip>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
         </plugins>
       </build>
     </profile>

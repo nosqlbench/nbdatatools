@@ -32,6 +32,10 @@ public class BoundedPageStore implements Supplier<RecordSupplier> {
   private final MessageColumnIO messageColumnIO;
   private final RecordMaterializer<Group> recordMaterializer;
 
+  /// Creates a new BoundedPageStore.
+  /// @param pageReadStore the page read store
+  /// @param messageColumnIO the message column IO
+  /// @param recordMaterializer the record materializer
   public BoundedPageStore(PageReadStore pageReadStore, MessageColumnIO messageColumnIO,
                          RecordMaterializer<Group> recordMaterializer) {
     this.pageReadStore = pageReadStore;
@@ -39,14 +43,20 @@ public class BoundedPageStore implements Supplier<RecordSupplier> {
     this.recordMaterializer = recordMaterializer;
   }
 
+  /// Returns the page read store.
+  /// @return the page read store
   public PageReadStore pageReadStore() {
     return pageReadStore;
   }
 
+  /// Returns the message column IO.
+  /// @return the message column IO
   public MessageColumnIO messageColumnIO() {
     return messageColumnIO;
   }
 
+  /// Returns the record materializer.
+  /// @return the record materializer
   public RecordMaterializer<Group> recordMaterializer() {
     return recordMaterializer;
   }

@@ -54,6 +54,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_analyze_histogram implements Callable<Integer> {
 
+    /// Creates a new CMD_analyze_histogram instance.
+    public CMD_analyze_histogram() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_histogram.class);
 
     // Unicode block characters for histogram bars

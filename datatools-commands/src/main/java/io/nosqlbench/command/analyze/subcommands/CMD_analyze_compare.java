@@ -62,6 +62,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_analyze_compare implements Callable<Integer> {
 
+    /// Creates a new CMD_analyze_compare instance.
+    public CMD_analyze_compare() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_compare.class);
 
     // ANSI color codes

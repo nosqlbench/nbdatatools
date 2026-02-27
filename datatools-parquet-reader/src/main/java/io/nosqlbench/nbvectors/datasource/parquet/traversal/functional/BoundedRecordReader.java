@@ -22,20 +22,28 @@ import org.apache.parquet.io.RecordReader;
 
 import java.util.Objects;
 
-/// A record reader with a count
+/// A record reader with a count.
+/// @param <T> the record type
 public class BoundedRecordReader<T> {
   private final RecordReader<T> reader;
   private final long count;
 
+  /// Creates a new BoundedRecordReader.
+  /// @param reader the underlying record reader
+  /// @param count the number of records
   public BoundedRecordReader(RecordReader<T> reader, long count) {
     this.reader = reader;
     this.count = count;
   }
 
+  /// Returns the underlying record reader.
+  /// @return the record reader
   public RecordReader<T> reader() {
     return reader;
   }
 
+  /// Returns the number of records.
+  /// @return the record count
   public long count() {
     return count;
   }

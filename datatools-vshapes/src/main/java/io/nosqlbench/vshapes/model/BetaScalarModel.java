@@ -91,6 +91,7 @@ import java.util.Objects;
 @ModelType(BetaScalarModel.MODEL_TYPE)
 public class BetaScalarModel implements ScalarModel {
 
+    /// The model type identifier for beta distributions.
     public static final String MODEL_TYPE = "beta";
 
     @SerializedName("alpha")

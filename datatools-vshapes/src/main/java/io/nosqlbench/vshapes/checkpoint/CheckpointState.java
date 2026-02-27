@@ -110,48 +110,66 @@ public final class CheckpointState {
     }
 
     /// Returns the checkpoint format version.
+    ///
+    /// @return the version number
     public int version() {
         return version;
     }
 
     /// Returns the source file path being analyzed.
+    ///
+    /// @return the source path
     public String sourcePath() {
         return sourcePath;
     }
 
     /// Returns the total number of dimensions to process.
+    ///
+    /// @return the total dimension count
     public int totalDimensions() {
         return totalDimensions;
     }
 
     /// Returns the number of dimensions that have been completed.
+    ///
+    /// @return the completed dimension count
     public int completedDimensions() {
         return completedDimensions;
     }
 
     /// Returns the timestamp when this checkpoint was created.
+    ///
+    /// @return the ISO-8601 timestamp string
     public String timestamp() {
         return timestamp;
     }
 
     /// Returns the checksum for verification.
+    ///
+    /// @return the SHA-256 checksum string, or null
     public String checksum() {
         return checksum;
     }
 
     /// Returns the list of computed dimension statistics.
     /// The list contains statistics for dimensions 0 through completedDimensions-1.
+    ///
+    /// @return the dimension statistics list
     public List<DimensionStatistics> dimensionStatistics() {
         return dimensionStatistics;
     }
 
     /// Returns the list of fitted scalar models.
     /// The list contains models for dimensions 0 through completedDimensions-1.
+    ///
+    /// @return the scalar models list
     public List<ScalarModel> scalarModels() {
         return scalarModels;
     }
 
     /// Returns the progress as a percentage (0-100).
+    ///
+    /// @return the progress percentage
     public double progressPercent() {
         if (totalDimensions == 0) {
             return 0.0;
@@ -160,6 +178,8 @@ public final class CheckpointState {
     }
 
     /// Returns true if all dimensions have been processed.
+    ///
+    /// @return true if all dimensions are complete
     public boolean isComplete() {
         return completedDimensions >= totalDimensions;
     }
@@ -173,6 +193,9 @@ public final class CheckpointState {
 
     /// Builder for creating CheckpointState instances.
     public static final class Builder {
+        /// Creates a new Builder.
+        public Builder() {}
+
         private String sourcePath;
         private int totalDimensions;
         private int completedDimensions;
@@ -182,12 +205,18 @@ public final class CheckpointState {
         private List<ScalarModel> scalarModels;
 
         /// Sets the source file path.
+        ///
+        /// @param sourcePath the source file path
+        /// @return this builder
         public Builder sourcePath(String sourcePath) {
             this.sourcePath = Objects.requireNonNull(sourcePath);
             return this;
         }
 
         /// Sets the total number of dimensions.
+        ///
+        /// @param totalDimensions the total number of dimensions
+        /// @return this builder
         public Builder totalDimensions(int totalDimensions) {
             if (totalDimensions < 0) {
                 throw new IllegalArgumentException("totalDimensions must be non-negative");
@@ -197,6 +226,9 @@ public final class CheckpointState {
         }
 
         /// Sets the number of completed dimensions.
+        ///
+        /// @param completedDimensions the number of completed dimensions
+        /// @return this builder
         public Builder completedDimensions(int completedDimensions) {
             if (completedDimensions < 0) {
                 throw new IllegalArgumentException("completedDimensions must be non-negative");
@@ -206,30 +238,44 @@ public final class CheckpointState {
         }
 
         /// Sets the timestamp (optional, defaults to current time).
+        ///
+        /// @param timestamp the timestamp string
+        /// @return this builder
         public Builder timestamp(String timestamp) {
             this.timestamp = timestamp;
             return this;
         }
 
         /// Sets the checksum (optional).
+        ///
+        /// @param checksum the checksum string
+        /// @return this builder
         public Builder checksum(String checksum) {
             this.checksum = checksum;
             return this;
         }
 
         /// Sets the dimension statistics.
+        ///
+        /// @param dimensionStatistics the dimension statistics list
+        /// @return this builder
         public Builder dimensionStatistics(List<DimensionStatistics> dimensionStatistics) {
             this.dimensionStatistics = dimensionStatistics;
             return this;
         }
 
         /// Sets the scalar models.
+        ///
+        /// @param scalarModels the scalar models list
+        /// @return this builder
         public Builder scalarModels(List<ScalarModel> scalarModels) {
             this.scalarModels = scalarModels;
             return this;
         }
 
         /// Builds the CheckpointState.
+        ///
+        /// @return the constructed CheckpointState
         public CheckpointState build() {
             Objects.requireNonNull(sourcePath, "sourcePath is required");
             if (completedDimensions > totalDimensions) {

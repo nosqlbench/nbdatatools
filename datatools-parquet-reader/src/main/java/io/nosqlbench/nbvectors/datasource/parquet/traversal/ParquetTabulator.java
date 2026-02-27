@@ -26,6 +26,8 @@ import io.nosqlbench.nbvectors.datasource.parquet.traversal.functional.ParquetVi
 
 /// Tabulate parquet data file statistics via traversal
 public class ParquetTabulator implements ParquetVisitor {
+  /// Creates a new ParquetTabulator.
+  public ParquetTabulator() {}
 
   private long totalRows =Long.MIN_VALUE;
 

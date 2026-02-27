@@ -47,8 +47,24 @@ import java.util.concurrent.Callable;
 )
 public class CMD_slab_get implements Callable<Integer> {
 
+    /// Creates a new instance of the get subcommand.
+    public CMD_slab_get() {}
+
     /// Output format for retrieved records.
-    public enum OutputFormat { ascii, hex, raw, utf8, json, jsonl }
+    public enum OutputFormat {
+        /// ASCII text with ordinal prefix
+        ascii,
+        /// Hex dump with offset headers
+        hex,
+        /// Raw bytes
+        raw,
+        /// UTF-8 text with ordinal prefix
+        utf8,
+        /// JSON string value
+        json,
+        /// JSON lines
+        jsonl
+    }
 
     @CommandLine.Parameters(index = "0", description = "Path to the slabtastic file")
     private Path file;
@@ -70,7 +86,7 @@ public class CMD_slab_get implements Callable<Integer> {
     private boolean asBase64;
 
     @CommandLine.Option(names = {"--namespace", "-n"}, defaultValue = "",
-        description = "Namespace to read from (default: default namespace)")
+        description = "Namespace to read from; required when the file has named namespaces")
     private String namespace;
 
     @Override
@@ -91,6 +107,13 @@ public class CMD_slab_get implements Callable<Integer> {
 
         int missing = 0;
         try (SlabReader reader = new SlabReader(file)) {
+            String resolved = NamespaceResolver.resolveForRead(namespace, reader);
+            if (resolved == null) {
+                System.err.println("Error: " + NamespaceResolver.formatNamespaceHint(reader));
+                return 2;
+            }
+            namespace = resolved;
+
             Gson gson = (format == OutputFormat.json || format == OutputFormat.jsonl) ? new Gson() : null;
 
             for (long ordinal : ordinals) {

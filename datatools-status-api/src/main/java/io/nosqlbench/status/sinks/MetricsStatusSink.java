@@ -189,7 +189,13 @@ import java.util.concurrent.atomic.DoubleAdder;
  */
 public class MetricsStatusSink implements StatusSink {
 
+    /// Creates a new metrics status sink.
+    public MetricsStatusSink() {}
+
+    /// Metrics collected for a single tracked task.
     public static class TaskMetrics {
+        /// Creates a new empty TaskMetrics instance.
+        public TaskMetrics() {}
         private final AtomicLong startTime = new AtomicLong();
         private final AtomicLong endTime = new AtomicLong();
         private final AtomicLong updateCount = new AtomicLong();
@@ -197,14 +203,20 @@ public class MetricsStatusSink implements StatusSink {
         private volatile double lastProgress = 0.0;
         private volatile String taskName;
 
+        /// Returns the task start time in epoch milliseconds.
+        /// @return the start time
         public long getStartTime() {
             return startTime.get();
         }
 
+        /// Returns the task end time in epoch milliseconds, or 0 if still running.
+        /// @return the end time
         public long getEndTime() {
             return endTime.get();
         }
 
+        /// Returns the task duration in milliseconds.
+        /// @return the duration
         public long getDuration() {
             long end = endTime.get();
             if (end == 0) {
@@ -213,23 +225,33 @@ public class MetricsStatusSink implements StatusSink {
             return end - startTime.get();
         }
 
+        /// Returns the number of status updates received.
+        /// @return the update count
         public long getUpdateCount() {
             return updateCount.get();
         }
 
+        /// Returns the average progress across all updates.
+        /// @return the average progress
         public double getAverageProgress() {
             long count = updateCount.get();
             return count > 0 ? totalProgress.sum() / count : 0.0;
         }
 
+        /// Returns the most recently reported progress value.
+        /// @return the last progress
         public double getLastProgress() {
             return lastProgress;
         }
 
+        /// Returns the name of the tracked task.
+        /// @return the task name
         public String getTaskName() {
             return taskName;
         }
 
+        /// Returns whether the task has finished.
+        /// @return true if the task is finished
         public boolean isFinished() {
             return endTime.get() > 0;
         }
@@ -269,6 +291,9 @@ public class MetricsStatusSink implements StatusSink {
         totalTasksFinished.incrementAndGet();
     }
 
+    /// Returns the metrics for the given task.
+    /// @param task the task tracker
+    /// @return the task metrics, or null if not tracked
     public TaskMetrics getMetrics(StatusTracker<?> task) {
         if (task == null) {
             return null;
@@ -276,36 +301,51 @@ public class MetricsStatusSink implements StatusSink {
         return metricsMap.get(task);
     }
 
+    /// Returns a snapshot of all tracked task metrics.
+    /// @return a copy of the metrics map
     public Map<StatusTracker<?>, TaskMetrics> getAllMetrics() {
         return new ConcurrentHashMap<>(metricsMap);
     }
 
+    /// Clears all recorded metrics.
     public void clearMetrics() {
         metricsMap.clear();
     }
 
+    /// Removes metrics for the given task.
+    /// @param task the task tracker to remove
     public void removeMetrics(StatusTracker<?> task) {
         metricsMap.remove(task);
     }
 
+    /// Returns the total number of tasks that have been started.
+    /// @return the total started task count
     public long getTotalTasksStarted() {
         return totalTasksStarted.get();
     }
 
+    /// Returns the total number of tasks that have finished.
+    /// @return the total finished task count
     public long getTotalTasksFinished() {
         return totalTasksFinished.get();
     }
 
+    /// Returns the total number of status updates received.
+    /// @return the total update count
     public long getTotalUpdates() {
         return totalUpdates.get();
     }
 
+    /// Returns the number of currently active (unfinished) tasks.
+    /// @return the active task count
     public long getActiveTaskCount() {
         return metricsMap.values().stream()
                 .filter(m -> !m.isFinished())
                 .count();
     }
 
+    /// Returns the average duration of finished tasks in milliseconds.
+    /// @return the average task duration
     public double getAverageTaskDuration() {
         long finishedCount = 0;
         long totalDuration = 0;
@@ -320,6 +360,8 @@ public class MetricsStatusSink implements StatusSink {
         return finishedCount > 0 ? (double) totalDuration / finishedCount : 0.0;
     }
 
+    /// Generates a human-readable metrics report.
+    /// @return the formatted report string
     public String generateReport() {
         StringBuilder report = new StringBuilder();
         report.append("=== Task Metrics Report ===\n");

@@ -31,6 +31,9 @@ import java.util.Set;
 
 /// a converter from [JsonNode] objects to [PNode] objects.
 public class PredicateParser {
+    /// Creates a new PredicateParser instance.
+    public PredicateParser() {}
+
     private static final Set<String> CONJUGATE_OPS = Set.of("AND", "OR");
 
     /// Parse a JSON node into a [PNode] object
@@ -50,16 +53,20 @@ public class PredicateParser {
     
     private static PredicateNode parsePredicate(JsonNode node) {
         validatePredicateNode(node);
-        
-        int field = node.get("field").asInt();
+
+        JsonNode fieldNode = node.get("field");
         OpType operator = parseOperator(node.get("op").asText());
         long[] values = parseValues(node.get("values"));
-        
+
         if (operator != OpType.IN && values.length != 1) {
             throw new IllegalArgumentException("Non-IN predicates must have exactly one value");
         }
-        
-        return new PredicateNode(field, operator, values);
+
+        if (fieldNode.isTextual()) {
+            return new PredicateNode(fieldNode.asText(), operator, values);
+        } else {
+            return new PredicateNode(fieldNode.asInt(), operator, values);
+        }
     }
     
     private static ConjugateNode parseConjugate(JsonNode node) {
@@ -131,12 +138,14 @@ public class PredicateParser {
         validateRequiredField(node, "field");
         validateRequiredField(node, "op");
         validateRequiredField(node, "values");
-        
-        if (!node.get("field").isNumber()) {
-            throw new IllegalArgumentException("field must be a number");
-        }
-        if (node.get("field").asInt() < 0) {
-            throw new IllegalArgumentException("field must be non-negative");
+
+        JsonNode fieldNode = node.get("field");
+        if (fieldNode.isNumber()) {
+            if (fieldNode.asInt() < 0) {
+                throw new IllegalArgumentException("field must be non-negative");
+            }
+        } else if (!fieldNode.isTextual()) {
+            throw new IllegalArgumentException("field must be a number or string");
         }
     }
     

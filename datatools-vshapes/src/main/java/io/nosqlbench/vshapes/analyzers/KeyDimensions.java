@@ -25,9 +25,15 @@ package io.nosqlbench.vshapes.analyzers;
  * for performance, while KEY_DIMENSIONS provides the full list of supported sizes.
  */
 public class KeyDimensions {
+
+  /// Creates a new KeyDimensions instance.
+  private KeyDimensions() {}
+
+  /// Common embedding dimension sizes used in vector databases and ML applications.
   public static int[] KEY_DIMENSIONS = new int[]{
       128, 256, 384, 512, 768, 1024, 1536, 2048, 2560, 3072, 4096
   };
+  /// Subset of key dimensions used for performance testing.
   public static int[] TESTED_DIMENSIONS = new int[] {
       128, 256, 512, 1024, 4096
   };

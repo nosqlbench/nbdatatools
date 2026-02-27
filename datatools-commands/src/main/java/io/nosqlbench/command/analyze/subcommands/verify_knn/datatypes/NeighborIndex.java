@@ -25,16 +25,21 @@ public class NeighborIndex implements Comparable<NeighborIndex> {
     /// the distance of the neighbor
     private final double distance;
     
+    /// Creates a new NeighborIndex.
+    /// @param index the dataset index of the neighbor
+    /// @param distance the distance to the neighbor
     public NeighborIndex(long index, double distance) {
         this.index = index;
         this.distance = distance;
     }
     
+    /// Gets the dataset index.
     /// @return the index of the neighbor in the dataset
     public long index() {
         return index;
     }
     
+    /// Gets the distance value.
     /// @return the distance of the neighbor
     public double distance() {
         return distance;

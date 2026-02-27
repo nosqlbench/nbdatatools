@@ -27,6 +27,10 @@ import java.nio.file.Path;
  */
 public class OutputFileOption {
 
+    /// Creates a new OutputFileOption instance.
+    public OutputFileOption() {
+    }
+
     /**
      * Immutable output file specification with force-overwrite flag.
      * Implements CharSequence to allow direct use as a string in most contexts.
@@ -47,6 +51,7 @@ public class OutputFileOption {
 
         /**
          * Creates an OutputFile without force overwrite.
+         * @param path the output file path
          */
         public OutputFile(Path path) {
             this(path, false);
@@ -54,6 +59,7 @@ public class OutputFileOption {
 
         /**
          * Gets the normalized absolute path.
+         * @return the normalized absolute path
          */
         public Path normalizedPath() {
             return path.normalize().toAbsolutePath();
@@ -61,6 +67,7 @@ public class OutputFileOption {
 
         /**
          * Checks if the output file exists and force is not set.
+         * @return true if the file exists and force is not enabled
          */
         public boolean existsWithoutForce() {
             return Files.exists(path) && !force;
@@ -110,6 +117,7 @@ public class OutputFileOption {
 
     /**
      * Gets the OutputFile record constructed from the options.
+     * @return the output file specification
      */
     public OutputFile getOutputFile() {
         return new OutputFile(outputPath, force);
@@ -117,6 +125,7 @@ public class OutputFileOption {
 
     /**
      * Gets the output file path.
+     * @return the output path
      */
     public Path getOutputPath() {
         return outputPath;
@@ -124,6 +133,7 @@ public class OutputFileOption {
 
     /**
      * Gets the normalized output file path.
+     * @return the normalized path, or null if not set
      */
     public Path getNormalizedOutputPath() {
         return outputPath != null ? outputPath.normalize() : null;
@@ -131,6 +141,7 @@ public class OutputFileOption {
 
     /**
      * Checks if force overwrite is enabled.
+     * @return true if force overwrite is enabled
      */
     public boolean isForce() {
         return force;
@@ -138,6 +149,7 @@ public class OutputFileOption {
 
     /**
      * Checks if the output file already exists and force is not enabled.
+     * @return true if the output file exists and force is not set
      */
     public boolean outputExistsWithoutForce() {
         return getOutputFile().existsWithoutForce();

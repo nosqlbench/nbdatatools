@@ -98,9 +98,14 @@ public class LogBuffer extends AbstractAppender {
      * Represents a captured log entry with its level and formatted message.
      */
     public static class LogEntry {
+        /// The log level of this entry.
         public final Level level;
+        /// The formatted log message.
         public final String formattedMessage;
 
+        /// Creates a new log entry.
+        /// @param level the log level
+        /// @param formattedMessage the formatted message
         public LogEntry(Level level, String formattedMessage) {
             this.level = level;
             this.formattedMessage = formattedMessage;
@@ -114,6 +119,9 @@ public class LogBuffer extends AbstractAppender {
     private static volatile Level displayLevel = Level.INFO;
     private static final long START_TIME = System.currentTimeMillis();
 
+    /// Creates a new LogBuffer appender.
+    /// @param name the appender name
+    /// @param layout the log message layout
     protected LogBuffer(String name, Layout<? extends Serializable> layout) {
         super(name,
                 null,

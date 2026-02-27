@@ -36,6 +36,9 @@ import io.nosqlbench.vectordata.layoutv2.DSProfile;
 import io.nosqlbench.vectordata.layoutv2.DSView;
 import io.nosqlbench.vectordata.layoutv2.DSWindow;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -76,6 +79,8 @@ import java.util.ArrayList;
 /// ```
 public class VirtualVectorTestDataView implements VectorTestDataView {
 
+  private static final Logger logger = LogManager.getLogger(VirtualVectorTestDataView.class);
+
   /// The dataset entry containing metadata about the dataset
   private final DatasetEntry datasetEntry;
 
@@ -84,6 +89,32 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
 
   /// The directory where downloaded data is cached
   private Path cachedir = Path.of(System.getProperty("user.home"), ".cache", "vectordata");
+
+  /// Cached views, initially backed by MAFileChannel, promoted to Path-based mmap
+  /// after prebuffering completes.
+  private volatile BaseVectors cachedBaseVectors;
+  private volatile QueryVectors cachedQueryVectors;
+  private volatile NeighborIndices cachedNeighborIndices;
+  private volatile NeighborDistances cachedNeighborDistances;
+  private volatile NeighborIndices cachedFilteredNeighborIndices;
+  private volatile NeighborDistances cachedFilteredNeighborDistances;
+
+  /// Tracks the resolution metadata for each view kind, used by
+  /// {@link #promoteToLocalViews()} to replace MAFileChannel-backed views
+  /// with Path-based mmap views after prebuffering.
+  private static class ViewResolution {
+    final MAFileChannel channel;
+    final Path cachePath;
+    final DSWindow window;
+    final String extension;
+    ViewResolution(MAFileChannel channel, Path cachePath, DSWindow window, String extension) {
+      this.channel = channel;
+      this.cachePath = cachePath;
+      this.window = window;
+      this.extension = extension;
+    }
+  }
+  private final Map<ViewKind, ViewResolution> viewResolutions = new HashMap<>();
 
   /// Creates a new VirtualTestDataView with the specified cache directory, dataset entry, and profile.
   ///
@@ -107,6 +138,9 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
   /// @return An Optional containing the base vectors dataset, or empty if not available
   @Override
   public Optional<BaseVectors> getBaseVectors() {
+    BaseVectors cached = cachedBaseVectors;
+    if (cached != null) return Optional.of(cached);
+
     Optional<DSView> oView = getMatchingView(ViewKind.base);
     if (oView.isEmpty()) {
       return Optional.empty();
@@ -117,8 +151,11 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
       Path contentPath = resolveContentPath(dsView);
       MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
       DSWindow window = resolveWindow(dsView);
+      String extension = extractExtension(sourceUrl);
       BaseVectorsXvecImpl newview = new BaseVectorsXvecImpl(
-          channel, channel.size(), window, extractExtension(sourceUrl));
+          channel, channel.size(), window, extension);
+      cachedBaseVectors = newview;
+      viewResolutions.put(ViewKind.base, new ViewResolution(channel, contentPath, window, extension));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -179,6 +216,9 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
   /// @return An Optional containing the query vectors dataset, or empty if not available
   @Override
   public Optional<QueryVectors> getQueryVectors() {
+    QueryVectors cached = cachedQueryVectors;
+    if (cached != null) return Optional.of(cached);
+
     Optional<DSView> oView = getMatchingView(ViewKind.query);
     if (oView.isEmpty()) {
       return Optional.empty();
@@ -189,8 +229,11 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
       Path contentPath = resolveContentPath(dsView);
       MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
       DSWindow window = resolveWindow(dsView);
+      String extension = extractExtension(sourceUrl);
       QueryVectorsXvecImpl newview = new QueryVectorsXvecImpl(
-          channel, channel.size(), window, extractExtension(sourceUrl));
+          channel, channel.size(), window, extension);
+      cachedQueryVectors = newview;
+      viewResolutions.put(ViewKind.query, new ViewResolution(channel, contentPath, window, extension));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -206,6 +249,9 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
   /// @return An Optional containing the neighbor indices dataset, or empty if not available
   @Override
   public Optional<NeighborIndices> getNeighborIndices() {
+    NeighborIndices cached = cachedNeighborIndices;
+    if (cached != null) return Optional.of(cached);
+
     Optional<DSView> oView = getMatchingView(ViewKind.indices);
     if (oView.isEmpty()) {
       return Optional.empty();
@@ -216,8 +262,11 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
       Path contentPath = resolveContentPath(dsView);
       MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
       DSWindow window = resolveWindow(dsView);
+      String extension = extractExtension(sourceUrl);
       NeighborIndicesXvecImpl newview = new NeighborIndicesXvecImpl(
-          channel, channel.size(), window, extractExtension(sourceUrl));
+          channel, channel.size(), window, extension);
+      cachedNeighborIndices = newview;
+      viewResolutions.put(ViewKind.indices, new ViewResolution(channel, contentPath, window, extension));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -233,6 +282,9 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
   /// @return An Optional containing the neighbor distances dataset, or empty if not available
   @Override
   public Optional<NeighborDistances> getNeighborDistances() {
+    NeighborDistances cached = cachedNeighborDistances;
+    if (cached != null) return Optional.of(cached);
+
     Optional<DSView> oView = getMatchingView(ViewKind.neighbors);
     if (oView.isEmpty()) {
       return Optional.empty();
@@ -243,8 +295,79 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
       Path contentPath = resolveContentPath(dsView);
       MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
       DSWindow window = resolveWindow(dsView);
+      String extension = extractExtension(sourceUrl);
       NeighborDistancesXvecImpl newview = new NeighborDistancesXvecImpl(
-          channel, channel.size(), window, extractExtension(sourceUrl));
+          channel, channel.size(), window, extension);
+      cachedNeighborDistances = newview;
+      viewResolutions.put(ViewKind.neighbors, new ViewResolution(channel, contentPath, window, extension));
+      return Optional.of(newview);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /// Returns the filtered neighbor indices dataset if available.
+  ///
+  /// Filtered neighbor indices contain the ground truth for filtered KNN search,
+  /// pre-conditioned on matching metadata predicates. Unlike standard neighbor indices
+  /// which are computed from pure KNN, these incorporate predicate filtering so that
+  /// recall does not degrade arbitrarily.
+  ///
+  /// @return An Optional containing the filtered neighbor indices, or empty if not available
+  @Override
+  public Optional<NeighborIndices> getFilteredNeighborIndices() {
+    NeighborIndices cached = cachedFilteredNeighborIndices;
+    if (cached != null) return Optional.of(cached);
+
+    Optional<DSView> oView = getMatchingView(ViewKind.filtered_indices);
+    if (oView.isEmpty()) {
+      return Optional.empty();
+    }
+    DSView dsView = oView.get();
+    try {
+      URL sourceUrl = resolveSourceUrl(dsView);
+      Path contentPath = resolveContentPath(dsView);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      DSWindow window = resolveWindow(dsView);
+      String extension = extractExtension(sourceUrl);
+      NeighborIndicesXvecImpl newview = new NeighborIndicesXvecImpl(
+          channel, channel.size(), window, extension);
+      cachedFilteredNeighborIndices = newview;
+      viewResolutions.put(ViewKind.filtered_indices, new ViewResolution(channel, contentPath, window, extension));
+      return Optional.of(newview);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /// Returns the filtered neighbor distances dataset if available.
+  ///
+  /// Filtered neighbor distances contain the ground truth distances for filtered KNN search,
+  /// pre-conditioned on matching metadata predicates. Unlike standard neighbor distances
+  /// which are computed from pure KNN, these incorporate predicate filtering so that
+  /// recall does not degrade arbitrarily.
+  ///
+  /// @return An Optional containing the filtered neighbor distances, or empty if not available
+  @Override
+  public Optional<NeighborDistances> getFilteredNeighborDistances() {
+    NeighborDistances cached = cachedFilteredNeighborDistances;
+    if (cached != null) return Optional.of(cached);
+
+    Optional<DSView> oView = getMatchingView(ViewKind.filtered_neighbors);
+    if (oView.isEmpty()) {
+      return Optional.empty();
+    }
+    DSView dsView = oView.get();
+    try {
+      URL sourceUrl = resolveSourceUrl(dsView);
+      Path contentPath = resolveContentPath(dsView);
+      MAFileChannel channel = resolveMAFileChannel(contentPath, sourceUrl);
+      DSWindow window = resolveWindow(dsView);
+      String extension = extractExtension(sourceUrl);
+      NeighborDistancesXvecImpl newview = new NeighborDistancesXvecImpl(
+          channel, channel.size(), window, extension);
+      cachedFilteredNeighborDistances = newview;
+      viewResolutions.put(ViewKind.filtered_neighbors, new ViewResolution(channel, contentPath, window, extension));
       return Optional.of(newview);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -484,10 +607,56 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
     return file.substring(dot + 1);
   }
 
-  /// Prebuffers all datasets in this test data view.
-  /// Dataset views handle DSWindow-based range selection internally.
+  /// Promotes all cached views from MAFileChannel-backed reads to Path-based
+  /// memory-mapped reads. Called after prebuffering completes so that subsequent
+  /// reads use zero-copy mmap — the same fast path as {@link
+  /// io.nosqlbench.vectordata.discovery.vector.FilesystemVectorTestDataView}.
   ///
-  /// @return A future that completes when all prebuffering is done
+  /// For each view that was created with an MAFileChannel, this method checks
+  /// whether the channel reports the file as fully cached. If so, it creates
+  /// a new Path-based XvecImpl backed by the local cache file and stores it
+  /// as the cached view, replacing the channel-backed one.
+  private void promoteToLocalViews() {
+    for (Map.Entry<ViewKind, ViewResolution> entry : viewResolutions.entrySet()) {
+      ViewKind kind = entry.getKey();
+      ViewResolution res = entry.getValue();
+
+      try {
+        if (!res.channel.isFullyCached()) {
+          continue;
+        }
+        Path cachePath = res.channel.getCacheFilePath();
+        if (!Files.exists(cachePath)) {
+          continue;
+        }
+
+        if (kind == ViewKind.base) {
+          cachedBaseVectors = new BaseVectorsXvecImpl(cachePath, res.window, res.extension);
+        } else if (kind == ViewKind.query) {
+          cachedQueryVectors = new QueryVectorsXvecImpl(cachePath, res.window, res.extension);
+        } else if (kind == ViewKind.indices) {
+          cachedNeighborIndices = new NeighborIndicesXvecImpl(cachePath, res.window, res.extension);
+        } else if (kind == ViewKind.neighbors) {
+          cachedNeighborDistances = new NeighborDistancesXvecImpl(cachePath, res.window, res.extension);
+        } else if (kind == ViewKind.filtered_indices) {
+          cachedFilteredNeighborIndices = new NeighborIndicesXvecImpl(cachePath, res.window, res.extension);
+        } else if (kind == ViewKind.filtered_neighbors) {
+          cachedFilteredNeighborDistances = new NeighborDistancesXvecImpl(cachePath, res.window, res.extension);
+        } else {
+          logger.debug("No promotion handler for view kind: {}", kind);
+        }
+        logger.debug("Promoted {} view to Path-based mmap: {}", kind, cachePath);
+      } catch (Exception e) {
+        logger.warn("Failed to promote {} view to mmap, continuing with channel reads: {}", kind, e.getMessage());
+      }
+    }
+  }
+
+  /// Prebuffers all datasets in this test data view, then promotes all cached
+  /// views from channel-based reads to Path-based memory-mapped reads for
+  /// maximum read throughput.
+  ///
+  /// @return A future that completes when all prebuffering and promotion is done
   @Override
   public CompletableFuture<Void> prebuffer() {
     List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -512,6 +681,17 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
       futures.add(neighborDistances.prebuffer());
     });
 
-    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+    // Prebuffer filtered neighbor indices if available
+    getFilteredNeighborIndices().ifPresent(filteredIndices -> {
+      futures.add(filteredIndices.prebuffer());
+    });
+
+    // Prebuffer filtered neighbor distances if available
+    getFilteredNeighborDistances().ifPresent(filteredDistances -> {
+      futures.add(filteredDistances.prebuffer());
+    });
+
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+        .thenRun(this::promoteToLocalViews);
   }
 }

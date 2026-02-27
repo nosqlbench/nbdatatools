@@ -28,6 +28,10 @@ import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
  */
 public class IndicesInputFileOption {
 
+    /// Creates a new IndicesInputFileOption instance.
+    public IndicesInputFileOption() {
+    }
+
     @CommandLine.Option(
         names = {"--indices"},
         description = "Neighbor indices spec with optional range suffix (e.g., file.ivec[0,1000) or dataset.profile.indices[0,1000))",
@@ -45,7 +49,8 @@ public class IndicesInputFileOption {
     }
 
     /**
-     * Gets the local file path if this is a local file spec
+     * Gets the local file path if this is a local file spec.
+     * @return the local path, or empty if not specified
      */
     public Optional<Path> getLocalPath() {
         return indices != null ? indices.spec().getLocalPath() : Optional.empty();
@@ -53,6 +58,7 @@ public class IndicesInputFileOption {
 
     /**
      * Gets the normalized indices path (local file only).
+     * @return the normalized absolute path to the indices file
      */
     public Path getNormalizedIndicesPath() {
         if (indices == null) {
@@ -66,6 +72,7 @@ public class IndicesInputFileOption {
 
     /**
      * Gets the inline range specification, if any.
+     * @return the range spec string, or null if not specified
      */
     public String getInlineRange() {
         return indices != null ? indices.rangeSpec() : null;
@@ -115,8 +122,12 @@ public class IndicesInputFileOption {
 
     /**
      * Record representing indices file configuration
+     * @param spec the vector data spec
+     * @param range the parsed range, or null
+     * @param rangeSpec the raw range spec string, or null
      */
     public record Indices(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
+        /// Compact constructor that validates the spec is non-null.
         public Indices {
             if (spec == null) {
                 throw new IllegalArgumentException("Indices spec cannot be null");
@@ -132,9 +143,13 @@ public class IndicesInputFileOption {
     }
 
     /**
-     * Custom converter for parsing indices file specification
+     * Custom converter for parsing indices file specification.
      */
     public static class IndicesConverter implements CommandLine.ITypeConverter<Indices> {
+        /// Creates a new IndicesConverter instance.
+        public IndicesConverter() {
+        }
+
         @Override
         public Indices convert(String value) throws Exception {
             if (value == null || value.isEmpty()) {

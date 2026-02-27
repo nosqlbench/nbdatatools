@@ -27,7 +27,9 @@ import java.nio.file.Path;
 /// - The cache_dir value is empty or null
 public class InvalidSettingsException extends RuntimeException {
 
+    /// The path to the settings file.
     private final Path settingsPath;
+    /// The invalid value, or null if not applicable.
     private final String invalidValue;
 
     /// Constructs an InvalidSettingsException with a message describing the issue.

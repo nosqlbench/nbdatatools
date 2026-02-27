@@ -38,7 +38,9 @@ public class NoSuitableMountPointException extends RuntimeException {
         "  3. Use 'default' to use ~/.cache/vectordata\n" +
         "  4. Run 'nbvectors config list-mounts' to see available mount points\n";
 
+    /// The auto directive that could not be resolved.
     private final String autoDirective;
+    /// The reason resolution failed.
     private final String reason;
 
     /// Constructs a NoSuitableMountPointException with details about the failed resolution.

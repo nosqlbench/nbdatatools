@@ -30,10 +30,15 @@ import java.util.stream.Stream;
  * used in Merkle tree creation and other operations.
  */
 public enum VectorFileExtension {
+    /// Integer vector file extensions (.ivec, .ivecs).
     IVEC(new String[]{".ivec", ".ivecs"}, FileType.xvec, int[].class),
+    /// Float vector file extensions (.fvec, .fvecs).
     FVEC(new String[]{".fvec", ".fvecs"}, FileType.xvec, float[].class),
+    /// Byte vector file extensions (.bvec, .bvecs).
     BVEC(new String[]{".bvec", ".bvecs"}, FileType.xvec, byte[].class),
+    /// Parquet file extension (.parquet).
     PARQUET(new String[]{".parquet"}, FileType.parquet, float[].class),
+    /// CSV file extension (.csv).
     CSV(new String[]{".csv"}, FileType.csv, float[].class);
 
     private final String[] extensions;

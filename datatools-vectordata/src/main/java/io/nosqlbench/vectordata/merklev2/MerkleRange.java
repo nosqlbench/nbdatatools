@@ -26,7 +26,10 @@ public class MerkleRange {
     private final long start;
     private final long end;
 
-    /// Constructs a new MerkleRange object with the given start and end offsets
+    /// Constructs a new MerkleRange object with the given start and end offsets.
+    ///
+    /// @param start the start offset (inclusive)
+    /// @param end   the end offset (exclusive)
     public MerkleRange(long start, long end) {
         if (start < 0 || end < start) {
             throw new IllegalArgumentException("Invalid range: [" + start + ", " + end + "]");
@@ -35,10 +38,14 @@ public class MerkleRange {
         this.end = end;
     }
 
+    /// Returns the start offset (inclusive).
+    /// @return the start offset
     public long start() {
         return start;
     }
 
+    /// Returns the end offset (exclusive).
+    /// @return the end offset
     public long end() {
         return end;
     }

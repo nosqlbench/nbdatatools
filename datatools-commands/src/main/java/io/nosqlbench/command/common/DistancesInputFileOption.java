@@ -28,6 +28,10 @@ import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
  */
 public class DistancesInputFileOption {
 
+    /// Creates a new DistancesInputFileOption instance.
+    public DistancesInputFileOption() {
+    }
+
     @CommandLine.Option(
         names = {"--distances"},
         description = "Neighbor distances spec (optional)",
@@ -80,8 +84,12 @@ public class DistancesInputFileOption {
 
     /**
      * Record representing distances file configuration
+     * @param spec the vector data spec
+     * @param range the parsed range, or null
+     * @param rangeSpec the raw range spec string, or null
      */
     public record Distances(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
+        /// Compact constructor with validation.
         public Distances {
             if (spec == null) {
                 throw new IllegalArgumentException("Distances spec cannot be null");
@@ -100,6 +108,10 @@ public class DistancesInputFileOption {
      * Custom converter for parsing distances file specification
      */
     public static class DistancesConverter implements CommandLine.ITypeConverter<Distances> {
+        /// Creates a new DistancesConverter instance.
+        public DistancesConverter() {
+        }
+
         @Override
         public Distances convert(String value) throws Exception {
             if (value == null || value.isEmpty()) {

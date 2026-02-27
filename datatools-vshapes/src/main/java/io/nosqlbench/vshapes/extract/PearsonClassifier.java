@@ -233,6 +233,8 @@ public final class PearsonClassifier {
     ) {
         /**
          * Returns whether this distribution is symmetric (β₁ ≈ 0).
+         *
+         * @return true if symmetric
          */
         public boolean isSymmetric() {
             return beta1 < SKEWNESS_TOLERANCE * SKEWNESS_TOLERANCE;
@@ -240,6 +242,8 @@ public final class PearsonClassifier {
 
         /**
          * Returns whether this distribution is platykurtic (β₂ &lt; 3).
+         *
+         * @return true if platykurtic
          */
         public boolean isPlatykurtic() {
             return beta2 < 3.0 - KURTOSIS_TOLERANCE;
@@ -247,6 +251,8 @@ public final class PearsonClassifier {
 
         /**
          * Returns whether this distribution is leptokurtic (β₂ &gt; 3).
+         *
+         * @return true if leptokurtic
          */
         public boolean isLeptokurtic() {
             return beta2 > 3.0 + KURTOSIS_TOLERANCE;
@@ -254,6 +260,8 @@ public final class PearsonClassifier {
 
         /**
          * Returns whether this distribution is mesokurtic (β₂ ≈ 3).
+         *
+         * @return true if mesokurtic
          */
         public boolean isMesokurtic() {
             return Math.abs(beta2 - 3.0) <= KURTOSIS_TOLERANCE;

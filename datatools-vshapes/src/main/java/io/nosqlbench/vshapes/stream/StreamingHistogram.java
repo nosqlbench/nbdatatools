@@ -559,31 +559,44 @@ public final class StreamingHistogram {
     public record GapAnalysis(List<Gap> gaps, double maxGapWidth, boolean hasGaps) {}
 
     /// Returns the number of bins.
+    ///
+    /// @return the bin count
     public int getNumBins() {
         return numBins;
     }
 
     /// Returns the total count of values added.
+    ///
+    /// @return the total count
     public long getTotalCount() {
         return totalCount;
     }
 
     /// Returns the minimum value seen.
+    ///
+    /// @return the minimum value
     public double getMinValue() {
         return minValue;
     }
 
     /// Returns the maximum value seen.
+    ///
+    /// @return the maximum value
     public double getMaxValue() {
         return maxValue;
     }
 
     /// Returns the bin counts.
+    ///
+    /// @return a copy of the counts array
     public long[] getCounts() {
         return counts.clone();
     }
 
     /// Returns the count for a specific bin.
+    ///
+    /// @param bin the bin index
+    /// @return the count
     public long getCount(int bin) {
         if (bin < 0 || bin >= numBins) {
             throw new IndexOutOfBoundsException("bin: " + bin);
@@ -592,11 +605,16 @@ public final class StreamingHistogram {
     }
 
     /// Returns the bin width.
+    ///
+    /// @return the bin width
     public double getBinWidth() {
         return binWidth;
     }
 
     /// Returns the center value of a bin.
+    ///
+    /// @param bin the bin index
+    /// @return the center value
     public double getBinCenter(int bin) {
         return minValue + (bin + 0.5) * binWidth;
     }

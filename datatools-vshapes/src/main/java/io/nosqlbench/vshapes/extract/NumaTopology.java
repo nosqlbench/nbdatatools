@@ -158,6 +158,8 @@ public final class NumaTopology {
 
     /**
      * Returns the number of NUMA nodes.
+     *
+     * @return the node count
      */
     public int nodeCount() {
         return nodeCount;
@@ -165,6 +167,8 @@ public final class NumaTopology {
 
     /**
      * Returns true if the system has multiple NUMA nodes.
+     *
+     * @return true if multi-node NUMA
      */
     public boolean isNuma() {
         return nodeCount > 1;
@@ -186,6 +190,8 @@ public final class NumaTopology {
     /**
      * Returns the number of CPUs on each NUMA node (assumes balanced).
      * For asymmetric topologies, use {@link #cpusForNode(int)}.
+     *
+     * @return the CPU count per node
      */
     public int cpusPerNode() {
         return cpusPerNode.get(0).size();
@@ -193,6 +199,8 @@ public final class NumaTopology {
 
     /**
      * Returns the total number of CPUs across all NUMA nodes.
+     *
+     * @return the total CPU count
      */
     public int totalCpus() {
         return totalCpus;

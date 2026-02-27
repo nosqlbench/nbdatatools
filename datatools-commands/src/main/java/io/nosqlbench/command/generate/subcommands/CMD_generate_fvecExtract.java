@@ -78,6 +78,11 @@ import java.util.concurrent.locks.ReentrantLock;
 @CommandLine.Command(name = "fvec-extract",
     description = "Extract vectors from a fvec file using indices from an ivec file")
 public class CMD_generate_fvecExtract implements Callable<Integer> {
+
+  /// Creates a new CMD_generate_fvecExtract instance.
+  public CMD_generate_fvecExtract() {
+  }
+
   private static final Logger logger = LogManager.getLogger(CMD_generate_fvecExtract.class);
 
   // JLine terminal display components

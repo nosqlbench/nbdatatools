@@ -33,6 +33,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public class MerkleRefFactory {
 
+    /// Creates a new MerkleRefFactory.
+    public MerkleRefFactory() {
+    }
+
     /**
      * Creates a MerkleRef from a data file with progress tracking.
      * This is the recommended method for creating merkle trees with progress monitoring.

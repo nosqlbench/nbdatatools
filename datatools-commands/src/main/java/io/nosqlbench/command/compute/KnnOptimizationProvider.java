@@ -36,6 +36,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Uses cached MethodHandles for zero-overhead method dispatch.
  */
 public class KnnOptimizationProvider {
+
+    /// Creates a new KnnOptimizationProvider instance.
+    public KnnOptimizationProvider() {
+    }
+
     private static final Logger logger = LogManager.getLogger(KnnOptimizationProvider.class);
     private static final boolean PANAMA_AVAILABLE;
 
@@ -159,6 +164,7 @@ public class KnnOptimizationProvider {
      * @param topK number of neighbors to find
      * @param distanceMetric the distance metric to use
      * @return top-K nearest neighbors
+     * @throws Throwable if the Panama method handle invocation fails
      */
     public static NeighborIndex[] findTopKNeighborsDirect(
         float[] queryVector,
@@ -209,6 +215,7 @@ public class KnnOptimizationProvider {
      * @param startIndex starting vector index
      * @param endIndex ending vector index
      * @return PanamaVectorBatch loaded via memory-mapping (as Object)
+     * @throws Throwable if the Panama method handle invocation fails
      */
     public static Object loadAsPanamaVectorBatch(
         Path vectorFilePath,
@@ -236,6 +243,7 @@ public class KnnOptimizationProvider {
      * @param distanceMetric distance metric
      * @param progressCounter AtomicInteger for progress updates (incremented as batches complete)
      * @return top-K results for each query (2D array)
+     * @throws Throwable if the Panama method handle invocation fails
      */
     public static NeighborIndex[][] findTopKBatched(
         List<float[]> queries,
@@ -263,6 +271,7 @@ public class KnnOptimizationProvider {
 
     /**
      * Check if Panama optimizations are available.
+     * @return true if Panama optimizations are available
      */
     public static boolean isPanamaAvailable() {
         return PANAMA_AVAILABLE;

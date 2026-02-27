@@ -69,6 +69,11 @@ import java.util.concurrent.Callable;
         "Facet names: base, query, indices, distances",
     exitCodeList = {"0: success", "1: error processing source"})
 public class CMD_analyze_describe implements Callable<Integer> {
+
+    /// Creates a new CMD_analyze_describe instance.
+    public CMD_analyze_describe() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_describe.class);
 
     @CommandLine.Parameters(paramLabel = "VECTORS",

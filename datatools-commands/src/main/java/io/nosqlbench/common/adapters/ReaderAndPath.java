@@ -26,26 +26,34 @@ import java.nio.file.Path;
 import java.util.ServiceLoader;
 import java.util.function.Predicate;
 
+/// Associates a reader name with a file path for vector file I/O.
 public class ReaderAndPath {
-  
+
   private final String reader;
   private final Path source;
-  
+
+  /// Creates a new ReaderAndPath with the given reader name and source path.
+  /// @param reader the reader name
+  /// @param source the source path
   public ReaderAndPath(String reader, Path source) {
     this.reader = reader;
     this.source = source;
   }
-  
-  /// @return the reader
+
+  /// Returns the reader name.
+  /// @return the reader name
   public String reader() {
     return reader;
   }
-  
+
+  /// Returns the source path.
   /// @return the source path
   public Path source() {
     return source;
   }
 
+  /// Creates a new ReaderAndPath by parsing a spec string of the form "reader:path" or just "path".
+  /// @param spec the spec string to parse
   public ReaderAndPath(String spec) {
     this(getReader(spec),getPath(spec));
   }
@@ -67,6 +75,10 @@ public class ReaderAndPath {
     return extension[extension.length - 1];
   }
 
+  /// Loads a sized reader for the given vector data type via SPI.
+  /// @param <T> the vector element type
+  /// @param type the class of the vector element type
+  /// @return a bounded vector file stream for the given type
   public <T> BoundedVectorFileStream<T> getSizedReader(Class<? extends T> type) {
     // Load all BoundedVectorFileStream implementations via SPI
     // Load all BoundedVectorFileStream implementations via SPI on the classpath

@@ -88,6 +88,11 @@ import java.util.concurrent.Callable;
 @CommandLine.Command(name = "sketch",
     description = "Generate a reference vector dataset with known distribution properties for verification testing")
 public class CMD_generate_sketch implements Callable<Integer> {
+
+    /// Creates a new CMD_generate_sketch instance.
+    public CMD_generate_sketch() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_generate_sketch.class);
 
     private static final int EXIT_SUCCESS = 0;
@@ -156,12 +161,18 @@ public class CMD_generate_sketch implements Callable<Integer> {
      * Distribution mix strategies.
      */
     public enum DistributionMix {
-        BOUNDED,       // Mix of Normal, Beta, Uniform - good for bounded embeddings
-        NORMAL_ONLY,   // All truncated Normal
-        BETA_ONLY,     // All Beta
-        UNIFORM_ONLY,  // All Uniform
-        MIXED,         // Rotating mix for verification testing
-        FULL           // All distribution types including multimodal (1-4 modes)
+        /// Mix of Normal, Beta, Uniform - good for bounded embeddings
+        BOUNDED,
+        /// All truncated Normal
+        NORMAL_ONLY,
+        /// All Beta
+        BETA_ONLY,
+        /// All Uniform
+        UNIFORM_ONLY,
+        /// Rotating mix for verification testing
+        MIXED,
+        /// All distribution types including multimodal (1-4 modes)
+        FULL
     }
 
     @Override
@@ -659,6 +670,9 @@ public class CMD_generate_sketch implements Callable<Integer> {
         return "..." + path.substring(path.length() - maxLen + 3);
     }
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         CMD_generate_sketch cmd = new CMD_generate_sketch();
         int exitCode = new CommandLine(cmd).execute(args);

@@ -32,6 +32,10 @@ import java.util.Optional;
  */
 public final class ConsoleProgressOption {
 
+    /// Creates a new ConsoleProgressOption instance.
+    public ConsoleProgressOption() {
+    }
+
     private static final String PROP_KEY = "nb.status.sink";
 
     @CommandLine.Option(
@@ -69,6 +73,7 @@ public final class ConsoleProgressOption {
     }
 
     /**
+     * Checks if the user explicitly selected off mode.
      * @return {@code true} if the user explicitly selected {@code --status=off}.
      */
     public boolean isExplicitlyOff() {
@@ -107,6 +112,11 @@ public final class ConsoleProgressOption {
      * Picocli converter that maps user-provided values to {@link StatusSinkMode}.
      */
     public static final class ProgressModeConverter implements CommandLine.ITypeConverter<StatusSinkMode> {
+
+        /// Creates a new ProgressModeConverter instance.
+        public ProgressModeConverter() {
+        }
+
         @Override
         public StatusSinkMode convert(String value) {
             try {

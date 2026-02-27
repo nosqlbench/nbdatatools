@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 /// Rewrites a slabtastic file into a new file with clean page alignment,
@@ -46,6 +47,9 @@ import java.util.concurrent.Callable;
     exitCodeList = {"0: Success", "1: Error"}
 )
 public class CMD_slab_rewrite implements Callable<Integer>, SlabConstants {
+
+    /// Creates a new instance of the rewrite subcommand.
+    public CMD_slab_rewrite() {}
 
     @CommandLine.Parameters(index = "0", description = "Source slabtastic file")
     private Path source;
@@ -76,8 +80,8 @@ public class CMD_slab_rewrite implements Callable<Integer>, SlabConstants {
         description = "Skip pre-flight structural validation of the source file")
     private boolean skipCheck;
 
-    @CommandLine.Option(names = {"--namespace", "-n"}, defaultValue = "",
-        description = "Namespace to read from (default: default namespace)")
+    @CommandLine.Option(names = {"--namespace", "-n"},
+        description = "Namespace to rewrite; if omitted, all namespaces are rewritten")
     private String namespace;
 
     @CommandLine.Option(names = {"--progress"},
@@ -105,41 +109,60 @@ public class CMD_slab_rewrite implements Callable<Integer>, SlabConstants {
         }
 
         try (SlabReader reader = new SlabReader(source)) {
-            List<SlabReader.PageSummary> pages = reader.pages(namespace);
+            // Determine which namespaces to rewrite
+            Set<String> namespacesToRewrite;
+            if (namespace != null) {
+                namespacesToRewrite = Set.of(namespace);
+            } else {
+                namespacesToRewrite = reader.namespaces();
+            }
+
             var config = maxPageSize != null
                 ? new SlabWriter.SlabWriterConfig(pageSize, minPageSize, pageAlignment, maxPageSize)
                 : new SlabWriter.SlabWriterConfig(pageSize, minPageSize, pageAlignment);
 
             try (SlabWriter writer = SlabWriter.createWithBufferNaming(dest, config)) {
-                long written = 0;
-                int pagesDone = 0;
-                long lastProgressTime = System.nanoTime();
+                long totalWritten = 0;
+                int totalPages = 0;
 
-                for (SlabReader.PageSummary ps : pages) {
-                    for (int i = 0; i < ps.recordCount(); i++) {
-                        long ordinal = ps.startOrdinal() + i;
-                        Optional<ByteBuffer> data = reader.get(namespace, ordinal);
-                        if (data.isEmpty()) {
-                            System.err.printf("WARNING: Missing record at ordinal %d%n", ordinal);
-                            continue;
-                        }
-                        ByteBuffer buf = data.get();
-                        byte[] bytes = new byte[buf.remaining()];
-                        buf.get(bytes);
-                        writer.write(namespace, ordinal, bytes);
-                        written++;
+                for (String ns : namespacesToRewrite) {
+                    List<SlabReader.PageSummary> pages = reader.pages(ns);
+                    long written = 0;
+                    long lastProgressTime = System.nanoTime();
 
-                        if (progress && (written % 1_000_000 == 0
-                            || System.nanoTime() - lastProgressTime >= 1_000_000_000L)) {
-                            System.err.printf("Processing: %,d records (%d pages) ...%n",
-                                written, pagesDone);
-                            lastProgressTime = System.nanoTime();
+                    for (SlabReader.PageSummary ps : pages) {
+                        for (int i = 0; i < ps.recordCount(); i++) {
+                            long ordinal = ps.startOrdinal() + i;
+                            Optional<ByteBuffer> data = reader.get(ns, ordinal);
+                            if (data.isEmpty()) {
+                                System.err.printf("WARNING: Missing record at ordinal %d in namespace '%s'%n",
+                                    ordinal, ns);
+                                continue;
+                            }
+                            ByteBuffer buf = data.get();
+                            byte[] bytes = new byte[buf.remaining()];
+                            buf.get(bytes);
+                            writer.write(ns, ordinal, bytes);
+                            written++;
+
+                            if (progress && (written % 1_000_000 == 0
+                                || System.nanoTime() - lastProgressTime >= 1_000_000_000L)) {
+                                System.err.printf("Processing namespace '%s': %,d records ...%n",
+                                    ns, written);
+                                lastProgressTime = System.nanoTime();
+                            }
                         }
                     }
-                    pagesDone++;
+                    totalWritten += written;
+                    totalPages += pages.size();
                 }
-                System.out.printf("Rewrote %,d records from %d pages into %s%n",
-                    written, pages.size(), dest);
+                if (namespacesToRewrite.size() > 1) {
+                    System.out.printf("Rewrote %,d records from %d pages across %d namespaces into %s%n",
+                        totalWritten, totalPages, namespacesToRewrite.size(), dest);
+                } else {
+                    System.out.printf("Rewrote %,d records from %d pages into %s%n",
+                        totalWritten, totalPages, dest);
+                }
             }
             return 0;
         } catch (Exception e) {

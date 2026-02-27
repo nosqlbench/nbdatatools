@@ -21,5 +21,8 @@ package io.nosqlbench.vectordata.discovery.metadata;
 import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
 import io.nosqlbench.vectordata.spec.predicates.PNode;
 
+/// A dataset view of predicate data.
+///
+/// @param <T> the element type
 public interface Predicates<T> extends DatasetView<T> {
 }

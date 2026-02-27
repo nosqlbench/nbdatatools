@@ -186,6 +186,8 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns a builder for custom configuration.
+     *
+     * @return a new builder
      */
     public static Builder builder() {
         return new Builder();
@@ -488,6 +490,8 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns current progress (0.0 to 1.0).
+     *
+     * @return the progress fraction
      */
     public double getProgress() {
         return totalDimensions > 0
@@ -497,6 +501,8 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns the detected NUMA topology.
+     *
+     * @return the NUMA topology
      */
     public NumaTopology getTopology() {
         return topology;
@@ -504,6 +510,8 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns threads per NUMA node.
+     *
+     * @return the thread count per node
      */
     public int getThreadsPerNode() {
         return threadsPerNode;
@@ -511,6 +519,8 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns total thread count across all NUMA nodes.
+     *
+     * @return the total thread count
      */
     public int getTotalThreads() {
         return threadsPerNode * topology.nodeCount();
@@ -542,6 +552,9 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets the NUMA topology (default: auto-detect).
+         *
+         * @param topology the NUMA topology
+         * @return this builder
          */
         public Builder topology(NumaTopology topology) {
             this.topology = topology;
@@ -550,6 +563,9 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets threads per NUMA node (default: auto-calculate).
+         *
+         * @param threads the thread count per node
+         * @return this builder
          */
         public Builder threadsPerNode(int threads) {
             if (threads <= 0 && threads != -1) {
@@ -561,6 +577,9 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets the batch size (dimensions per task).
+         *
+         * @param batchSize the batch size
+         * @return this builder
          */
         public Builder batchSize(int batchSize) {
             if (batchSize <= 0) {
@@ -572,6 +591,9 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets the best-fit selector.
+         *
+         * @param selector the selector
+         * @return this builder
          */
         public Builder selector(BestFitSelector selector) {
             this.selector = selector;
@@ -581,6 +603,9 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Forces a specific fitter for all dimensions.
+         *
+         * @param fitter the fitter to force
+         * @return this builder
          */
         public Builder forcedFitter(ComponentModelFitter fitter) {
             this.forcedFitter = fitter;
@@ -590,6 +615,9 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets the unique vector count for the model.
+         *
+         * @param uniqueVectors the unique vector count
+         * @return this builder
          */
         public Builder uniqueVectors(long uniqueVectors) {
             if (uniqueVectors <= 0) {
@@ -601,6 +629,8 @@ public final class NumaAwareDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Builds the extractor.
+         *
+         * @return the constructed extractor
          */
         public NumaAwareDatasetModelExtractor build() {
             NumaTopology effectiveTopology = topology != null

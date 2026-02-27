@@ -28,16 +28,21 @@ public class ConjugateNode implements BBWriter<ConjugateNode>, PNode<ConjugateNo
     /// values to conjugate
     private final PNode<?>[] values;
     
+    /// Creates a new conjugate node with the given type and values.
+    /// @param type the conjugate type (AND or OR)
+    /// @param values the predicate nodes to conjugate
     public ConjugateNode(ConjugateType type, PNode<?>... values) {
         this.type = type;
         this.values = values;
     }
     
+    /// Get the conjugate type.
     /// @return the type of {@link ConjugateType}
     public ConjugateType type() {
         return type;
     }
     
+    /// Get the predicate values to conjugate.
     /// @return values to conjugate
     public PNode<?>[] values() {
         return values;

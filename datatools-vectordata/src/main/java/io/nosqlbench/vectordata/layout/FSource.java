@@ -48,20 +48,31 @@ public class FSource {
   /// the type of the source (xvec or virtdata)
   private final SourceType type;
 
+  /// Creates a new source with the given path and window, inferring the source type.
+  /// @param inpath the path to the data source
+  /// @param window the window of the data source
   public FSource(String inpath, FWindow window) {
     this(inpath, window, SourceType.inferFromPath(inpath));
   }
 
+  /// Creates a new source with the given path, window, and type.
+  /// @param inpath the path to the data source
+  /// @param window the window of the data source
+  /// @param type the source type, or null to infer from the path
   public FSource(String inpath, FWindow window, SourceType type) {
     this.inpath = inpath;
     this.window = window;
     this.type = type != null ? type : SourceType.inferFromPath(inpath);
   }
 
+  /// Get the path to the data source.
+  /// @return the path to the data source
   public String inpath() {
     return inpath;
   }
 
+  /// Get the window of the data source.
+  /// @return the window of the data source
   public FWindow window() {
     return window;
   }

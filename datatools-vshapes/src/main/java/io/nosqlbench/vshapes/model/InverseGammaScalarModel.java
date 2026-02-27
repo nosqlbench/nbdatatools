@@ -79,6 +79,7 @@ import java.util.Objects;
 @ModelType(InverseGammaScalarModel.MODEL_TYPE)
 public class InverseGammaScalarModel implements ScalarModel {
 
+    /// The model type identifier for inverse gamma distributions.
     public static final String MODEL_TYPE = "inverse_gamma";
 
     @SerializedName("shape")

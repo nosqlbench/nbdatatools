@@ -43,6 +43,9 @@ import java.util.concurrent.atomic.AtomicLong;
 /// This does not instance its state per call, and this needs to be fixed.
 @BuiltinFunction({"nbhisto/1"})
 public class nbhisto extends NBBaseJQFunction {
+  /// Creates a new nbhisto function instance.
+  public nbhisto() {}
+
   private ConcurrentHashMap<String, AtomicLong> counts;
   private AtomicLong counter;
 

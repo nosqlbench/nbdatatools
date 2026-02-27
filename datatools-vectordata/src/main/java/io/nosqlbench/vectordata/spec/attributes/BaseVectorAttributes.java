@@ -32,6 +32,11 @@ public class BaseVectorAttributes {
     /// the distance function used to compute distance between vectors
     private final DistanceFunction distance_function;
     
+    /// Creates a new base vector attributes instance.
+    /// @param count the number of vectors
+    /// @param dimensions the number of dimensions in each vector
+    /// @param model the name of the model used to generate the data
+    /// @param distance_function the distance function used
     public BaseVectorAttributes(long count, long dimensions, String model, DistanceFunction distance_function) {
         this.count = count;
         this.dimensions = dimensions;
@@ -39,21 +44,25 @@ public class BaseVectorAttributes {
         this.distance_function = distance_function;
     }
     
+    /// Get the number of vectors in the dataset.
     /// @return the number of vectors in the dataset
     public long count() {
         return count;
     }
     
+    /// Get the number of dimensions in each vector.
     /// @return the number of dimensions in each vector
     public long dimensions() {
         return dimensions;
     }
     
+    /// Get the name of the model used to generate the data.
     /// @return the name of the model used to generate the data
     public String model() {
         return model;
     }
     
+    /// Get the distance function used to compute distance between vectors.
     /// @return the distance function used to compute distance between vectors
     public DistanceFunction distance_function() {
         return distance_function;

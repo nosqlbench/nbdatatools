@@ -28,6 +28,10 @@ import java.util.Optional;
  */
 public class InputFileOption {
 
+    /// Creates a new InputFileOption instance.
+    public InputFileOption() {
+    }
+
     /**
      * Immutable input spec with optional inline range.
      * Implements CharSequence to allow direct use as a string in most contexts.
@@ -41,6 +45,7 @@ public class InputFileOption {
      * </ul>
      *
      * @param spec            the vector data spec (never null)
+     * @param range           the parsed range, or null
      * @param inlineRangeSpec optional range specification extracted from path, or null
      */
     public record InputFile(VectorDataSpec spec, RangeOption.Range range, String inlineRangeSpec)
@@ -57,6 +62,7 @@ public class InputFileOption {
 
         /**
          * Creates an InputFile without inline range specification.
+         * @param spec the vector data spec
          */
         public InputFile(VectorDataSpec spec) {
             this(spec, null, null);
@@ -64,6 +70,7 @@ public class InputFileOption {
 
         /**
          * Gets the normalized absolute path.
+         * @return the normalized absolute path
          */
         public Path normalizedPath() {
             return spec.getLocalPath().orElseThrow().normalize().toAbsolutePath();
@@ -71,6 +78,7 @@ public class InputFileOption {
 
         /**
          * Checks if an inline range specification was provided.
+         * @return true if an inline range was provided
          */
         public boolean hasInlineRange() {
             return range != null;
@@ -78,6 +86,7 @@ public class InputFileOption {
 
         /**
          * Checks if the input file exists.
+         * @return true if the input file exists on disk
          */
         public boolean exists() {
             return spec.isLocalFile() && Files.exists(spec.getLocalPath().orElseThrow());
@@ -126,6 +135,10 @@ public class InputFileOption {
      */
     public static class InputFileConverter implements CommandLine.ITypeConverter<InputFile> {
 
+        /// Creates a new InputFileConverter instance.
+        public InputFileConverter() {
+        }
+
         @Override
         public InputFile convert(String value) {
             if (value == null || value.trim().isEmpty()) {
@@ -149,6 +162,7 @@ public class InputFileOption {
     /**
      * Gets the InputFile record constructed from the options.
      * Parsing happens automatically via picocli - no manual parse() call needed.
+     * @return the parsed InputFile record
      */
     public InputFile getInputFile() {
         return inputFile;
@@ -156,6 +170,7 @@ public class InputFileOption {
 
     /**
      * Gets the input file path.
+     * @return the input file path
      */
     public Path getInputPath() {
         return inputFile != null ? inputFile.spec().getLocalPath().orElseThrow() : null;
@@ -163,6 +178,7 @@ public class InputFileOption {
 
     /**
      * Gets the normalized input file path.
+     * @return the normalized input file path
      */
     public Path getNormalizedInputPath() {
         return inputFile != null ? inputFile.normalizedPath() : null;
@@ -170,6 +186,7 @@ public class InputFileOption {
 
     /**
      * Gets the inline range specification, if any.
+     * @return the inline range spec string, or null
      */
     public String getInlineRangeSpec() {
         return inputFile != null ? inputFile.inlineRangeSpec() : null;
@@ -177,6 +194,7 @@ public class InputFileOption {
 
     /**
      * Checks if an inline range specification was provided.
+     * @return true if an inline range was provided
      */
     public boolean hasInlineRange() {
         return inputFile != null && inputFile.hasInlineRange();
@@ -184,6 +202,7 @@ public class InputFileOption {
 
     /**
      * Gets the vector spec.
+     * @return the vector data spec
      */
     public VectorDataSpec getSpec() {
         return inputFile != null ? inputFile.spec() : null;
@@ -191,6 +210,7 @@ public class InputFileOption {
 
     /**
      * Gets the local file path if this is a local file spec.
+     * @return the local path, or empty if not a local file
      */
     public Optional<Path> getLocalPath() {
         return inputFile != null ? inputFile.spec().getLocalPath() : Optional.empty();
@@ -198,6 +218,7 @@ public class InputFileOption {
 
     /**
      * Gets the parsed range, if any.
+     * @return the parsed range, or empty if none specified
      */
     public Optional<RangeOption.Range> getRange() {
         return inputFile != null ? Optional.ofNullable(inputFile.range()) : Optional.empty();

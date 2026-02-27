@@ -170,6 +170,7 @@ public class JITMaturityGuard implements AutoCloseable {
     /// Returns the events captured during the recording window.
     ///
     /// Only populated after [#verify] has been called.
+    /// @return the captured JFR events
     public List<RecordedEvent> capturedEvents() {
         return Collections.unmodifiableList(capturedEvents);
     }
@@ -186,12 +187,14 @@ public class JITMaturityGuard implements AutoCloseable {
 
         /// Returns `true` if every method in [#targetMethodLevels] reached C2 (tier 4).
         /// Returns `true` vacuously if no target classes were specified.
+        /// @return true if all targets reached C2
         public boolean allTargetsReachedC2() {
             return targetMethodLevels.values().stream().allMatch(level -> level == 4);
         }
 
         /// Returns `true` if target classes were specified but no compilation
         /// events were found for any of them.
+        /// @return true if no target events were found
         public boolean targetEventsAbsent() {
             return targetMethodLevels.isEmpty();
         }

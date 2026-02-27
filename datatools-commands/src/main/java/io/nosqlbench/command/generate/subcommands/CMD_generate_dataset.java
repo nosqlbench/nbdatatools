@@ -68,6 +68,11 @@ import java.util.concurrent.Callable;
         "and a dataset.yaml descriptor with configurable profiles.",
     exitCodeList = {"0: success", "1: warning", "2: error"})
 public class CMD_generate_dataset implements Callable<Integer> {
+
+    /// Creates a new CMD_generate_dataset instance.
+    public CMD_generate_dataset() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_generate_dataset.class);
 
     private static final int EXIT_SUCCESS = 0;
@@ -171,6 +176,9 @@ public class CMD_generate_dataset implements Callable<Integer> {
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         CMD_generate_dataset cmd = new CMD_generate_dataset();
         int exitCode = new CommandLine(cmd).execute(args);

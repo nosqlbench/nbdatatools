@@ -140,9 +140,13 @@ import io.nosqlbench.status.StatusTracker;
  * @since 4.0.0
  */
 public class StatusUpdate<T> {
+    /// The task's progress from 0.0 to 1.0.
     public final double progress;
+    /// The task's current execution state.
     public final RunState runstate;
+    /// The timestamp when this update was created.
     public final long timestamp;
+    /// The tracked object reference, or null.
     public final T tracked;
 
     /**

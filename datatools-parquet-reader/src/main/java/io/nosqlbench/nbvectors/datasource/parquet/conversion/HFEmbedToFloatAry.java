@@ -24,6 +24,8 @@ import java.util.function.Function;
 
 /// Convert a Parquet [Group] into a float[]
 public class HFEmbedToFloatAry implements Function<Group, float[]> {
+  /// Creates a new HFEmbedToFloatAry converter.
+  public HFEmbedToFloatAry() {}
 
   @Override
   public float[] apply(Group group) {

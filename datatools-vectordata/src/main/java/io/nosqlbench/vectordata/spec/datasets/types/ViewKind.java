@@ -33,24 +33,40 @@ import java.util.stream.Collectors;
 /// (e.g. `base`, `query`) for consistency going forward.
 public enum ViewKind {
 
+  /// Base vectors (training data).
   base(
       TestDataKind.base_vectors,
       Set.of("base_vectors", "train")
   ),
 
+  /// Query vectors (test data).
   query(
       TestDataKind.query_vectors,
       Set.of("query_vectors", "queries", "test")
   ),
 
+  /// Neighbor indices (ground truth).
   indices(
       TestDataKind.neighbor_indices,
       Set.of("neighbor_indices", "ground_truth", "gt")
   ),
 
+  /// Neighbor distances.
   neighbors(
       TestDataKind.neighbor_distances,
       Set.of("neighbor_distances", "distances")
+  ),
+
+  /// Filtered neighbor indices.
+  filtered_indices(
+      TestDataKind.filtered_neighbor_indices,
+      Set.of("filtered_neighbor_indices", "filtered_gt", "filtered_ground_truth")
+  ),
+
+  /// Filtered neighbor distances.
+  filtered_neighbors(
+      TestDataKind.filtered_neighbor_distances,
+      Set.of("filtered_neighbor_distances", "filtered_distances")
   );
 
   /// The dataset kind that this view resolves to within the spec.
@@ -76,17 +92,24 @@ public enum ViewKind {
     this.allNames = Collections.unmodifiableSet(names);
   }
 
+  /// Returns the underlying dataset kind.
+  ///
   /// @return the underlying TestDataKind represented by this view
   public TestDataKind getDatasetKind() {
     return datasetKind;
   }
 
+  /// Returns all accepted aliases for this view kind.
+  ///
   /// @return the full set of accepted aliases for this view kind
   public Set<String> getAllNames() {
     return allNames;
   }
 
   /// Determine if the provided name matches this view kind (case insensitive).
+  ///
+  /// @param name the name to check
+  /// @return true if the name matches any alias of this view kind
   public boolean matches(String name) {
     if (name == null) {
       return false;

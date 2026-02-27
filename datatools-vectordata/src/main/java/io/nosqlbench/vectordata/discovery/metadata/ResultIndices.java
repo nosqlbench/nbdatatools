@@ -20,5 +20,6 @@ package io.nosqlbench.vectordata.discovery.metadata;
 
 import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 
+/// A dataset view providing result indices as int arrays.
 public interface ResultIndices extends VectorDatasetView<int[]> {
 }

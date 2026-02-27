@@ -45,6 +45,11 @@ import java.util.concurrent.Callable;
     description = "Invalidate bitset entries in a .mrkl file"
 )
 public class CMD_merkle_spoilbits implements Callable<Integer> {
+
+    /// Creates a new CMD_merkle_spoilbits instance.
+    public CMD_merkle_spoilbits() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_merkle_spoilbits.class);
 
     @Parameters(index = "0", description = "Path to the .mrkl file")

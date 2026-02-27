@@ -88,6 +88,7 @@ import java.util.Objects;
 @ModelType(PearsonIVScalarModel.MODEL_TYPE)
 public class PearsonIVScalarModel implements ScalarModel {
 
+    /// The model type identifier for Pearson type IV distributions.
     public static final String MODEL_TYPE = "pearson_iv";
 
     @SerializedName("m")

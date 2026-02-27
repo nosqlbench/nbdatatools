@@ -39,6 +39,10 @@ import java.util.concurrent.Callable;
     exitCodeList = {"0: success", "1: error"})
 public class CMD_config_show implements Callable<Integer> {
 
+    /// Creates a new CMD_config_show instance.
+    public CMD_config_show() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_config_show.class);
 
     @Override

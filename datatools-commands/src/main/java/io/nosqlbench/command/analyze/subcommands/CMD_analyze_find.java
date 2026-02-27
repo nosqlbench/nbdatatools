@@ -52,6 +52,11 @@ import java.util.concurrent.Callable;
     exitCodeListHeading = "Exit Codes:%n",
     exitCodeList = {"0:success", "1:not found", "2:error"})
 public class CMD_analyze_find implements Callable<Integer> {
+
+    /// Creates a new CMD_analyze_find instance.
+    public CMD_analyze_find() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_find.class);
 
     private static final int EXIT_SUCCESS = 0;

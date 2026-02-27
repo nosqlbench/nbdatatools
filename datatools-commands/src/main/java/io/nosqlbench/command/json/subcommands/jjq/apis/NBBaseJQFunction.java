@@ -30,6 +30,9 @@ import java.util.Map;
 /// A base type for building new functions for jackson-jq within the
 /// {@link CMD_jjq} codebase
 public abstract class NBBaseJQFunction implements Function, StatefulShutdown {
+  /// Creates a new NBBaseJQFunction instance.
+  public NBBaseJQFunction() {}
+
   private boolean registered = false;
   private Map<String, Object> state;
 

@@ -50,6 +50,11 @@ import java.util.regex.Pattern;
     description = "Invalidate bitset entries in a .mrkl file and corrupt corresponding cache data"
 )
 public class CMD_merkle_spoilchunks implements Callable<Integer> {
+
+    /// Creates a new CMD_merkle_spoilchunks instance.
+    public CMD_merkle_spoilchunks() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_merkle_spoilchunks.class);
 
     @Parameters(index = "0", description = "Path to the .mrkl file")

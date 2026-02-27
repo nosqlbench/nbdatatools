@@ -51,6 +51,10 @@ import java.util.concurrent.Callable;
     exitCodeList = {"0: success", "1: error"})
 public class CMD_datasets_cache implements Callable<Integer> {
 
+    /// Creates a new CMD_datasets_cache instance.
+    public CMD_datasets_cache() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_datasets_cache.class);
 
     @CommandLine.Option(names = {"--catalog"},

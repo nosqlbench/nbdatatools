@@ -51,6 +51,9 @@ import java.util.concurrent.Callable;
 )
 public class CMD_slab_append implements Callable<Integer>, SlabConstants {
 
+    /// Creates a new instance of the append subcommand.
+    public CMD_slab_append() {}
+
     @CommandLine.Parameters(index = "0", description = "Target slabtastic file to append to")
     private Path target;
 

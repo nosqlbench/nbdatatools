@@ -27,6 +27,10 @@ import java.nio.file.Files;
  */
 public class IndicesFileOption {
 
+    /// Creates a new IndicesFileOption instance.
+    public IndicesFileOption() {
+    }
+
     @CommandLine.Option(
         names = {"-i", "--indices"},
         description = "Output file path for neighbor indices",
@@ -114,8 +118,11 @@ public class IndicesFileOption {
 
     /**
      * Record representing indices file configuration
+     * @param path the indices file path
+     * @param force whether to force overwrite
      */
     public record IndicesFile(Path path, boolean force) implements CharSequence {
+        /// Compact constructor with validation.
         public IndicesFile {
             if (path == null) {
                 throw new IllegalArgumentException("Indices path cannot be null");
@@ -143,10 +150,14 @@ public class IndicesFileOption {
             return path.toString();
         }
 
+        /// Returns the normalized path.
+        /// @return the normalized path
         public Path normalize() {
             return path.normalize();
         }
 
+        /// Checks if the indices file exists.
+        /// @return true if the file exists
         public boolean exists() {
             return Files.exists(path);
         }

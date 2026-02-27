@@ -44,6 +44,19 @@ class ViewSelector {
             case "neighbor_distances":
             case "distances":
                 return tdv.getNeighborDistances().map(VectorDatasetView.class::cast);
+            case "metadata_predicates":
+            case "meta_predicates":
+            case "predicate_results":
+            case "meta_results":
+            case "metadata_layout":
+            case "meta_layout":
+            case "layout":
+            case "metadata_content":
+            case "meta_content":
+            case "content":
+            case "meta_base":
+                // Predicate kinds are not vector dataset views; they're accessed via predicateProfile()
+                return Optional.empty();
             default:
                 return Optional.empty();
         }

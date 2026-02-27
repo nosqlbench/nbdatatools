@@ -40,6 +40,9 @@ public class AttrSpec {
     /// the attribute name
     private final String attr;
     
+    /// Creates a new attribute specifier.
+    /// @param path the path component to the fully qualified attribute
+    /// @param attr the attribute name
     public AttrSpec(String path, String attr) {
         // Example of a simple validation:
         if (attr == null || attr.isEmpty()) {
@@ -49,11 +52,13 @@ public class AttrSpec {
         this.attr = attr;
     }
     
+    /// Get the path component to the fully qualified attribute.
     /// @return the path component to the fully qualified attribute
     public String path() {
         return path;
     }
     
+    /// Get the attribute name.
     /// @return the attribute name
     public String attr() {
         return attr;

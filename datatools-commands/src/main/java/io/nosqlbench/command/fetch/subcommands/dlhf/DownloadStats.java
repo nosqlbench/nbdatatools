@@ -23,6 +23,11 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /// download stats
 public class DownloadStats {
+
+    /// Creates a new DownloadStats instance.
+    public DownloadStats() {
+    }
+
     private final AtomicInteger completedFiles = new AtomicInteger(0);
     private final AtomicInteger totalFiles = new AtomicInteger(0);
     private final AtomicLong totalBytes = new AtomicLong(0);

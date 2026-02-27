@@ -52,6 +52,10 @@ import java.util.concurrent.Callable;
     exitCodeList = {"0: success", "1: error"})
 public class CMD_datasets_prebuffer implements Callable<Integer> {
 
+    /// Creates a new CMD_datasets_prebuffer instance.
+    public CMD_datasets_prebuffer() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_datasets_prebuffer.class);
 
     @CommandLine.Parameters(description = "Dataset and profile to prebuffer using 'dataset:profile'. Escape literal ':' with '\\:'.",

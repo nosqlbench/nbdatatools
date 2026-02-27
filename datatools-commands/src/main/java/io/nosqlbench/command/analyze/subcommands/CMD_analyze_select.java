@@ -48,6 +48,11 @@ import java.util.concurrent.Callable;
     description = "Retrieves and displays a vector at the specified ordinal position from a vector file",
     exitCodeList = {"0: success", "1: error processing file", "2: invalid ordinal"})
 public class CMD_analyze_select implements Callable<Integer> {
+
+    /// Creates a new CMD_analyze_select instance.
+    public CMD_analyze_select() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_select.class);
 
     @CommandLine.Parameters(index = "0", description = "Vector data source to read from",

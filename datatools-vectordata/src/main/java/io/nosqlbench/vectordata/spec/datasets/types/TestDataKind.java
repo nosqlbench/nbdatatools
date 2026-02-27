@@ -22,7 +22,7 @@ import io.nosqlbench.vectordata.spec.attributes.BaseContentAttributes;
 import io.nosqlbench.vectordata.spec.attributes.BaseVectorAttributes;
 import io.nosqlbench.vectordata.spec.attributes.NeighborDistancesAttributes;
 import io.nosqlbench.vectordata.spec.attributes.NeighborIndicesAttributes;
-import io.nosqlbench.vectordata.spec.attributes.QueryPredicatesAttributes;
+import io.nosqlbench.vectordata.spec.attributes.MetadataPredicatesAttributes;
 import io.nosqlbench.vectordata.spec.attributes.QueryVectorsAttributes;
 
 import java.util.Arrays;
@@ -75,12 +75,43 @@ public enum TestDataKind {
       "The neighbor distances dataset, containing all correct distances, organized by index",
       NeighborDistancesAttributes.class
   ),
-  /// The queries for this dataset, containing all query predicates, organized by index
-  query_predicates(
-      "/query_predicates",
-      "The optional query predicates dataset, containing all query predicates, organized by index",
-      QueryPredicatesAttributes.class
-
+  /// The metadata predicates dataset, containing all metadata filter predicates, organized by index
+  metadata_predicates(
+      "/metadata_predicates",
+      "The optional metadata predicates dataset, containing all metadata filter predicates, organized by index",
+      MetadataPredicatesAttributes.class
+  ),
+  /// The predicate results dataset, containing ordinals of metadata records matching each predicate
+  predicate_results(
+      "/predicate_results",
+      "The predicate results dataset, containing ordinals of metadata records matching each predicate",
+      null
+  ),
+  /// The metadata layout dataset, describing the schema of metadata records
+  metadata_layout(
+      "/metadata_layout",
+      "The metadata layout dataset, describing the schema of metadata records",
+      null
+  ),
+  /// The metadata content dataset, containing the actual metadata records
+  metadata_content(
+      "/metadata_content",
+      "The metadata content dataset, containing the actual metadata records",
+      null
+  ),
+  /// The filtered neighbor indices dataset, containing correct filtered KNN results
+  /// pre-conditioned on matching metadata predicates
+  filtered_neighbor_indices(
+      "/filtered_neighbor_indices",
+      "The optional filtered neighbor indices dataset, containing correct filtered KNN results pre-conditioned on matching metadata predicates",
+      NeighborIndicesAttributes.class
+  ),
+  /// The filtered neighbor distances dataset, containing correct filtered KNN distances
+  /// pre-conditioned on matching metadata predicates
+  filtered_neighbor_distances(
+      "/filtered_neighbor_distances",
+      "The optional filtered neighbor distances dataset, containing correct filtered KNN distances pre-conditioned on matching metadata predicates",
+      NeighborDistancesAttributes.class
   );
 
   /// The path to the dataset
@@ -177,7 +208,19 @@ public enum TestDataKind {
     neighbors(neighbor_indices),
     ground_truth(neighbor_indices),
     gt(neighbor_indices),
-    distances(neighbor_distances);
+    distances(neighbor_distances),
+    meta_predicates(metadata_predicates),
+    meta_results(predicate_results),
+    meta_layout(metadata_layout),
+    layout(metadata_layout),
+    meta_content(metadata_content),
+    content(metadata_content),
+    meta_base(metadata_content),
+    filtered_indices(filtered_neighbor_indices),
+    filtered_gt(filtered_neighbor_indices),
+    filtered_ground_truth(filtered_neighbor_indices),
+    filtered_distances(filtered_neighbor_distances),
+    filtered_neighbors(filtered_neighbor_distances);
 
     /// The canonical TestDataKind that this alternative name maps to
     public final TestDataKind canonical;

@@ -27,22 +27,33 @@ public class QueryVectorsAttributes {
     /// the number of dimensions in each query vector
     private final int dimensions;
     
+    /// Creates a new QueryVectorsAttributes.
+    ///
+    /// @param model the name of the model used to generate the data
+    /// @param count the number of query vectors
+    /// @param dimensions the number of dimensions in each query vector
     public QueryVectorsAttributes(String model, long count, int dimensions) {
         this.model = model;
         this.count = count;
         this.dimensions = dimensions;
     }
     
+    /// Returns the model name.
+    ///
     /// @return the name of the model used to generate the data
     public String model() {
         return model;
     }
     
+    /// Returns the query vector count.
+    ///
     /// @return the number of query vectors
     public long count() {
         return count;
     }
     
+    /// Returns the dimension count per vector.
+    ///
     /// @return the number of dimensions in each query vector
     public int dimensions() {
         return dimensions;

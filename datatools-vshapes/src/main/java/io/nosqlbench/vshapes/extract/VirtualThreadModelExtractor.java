@@ -175,9 +175,9 @@ public final class VirtualThreadModelExtractor implements ModelExtractor {
             microbatchSize, selector, forcedFitter, uniqueVectors, true);
     }
 
-    /**
-     * Returns a builder for custom configuration.
-     */
+    /// Returns a builder for custom configuration.
+    ///
+    /// @return a new Builder
     public static Builder builder() {
         return new Builder();
     }
@@ -522,6 +522,10 @@ public final class VirtualThreadModelExtractor implements ModelExtractor {
      * Builder for custom VirtualThreadModelExtractor configuration.
      */
     public static final class Builder {
+
+        /// Creates a new Builder with default values.
+        public Builder() {}
+
         private int microbatchSize = DEFAULT_MICROBATCH_SIZE;
         private BestFitSelector selector = BestFitSelector.defaultSelector();
         private ComponentModelFitter forcedFitter = null;

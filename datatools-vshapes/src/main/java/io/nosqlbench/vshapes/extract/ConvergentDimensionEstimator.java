@@ -397,6 +397,8 @@ public final class ConvergentDimensionEstimator {
     ) {
         /**
          * Returns true if all parameters have converged.
+         *
+         * @return true if all parameters converged
          */
         public boolean allConverged() {
             return meanConverged && varianceConverged && skewnessConverged && kurtosisConverged;
@@ -404,6 +406,8 @@ public final class ConvergentDimensionEstimator {
 
         /**
          * Returns true if mean and variance have converged.
+         *
+         * @return true if mean and variance converged
          */
         public boolean primaryConverged() {
             return meanConverged && varianceConverged;

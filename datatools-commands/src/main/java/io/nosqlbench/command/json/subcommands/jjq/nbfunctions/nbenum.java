@@ -42,6 +42,9 @@ import java.util.Map;
 /// This does not instance its state per function, and this needs to be fixed.
 @BuiltinFunction({"nbenum/1"})
 public class nbenum extends NBBaseJQFunction {
+  /// Creates a new nbenum function instance.
+  public nbenum() {}
+
   private NBIdEnumerator enumer;
   private String dirpath;
   private String fieldName;

@@ -49,6 +49,9 @@ public interface PredicatesASTView extends PredicateTestDataView<PNode> {
 
   /// If you have a function which can convert the PNode AST structure to a syntactically useful form,
   /// supply it to this method to get a view of the predicates which works directly with your consumer code.
+  ///
+  /// @param <U>            the target conversion type
+  /// @param syntaxAdapter  the function to convert PNode trees to the target type
   /// @return a custom conversion type for predicates
   default <U> PredicateTestDataView<U> getPredicatesVernacular(Function<PNode,U> syntaxAdapter) {
       return new PredicateTestDataVernacular<U>(syntaxAdapter, this);

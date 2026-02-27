@@ -221,6 +221,9 @@ public interface MerkleShape {
     return new BaseMerkleShape(contentSize);
   }
 
+  /// Gets the boundary information for the specified chunk.
+  /// @param chunkIndex the index of the chunk (0-based)
+  /// @return the chunk boundary
   ChunkBoundary getChunkBoundary(int chunkIndex);
   
   /// Gets the range of leaf nodes covered by the specified merkle tree node.

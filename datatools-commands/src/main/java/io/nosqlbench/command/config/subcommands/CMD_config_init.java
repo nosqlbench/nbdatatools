@@ -44,6 +44,10 @@ import java.util.concurrent.Callable;
     exitCodeList = {"0: success", "1: error"})
 public class CMD_config_init implements Callable<Integer> {
 
+    /// Creates a new CMD_config_init instance.
+    public CMD_config_init() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_config_init.class);
 
     @CommandLine.Option(names = {"--cache-dir", "-c"},

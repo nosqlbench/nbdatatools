@@ -32,6 +32,9 @@ import java.util.Optional;
 @CommandLine.Command(name = "complete", hidden = true, description = "Generate dynamic completion candidates.")
 public class NbvectorsComplete implements Runnable {
 
+    /// Creates a new NbvectorsComplete command.
+    public NbvectorsComplete() {}
+
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
 

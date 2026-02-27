@@ -27,6 +27,8 @@ import java.util.function.Supplier;
 
 /// A supplier for JSON lines from a file
 public class JJQSupplier {
+  /// Creates a new JJQSupplier instance.
+  public JJQSupplier() {}
 
   /// create a supplier for JSON lines from a file
   /// @param trainingJsonFile the path to the file to read from

@@ -146,41 +146,57 @@ public final class MemoryAwarePartitioner {
     }
 
     /// Returns the total number of vectors in the dataset.
+    ///
+    /// @return the total vector count
     public int totalVectors() {
         return totalVectors;
     }
 
     /// Returns the number of dimensions per vector.
+    ///
+    /// @return the dimension count
     public int dimensions() {
         return dimensions;
     }
 
     /// Returns the maximum memory available (in bytes).
+    ///
+    /// @return the max memory in bytes
     public long maxMemoryBytes() {
         return maxMemoryBytes;
     }
 
     /// Returns the heap fraction used for vector data.
+    ///
+    /// @return the heap fraction
     public double heapFraction() {
         return heapFraction;
     }
 
     /// Returns the computed partition size (number of vectors per partition).
+    ///
+    /// @return the partition size
     public int partitionSize() {
         return partitionSize;
     }
 
     /// Returns the total number of partitions.
+    ///
+    /// @return the partition count
     public int partitionCount() {
         return partitionCount;
     }
 
     /// Returns the estimated memory usage per partition in bytes.
+    ///
+    /// @return the bytes per partition
     public long bytesPerPartition() {
         return (long) partitionSize * dimensions * Float.BYTES;
     }
 
     /// Returns whether the dataset fits in a single partition.
+    ///
+    /// @return true if there is only one partition
     public boolean isSinglePartition() {
         return partitionCount == 1;
     }
@@ -210,11 +226,16 @@ public final class MemoryAwarePartitioner {
     /// @param end the ending vector index (exclusive)
     public record Partition(int index, int start, int end) {
         /// Returns the number of vectors in this partition.
+        ///
+        /// @return the partition size
         public int size() {
             return end - start;
         }
 
         /// Returns the progress of this partition as a fraction of total.
+        ///
+        /// @param totalPartitions the total number of partitions
+        /// @return the progress fraction
         public double progress(int totalPartitions) {
             return (double) (index + 1) / totalPartitions;
         }

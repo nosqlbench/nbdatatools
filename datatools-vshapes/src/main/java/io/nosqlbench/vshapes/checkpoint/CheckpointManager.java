@@ -275,10 +275,17 @@ public final class CheckpointManager {
 
     /// Exception thrown when checkpoint loading or validation fails.
     public static class CheckpointException extends Exception {
+        /// Creates a CheckpointException with a message.
+        ///
+        /// @param message the error message
         public CheckpointException(String message) {
             super(message);
         }
 
+        /// Creates a CheckpointException with a message and cause.
+        ///
+        /// @param message the error message
+        /// @param cause the underlying cause
         public CheckpointException(String message, Throwable cause) {
             super(message, cause);
         }

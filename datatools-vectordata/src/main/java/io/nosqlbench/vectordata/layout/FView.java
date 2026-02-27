@@ -29,15 +29,22 @@ public class FView {
   /// the window of the view
   private final FWindow window;
 
+  /// Creates a new view with the given source and window.
+  /// @param source the source of the view
+  /// @param window the window of the view
   public FView(FSource source, FWindow window) {
     this.source = source;
     this.window = window;
   }
 
+  /// Get the source of the view.
+  /// @return the source of the view
   public FSource source() {
     return source;
   }
 
+  /// Get the window of the view.
+  /// @return the window of the view
   public FWindow window() {
     return window;
   }

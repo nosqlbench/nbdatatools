@@ -49,6 +49,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 ///
 /// ```java
 public class JettyFileServerExtension implements BeforeAllCallback, AfterAllCallback {
+  /// Creates a new JettyFileServerExtension.
+  public JettyFileServerExtension() {}
   static {
     ensureHostnameResolution();
     if (System.getProperty("log4j2.hostname") == null) {

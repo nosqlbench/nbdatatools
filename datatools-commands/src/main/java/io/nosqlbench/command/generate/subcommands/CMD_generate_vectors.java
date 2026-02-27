@@ -41,6 +41,11 @@ import java.util.concurrent.Callable;
 @CommandLine.Command(name = "vectors",
     description = "Generate a file of random vectors with specified type, dimensionality, and count")
 public class CMD_generate_vectors implements Callable<Integer> {
+
+    /// Creates a new CMD_generate_vectors instance.
+    public CMD_generate_vectors() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_generate_vectors.class);
 
     private static final int EXIT_SUCCESS = 0;
@@ -176,6 +181,9 @@ public class CMD_generate_vectors implements Callable<Integer> {
         }
     }
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         CMD_generate_vectors cmd = new CMD_generate_vectors();
         int exitCode = new CommandLine(cmd).execute(args);

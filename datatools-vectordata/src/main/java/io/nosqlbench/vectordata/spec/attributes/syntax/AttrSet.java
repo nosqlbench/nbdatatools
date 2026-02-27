@@ -42,16 +42,21 @@ public class AttrSet {
     /// the attribute value to set
     private final AttrValue<?> attrvalue;
     
+    /// Creates a new attribute set.
+    /// @param attrname the attribute spec for the attribute to modify
+    /// @param attrvalue the attribute value to set
     public AttrSet(AttrSpec attrname, AttrValue<?> attrvalue) {
         this.attrname = attrname;
         this.attrvalue = attrvalue;
     }
     
+    /// Get the attribute spec for the attribute to modify.
     /// @return the attribute spec for the attribute to modify
     public AttrSpec attrname() {
         return attrname;
     }
     
+    /// Get the attribute value to set.
     /// @return the attribute value to set
     public AttrValue<?> attrvalue() {
         return attrvalue;

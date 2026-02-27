@@ -22,4 +22,8 @@ import java.util.LinkedHashMap;
 
 /// A catalog props is a map of key-value pairs
 public class Entry extends LinkedHashMap<String,Object> {
+
+    /// Creates a new Entry instance.
+    public Entry() {
+    }
 }

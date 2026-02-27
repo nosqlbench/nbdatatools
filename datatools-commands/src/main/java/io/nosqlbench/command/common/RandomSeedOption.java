@@ -24,6 +24,10 @@ import picocli.CommandLine;
  */
 public class RandomSeedOption {
 
+    /// Creates a new RandomSeedOption instance.
+    public RandomSeedOption() {
+    }
+
     /**
      * Immutable random seed specification.
      * When not specified or value is null, current time is used for non-deterministic behavior.
@@ -34,6 +38,7 @@ public class RandomSeedOption {
 
         /**
          * Creates a Seed with a specific value.
+         * @param value the seed value
          */
         public Seed(long value) {
             this(Long.valueOf(value));
@@ -48,6 +53,7 @@ public class RandomSeedOption {
 
         /**
          * Gets the effective seed value, generating one from current time if needed.
+         * @return the effective seed value
          */
         public long effective() {
             return value != null ? value : System.currentTimeMillis();
@@ -55,6 +61,7 @@ public class RandomSeedOption {
 
         /**
          * Checks if this seed was explicitly specified (vs. auto-generated).
+         * @return true if the seed was explicitly set
          */
         public boolean isExplicit() {
             return value != null;
@@ -73,6 +80,10 @@ public class RandomSeedOption {
      * Picocli type converter for {@link Seed} specifications.
      */
     public static class SeedConverter implements CommandLine.ITypeConverter<Seed> {
+
+        /// Creates a new SeedConverter instance.
+        public SeedConverter() {
+        }
 
         @Override
         public Seed convert(String value) {
@@ -101,6 +112,7 @@ public class RandomSeedOption {
     /**
      * Gets the Seed record.
      * Parsing happens automatically via picocli - no manual parse() call needed.
+     * @return the seed record
      */
     public Seed getSeedRecord() {
         return seed != null ? seed : new Seed();
@@ -108,6 +120,7 @@ public class RandomSeedOption {
 
     /**
      * Gets the effective seed value, using current time if not specified.
+     * @return the effective seed value
      */
     public long getSeed() {
         return getSeedRecord().effective();
@@ -115,6 +128,7 @@ public class RandomSeedOption {
 
     /**
      * Checks if a seed was explicitly specified by the user.
+     * @return true if a seed was explicitly provided
      */
     public boolean isSeedSpecified() {
         return seed != null && seed.isExplicit();

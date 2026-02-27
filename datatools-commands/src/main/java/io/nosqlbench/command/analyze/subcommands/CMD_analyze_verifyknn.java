@@ -102,6 +102,11 @@ import java.util.concurrent.Callable;
         "2: at least one tested neighborhood was incorrect"
     })
 public class CMD_analyze_verifyknn implements Callable<Integer> {
+
+  /// Creates a new CMD_analyze_verifyknn instance.
+  public CMD_analyze_verifyknn() {
+  }
+
   private static final Logger logger = LogManager.getLogger(CMD_analyze_verifyknn.class);
 
   @CommandLine.Mixin

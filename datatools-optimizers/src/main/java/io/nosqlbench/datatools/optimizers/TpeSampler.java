@@ -64,6 +64,8 @@ public class TpeSampler {
     private final Random rng;
 
     /// A completed trial: parameter configuration and observed objective value.
+    /// @param params the parameter configuration
+    /// @param score the observed objective value
     public record Trial(Map<String, String> params, double score) {}
 
     /// Creates a TPE sampler with Optuna-equivalent default settings.
@@ -137,6 +139,8 @@ public class TpeSampler {
     }
 
     /// Records a completed trial.
+    /// @param params the parameter configuration
+    /// @param score the observed objective value
     public void addTrial(Map<String, String> params, double score) {
         history.add(new Trial(Map.copyOf(params), score));
     }
@@ -162,11 +166,13 @@ public class TpeSampler {
     }
 
     /// Returns the trial with the highest observed score.
+    /// @return the best trial, or empty if no trials recorded
     public Optional<Trial> getBestTrial() {
         return history.stream().max(Comparator.comparingDouble(Trial::score));
     }
 
     /// Returns all completed trials, sorted by score descending.
+    /// @return the sorted trial list
     public List<Trial> getAllTrialsSorted() {
         return history.stream()
             .sorted(Comparator.comparingDouble(Trial::score).reversed())
@@ -174,16 +180,19 @@ public class TpeSampler {
     }
 
     /// Returns all completed trials in the order they were evaluated.
+    /// @return the trial list in evaluation order
     public List<Trial> getTrialsInOrder() {
         return List.copyOf(history);
     }
 
     /// Returns the number of completed trials.
+    /// @return the trial count
     public int trialCount() {
         return history.size();
     }
 
     /// Returns the total number of possible configurations in the parameter space.
+    /// @return the parameter space size
     public int spaceSize() {
         int size = 1;
         for (String[] values : paramSpace.values()) {

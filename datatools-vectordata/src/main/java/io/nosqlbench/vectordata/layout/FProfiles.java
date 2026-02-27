@@ -33,15 +33,22 @@ public class FProfiles {
   /// The maximum neighborhood size (k) for this profile, if specified
   private final Integer maxk;
 
+  /// Creates a new profile collection with the given views and maxk.
+  /// @param views the map of view names to view definitions
+  /// @param maxk the maximum neighborhood size, or null if unspecified
   public FProfiles(Map<String, FView> views, Integer maxk) {
     this.views = views;
     this.maxk = maxk;
   }
 
+  /// Creates a new profile collection with the given views and no maxk.
+  /// @param views the map of view names to view definitions
   public FProfiles(Map<String, FView> views) {
     this(views, null);
   }
 
+  /// Get the map of view names to view definitions.
+  /// @return the views map
   public Map<String, FView> views() {
     return views;
   }

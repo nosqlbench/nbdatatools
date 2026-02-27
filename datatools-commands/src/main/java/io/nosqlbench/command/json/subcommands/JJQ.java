@@ -41,6 +41,9 @@ import static picocli.CommandLine.Option;
 @Command(name = "jjq", description = "run jjq commands with extended functions",
     subcommands = {CommandLine.HelpCommand.class})
 public class JJQ implements Callable<Integer>, BundledCommand {
+  /// Creates a new JJQ command instance.
+  public JJQ() {}
+
   /// Logger for this class
   private static final Logger logger = LogManager.getLogger(JJQ.class);
 

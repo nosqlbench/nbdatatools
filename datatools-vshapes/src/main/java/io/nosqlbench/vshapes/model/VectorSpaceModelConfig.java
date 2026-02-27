@@ -201,21 +201,26 @@ public class VectorSpaceModelConfig {
         @SerializedName("weights")
         private double[] weights;
 
+        /// Creates a default ComponentConfig.
         public ComponentConfig() {
         }
 
-        /**
-         * Creates a Normal component config.
-         */
+        /// Creates a Normal component config.
+        ///
+        /// @param mean the mean value
+        /// @param stdDev the standard deviation
         public ComponentConfig(double mean, double stdDev) {
             this.type = "normal";
             this.mean = mean;
             this.stdDev = stdDev;
         }
 
-        /**
-         * Creates a truncated Normal component config.
-         */
+        /// Creates a truncated Normal component config.
+        ///
+        /// @param mean the mean value
+        /// @param stdDev the standard deviation
+        /// @param lowerBound the lower truncation bound
+        /// @param upperBound the upper truncation bound
         public ComponentConfig(double mean, double stdDev, double lowerBound, double upperBound) {
             this.type = "normal";
             this.mean = mean;
@@ -224,9 +229,11 @@ public class VectorSpaceModelConfig {
             this.upperBound = upperBound;
         }
 
-        /**
-         * Creates a Uniform component config.
-         */
+        /// Creates a Uniform component config.
+        ///
+        /// @param lower the lower bound
+        /// @param upper the upper bound
+        /// @return a new uniform ComponentConfig
         public static ComponentConfig uniform(double lower, double upper) {
             ComponentConfig config = new ComponentConfig();
             config.type = "uniform";
@@ -235,72 +242,115 @@ public class VectorSpaceModelConfig {
             return config;
         }
 
+        /// Returns the distribution type.
+        ///
+        /// @return the value
         public String getType() {
             return type != null ? type : "normal";
         }
 
+        /// Sets the distribution type.
+        ///
+        /// @param type the value to set
         public void setType(String type) {
             this.type = type;
         }
 
+        /// Returns the mean.
+        ///
+        /// @return the value
         public Double getMean() {
             return mean;
         }
 
+        /// Sets the mean.
+        ///
+        /// @param mean the value to set
         public void setMean(Double mean) {
             this.mean = mean;
         }
 
+        /// Returns the standard deviation.
+        ///
+        /// @return the value
         public Double getStdDev() {
             return stdDev;
         }
 
+        /// Sets the standard deviation.
+        ///
+        /// @param stdDev the value to set
         public void setStdDev(Double stdDev) {
             this.stdDev = stdDev;
         }
 
+        /// Returns the lower bound for uniform distributions.
+        ///
+        /// @return the value
         public Double getLower() {
             return lower;
         }
 
+        /// Sets the lower bound for uniform distributions.
+        ///
+        /// @param lower the value to set
         public void setLower(Double lower) {
             this.lower = lower;
         }
 
+        /// Returns the upper bound for uniform distributions.
+        ///
+        /// @return the value
         public Double getUpper() {
             return upper;
         }
 
+        /// Sets the upper bound for uniform distributions.
+        ///
+        /// @param upper the value to set
         public void setUpper(Double upper) {
             this.upper = upper;
         }
 
+        /// Returns the lower truncation bound.
+        ///
+        /// @return the value
         public Double getLowerBound() {
             return lowerBound;
         }
 
+        /// Sets the lower truncation bound.
+        ///
+        /// @param lowerBound the value to set
         public void setLowerBound(Double lowerBound) {
             this.lowerBound = lowerBound;
         }
 
+        /// Returns the upper truncation bound.
+        ///
+        /// @return the value
         public Double getUpperBound() {
             return upperBound;
         }
 
+        /// Sets the upper truncation bound.
+        ///
+        /// @param upperBound the value to set
         public void setUpperBound(Double upperBound) {
             this.upperBound = upperBound;
         }
 
+        /// Returns whether this component has truncation bounds.
+        ///
+        /// @return the value
         public boolean isTruncated() {
             return lowerBound != null && upperBound != null;
         }
 
-        /**
-         * Converts this configuration to a ScalarModel.
-         *
-         * @return the corresponding ScalarModel
-         * @throws IllegalArgumentException if required fields are missing or type is unknown
-         */
+        /// Converts this configuration to a ScalarModel.
+        ///
+        /// @return the corresponding ScalarModel
+        /// @throws IllegalArgumentException if required fields are missing or type is unknown
         public ScalarModel toComponentModel() {
             String modelType = getType();
 
@@ -465,85 +515,123 @@ public class VectorSpaceModelConfig {
         }
     }
 
+    /// Creates a new empty VectorSpaceModelConfig.
     public VectorSpaceModelConfig() {
     }
 
+    /// Returns the unique vector count.
+    /// @return the unique vectors
     public Long getUniqueVectors() {
         return uniqueVectors;
     }
 
+    /// Sets the unique vector count.
+    /// @param uniqueVectors the unique vectors
     public void setUniqueVectors(Long uniqueVectors) {
         this.uniqueVectors = uniqueVectors;
     }
 
+    /// Returns the dimension count.
+    /// @return the dimensions
     public Integer getDimensions() {
         return dimensions;
     }
 
+    /// Sets the number of dimensions.
+    ///
+    /// @param dimensions the value to set
     public void setDimensions(Integer dimensions) {
         this.dimensions = dimensions;
     }
 
+    /// Returns the mean.
+    ///
+    /// @return the value
     public Double getMean() {
         return mean;
     }
 
+    /// Sets the mean.
+    ///
+    /// @param mean the value to set
     public void setMean(Double mean) {
         this.mean = mean;
     }
 
+    /// Returns the standard deviation.
+    ///
+    /// @return the value
     public Double getStdDev() {
         return stdDev;
     }
 
+    /// Sets the standard deviation.
+    ///
+    /// @param stdDev the value to set
     public void setStdDev(Double stdDev) {
         this.stdDev = stdDev;
     }
 
+    /// Returns the lower truncation bound.
+    ///
+    /// @return the value
     public Double getLowerBound() {
         return lowerBound;
     }
 
+    /// Sets the lower truncation bound.
+    ///
+    /// @param lowerBound the value to set
     public void setLowerBound(Double lowerBound) {
         this.lowerBound = lowerBound;
     }
 
+    /// Returns the upper truncation bound.
+    ///
+    /// @return the value
     public Double getUpperBound() {
         return upperBound;
     }
 
+    /// Sets the upper truncation bound.
+    ///
+    /// @param upperBound the value to set
     public void setUpperBound(Double upperBound) {
         this.upperBound = upperBound;
     }
 
+    /// Returns the per-dimension component configurations.
+    ///
+    /// @return the value
     public ComponentConfig[] getComponents() {
         return components;
     }
 
+    /// Sets the per-dimension component configurations.
+    ///
+    /// @param components the component configurations
     public void setComponents(ComponentConfig[] components) {
         this.components = components;
     }
 
-    /**
-     * Returns whether this config uses per-dimension custom distributions.
-     */
+    /// Returns whether this config uses per-dimension custom distributions.
+    ///
+    /// @return true if per-dimension components are configured
     public boolean hasPerDimensionComponents() {
         return components != null && components.length > 0;
     }
 
-    /**
-     * Returns whether this config has truncation bounds.
-     */
+    /// Returns whether this config has truncation bounds.
+    ///
+    /// @return true if both lower and upper bounds are set
     public boolean isTruncated() {
         return lowerBound != null && upperBound != null;
     }
 
-    /**
-     * Converts this configuration to a VectorSpaceModel.
-     *
-     * @return the corresponding VectorSpaceModel
-     * @throws IllegalArgumentException if required fields are missing or invalid
-     */
+    /// Converts this configuration to a VectorSpaceModel.
+    ///
+    /// @return the corresponding VectorSpaceModel
+    /// @throws IllegalArgumentException if required fields are missing or invalid
     public VectorSpaceModel toVectorSpaceModel() {
         Objects.requireNonNull(uniqueVectors, "unique_vectors is required");
 
@@ -568,12 +656,10 @@ public class VectorSpaceModelConfig {
         }
     }
 
-    /**
-     * Creates a VectorSpaceModelConfig from a VectorSpaceModel.
-     *
-     * @param model the source model
-     * @return the corresponding configuration
-     */
+    /// Creates a VectorSpaceModelConfig from a VectorSpaceModel.
+    ///
+    /// @param model the source model
+    /// @return the corresponding configuration
     public static VectorSpaceModelConfig fromVectorSpaceModel(VectorSpaceModel model) {
         VectorSpaceModelConfig config = new VectorSpaceModelConfig();
         config.setUniqueVectors(model.uniqueVectors());
@@ -614,62 +700,70 @@ public class VectorSpaceModelConfig {
         return config;
     }
 
-    /**
-     * Loads a VectorSpaceModelConfig from JSON.
-     */
+    /// Loads a VectorSpaceModelConfig from JSON.
+    ///
+    /// @param json the JSON string
+    /// @return the deserialized config
     public static VectorSpaceModelConfig fromJson(String json) {
         return GSON.fromJson(json, VectorSpaceModelConfig.class);
     }
 
-    /**
-     * Loads a VectorSpaceModelConfig from a Reader.
-     */
+    /// Loads a VectorSpaceModelConfig from a Reader.
+    ///
+    /// @param reader the reader providing JSON
+    /// @return the deserialized config
     public static VectorSpaceModelConfig fromJson(Reader reader) {
         return GSON.fromJson(reader, VectorSpaceModelConfig.class);
     }
 
-    /**
-     * Serializes this configuration to JSON.
-     */
+    /// Serializes this configuration to JSON.
+    ///
+    /// @return the JSON string
     public String toJson() {
         return GSON.toJson(this);
     }
 
-    /**
-     * Writes this configuration as JSON to a Writer.
-     */
+    /// Writes this configuration as JSON to a Writer.
+    ///
+    /// @param writer the target writer
     public void toJson(Writer writer) {
         GSON.toJson(this, writer);
     }
 
-    /**
-     * Loads a VectorSpaceModel directly from a JSON file.
-     */
+    /// Loads a VectorSpaceModel directly from a JSON file.
+    ///
+    /// @param path the file path
+    /// @return the loaded model
+    /// @throws IOException if reading fails
     public static VectorSpaceModel loadFromFile(Path path) throws IOException {
         try (Reader reader = Files.newBufferedReader(path)) {
             return load(reader);
         }
     }
 
-    /**
-     * Loads a VectorSpaceModel from a Reader providing JSON.
-     */
+    /// Loads a VectorSpaceModel from a Reader providing JSON.
+    ///
+    /// @param reader the reader providing JSON
+    /// @return the loaded model
     public static VectorSpaceModel load(Reader reader) {
         VectorSpaceModelConfig config = fromJson(reader);
         return config.toVectorSpaceModel();
     }
 
-    /**
-     * Loads a VectorSpaceModel from a JSON string.
-     */
+    /// Loads a VectorSpaceModel from a JSON string.
+    ///
+    /// @param json the JSON string
+    /// @return the loaded model
     public static VectorSpaceModel load(String json) {
         VectorSpaceModelConfig config = fromJson(json);
         return config.toVectorSpaceModel();
     }
 
-    /**
-     * Saves a VectorSpaceModel to a JSON file.
-     */
+    /// Saves a VectorSpaceModel to a JSON file.
+    ///
+    /// @param model the model to save
+    /// @param path the target file path
+    /// @throws IOException if writing fails
     public static void saveToFile(VectorSpaceModel model, Path path) throws IOException {
         VectorSpaceModelConfig config = fromVectorSpaceModel(model);
         try (Writer writer = Files.newBufferedWriter(path)) {
@@ -677,18 +771,21 @@ public class VectorSpaceModelConfig {
         }
     }
 
-    /**
-     * Saves a VectorSpaceModelConfig to a JSON file.
-     */
+    /// Saves a VectorSpaceModelConfig to a JSON file.
+    ///
+    /// @param config the config to save
+    /// @param path the target file path
+    /// @throws IOException if writing fails
     public static void saveToFile(VectorSpaceModelConfig config, Path path) throws IOException {
         try (Writer writer = Files.newBufferedWriter(path)) {
             config.toJson(writer);
         }
     }
 
-    /**
-     * Saves a VectorSpaceModel to a Writer as JSON.
-     */
+    /// Saves a VectorSpaceModel to a Writer as JSON.
+    ///
+    /// @param model the model to save
+    /// @param writer the target writer
     public static void save(VectorSpaceModel model, Writer writer) {
         VectorSpaceModelConfig config = fromVectorSpaceModel(model);
         config.toJson(writer);

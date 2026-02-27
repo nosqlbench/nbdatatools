@@ -22,8 +22,11 @@ import java.util.regex.Pattern;
 /// Parsed dataset profile facet spec with separator information.
 public final class DatasetProfileFacetSpec {
 
+    /// Separator type used in dataset profile facet specifications.
     public enum Separator {
+        /// Colon separator (':')
         COLON(':'),
+        /// Dot separator ('.')
         DOT('.');
 
         private final char symbol;
@@ -32,6 +35,8 @@ public final class DatasetProfileFacetSpec {
             this.symbol = symbol;
         }
 
+        /// Returns the character symbol for this separator.
+        /// @return the separator character
         public char symbol() {
             return symbol;
         }
@@ -50,22 +55,34 @@ public final class DatasetProfileFacetSpec {
         this.separator = separator;
     }
 
+    /// Returns the dataset reference string.
+    /// @return the dataset reference
     public String datasetRef() {
         return datasetRef;
     }
 
+    /// Returns the profile name.
+    /// @return the profile name
     public String profileName() {
         return profileName;
     }
 
+    /// Returns the facet name.
+    /// @return the facet name
     public String facetName() {
         return facetName;
     }
 
+    /// Returns the separator used in the original specification.
+    /// @return the separator type
     public Separator separator() {
         return separator;
     }
 
+    /// Attempts to parse a dataset profile facet spec string.
+    ///
+    /// @param spec the spec string in format "dataset.profile.facet" or "dataset:profile:facet"
+    /// @return the parsed spec, or empty if the string does not match the expected format
     public static Optional<DatasetProfileFacetSpec> tryParse(String spec) {
         if (spec == null) {
             return Optional.empty();
@@ -94,6 +111,12 @@ public final class DatasetProfileFacetSpec {
         return Optional.of(new DatasetProfileFacetSpec(dataset, profile, facet, separator.get()));
     }
 
+    /// Parses a dataset profile facet spec string, throwing on invalid input.
+    ///
+    /// @param spec the spec string to parse
+    /// @param originalSpec the original user-provided spec for error messages
+    /// @return the parsed spec
+    /// @throws IllegalArgumentException if the spec is invalid
     public static DatasetProfileFacetSpec parseRequired(String spec, String originalSpec) {
         if (spec == null) {
             throw new IllegalArgumentException("Facet spec must not be null");

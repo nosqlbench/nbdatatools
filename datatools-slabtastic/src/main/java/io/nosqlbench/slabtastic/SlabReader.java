@@ -22,9 +22,11 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.AsynchronousFileChannel;
+import java.nio.channels.CompletionHandler;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /// Reads records from a slabtastic file by global ordinal.
@@ -48,11 +50,15 @@ import java.util.concurrent.ExecutionException;
 /// by all legacy single-namespace files and by the no-arg convenience
 /// methods.
 ///
-/// The underlying I/O is performed via {@link AsynchronousFileChannel} with
-/// blocking {@code Future.get()} calls.
+/// The underlying I/O is performed via {@link AsynchronousFileChannel}.
+/// Single-record reads use blocking {@code Future.get()} calls. The
+/// {@link #getAll(List)} multi-batch API dispatches truly asynchronous
+/// reads and coalesces multiple ordinals that share the same page into a
+/// single I/O operation, returning results in submission order.
 public class SlabReader implements AutoCloseable, SlabConstants {
 
     private final AsynchronousFileChannel channel;
+    private final boolean externalChannel;
     private final Map<String, NamespaceData> namespaces = new LinkedHashMap<>();
 
     /// Internal data for a single namespace within the file.
@@ -71,6 +77,7 @@ public class SlabReader implements AutoCloseable, SlabConstants {
     ///                     slabtastic file
     public SlabReader(Path path) throws IOException {
         this.channel = AsynchronousFileChannel.open(path, StandardOpenOption.READ);
+        this.externalChannel = false;
         long fileSize = channel.size();
 
         if (fileSize < FOOTER_V1_SIZE) {
@@ -101,6 +108,46 @@ public class SlabReader implements AutoCloseable, SlabConstants {
             throw new IOException(
                 "File does not end with a pages page or namespaces page (type=%d): %s"
                     .formatted(tailFooter.pageType(), path));
+        }
+    }
+
+    /// Opens a slabtastic file for reading from an externally provided
+    /// channel.
+    ///
+    /// This constructor accepts a pre-opened channel (e.g. an
+    /// MAFileChannel for remote access) and the known file size. The
+    /// channel is **not** closed when this reader is closed.
+    ///
+    /// @param channel  the channel to read from
+    /// @param fileSize the total size of the file in bytes
+    /// @throws IOException if the channel data is not a valid slabtastic
+    ///                     file
+    public SlabReader(AsynchronousFileChannel channel, long fileSize) throws IOException {
+        this.channel = channel;
+        this.externalChannel = true;
+
+        if (fileSize < FOOTER_V1_SIZE) {
+            throw new IOException(
+                "Not a slabtastic file (too small: %d bytes)".formatted(fileSize));
+        }
+
+        ByteBuffer tailBuf = readBytes(fileSize - FOOTER_V1_SIZE, FOOTER_V1_SIZE);
+        PageFooter tailFooter = PageFooter.readFrom(tailBuf, 0);
+        try {
+            tailFooter.validate();
+        } catch (IllegalStateException e) {
+            throw new IOException(
+                "Not a valid slabtastic file (%s)".formatted(e.getMessage()), e);
+        }
+
+        if (tailFooter.pageType() == PAGE_TYPE_PAGES_PAGE) {
+            loadFromPagesPage(fileSize, tailFooter);
+        } else if (tailFooter.pageType() == PAGE_TYPE_NAMESPACES_PAGE) {
+            loadFromNamespacesPage(fileSize, tailFooter);
+        } else {
+            throw new IOException(
+                "File does not end with a pages page or namespaces page (type=%d)"
+                    .formatted(tailFooter.pageType()));
         }
     }
 
@@ -218,6 +265,103 @@ public class SlabReader implements AutoCloseable, SlabConstants {
         return getFromNamespace(nsData, ordinal);
     }
 
+    /// Reads multiple records in a single batch, coalescing reads for
+    /// ordinals that share the same page into a single I/O operation.
+    ///
+    /// Results are returned in the same order as the input requests.
+    /// Unknown namespaces and out-of-range ordinals produce
+    /// {@link Optional#empty()} in their corresponding slot rather than
+    /// throwing an exception.
+    ///
+    /// @param requests the batch requests to execute
+    /// @return a {@link BatchResult} with one slot per request
+    public BatchResult getAll(List<BatchRequest> requests) {
+        int n = requests.size();
+        @SuppressWarnings("unchecked")
+        Optional<ByteBuffer>[] results = new Optional[n];
+        Arrays.fill(results, Optional.empty());
+
+        // Group requests by (namespace, pageIndex) → file page, tracking
+        // which result slot and local index each request maps to.
+        Map<Long, List<PageSlot>> pageGroups = new LinkedHashMap<>();
+        Map<Long, PageReadInfo> pageReadInfos = new LinkedHashMap<>();
+
+        for (int i = 0; i < n; i++) {
+            BatchRequest req = requests.get(i);
+            NamespaceData nsData = namespaces.get(req.namespace());
+            if (nsData == null) {
+                continue; // unknown namespace → slot stays empty
+            }
+
+            int pageIdx = findPageIndex(nsData.pageIndex(), req.ordinal());
+            if (pageIdx < 0) {
+                continue; // no page covers this ordinal
+            }
+
+            PagesPageEntry entry = nsData.pageIndex().get(pageIdx);
+            int recCount = nsData.pageRecordCounts().get(pageIdx);
+            long localIndexLong = req.ordinal() - entry.startOrdinal();
+            if (localIndexLong < 0 || localIndexLong >= recCount) {
+                continue; // ordinal not within this page's range
+            }
+
+            long fileOffset = entry.fileOffset();
+            int pageSz = nsData.pageSizes().get(pageIdx);
+
+            pageGroups.computeIfAbsent(fileOffset, k -> new ArrayList<>())
+                .add(new PageSlot(i, (int) localIndexLong));
+            pageReadInfos.putIfAbsent(fileOffset, new PageReadInfo(fileOffset, pageSz));
+        }
+
+        // Dispatch one async read per unique page
+        List<CompletableFuture<Void>> futures = new ArrayList<>(pageGroups.size());
+        for (var groupEntry : pageGroups.entrySet()) {
+            long fileOffset = groupEntry.getKey();
+            List<PageSlot> slots = groupEntry.getValue();
+            PageReadInfo info = pageReadInfos.get(fileOffset);
+
+            CompletableFuture<Void> future = readBytesAsync(info.offset, info.size)
+                .thenAccept(pageBuf -> {
+                    SlabPage page = SlabPage.parseFrom(pageBuf);
+                    for (PageSlot slot : slots) {
+                        results[slot.resultSlot] = Optional.of(page.getRecord(slot.localIndex));
+                    }
+                });
+            futures.add(future);
+        }
+
+        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+        return new BatchResult(List.copyOf(Arrays.asList(results)));
+    }
+
+    /// Reads multiple records by ordinal from the default namespace.
+    ///
+    /// This is a convenience method equivalent to creating
+    /// {@link BatchRequest#of(long)} for each ordinal.
+    ///
+    /// @param ordinals the ordinals to look up
+    /// @return a {@link BatchResult} with one slot per ordinal
+    public BatchResult getAll(long... ordinals) {
+        List<BatchRequest> requests = new ArrayList<>(ordinals.length);
+        for (long ord : ordinals) {
+            requests.add(BatchRequest.of(ord));
+        }
+        return getAll(requests);
+    }
+
+    /// Tracks where to place a record extracted from a page into the
+    /// results array.
+    ///
+    /// @param resultSlot the index in the results array
+    /// @param localIndex the record index within the page
+    private record PageSlot(int resultSlot, int localIndex) {}
+
+    /// File offset and size for a page read.
+    ///
+    /// @param offset the byte offset in the file
+    /// @param size   the page size in bytes
+    private record PageReadInfo(long offset, int size) {}
+
     /// Returns summaries of all data pages in the specified namespace,
     /// sorted by ordinal.
     ///
@@ -235,6 +379,7 @@ public class SlabReader implements AutoCloseable, SlabConstants {
     ///
     /// If the file does not contain a default namespace, returns an empty
     /// list rather than throwing.
+    /// @return page summaries for the default namespace
     public List<PageSummary> pages() {
         NamespaceData nsData = namespaces.get("");
         return nsData != null ? buildPageSummaries(nsData) : List.of();
@@ -255,6 +400,7 @@ public class SlabReader implements AutoCloseable, SlabConstants {
     ///
     /// If the file does not contain a default namespace, returns 0 rather
     /// than throwing.
+    /// @return the page count for the default namespace
     public int pageCount() {
         NamespaceData nsData = namespaces.get("");
         return nsData != null ? nsData.pageIndex().size() : 0;
@@ -281,6 +427,7 @@ public class SlabReader implements AutoCloseable, SlabConstants {
     ///
     /// If the file does not contain a default namespace, returns 0 rather
     /// than throwing.
+    /// @return the record count for the default namespace
     public long recordCount() {
         NamespaceData nsData = namespaces.get("");
         if (nsData == null) return 0;
@@ -300,6 +447,7 @@ public class SlabReader implements AutoCloseable, SlabConstants {
     public record PageSummary(long startOrdinal, int recordCount, int pageSize, long fileOffset) {}
 
     /// Returns the file size in bytes.
+    /// @return the file size
     public long fileSize() {
         try {
             return channel.size();
@@ -310,7 +458,48 @@ public class SlabReader implements AutoCloseable, SlabConstants {
 
     @Override
     public void close() throws IOException {
-        channel.close();
+        if (!externalChannel) {
+            channel.close();
+        }
+    }
+
+    /// Returns file offset and page size pairs for all data pages in
+    /// the specified namespace.
+    ///
+    /// Each element is a two-element array: `{fileOffset, pageSize}`.
+    /// This is intended for prebuffering support (e.g. via
+    /// MAFileChannel) where callers need to know which byte ranges to
+    /// fetch.
+    ///
+    /// @param namespace the namespace to query
+    /// @return a list of `{fileOffset, pageSize}` pairs
+    /// @throws IllegalArgumentException if the namespace is not present
+    public List<long[]> pageRanges(String namespace) {
+        NamespaceData nsData = requireNamespace(namespace);
+        List<long[]> ranges = new ArrayList<>(nsData.pageIndex().size());
+        for (int i = 0; i < nsData.pageIndex().size(); i++) {
+            PagesPageEntry entry = nsData.pageIndex().get(i);
+            int pageSz = nsData.pageSizes().get(i);
+            ranges.add(new long[]{entry.fileOffset(), pageSz});
+        }
+        return ranges;
+    }
+
+    /// Returns file offset and page size pairs for all data pages in
+    /// the default namespace.
+    ///
+    /// @return a list of `{fileOffset, pageSize}` pairs, or empty list
+    ///         if no default namespace exists
+    public List<long[]> pageRanges() {
+        NamespaceData nsData = namespaces.get("");
+        if (nsData == null) return List.of();
+        List<long[]> ranges = new ArrayList<>(nsData.pageIndex().size());
+        for (int i = 0; i < nsData.pageIndex().size(); i++) {
+            PagesPageEntry entry = nsData.pageIndex().get(i);
+            int pageSz = nsData.pageSizes().get(i);
+            ranges.add(new long[]{entry.fileOffset(), pageSz});
+        }
+        return ranges;
     }
 
     /// Returns the namespace data for the given name, or throws if it is
@@ -381,6 +570,43 @@ public class SlabReader implements AutoCloseable, SlabConstants {
             }
         }
         return result;
+    }
+
+    /// Asynchronously reads {@code length} bytes from the file at the
+    /// given position, returning a completed future with a flipped,
+    /// little-endian buffer.
+    private CompletableFuture<ByteBuffer> readBytesAsync(long position, int length) {
+        ByteBuffer buf = ByteBuffer.allocate(length).order(ByteOrder.LITTLE_ENDIAN);
+        CompletableFuture<ByteBuffer> future = new CompletableFuture<>();
+        readBytesAsyncInto(buf, position, 0, length, future);
+        return future;
+    }
+
+    /// Recursive accumulator for partial async reads.
+    private void readBytesAsyncInto(ByteBuffer buf, long position, int totalRead,
+                                     int length, CompletableFuture<ByteBuffer> future) {
+        channel.read(buf, position + totalRead, null, new CompletionHandler<Integer, Void>() {
+            @Override
+            public void completed(Integer bytesRead, Void attachment) {
+                if (bytesRead < 0) {
+                    future.completeExceptionally(
+                        new IOException("Unexpected end of file at position " + (position + totalRead)));
+                    return;
+                }
+                int newTotal = totalRead + bytesRead;
+                if (newTotal < length) {
+                    readBytesAsyncInto(buf, position, newTotal, length, future);
+                } else {
+                    buf.flip();
+                    future.complete(buf);
+                }
+            }
+
+            @Override
+            public void failed(Throwable exc, Void attachment) {
+                future.completeExceptionally(exc);
+            }
+        });
     }
 
     private ByteBuffer readBytes(long position, int length) {

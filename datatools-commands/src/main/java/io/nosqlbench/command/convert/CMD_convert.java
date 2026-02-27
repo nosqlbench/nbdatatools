@@ -67,7 +67,16 @@ public class CMD_convert implements Callable<Integer>, BundledCommand {
      * Used by SingleFileConverter for progress reporting.
      */
     public interface ConversionCallback {
+        /// Called when a conversion completes successfully.
+        ///
+        /// @param inputFile the input file path
+        /// @param outputFile the output file path
+        /// @param vectorsProcessed the number of vectors processed
         void onSuccess(Path inputFile, Path outputFile, int vectorsProcessed);
+
+        /// Called when a conversion fails.
+        ///
+        /// @param message the error message
         void onError(String message);
     }
 

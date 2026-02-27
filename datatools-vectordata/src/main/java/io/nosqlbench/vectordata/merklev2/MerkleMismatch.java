@@ -26,20 +26,31 @@ public class MerkleMismatch {
   private final long startInclusive;
   private final long length;
 
+  /// Constructs a MerkleMismatch for the given chunk.
+  ///
+  /// @param chunkIndex     the index of the mismatched chunk
+  /// @param startInclusive the start offset of the chunk (inclusive)
+  /// @param length         the length of the chunk in bytes
   public MerkleMismatch(int chunkIndex, long startInclusive, long length) {
     this.chunkIndex = chunkIndex;
     this.startInclusive = startInclusive;
     this.length = length;
   }
 
+  /// Returns the chunk index.
+  /// @return the index of the mismatched chunk
   public int chunkIndex() {
     return chunkIndex;
   }
 
+  /// Returns the start offset (inclusive).
+  /// @return the start offset
   public long startInclusive() {
     return startInclusive;
   }
 
+  /// Returns the length in bytes.
+  /// @return the chunk length
   public long length() {
     return length;
   }

@@ -25,16 +25,21 @@ public class Interval {
     /// the max value, exclusive
     private final long max;
     
+    /// Creates a new Interval with the given bounds.
+    /// @param min the inclusive minimum value
+    /// @param max the exclusive maximum value
     public Interval(long min, long max) {
         this.min = min;
         this.max = max;
     }
     
+    /// Gets the minimum value.
     /// @return the min value, inclusive
     public long min() {
         return min;
     }
     
+    /// Gets the maximum value.
     /// @return the max value, exclusive
     public long max() {
         return max;

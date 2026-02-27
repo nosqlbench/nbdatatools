@@ -53,11 +53,14 @@ public class Catalog {
   /// The list of dataset entries in the catalog
   private final List<DatasetEntry> datasets;
   
+  /// Creates a new catalog with the given dataset entries.
+  /// @param datasets the list of dataset entries
   public Catalog(List<DatasetEntry> datasets) {
     this.datasets = datasets;
   }
   
-  /// @return The list of dataset entries in the catalog
+  /// Get the list of dataset entries in the catalog.
+  /// @return the list of dataset entries in the catalog
   public List<DatasetEntry> datasets() {
     return datasets;
   }

@@ -76,6 +76,7 @@ import java.util.Objects;
 @ModelType(CompositeScalarModel.MODEL_TYPE)
 public class CompositeScalarModel implements ScalarModel {
 
+    /// The model type identifier for composite (mixture) distributions.
     public static final String MODEL_TYPE = "composite";
 
     @SerializedName("components")

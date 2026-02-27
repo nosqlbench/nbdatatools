@@ -376,6 +376,57 @@ with a namespaces page (type 3) that indexes per-namespace pages pages.
 
 ---
 
+## How to read multiple records in a single batch
+
+Use the multi-batch API to read many records at once. It coalesces reads for ordinals that
+share the same page into a single I/O operation, dispatches page reads asynchronously, and
+returns results in submission order.
+
+### Default namespace (varargs convenience)
+
+```java
+try (var reader = new SlabReader(path)) {
+    BatchResult result = reader.getAll(0, 5, 10, 15, 20);
+    for (int i = 0; i < result.size(); i++) {
+        if (result.get(i).isPresent()) {
+            // process result.get(i).get()
+        }
+    }
+}
+```
+
+### Cross-namespace batch
+
+```java
+try (var reader = new SlabReader(path)) {
+    List<BatchRequest> requests = List.of(
+        BatchRequest.of("vectors", 0),
+        BatchRequest.of("metadata", 0),
+        BatchRequest.of("vectors", 1),
+        BatchRequest.of("unknown_ns", 99)  // unknown → empty slot, no exception
+    );
+    BatchResult result = reader.getAll(requests);
+
+    // Inspect completeness
+    if (result.hasPartialFailure()) {
+        System.err.println(result.emptyCount() + " of " + result.size() + " slots empty");
+    }
+}
+```
+
+### Handling partial success
+
+The `BatchResult` provides helpers to inspect completeness:
+
+- `isComplete()` — true if every slot is present
+- `hasPartialFailure()` — true if any slot is empty
+- `presentCount()` / `emptyCount()` — counts of present and empty slots
+
+Unknown namespaces and out-of-range ordinals produce empty slots rather than exceptions.
+Duplicate ordinals in the request list each get their own result slot.
+
+---
+
 ## How to list namespaces in a file
 
 Use the `slab namespaces` command to see all namespaces:

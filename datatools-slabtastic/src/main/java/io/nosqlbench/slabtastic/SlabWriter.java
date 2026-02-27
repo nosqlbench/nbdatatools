@@ -403,6 +403,9 @@ public class SlabWriter implements AutoCloseable, SlabConstants {
                 || (namespaceStates.size() == 1 && !namespaceStates.containsKey(""));
 
             if (multiNamespace) {
+                // Ensure the default namespace is present (spec requires index 1 = "")
+                ensureNamespace("");
+
                 // Multi-namespace: write one pages page per namespace, then namespaces page
                 List<NamespacesPageEntry> nsEntries = new ArrayList<>();
                 for (NamespaceWriteState state : namespaceStates.values()) {
@@ -438,11 +441,26 @@ public class SlabWriter implements AutoCloseable, SlabConstants {
     }
 
     /// Lazily creates namespace write state for the given name.
+    ///
+    /// Per the slabtastic spec, namespace index 1 is always reserved for
+    /// the default namespace (`""`). When a non-default namespace is
+    /// created first, the default namespace is pre-reserved at index 1 so
+    /// that user-defined namespaces start at index 2.
     private NamespaceWriteState ensureNamespace(String name) {
-        return namespaceStates.computeIfAbsent(name, n -> {
-            byte idx = nextNamespaceIndex++;
-            return new NamespaceWriteState(n, idx);
-        });
+        NamespaceWriteState existing = namespaceStates.get(name);
+        if (existing != null) {
+            return existing;
+        }
+        // If this is a non-default namespace and the default has not
+        // been reserved yet, reserve index 1 for "" first.
+        if (!name.isEmpty() && nextNamespaceIndex == NAMESPACE_DEFAULT
+            && !namespaceStates.containsKey("")) {
+            namespaceStates.put("", new NamespaceWriteState("", nextNamespaceIndex++));
+        }
+        byte idx = nextNamespaceIndex++;
+        NamespaceWriteState state = new NamespaceWriteState(name, idx);
+        namespaceStates.put(name, state);
+        return state;
     }
 
     private void flushCurrentPage(NamespaceWriteState state) throws IOException {

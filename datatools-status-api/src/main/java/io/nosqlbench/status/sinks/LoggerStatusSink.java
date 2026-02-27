@@ -156,23 +156,34 @@ public class LoggerStatusSink implements StatusSink {
     private final Logger logger;
     private final Level level;
 
+    /// Creates a LoggerStatusSink using the default logger at INFO level.
     public LoggerStatusSink() {
         this(LogManager.getLogger(LoggerStatusSink.class));
     }
 
+    /// Creates a LoggerStatusSink with the given logger at INFO level.
+    /// @param logger the logger to use
     public LoggerStatusSink(Logger logger) {
         this(logger, Level.INFO);
     }
 
+    /// Creates a LoggerStatusSink with the given logger and level.
+    /// @param logger the logger to use
+    /// @param level the log level for status messages
     public LoggerStatusSink(Logger logger, Level level) {
         this.logger = Objects.requireNonNull(logger, "logger");
         this.level = Objects.requireNonNullElse(level, Level.INFO);
     }
 
+    /// Creates a LoggerStatusSink with a logger resolved by name at INFO level.
+    /// @param loggerName the logger name to resolve
     public LoggerStatusSink(String loggerName) {
         this(LogManager.getLogger(loggerName));
     }
 
+    /// Creates a LoggerStatusSink with a logger resolved by name at the given level.
+    /// @param loggerName the logger name to resolve
+    /// @param level the log level for status messages
     public LoggerStatusSink(String loggerName, Level level) {
         this(LogManager.getLogger(loggerName), level);
     }

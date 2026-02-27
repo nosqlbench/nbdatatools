@@ -102,6 +102,7 @@ public class JmhTpeOptimizer {
     }
 
     /// Creates a new builder for configuring a [JmhTpeOptimizer].
+    /// @return a new builder instance
     public static Builder builder() {
         return new Builder();
     }
@@ -390,6 +391,8 @@ public class JmhTpeOptimizer {
     }
 
     /// Formats a [Duration] as a human-readable string (e.g. "5m 30s" or "45s").
+    /// @param d the duration to format
+    /// @return the formatted string
     public static String formatDuration(Duration d) {
         long minutes = d.toMinutes();
         long seconds = d.toSecondsPart();
@@ -461,6 +464,8 @@ public class JmhTpeOptimizer {
     /// Escapes a string for use as a JSON string value.
     ///
     /// Handles backslash, double-quote, and control characters (U+0000 through U+001F).
+    /// @param value the string to escape
+    /// @return the escaped JSON string
     public static String escapeJson(String value) {
         if (value == null) return "null";
         StringBuilder sb = new StringBuilder(value.length());
@@ -489,6 +494,8 @@ public class JmhTpeOptimizer {
     /// Serializes a string-to-string map as a JSON object.
     ///
     /// Keys and values are escaped with [#escapeJson(String)].
+    /// @param map the map to serialize
+    /// @return the JSON object string
     public static String mapToJson(Map<String, String> map) {
         StringBuilder sb = new StringBuilder();
         sb.append('{');
@@ -522,72 +529,96 @@ public class JmhTpeOptimizer {
         private Builder() {}
 
         /// Sets the title for this optimization run, used in output and reports.
+        /// @param title the run title
+        /// @return this builder
         public Builder title(String title) {
             this.title = title;
             return this;
         }
 
         /// Sets the path to the JMH benchmarks jar.
+        /// @param benchmarksJar the path to the jar
+        /// @return this builder
         public Builder benchmarksJar(Path benchmarksJar) {
             this.benchmarksJar = benchmarksJar;
             return this;
         }
 
         /// Sets the path for the markdown results file.
+        /// @param resultsFile the path for results output
+        /// @return this builder
         public Builder resultsFile(Path resultsFile) {
             this.resultsFile = resultsFile;
             return this;
         }
 
         /// Sets the parameter search space as an ordered map of name to possible values.
+        /// @param paramSpace the parameter space
+        /// @return this builder
         public Builder paramSpace(LinkedHashMap<String, String[]> paramSpace) {
             this.paramSpace = paramSpace;
             return this;
         }
 
         /// Sets the benchmark-specific command customizer.
+        /// @param commandCustomizer the command customizer
+        /// @return this builder
         public Builder commandCustomizer(CommandCustomizer commandCustomizer) {
             this.commandCustomizer = commandCustomizer;
             return this;
         }
 
         /// Sets the JVM heap size (e.g. "10g"). Defaults to "10g".
+        /// @param memory the heap size string
+        /// @return this builder
         public Builder memory(String memory) {
             this.memory = memory;
             return this;
         }
 
         /// Sets the number of TPE trials to run. Defaults to 40.
+        /// @param trials the number of trials
+        /// @return this builder
         public Builder trials(int trials) {
             this.trials = trials;
             return this;
         }
 
         /// Sets the number of JMH forks per trial. Defaults to 1.
+        /// @param forks the number of forks
+        /// @return this builder
         public Builder forks(int forks) {
             this.forks = forks;
             return this;
         }
 
         /// Sets the number of JMH warmup iterations. Defaults to 1.
+        /// @param warmupIterations the number of warmup iterations
+        /// @return this builder
         public Builder warmupIterations(int warmupIterations) {
             this.warmupIterations = warmupIterations;
             return this;
         }
 
         /// Sets the duration of each JMH warmup iteration in seconds. Defaults to 3.
+        /// @param warmupSeconds the warmup duration in seconds
+        /// @return this builder
         public Builder warmupSeconds(int warmupSeconds) {
             this.warmupSeconds = warmupSeconds;
             return this;
         }
 
         /// Sets the number of JMH measurement iterations. Defaults to 2.
+        /// @param measurementIterations the number of measurement iterations
+        /// @return this builder
         public Builder measurementIterations(int measurementIterations) {
             this.measurementIterations = measurementIterations;
             return this;
         }
 
         /// Sets the duration of each JMH measurement iteration in seconds. Defaults to 5.
+        /// @param measurementSeconds the measurement duration in seconds
+        /// @return this builder
         public Builder measurementSeconds(int measurementSeconds) {
             this.measurementSeconds = measurementSeconds;
             return this;
@@ -601,6 +632,7 @@ public class JmhTpeOptimizer {
         /// If not set, no JSONL log is written.
         ///
         /// @param jsonlFile path to the JSONL output file
+        /// @return this builder
         public Builder jsonlFile(Path jsonlFile) {
             this.jsonlFile = jsonlFile;
             return this;
@@ -608,6 +640,7 @@ public class JmhTpeOptimizer {
 
         /// Builds and returns the configured [JmhTpeOptimizer].
         ///
+        /// @return the configured optimizer
         /// @throws IllegalStateException if paramSpace or commandCustomizer is not set
         public JmhTpeOptimizer build() {
             if (paramSpace == null) throw new IllegalStateException("paramSpace is required");

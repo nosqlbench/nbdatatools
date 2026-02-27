@@ -32,6 +32,10 @@ public final class PresetProfileSelector implements ProfileSelector {
   private final String presetProfile;
   private volatile VectorTestDataView cachedView;
 
+  /// Constructs a PresetProfileSelector wrapping the given delegate with a preset profile name.
+  ///
+  /// @param delegate      the underlying ProfileSelector
+  /// @param presetProfile the preset profile name
   public PresetProfileSelector(ProfileSelector delegate, String presetProfile) {
     this.delegate = Objects.requireNonNull(delegate, "delegate");
     this.presetProfile = Objects.requireNonNull(presetProfile, "presetProfile");

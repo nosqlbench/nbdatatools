@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+/// Command for exploring vectordata layouts and views.
 @CommandLine.Command(name = "vectordata",
     header = "Explore vectordata layouts and views",
     description = "Inspect dataset.yaml layouts and views via the vectordata API, with an optional REPL.",
@@ -61,6 +62,11 @@ import java.util.concurrent.Callable;
         CommandLine.HelpCommand.class
     })
 public class CMD_vectordata implements Callable<Integer>, BundledCommand {
+
+    /// Creates a new CMD_vectordata instance.
+    public CMD_vectordata() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_vectordata.class);
 
     @Override

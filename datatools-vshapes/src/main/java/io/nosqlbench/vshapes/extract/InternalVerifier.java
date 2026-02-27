@@ -138,11 +138,15 @@ public final class InternalVerifier {
     }
 
     /// Returns the current verification level.
+    ///
+    /// @return the verification level
     public VerificationLevel getLevel() {
         return level;
     }
 
     /// Returns the drift threshold.
+    ///
+    /// @return the drift threshold
     public double getDriftThreshold() {
         return driftThreshold;
     }
@@ -468,11 +472,15 @@ public final class InternalVerifier {
         double refitGoodnessOfFit
     ) {
         /// Returns the maximum drift as a percentage.
+        ///
+        /// @return the max drift percentage
         public double maxDriftPercent() {
             return maxDrift * 100;
         }
 
         /// Returns the average drift as a percentage.
+        ///
+        /// @return the average drift percentage
         public double avgDriftPercent() {
             return avgDrift * 100;
         }

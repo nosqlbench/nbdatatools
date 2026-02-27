@@ -76,6 +76,11 @@ import java.util.concurrent.Callable;
         "2: at least one tested neighborhood was incorrect in any profile"
     })
 public class CMD_analyze_verifyprofiles implements Callable<Integer> {
+
+    /// Creates a new CMD_analyze_verifyprofiles instance.
+    public CMD_analyze_verifyprofiles() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_verifyprofiles.class);
 
     @Parameters(description = "The dataset file(s), directory, or URL to load (supports local paths and remote URLs)", arity = "1..*")

@@ -58,6 +58,11 @@ public class ChunkQueue implements SchedulingTarget {
     private final Deque<CompletedTask> completedTasksHistory;
     private final int maxHistorySize;
 
+    /// Creates a new ChunkQueue with the specified components.
+    /// @param taskQueue the blocking queue for pending download tasks
+    /// @param inFlightFutures the map of in-flight futures for duplicate prevention
+    /// @param completedTasksHistory the deque of recently completed tasks
+    /// @param maxHistorySize the maximum number of completed tasks to retain
     public ChunkQueue(BlockingQueue<ChunkScheduler.NodeDownloadTask> taskQueue,
                      ConcurrentMap<Integer, CompletableFuture<Void>> inFlightFutures,
                      Deque<CompletedTask> completedTasksHistory,
@@ -68,18 +73,26 @@ public class ChunkQueue implements SchedulingTarget {
         this.maxHistorySize = maxHistorySize;
     }
 
+    /// Get the task queue for pending download tasks.
+    /// @return the task queue
     public BlockingQueue<ChunkScheduler.NodeDownloadTask> taskQueue() {
         return taskQueue;
     }
 
+    /// Get the in-flight futures map for duplicate prevention.
+    /// @return the in-flight futures map
     public ConcurrentMap<Integer, CompletableFuture<Void>> inFlightFutures() {
         return inFlightFutures;
     }
 
+    /// Get the history deque of recently completed tasks.
+    /// @return the completed tasks history
     public Deque<CompletedTask> completedTasksHistory() {
         return completedTasksHistory;
     }
 
+    /// Get the maximum number of completed tasks retained in history.
+    /// @return the max history size
     public int maxHistorySize() {
         return maxHistorySize;
     }
@@ -272,15 +285,22 @@ public class ChunkQueue implements SchedulingTarget {
         private final List<ChunkScheduler.NodeDownloadTask> tasks;
         private final List<CompletableFuture<Void>> futures;
 
+        /// Creates a new scheduling result.
+        /// @param tasks the tasks that were added
+        /// @param futures the futures for those tasks
         public SchedulingResult(List<ChunkScheduler.NodeDownloadTask> tasks, List<CompletableFuture<Void>> futures) {
             this.tasks = tasks;
             this.futures = futures;
         }
 
+        /// Get the tasks that were added during the scheduling operation.
+        /// @return the tasks
         public List<ChunkScheduler.NodeDownloadTask> tasks() {
             return tasks;
         }
 
+        /// Get the futures for the tasks that were added.
+        /// @return the futures
         public List<CompletableFuture<Void>> futures() {
             return futures;
         }
@@ -375,6 +395,14 @@ public class ChunkQueue implements SchedulingTarget {
         private final boolean success;
         private final long bytesTransferred;
 
+        /// Creates a new completed task record.
+        /// @param nodeIndex the merkle tree node index
+        /// @param offset the byte offset of the task
+        /// @param size the size of the task in bytes
+        /// @param isLeafNode whether the node is a leaf node
+        /// @param completionTime when the task completed
+        /// @param success whether the task completed successfully
+        /// @param bytesTransferred the number of bytes actually transferred
         public CompletedTask(int nodeIndex, long offset, long size, boolean isLeafNode,
                            Instant completionTime, boolean success, long bytesTransferred) {
             this.nodeIndex = nodeIndex;
@@ -386,30 +414,44 @@ public class ChunkQueue implements SchedulingTarget {
             this.bytesTransferred = bytesTransferred;
         }
 
+        /// Get the merkle tree node index.
+        /// @return the node index
         public int nodeIndex() {
             return nodeIndex;
         }
 
+        /// Get the byte offset of the task.
+        /// @return the offset
         public long offset() {
             return offset;
         }
 
+        /// Get the size of the task in bytes.
+        /// @return the size
         public long size() {
             return size;
         }
 
+        /// Check whether the node is a leaf node.
+        /// @return true if the node is a leaf node
         public boolean isLeafNode() {
             return isLeafNode;
         }
 
+        /// Get when the task completed.
+        /// @return the completion time
         public Instant completionTime() {
             return completionTime;
         }
 
+        /// Check whether the task completed successfully.
+        /// @return true if the task succeeded
         public boolean success() {
             return success;
         }
 
+        /// Get the number of bytes actually transferred.
+        /// @return the bytes transferred
         public long bytesTransferred() {
             return bytesTransferred;
         }

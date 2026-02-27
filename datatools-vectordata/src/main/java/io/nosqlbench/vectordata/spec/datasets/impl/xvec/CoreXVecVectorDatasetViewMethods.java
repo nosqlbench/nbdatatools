@@ -2,13 +2,13 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
 
 /*
  * Copyright (c) nosqlbench
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.AsynchronousFileChannel;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -43,21 +44,60 @@ import java.util.function.Function;
 /// which are binary files containing vectors of various types (float, int, byte, etc.).
 /// It supports different vector formats based on file extensions.
 ///
+/// Each record in the file consists of a 4-byte little-endian dimension header
+/// followed by `dimension * componentBytes` of vector data. The dimension is
+/// uniform across all records and is validated once at construction time.
+///
+/// Two construction modes are supported:
+/// - **Path-based** ({@link #CoreXVecVectorDatasetViewMethods(Path, DSWindow, String)}):
+///   Memory-maps the file via {@link SegmentedMappedBuffer} for zero-copy reads.
+///   This is the fastest read path.
+/// - **Channel-based** ({@link #CoreXVecVectorDatasetViewMethods(AsynchronousFileChannel, long, DSWindow, String)}):
+///   Reads through the channel (e.g. {@link MAFileChannel} for remote data).
+///   View-level promotion from channel to Path-based mmap is handled by
+///   {@link io.nosqlbench.vectordata.downloader.VirtualVectorTestDataView}.
+///
+/// ## Performance characteristics
+///
+/// - {@link #get(long)} performs a single channel read per vector and reuses a
+///   thread-local buffer to avoid allocation pressure. With mmap, it does a
+///   zero-copy slice instead.
+/// - {@link #getRange(long, long)} performs one bulk channel read per ~2 GB chunk
+///   and parses vectors directly from the bulk buffer without intermediate copies.
+/// - {@link #iterator()} prefetches vectors in batches of 1024 via
+///   {@link #getRange(long, long)} to amortize I/O overhead.
+///
 /// @param <T> The type of vector returned by this view (e.g., float[], int[], byte[])
 public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>, Prebufferable<T> {
 
   private final AsynchronousFileChannel channel;
   private final DSWindow window;
-  private Class<?> type;
-  private Class<?> aryType;
-  private long sourceSize;
-  private int dimensions;
-  private int componentBytes;
+  private final Class<?> type;
+  private final Class<?> aryType;
+  private final int dimensions;
+  private final int componentBytes;
+  private final long recordSize;
+  private final int cachedCount;
 
+  /// Multi-segment memory-mapped view of the file, or {@code null} if the file
+  /// is accessed through the {@link #channel} (remote/MAFileChannel case).
+  /// When non-null, all read operations use zero-copy slicing from this buffer
+  /// instead of kernel syscalls through the channel.
+  private final SegmentedMappedBuffer mappedFile;
 
-  /// Creates a new CoreXVecDatasetViewMethods instance.
+  /// Thread-local buffer for single-record reads in {@link #get(long)} when
+  /// no memory-mapped buffer is available. Sized to hold one complete record
+  /// (4-byte header + vector data) and reused across calls to avoid per-read
+  /// allocation pressure.
+  private final ThreadLocal<ByteBuffer> recordBuffer;
+
+  /// Creates a new CoreXVecDatasetViewMethods instance backed by an
+  /// {@link AsynchronousFileChannel}. Each read operation performs a kernel
+  /// syscall through the channel. Use the
+  /// {@linkplain #CoreXVecVectorDatasetViewMethods(Path, DSWindow, String) path-based constructor}
+  /// for local files to enable memory-mapped zero-copy access.
   ///
-  /// @param channel The MAFileChannel to read from
+  /// @param channel The AsynchronousFileChannel to read from
   /// @param sourceSize The size of the source file in bytes
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
@@ -69,13 +109,53 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   )
   {
     this.channel = channel;
-    this.sourceSize = sourceSize;
+    this.mappedFile = null;
     this.type = deriveTypeFromExtension(extension);
     this.aryType = type.getComponentType();
     this.componentBytes = componentBytesFromType(this.aryType);
     this.dimensions = readDimensions();
-    // Store the window (null/empty means use all vectors)
+    this.recordSize = 4 + ((long) dimensions * componentBytes);
     this.window = (window == null || window.isEmpty()) ? null : window;
+    this.cachedCount = computeCount(sourceSize);
+    this.recordBuffer = ThreadLocal.withInitial(
+        () -> ByteBuffer.allocate((int) recordSize).order(ByteOrder.LITTLE_ENDIAN)
+    );
+  }
+
+  /// Creates a new CoreXVecDatasetViewMethods instance backed by a
+  /// {@link SegmentedMappedBuffer}. The file is mapped using multiple
+  /// segments so that files of any size are supported. Subsequent reads
+  /// are zero-copy within each segment — no kernel syscalls, no buffer
+  /// allocation, no Future overhead.
+  ///
+  /// @param filePath The path to the xvec file
+  /// @param window The window to use for accessing the data
+  /// @param extension The file extension indicating the vector format
+  public CoreXVecVectorDatasetViewMethods(
+      Path filePath,
+      DSWindow window,
+      String extension
+  )
+  {
+    this.type = deriveTypeFromExtension(extension);
+    this.aryType = type.getComponentType();
+    this.componentBytes = componentBytesFromType(this.aryType);
+
+    try {
+      long fileSize = java.nio.file.Files.size(filePath);
+
+      // Memory-map the file using segmented buffers (supports >2 GB)
+      this.mappedFile = new SegmentedMappedBuffer(filePath, fileSize);
+      this.channel = null;
+      this.dimensions = mappedFile.getInt(0);
+
+      this.recordSize = 4 + ((long) dimensions * componentBytes);
+      this.window = (window == null || window.isEmpty()) ? null : window;
+      this.cachedCount = computeCount(fileSize);
+      this.recordBuffer = null;
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to open xvec file: " + filePath, e);
+    }
   }
 
   private Class<?> deriveTypeFromExtension(String extension) {
@@ -97,7 +177,7 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
 
   @Override
   public CompletableFuture<Void> prebuffer(long startIncl, long endExcl) {
-    if (startIncl >= endExcl) {
+    if (mappedFile != null || startIncl >= endExcl) {
       return CompletableFuture.completedFuture(null);
     }
     if (channel instanceof MAFileChannel) {
@@ -114,6 +194,10 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
 
   @Override
   public CompletableFuture<Void> prebuffer() {
+    if (mappedFile != null) {
+      // Memory-mapped files are managed by the OS page cache — nothing to prebuffer
+      return CompletableFuture.completedFuture(null);
+    }
     try {
       long minStart = Long.MAX_VALUE;
       long maxEnd = Long.MIN_VALUE;
@@ -124,8 +208,6 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
         maxEnd = channel.size();
       } else {
         // Calculate the full range across all windows
-        long recordSize = 4 + (dimensions * componentBytes);
-
         for (DSInterval interval : this.window) {
           long start = interval.getMinIncl() * recordSize;
           long end = interval.getMaxExcl() * recordSize;
@@ -163,7 +245,7 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
 
   /// Determines the number of bytes per component based on the data type.
   ///
-  /// @param componentType 
+  /// @param componentType
   ///     The component type class
   /// @return The number of bytes per component
   private int componentBytesFromType(Class<?> componentType) {
@@ -198,10 +280,10 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
       // Read the first 4 bytes to get the dimensions using absolute positioning
       ByteBuffer dimBuffer = ByteBuffer.allocate(4);
       dimBuffer.order(ByteOrder.LITTLE_ENDIAN);
-      
+
       // Use absolute positioning with MAFileChannel
       int bytesRead = channel.read(dimBuffer, 0).get();
-      
+
       if (bytesRead != 4) {
         throw new RuntimeException("Failed to read dimension information from file");
       }
@@ -209,65 +291,54 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
       // Convert to little-endian integer
       dimBuffer.flip();
       int dimensions = dimBuffer.getInt();
-      
+
       if (dimensions <= 0) {
         throw new RuntimeException("Invalid dimensions read from file: " + dimensions);
       }
-      
+
       return dimensions;
     } catch (IOException | InterruptedException | ExecutionException e) {
       throw new RuntimeException("Error reading dimensions from file", e);
     }
   }
 
-  /// Returns the total number of vectors in this dataset view, respecting the configured window.
+  /// Computes the total number of vectors in this dataset view.
   ///
-  /// This method calculates the count based on the window configuration if present,
-  /// otherwise it uses the full file size. Each vector consists of a 4-byte dimension
-  /// count followed by the actual vector data.
+  /// Called once during construction; the result is cached in {@link #cachedCount}.
+  ///
+  /// @param fileSize the source file size in bytes
+  /// @return the total number of accessible vectors
+  private int computeCount(long fileSize) {
+    if (fileSize < 4) {
+      return 0;
+    }
+
+    long totalVectorCount = fileSize / recordSize;
+
+    if (window != null && !window.isEmpty()) {
+      long windowedCount = 0;
+      for (DSInterval interval : window) {
+        long intervalSize = interval.getMaxExcl() - interval.getMinIncl();
+        windowedCount += intervalSize;
+      }
+      return (int) Math.min(windowedCount, totalVectorCount);
+    }
+
+    if (totalVectorCount > Integer.MAX_VALUE) {
+      throw new RuntimeException("Vector count " + totalVectorCount
+          + " exceeds maximum int value. File size: " + fileSize
+          + ", record size: " + recordSize);
+    }
+
+    return (int) totalVectorCount;
+  }
+
+  /// Returns the total number of vectors in this dataset view, respecting the configured window.
   ///
   /// @return The total number of vectors accessible through this view
   @Override
   public int getCount() {
-      try {
-          // If the file is empty or very small, return 0
-          long fileSize = channel.size();
-
-          if (fileSize < 4) {
-              return 0;
-          }
-
-          // Calculate the count based on file size, dimensions, and component bytes
-          // Each vector consists of:
-          // - 4 bytes for the dimension count (int)
-          // - dimensions * componentBytes for the actual data
-          long recordSize = 4 + (dimensions * componentBytes);
-
-          // Calculate how many complete records fit in the file
-          long totalVectorCount = fileSize / recordSize;
-
-          // If we have a window, use its bounds to determine the count
-          if (window != null && !window.isEmpty()) {
-              // For now, assume single-interval windows (most common case)
-              // Sum up the intervals in the window
-              long windowedCount = 0;
-              for (DSInterval interval : window) {
-                  long intervalSize = interval.getMaxExcl() - interval.getMinIncl();
-                  windowedCount += intervalSize;
-              }
-              return (int) Math.min(windowedCount, totalVectorCount);
-          }
-
-          // Check for integer overflow before casting
-          if (totalVectorCount > Integer.MAX_VALUE) {
-              throw new RuntimeException("Vector count " + totalVectorCount + " exceeds maximum int value. File size: " + fileSize + ", record size: " + recordSize);
-          }
-
-          return (int) totalVectorCount;
-      } catch (Exception e) {
-          // If we can't calculate the count, return 0
-          return 0;
-      }
+    return cachedCount;
   }
 
   /// Returns the number of dimensions (components) in each vector.
@@ -291,82 +362,94 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
     return aryType;
   }
 
-  /// Returns the MAFileChannel used by this dataset view.
+  /// Returns the AsynchronousFileChannel used by this dataset view.
   ///
-  /// @return The MAFileChannel instance
+  /// @return The AsynchronousFileChannel instance
   public AsynchronousFileChannel getChannel() {
     return channel;
   }
 
   /// Retrieves a vector at the specified index.
   ///
-  /// This method reads the vector data from the file, handling the xvec file format:
-  /// ```
-  /// +----------------+------------------+
-  /// | dimension (4B) | vector data      |
-  /// +----------------+------------------+
-  /// ```
+  /// When a memory-mapped buffer is available (Path constructor), creates a
+  /// zero-copy slice at the record position and parses the vector directly —
+  /// no syscalls, no allocation. Otherwise, reads the full record in a single
+  /// channel read using a thread-local reusable buffer.
   ///
-  /// If the index is invalid or there's an error reading the data, a default vector is returned.
-  ///
-  /// @param index 
+  /// @param index
   ///     The index of the vector to retrieve (0-based)
-  /// @return The vector at the specified index, or a default vector if not available
+  /// @return The vector at the specified index
+  /// @throws IndexOutOfBoundsException if the index is out of range
   @Override
+  @SuppressWarnings("unchecked")
   public T get(long index) {
+    if (index < 0 || index >= cachedCount) {
+      throw new IndexOutOfBoundsException("Index " + index + " out of range [0, " + cachedCount + ")");
+    }
+
+    SegmentedMappedBuffer mmap = this.mappedFile;
+    if (mmap != null) {
+      long offset = index * recordSize + 4; // skip 4-byte dim header
+      int dataBytes = dimensions * componentBytes;
+      ByteBuffer slice = mmap.slice(offset, dataBytes);
+      return (T) readVectorDirect(slice, dimensions);
+    }
+
     try {
-      // If the file is empty or very small, return a default value
-      long fileSize = channel.size();
-      if (fileSize < 4) {
-        throw new RuntimeException("File size is too small to even contain a single vector");
-      }
-
-      // Apply window offset if needed
-      // Note: DSWindow doesn't have a translate method, so we'll just use the index as is
-      // If window functionality is needed in the future, it would need to be implemented
-
-      // Calculate the record size and position directly
-      long recordSize = 4 + (dimensions * componentBytes);
       long position = index * recordSize;
+      int recordBytes = (int) recordSize;
 
-      // Check if the position is valid
-      if (position >= fileSize) {
-        throw new RuntimeException("position " + position + " is beyond the end of the file of "
-                                   + "size " + fileSize + ", index " + index + " is out of bounds"
-                                   + " for " + (fileSize/recordSize) + " vectors");
+      ByteBuffer buf = recordBuffer.get();
+      buf.clear();
+
+      int bytesRead = channel.read(buf, position).get();
+      if (bytesRead != recordBytes) {
+        throw new RuntimeException("Failed to read record at index " + index
+            + ": expected " + recordBytes + " bytes, got " + bytesRead);
       }
 
-      // Read the dimensions using absolute positioning
-      ByteBuffer dimBuffer = ByteBuffer.allocate(4);
-      dimBuffer.order(ByteOrder.LITTLE_ENDIAN);
-      
-      int bytesRead = channel.read(dimBuffer, position).get();
-      if (bytesRead != 4) {
-        throw new RuntimeException("Failed to read dimension from file, read only " + bytesRead + " bytes");
-      }
+      buf.flip();
+      buf.position(4); // skip dimension header (uniform, validated at construction)
 
-      dimBuffer.flip();
-      int vectorDim = dimBuffer.getInt();
-
-      if (vectorDim <= 0 || vectorDim != dimensions) {
-        throw new RuntimeException("Invalid dimension in file: " + vectorDim);
-      }
-
-      // Read the vector data at absolute position (after the 4-byte dimension)
-      ByteBuffer vectorBuffer = ByteBuffer.allocate(vectorDim * componentBytes);
-      vectorBuffer.order(ByteOrder.LITTLE_ENDIAN);
-      
-      bytesRead = channel.read(vectorBuffer, position + 4).get();
-      if (bytesRead != vectorDim * componentBytes) {
-        throw new RuntimeException("Failed to read vector data from file, read only " + bytesRead + " bytes for dim " + vectorDim);
-      }
-      
-      vectorBuffer.flip();
-      
-      // Convert the bytes to the appropriate type
-      return (T) convertBytesToVector(vectorBuffer.array(), vectorDim);
-    } catch (IOException | InterruptedException | ExecutionException e) {
+      return (T) readVectorDirect(buf, dimensions);
+    } catch (InterruptedException | ExecutionException e) {
       throw new RuntimeException("Error reading vector at index " + index, e);
+    }
+  }
+
+  /// Reads a typed vector directly from a buffer at its current position.
+  ///
+  /// Uses bulk typed-buffer views ({@code asFloatBuffer()}, {@code asIntBuffer()},
+  /// etc.) to copy vector components into the result array without intermediate
+  /// byte array allocation. Advances the source buffer position past the
+  /// consumed bytes.
+  ///
+  /// @param buffer the source buffer positioned at the start of vector data
+  /// @param dim the number of components to read
+  /// @return the vector as the appropriate array type
+  private Object readVectorDirect(ByteBuffer buffer, int dim) {
+    int dataBytes = dim * componentBytes;
+    if (aryType == float.class) {
+      float[] result = new float[dim];
+      buffer.asFloatBuffer().get(result);
+      buffer.position(buffer.position() + dataBytes);
+      return result;
+    } else if (aryType == int.class) {
+      int[] result = new int[dim];
+      buffer.asIntBuffer().get(result);
+      buffer.position(buffer.position() + dataBytes);
+      return result;
+    } else if (aryType == byte.class) {
+      byte[] result = new byte[dim];
+      buffer.get(result); // get() already advances position
+      return result;
+    } else if (aryType == double.class) {
+      double[] result = new double[dim];
+      buffer.asDoubleBuffer().get(result);
+      buffer.position(buffer.position() + dataBytes);
+      return result;
+    } else {
+      throw new RuntimeException("Unsupported component type: " + aryType.getName());
     }
   }
 
@@ -376,7 +459,7 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   /// Since the underlying synchronous get method is already implemented,
   /// this returns a completed future with the result.
   ///
-  /// @param index 
+  /// @param index
   ///     The index of the vector to retrieve (0-based)
   /// @return A Future containing the vector at the specified index
   @Override
@@ -384,44 +467,12 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
     return CompletableFuture.completedFuture(get(index));
   }
 
-  /// Converts raw bytes to the appropriate vector type.
-  /// Uses bulk buffer operations for optimal performance.
-  ///
-  /// @param bytes
-  ///     The raw bytes to convert
-  /// @param vectorDim
-  ///     The number of dimensions in this specific vector
-  /// @return The vector as the appropriate type
-  private Object convertBytesToVector(byte[] bytes, int vectorDim) {
-    ByteBuffer buffer = ByteBuffer.wrap(bytes);
-    buffer.order(ByteOrder.LITTLE_ENDIAN);
-
-    if (aryType == int.class) {
-      int[] result = new int[vectorDim];
-      buffer.asIntBuffer().get(result);  // Bulk read
-      return result;
-    } else if (aryType == byte.class) {
-      byte[] result = new byte[vectorDim];
-      buffer.get(result);  // Already bulk
-      return result;
-    } else if (aryType == float.class) {
-      float[] result = new float[vectorDim];
-      buffer.asFloatBuffer().get(result);  // Bulk read
-      return result;
-    } else if (aryType == double.class) {
-      double[] result = new double[vectorDim];
-      buffer.asDoubleBuffer().get(result);  // Bulk read
-      return result;
-    } else {
-      throw new RuntimeException("Unsupported component type: " + aryType.getName());
-    }
-  }
-
   /// Retrieves a range of vectors from the dataset.
   ///
-  /// This method returns an array of vectors from the specified range of indices.
-  /// The range is inclusive of the start index and exclusive of the end index.
-  /// Uses chunked bulk reads for efficiency when ranges are large.
+  /// When a memory-mapped buffer is available, creates a single zero-copy slice
+  /// spanning the entire range and parses vectors directly from it — no syscalls,
+  /// no bulk buffer allocation. Otherwise, performs one channel read per ~2 GB
+  /// chunk and parses vectors from the read buffer.
   ///
   /// @param startInclusive
   ///     The starting index (inclusive)
@@ -429,59 +480,55 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   ///     The ending index (exclusive)
   /// @return An array containing the vectors in the specified range
   @Override
+  @SuppressWarnings("unchecked")
   public T[] getRange(long startInclusive, long endExclusive) {
-    try {
-      int count = (int)(endExclusive - startInclusive);
-      if (count <= 0) {
-        @SuppressWarnings("unchecked")
-        T[] empty = (T[]) java.lang.reflect.Array.newInstance(type, 0);
-        return empty;
+    int count = (int)(endExclusive - startInclusive);
+    if (count <= 0) {
+      return (T[]) java.lang.reflect.Array.newInstance(type, 0);
+    }
+
+    T[] array = (T[]) java.lang.reflect.Array.newInstance(type, count);
+
+    SegmentedMappedBuffer mmap = this.mappedFile;
+    if (mmap != null) {
+      for (int i = 0; i < count; i++) {
+        long recordOffset = (startInclusive + i) * recordSize;
+        ByteBuffer slice = mmap.slice(recordOffset + 4, dimensions * componentBytes);
+        array[i] = (T) readVectorDirect(slice, dimensions);
       }
+      return array;
+    }
 
-      // Create result array
-      @SuppressWarnings("unchecked")
-      T[] array = (T[]) java.lang.reflect.Array.newInstance(type, count);
-
-      long recordSize = 4 + (dimensions * componentBytes);
-
+    try {
       // ByteBuffer has a 2GB limit (Integer.MAX_VALUE bytes)
-      // Calculate max vectors per chunk to stay under limit
-      long maxBytesPerChunk = Integer.MAX_VALUE - 1000000;  // Leave some headroom
+      long maxBytesPerChunk = Integer.MAX_VALUE - 1_000_000L;
       int maxVectorsPerChunk = (int)(maxBytesPerChunk / recordSize);
 
-      // Read in chunks if needed
       int processed = 0;
       while (processed < count) {
         int chunkSize = Math.min(maxVectorsPerChunk, count - processed);
         long chunkStart = startInclusive + processed;
         long startPosition = chunkStart * recordSize;
-        long chunkBytes = chunkSize * recordSize;
+        int chunkBytes = (int)(chunkSize * recordSize);
 
-        // Read this chunk
-        ByteBuffer buffer = ByteBuffer.allocate((int)chunkBytes);
+        ByteBuffer buffer = ByteBuffer.allocate(chunkBytes);
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 
         int bytesRead = channel.read(buffer, startPosition).get();
         if (bytesRead != chunkBytes) {
-          throw new RuntimeException("Failed to read vector chunk: expected " + chunkBytes + " bytes, got " + bytesRead);
+          throw new RuntimeException("Failed to read vector chunk: expected "
+              + chunkBytes + " bytes, got " + bytesRead);
         }
 
         buffer.flip();
 
-        // Parse vectors from this chunk
         for (int i = 0; i < chunkSize; i++) {
-          // Read and validate dimension
           int vectorDim = buffer.getInt();
           if (vectorDim != dimensions) {
-            throw new RuntimeException("Invalid dimension in vector " + (chunkStart + i) + ": " + vectorDim);
+            throw new RuntimeException("Invalid dimension in vector "
+                + (chunkStart + i) + ": " + vectorDim);
           }
-
-          // Read vector data
-          byte[] vectorBytes = new byte[dimensions * componentBytes];
-          buffer.get(vectorBytes);
-
-          // Convert to appropriate type
-          array[processed + i] = (T) convertBytesToVector(vectorBytes, dimensions);
+          array[processed + i] = (T) readVectorDirect(buffer, dimensions);
         }
 
         processed += chunkSize;
@@ -489,7 +536,8 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
 
       return array;
     } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException("Error reading vector range [" + startInclusive + ", " + endExclusive + ")", e);
+      throw new RuntimeException("Error reading vector range ["
+          + startInclusive + ", " + endExclusive + ")", e);
     }
   }
 
@@ -499,9 +547,9 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   /// Since the underlying synchronous getRange method is already implemented,
   /// this returns a completed future with the result.
   ///
-  /// @param startInclusive 
+  /// @param startInclusive
   ///     The starting index (inclusive)
-  /// @param endExclusive 
+  /// @param endExclusive
   ///     The ending index (exclusive)
   /// @return A Future containing an array of vectors in the specified range
   @Override
@@ -514,7 +562,7 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   /// This method is similar to get(long index) but returns the vector wrapped in an Indexed object
   /// that includes both the index and the vector value.
   ///
-  /// @param index 
+  /// @param index
   ///     The index of the vector to retrieve
   /// @return An Indexed object containing the index and the vector
   @Override
@@ -529,7 +577,7 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   /// Since the underlying synchronous getIndexed method is already implemented,
   /// this returns a completed future with the result.
   ///
-  /// @param index 
+  /// @param index
   ///     The index of the vector to retrieve
   /// @return A Future containing an Indexed object with the index and vector
   @Override
@@ -542,9 +590,9 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   /// This method returns an array of Indexed objects, each containing an index and its corresponding vector.
   /// The range is inclusive of the start index and exclusive of the end index.
   ///
-  /// @param startInclusive 
+  /// @param startInclusive
   ///     The starting index (inclusive)
-  /// @param endExclusive 
+  /// @param endExclusive
   ///     The ending index (exclusive)
   /// @return An array of Indexed objects for the specified range
   @Override
@@ -553,8 +601,9 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
     @SuppressWarnings("unchecked")
     Indexed<T>[] result = new Indexed[count];
 
+    T[] vectors = getRange(startInclusive, endExclusive);
     for (int i = 0; i < count; i++) {
-      result[i] = getIndexed(startInclusive + i);
+      result[i] = new Indexed<>(startInclusive + i, vectors[i]);
     }
 
     return result;
@@ -566,9 +615,9 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   /// Since the underlying synchronous getIndexedRange method is already implemented,
   /// this returns a completed future with the result.
   ///
-  /// @param startInclusive 
+  /// @param startInclusive
   ///     The starting index (inclusive)
-  /// @param endExclusive 
+  /// @param endExclusive
   ///     The ending index (exclusive)
   /// @return A Future containing an array of Indexed objects for the specified range
   @Override
@@ -600,9 +649,9 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   /// and returns the results as a List. This is useful for converting vectors to a different format
   /// or extracting specific information from each vector.
   ///
-  /// @param f 
+  /// @param f
   ///     The transformation function to apply to each vector
-  /// @param <U> 
+  /// @param <U>
   ///     The type of the transformed elements
   /// @return A List containing the transformed vectors
   @Override
@@ -617,28 +666,43 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
     return result;
   }
 
+  /// Number of vectors to prefetch per batch in the iterator.
+  private static final int ITERATOR_PREFETCH_SIZE = 1024;
+
   /// Returns an iterator over the vectors in this dataset.
   ///
-  /// This method allows the dataset to be used in for-each loops and other constructs
-  /// that work with Iterable objects. The iterator provides sequential access to all
-  /// vectors in the dataset.
+  /// The iterator prefetches vectors in batches of {@value #ITERATOR_PREFETCH_SIZE}
+  /// via {@link #getRange(long, long)} to amortize I/O overhead across many
+  /// elements. This is substantially faster than per-element {@link #get(long)}
+  /// calls, especially for sequential scans.
   ///
   /// @return An iterator over the vectors in this dataset
   @NotNull
   @Override
   public Iterator<T> iterator() {
     return new Iterator<T>() {
-      private int currentIndex = 0;
-      private final int totalCount = getCount();
+      private int nextIndex = 0;
+      private final int totalCount = cachedCount;
+      private T[] batch;
+      private int batchOffset = 0;
+      private int batchLen = 0;
 
       @Override
       public boolean hasNext() {
-        return currentIndex < totalCount;
+        return nextIndex < totalCount;
       }
 
       @Override
       public T next() {
-        return get(currentIndex++);
+        if (batch == null || batchOffset >= batchLen) {
+          int remaining = totalCount - nextIndex;
+          int fetchSize = Math.min(ITERATOR_PREFETCH_SIZE, remaining);
+          batch = getRange(nextIndex, nextIndex + fetchSize);
+          batchLen = batch.length;
+          batchOffset = 0;
+        }
+        nextIndex++;
+        return batch[batchOffset++];
       }
     };
   }

@@ -233,61 +233,73 @@ public final class DatasetSpec {
         return Path.of(expanded);
     }
 
+    /// Returns the source type of this specification.
     /// @return The source type of this specification
     public SourceType getSourceType() {
         return sourceType;
     }
 
+    /// Returns the raw specification string as provided.
     /// @return The raw specification string as provided
     public String getRawSpec() {
         return rawSpec;
     }
 
+    /// Returns the catalog dataset name, if this is a CATALOG spec.
     /// @return The catalog dataset name, if this is a CATALOG spec
     public Optional<String> getDatasetName() {
         return Optional.ofNullable(datasetName);
     }
 
+    /// Returns the local path, if this is a LOCAL_* spec.
     /// @return The local path, if this is a LOCAL_* spec
     public Optional<Path> getLocalPath() {
         return Optional.ofNullable(localPath);
     }
 
+    /// Returns the remote URI, if this is a REMOTE_* spec.
     /// @return The remote URI, if this is a REMOTE_* spec
     public Optional<URI> getRemoteUri() {
         return Optional.ofNullable(remoteUri);
     }
 
+    /// Checks whether this spec represents a catalog dataset lookup.
     /// @return true if this spec represents a catalog dataset lookup
     public boolean isCatalog() {
         return sourceType == SourceType.CATALOG;
     }
 
+    /// Checks whether this spec represents a local dataset (directory or file).
     /// @return true if this spec represents a local dataset (directory or file)
     public boolean isLocal() {
         return sourceType == SourceType.LOCAL_DIRECTORY || sourceType == SourceType.LOCAL_FILE;
     }
 
+    /// Checks whether this spec represents a local directory.
     /// @return true if this spec represents a local directory
     public boolean isLocalDirectory() {
         return sourceType == SourceType.LOCAL_DIRECTORY;
     }
 
+    /// Checks whether this spec represents a local dataset.yaml file.
     /// @return true if this spec represents a local dataset.yaml file
     public boolean isLocalFile() {
         return sourceType == SourceType.LOCAL_FILE;
     }
 
+    /// Checks whether this spec represents a remote dataset.
     /// @return true if this spec represents a remote dataset
     public boolean isRemote() {
         return sourceType == SourceType.REMOTE_BASE || sourceType == SourceType.REMOTE_YAML;
     }
 
+    /// Checks whether this spec represents a remote base URL.
     /// @return true if this spec represents a remote base URL
     public boolean isRemoteBase() {
         return sourceType == SourceType.REMOTE_BASE;
     }
 
+    /// Checks whether this spec represents a remote dataset.yaml URL.
     /// @return true if this spec represents a remote dataset.yaml URL
     public boolean isRemoteYaml() {
         return sourceType == SourceType.REMOTE_YAML;
@@ -383,7 +395,8 @@ public final class DatasetSpec {
         return rawSpec;
     }
 
-    /// Create a descriptive string for display purposes
+    /// Create a descriptive string for display purposes.
+    /// @return a human-readable description of this spec
     public String toDescription() {
         return switch (sourceType) {
             case CATALOG -> "Catalog dataset: " + datasetName;

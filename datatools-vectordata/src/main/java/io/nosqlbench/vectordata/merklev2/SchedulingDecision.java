@@ -37,6 +37,15 @@ public class SchedulingDecision {
     private final List<Integer> coveredChunks;
     private final String explanation;
 
+    /// Creates a new scheduling decision.
+    ///
+    /// @param nodeIndex the index of the scheduled node
+    /// @param reason the reason for the scheduling decision
+    /// @param priority the priority of this decision
+    /// @param estimatedBytes the estimated bytes for this operation
+    /// @param requiredChunks the chunks required by the original request
+    /// @param coveredChunks the chunks covered by this decision
+    /// @param explanation a human-readable explanation
     public SchedulingDecision(int nodeIndex, SchedulingReason reason, int priority,
                             long estimatedBytes, List<Integer> requiredChunks,
                             List<Integer> coveredChunks, String explanation) {
@@ -49,30 +58,51 @@ public class SchedulingDecision {
         this.explanation = explanation;
     }
 
+    /// Returns the node index.
+    ///
+    /// @return the index of the scheduled node
     public int nodeIndex() {
         return nodeIndex;
     }
 
+    /// Returns the scheduling reason.
+    ///
+    /// @return the reason for the scheduling decision
     public SchedulingReason reason() {
         return reason;
     }
 
+    /// Returns the priority.
+    ///
+    /// @return the priority of this decision
     public int priority() {
         return priority;
     }
 
+    /// Returns the estimated bytes.
+    ///
+    /// @return the estimated bytes for this operation
     public long estimatedBytes() {
         return estimatedBytes;
     }
 
+    /// Returns the required chunks.
+    ///
+    /// @return the chunks required by the original request
     public List<Integer> requiredChunks() {
         return requiredChunks;
     }
 
+    /// Returns the covered chunks.
+    ///
+    /// @return the chunks covered by this decision
     public List<Integer> coveredChunks() {
         return coveredChunks;
     }
 
+    /// Returns the explanation.
+    ///
+    /// @return a human-readable explanation
     public String explanation() {
         return explanation;
     }

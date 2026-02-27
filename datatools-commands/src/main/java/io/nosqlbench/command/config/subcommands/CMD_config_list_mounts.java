@@ -36,6 +36,10 @@ import java.util.concurrent.Callable;
     exitCodeList = {"0: success"})
 public class CMD_config_list_mounts implements Callable<Integer> {
 
+    /// Creates a new CMD_config_list_mounts instance.
+    public CMD_config_list_mounts() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_config_list_mounts.class);
 
     @CommandLine.Option(names = {"--all", "-a"},

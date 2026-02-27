@@ -169,6 +169,10 @@ public class ProgressTrackingFetchResult extends FetchResult<ProgressTrackingFet
     
     /// Builder for creating ProgressTrackingFetchResult instances.
     public static class Builder {
+        /// Creates a new Builder.
+        public Builder() {
+        }
+
         private ByteBuffer data;
         private long offset;
         private long requestedLength;
@@ -180,56 +184,88 @@ public class ProgressTrackingFetchResult extends FetchResult<ProgressTrackingFet
         private int chunkIndex;
         private int totalChunks;
         
+        /// Sets the data buffer.
+        /// @param data the byte buffer containing fetched data
+        /// @return this builder
         public Builder data(ByteBuffer data) {
             this.data = data;
             return this;
         }
-        
+
+        /// Sets the offset.
+        /// @param offset the byte offset of this chunk
+        /// @return this builder
         public Builder offset(long offset) {
             this.offset = offset;
             return this;
         }
-        
+
+        /// Sets the requested length.
+        /// @param requestedLength the requested number of bytes
+        /// @return this builder
         public Builder requestedLength(long requestedLength) {
             this.requestedLength = requestedLength;
             return this;
         }
-        
+
+        /// Sets the start time.
+        /// @param startTime the instant when the fetch started
+        /// @return this builder
         public Builder startTime(Instant startTime) {
             this.startTime = startTime;
             return this;
         }
-        
+
+        /// Sets the end time.
+        /// @param endTime the instant when the fetch ended
+        /// @return this builder
         public Builder endTime(Instant endTime) {
             this.endTime = endTime;
             return this;
         }
-        
+
+        /// Sets the total resource size.
+        /// @param totalResourceSize the total size of the resource in bytes
+        /// @return this builder
         public Builder totalResourceSize(long totalResourceSize) {
             this.totalResourceSize = totalResourceSize;
             return this;
         }
-        
+
+        /// Sets the cumulative bytes transferred.
+        /// @param cumulativeBytesTransferred the total bytes transferred so far
+        /// @return this builder
         public Builder cumulativeBytesTransferred(long cumulativeBytesTransferred) {
             this.cumulativeBytesTransferred = cumulativeBytesTransferred;
             return this;
         }
-        
+
+        /// Sets the source identifier.
+        /// @param source the source URL or identifier
+        /// @return this builder
         public Builder source(String source) {
             this.source = source;
             return this;
         }
-        
+
+        /// Sets the chunk index.
+        /// @param chunkIndex the index of this chunk
+        /// @return this builder
         public Builder chunkIndex(int chunkIndex) {
             this.chunkIndex = chunkIndex;
             return this;
         }
-        
+
+        /// Sets the total chunks count.
+        /// @param totalChunks the total number of chunks
+        /// @return this builder
         public Builder totalChunks(int totalChunks) {
             this.totalChunks = totalChunks;
             return this;
         }
-        
+
+        /// Builds the ProgressTrackingFetchResult.
+        /// @return a new ProgressTrackingFetchResult instance
         public ProgressTrackingFetchResult build() {
             return new ProgressTrackingFetchResult(
                 data, offset, requestedLength,

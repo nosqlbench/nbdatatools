@@ -52,6 +52,10 @@ import java.util.concurrent.Callable;
     exitCodeList = {"0: success", "1: validation error"})
 public class CMD_analyze_check_endian implements Callable<Integer> {
 
+    /// Creates a new CMD_analyze_check_endian instance.
+    public CMD_analyze_check_endian() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_check_endian.class);
 
     @CommandLine.Parameters(arity = "1..*", paramLabel = "VECTORS",

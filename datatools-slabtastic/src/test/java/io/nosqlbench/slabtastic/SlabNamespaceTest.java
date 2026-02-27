@@ -99,10 +99,11 @@ class SlabNamespaceTest implements SlabConstants {
             writer.write("metadata", 2, "meta2".getBytes());
         }
         try (SlabReader reader = new SlabReader(file)) {
-            assertThat(reader.namespaces()).containsExactlyInAnyOrder("vectors", "metadata");
+            assertThat(reader.namespaces()).containsExactlyInAnyOrder("", "vectors", "metadata");
 
             assertThat(reader.recordCount("vectors")).isEqualTo(2);
             assertThat(reader.recordCount("metadata")).isEqualTo(3);
+            assertThat(reader.recordCount("")).isZero();
 
             assertRecordEquals(reader, "vectors", 0, "vec0");
             assertRecordEquals(reader, "vectors", 1, "vec1");
@@ -172,8 +173,9 @@ class SlabNamespaceTest implements SlabConstants {
         }
 
         try (SlabReader reader = new SlabReader(file)) {
-            assertThat(reader.namespaces()).containsExactly("custom");
+            assertThat(reader.namespaces()).containsExactlyInAnyOrder("", "custom");
             assertRecordEquals(reader, "custom", 0, "data");
+            assertThat(reader.recordCount("")).isZero();
         }
     }
 
@@ -199,18 +201,19 @@ class SlabNamespaceTest implements SlabConstants {
     }
 
     @Test
-    void defaultNamespaceEmptyWhenOnlyNamedNamespacesExist() throws IOException {
+    void defaultNamespacePresentButEmptyWhenOnlyNamedNamespacesWritten() throws IOException {
         Path file = tempDir.resolve("no_default_ns.slab");
         try (SlabWriter writer = new SlabWriter(file, 4096)) {
             writer.write("ns1", 0, "a".getBytes());
         }
         try (SlabReader reader = new SlabReader(file)) {
-            // Explicit "" namespace should throw since it's not present
-            assertThatThrownBy(() -> reader.get("", 0))
-                .isInstanceOf(IllegalArgumentException.class);
-            // No-arg convenience methods gracefully return empty/zero
+            // Default namespace is always present per spec (index 1 = "")
+            assertThat(reader.namespaces()).contains("");
+            // But it has no records
+            assertThat(reader.get("", 0)).isEmpty();
             assertThat(reader.get(0)).isEmpty();
             assertThat(reader.recordCount()).isZero();
+            assertThat(reader.recordCount("")).isZero();
         }
     }
 
@@ -256,7 +259,7 @@ class SlabNamespaceTest implements SlabConstants {
         }
 
         try (SlabReader reader = new SlabReader(file)) {
-            assertThat(reader.namespaces()).containsExactlyInAnyOrder("ns1", "ns2");
+            assertThat(reader.namespaces()).containsExactlyInAnyOrder("", "ns1", "ns2");
             assertRecordEquals(reader, "ns1", 0, "a0");
             assertRecordEquals(reader, "ns1", 1, "a1");
             assertRecordEquals(reader, "ns2", 0, "b0");
@@ -276,7 +279,7 @@ class SlabNamespaceTest implements SlabConstants {
         }
 
         try (SlabReader reader = new SlabReader(file)) {
-            assertThat(reader.namespaces()).containsExactlyInAnyOrder("ns1", "ns2");
+            assertThat(reader.namespaces()).containsExactlyInAnyOrder("", "ns1", "ns2");
             assertRecordEquals(reader, "ns1", 0, "a0");
             assertRecordEquals(reader, "ns2", 0, "b0");
         }
@@ -322,7 +325,8 @@ class SlabNamespaceTest implements SlabConstants {
         }
         try (SlabReader reader = new SlabReader(file)) {
             Set<String> names = reader.namespaces();
-            assertThat(names).hasSize(nsCount);
+            assertThat(names).hasSize(nsCount + 1); // +1 for default namespace ""
+            assertThat(names).contains("");
             for (int ns = 0; ns < nsCount; ns++) {
                 String name = "ns_" + ns;
                 assertThat(reader.recordCount(name)).isEqualTo(3);
@@ -371,7 +375,7 @@ class SlabNamespaceTest implements SlabConstants {
             writer.write(longName, 0, "data".getBytes());
         }
         try (SlabReader reader = new SlabReader(file)) {
-            assertThat(reader.namespaces()).containsExactly(longName);
+            assertThat(reader.namespaces()).containsExactlyInAnyOrder("", longName);
             assertRecordEquals(reader, longName, 0, "data");
         }
         List<String> errors = SlabFileValidator.validate(file);
@@ -386,7 +390,7 @@ class SlabNamespaceTest implements SlabConstants {
             writer.write(unicodeName, 0, "data".getBytes());
         }
         try (SlabReader reader = new SlabReader(file)) {
-            assertThat(reader.namespaces()).containsExactly(unicodeName);
+            assertThat(reader.namespaces()).containsExactlyInAnyOrder("", unicodeName);
             assertRecordEquals(reader, unicodeName, 0, "data");
         }
     }
@@ -399,7 +403,7 @@ class SlabNamespaceTest implements SlabConstants {
             writer.write(name, 0, "x".getBytes());
         }
         try (SlabReader reader = new SlabReader(file)) {
-            assertThat(reader.namespaces()).containsExactly(name);
+            assertThat(reader.namespaces()).containsExactlyInAnyOrder("", name);
             assertRecordEquals(reader, name, 0, "x");
         }
     }
@@ -663,7 +667,8 @@ class SlabNamespaceTest implements SlabConstants {
             writer.write("a", 2, "a2".getBytes());
         }
         try (SlabReader reader = new SlabReader(file)) {
-            assertThat(reader.namespaces()).hasSize(3);
+            assertThat(reader.namespaces()).hasSize(4); // a, b, c + default ""
+            assertThat(reader.namespaces()).contains("");
             assertRecordEquals(reader, "a", 0, "a0");
             assertRecordEquals(reader, "a", 1, "a1");
             assertRecordEquals(reader, "a", 2, "a2");

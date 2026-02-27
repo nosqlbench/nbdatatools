@@ -65,6 +65,11 @@ import java.util.concurrent.Callable;
         CMD_analyze_explore.class
     })
 public class CMD_analyze implements Callable<Integer>, BundledCommand {
+
+    /// Creates a new CMD_analyze instance.
+    public CMD_analyze() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze.class);
 
     /// Run CMD_analyze

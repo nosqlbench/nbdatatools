@@ -51,7 +51,11 @@ import java.util.concurrent.CompletableFuture;
 /// - Moderate bandwidth connections
 /// - Balanced efficiency and performance requirements
 public class DefaultChunkScheduler implements ChunkScheduler {
-    
+
+    /// Creates a new default chunk scheduler.
+    public DefaultChunkScheduler() {
+    }
+
     ///
     /// Minimum efficiency ratio for internal nodes in default scheduler.
     /// Internal nodes with efficiency below this threshold will be rejected

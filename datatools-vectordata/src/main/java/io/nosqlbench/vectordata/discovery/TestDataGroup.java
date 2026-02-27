@@ -18,11 +18,15 @@ package io.nosqlbench.vectordata.discovery;
  */
 
 
+import io.nosqlbench.vectordata.discovery.metadata.FilesystemPredicateTestDataView;
+import io.nosqlbench.vectordata.discovery.metadata.PredicateTestDataView;
 import io.nosqlbench.vectordata.discovery.vector.FilesystemVectorTestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
-import io.nosqlbench.vectordata.layout.FGroup;
-import io.nosqlbench.vectordata.layout.FProfiles;
+import io.nosqlbench.vectordata.layoutv2.DSProfile;
+import io.nosqlbench.vectordata.layoutv2.DSProfileGroup;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
+import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+import io.nosqlbench.vectordata.spec.predicates.PNode;
 import io.nosqlbench.vectordata.spec.tokens.SpecToken;
 import io.nosqlbench.vectordata.spec.tokens.Templatizer;
 import io.nosqlbench.vectordata.utils.SHARED;
@@ -75,13 +79,16 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     private final Path datasetDirectory;
 
     /// The parsed profile configurations
-    private final FGroup groupProfiles;
+    private final DSProfileGroup groupProfiles;
 
     /// The attributes from the dataset.yaml
     private final Map<String, Object> attributes;
 
     /// Cache of profile views
     private final Map<String, VectorTestDataView> profileCache = new LinkedHashMap<>();
+
+    /// Cache of predicate profile views
+    private final Map<String, PredicateTestDataView<?>> predicateProfileCache = new LinkedHashMap<>();
 
     /// The name of the dataset (derived from directory name)
     private final String datasetName;
@@ -122,12 +129,15 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
             throw new IOException("No profiles defined in dataset.yaml");
         }
 
-        // FGroup.fromObject already handles normalization of shorthand names via TestDataKind.fromOptionalString
-        this.groupProfiles = FGroup.fromObject(profilesData, null);
+        // DSProfileGroup.fromData handles normalization of shorthand names and default-profile inheritance
+        this.groupProfiles = DSProfileGroup.fromData(profilesData);
 
-        logger.info("Loaded {} profile(s) from {}", groupProfiles.profiles().size(), yamlPath);
+        logger.info("Loaded {} profile(s) from {}", groupProfiles.size(), yamlPath);
     }
 
+    /// Returns the dataset name.
+    ///
+    /// @return the name of this test data group
     public String getName() {
         return datasetName;
     }
@@ -151,7 +161,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     ///
     /// @return A set of profile names
     public Set<String> getProfileNames() {
-        return groupProfiles.profiles().keySet();
+        return groupProfiles.keySet();
     }
 
     /// Gets a profile by name.
@@ -185,14 +195,14 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// @param profileName The name of the profile to get
     /// @return An Optional containing the profile, or empty if not found
     public Optional<VectorTestDataView> getProfileOptionally(String profileName) {
-        FProfiles fprofile = this.groupProfiles.profiles().get(profileName);
-        if (fprofile == null) {
+        DSProfile dsProfile = this.groupProfiles.get(profileName);
+        if (dsProfile == null) {
             return Optional.empty();
         }
 
         VectorTestDataView profile = profileCache.computeIfAbsent(
             profileName,
-            p -> new FilesystemVectorTestDataView(this, fprofile, profileName)
+            p -> new FilesystemVectorTestDataView(this, dsProfile, profileName)
         );
         return Optional.of(profile);
     }
@@ -202,6 +212,43 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// @return The default profile
     public VectorTestDataView getDefaultProfile() {
         return this.profile(DEFAULT_PROFILE);
+    }
+
+    private static final Set<String> PREDICATE_KEYS = Set.of(
+        TestDataKind.metadata_predicates.name(),
+        TestDataKind.predicate_results.name(),
+        TestDataKind.metadata_layout.name(),
+        TestDataKind.metadata_content.name()
+    );
+
+    @Override
+    public Optional<PredicateTestDataView<?>> predicateProfile(String profileName) {
+        String effectiveProfileName;
+        if (profileName.contains(":")) {
+            int lastColonIndex = profileName.lastIndexOf(':');
+            effectiveProfileName = profileName.substring(lastColonIndex + 1);
+        } else if (profileName.equals(getName())) {
+            effectiveProfileName = DEFAULT_PROFILE;
+        } else {
+            effectiveProfileName = profileName;
+        }
+
+        DSProfile dsProfile = this.groupProfiles.get(effectiveProfileName);
+        if (dsProfile == null) {
+            return Optional.empty();
+        }
+
+        // Check if profile has any predicate-related keys
+        boolean hasPredicate = dsProfile.keySet().stream().anyMatch(PREDICATE_KEYS::contains);
+        if (!hasPredicate) {
+            return Optional.empty();
+        }
+
+        PredicateTestDataView<?> view = predicateProfileCache.computeIfAbsent(
+            effectiveProfileName,
+            p -> new FilesystemPredicateTestDataView(this, dsProfile, effectiveProfileName)
+        );
+        return Optional.of(view);
     }
 
     @Override
@@ -288,6 +335,14 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
             }
         }
         profileCache.clear();
+
+        // Close all cached predicate profile views
+        for (PredicateTestDataView<?> view : predicateProfileCache.values()) {
+            if (view instanceof AutoCloseable) {
+                ((AutoCloseable) view).close();
+            }
+        }
+        predicateProfileCache.clear();
     }
 
     @Override

@@ -529,6 +529,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns the target unique vectors for extracted models.
+     *
+     * @return the unique vectors count
      */
     public long getUniqueVectors() {
         return uniqueVectors;
@@ -536,6 +538,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns the best-fit selector used by this extractor, or null if using a forced fitter.
+     *
+     * @return the selector, or null
      */
     public BestFitSelector getSelector() {
         return selector;
@@ -543,6 +547,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns the forced fitter, or null if using best-fit selection.
+     *
+     * @return the forced fitter, or null
      */
     public ComponentModelFitter getForcedFitter() {
         return forcedFitter;
@@ -555,6 +561,8 @@ public final class DatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns the current state observer.
+     *
+     * @return the state observer
      */
     public StateObserver getObserver() {
         return observer;

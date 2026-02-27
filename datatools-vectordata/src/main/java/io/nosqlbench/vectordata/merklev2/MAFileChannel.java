@@ -36,12 +36,16 @@ import io.nosqlbench.vectordata.merklev2.schedulers.DefaultChunkScheduler;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import io.nosqlbench.vectordata.spec.datasets.impl.xvec.SegmentedMappedBuffer;
+
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
+import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -102,6 +106,9 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
     private final Path localCachePath;
     private final MerkleState merkleState;
     private final AsynchronousFileChannel localContentCache;
+    /// Synchronous file channel for fast cached reads via direct pread(2) syscall,
+    /// avoiding the thread pool dispatch overhead of AsynchronousFileChannel.
+    private final FileChannel syncLocalCache;
     private final ChunkedTransportClient transport;
     private final MerkleShape merkleShape;
     /// Optional override for how many bytes to use in disk-space checks; defaults to full content size
@@ -112,7 +119,18 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
     private final AtomicBoolean open = new AtomicBoolean(true);
     private final MeterRegistry meterRegistry;
     private final EventSink eventSink;
-    
+    private volatile Timer readDurationTimer;
+    /// Latching flag: once all chunks are cached, this is set to {@code true}
+    /// and never reverts. Subsequent {@link #isRangeCached} calls short-circuit
+    /// to a single volatile read instead of acquiring the MerkleState lock and
+    /// cloning the BitSet.
+    private volatile boolean fullyCached;
+    /// Lazily-initialized memory-mapped view of the cache file, created when
+    /// {@link #fullyCached} latches {@code true}. Provides zero-copy reads
+    /// that match mmap performance under high concurrency (no kernel pread
+    /// syscall, no JVM temporary direct buffer allocation).
+    private volatile SegmentedMappedBuffer mmapCache;
+
     private static final int DEFAULT_MAX_CONCURRENT_DOWNLOADS = 8;
     private static final int DEFAULT_TASK_QUEUE_CAPACITY = 1000;
 
@@ -221,6 +239,7 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
         // Initialize fields first to access merkle shape
         this.merkleState = state;
         this.localContentCache = cache;
+        this.syncLocalCache = FileChannel.open(localCachePath, StandardOpenOption.READ);
         this.merkleShape = state.getMerkleShape();
         this.chunkScheduler = chunkScheduler;
         
@@ -338,6 +357,96 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
         return localCachePath;
     }
 
+    /// Returns true if every chunk overlapping the byte range
+    /// {@code [position, position+length)} is valid in the local cache.
+    ///
+    /// When all chunks have been cached (the common post-prebuffer case), this
+    /// short-circuits on a volatile read of {@link #fullyCached} — no lock
+    /// acquisition, no BitSet clone, no allocation.  Otherwise falls back to a
+    /// single {@code getValidChunks()} call and {@code nextClearBit} range check.
+    /// If the fallback discovers every chunk is now valid it latches
+    /// {@code fullyCached = true} so subsequent calls take the fast path.
+    ///
+    /// @param position the starting byte position
+    /// @param length   the number of bytes in the range
+    /// @return true if all overlapping chunks are cached
+    public boolean isRangeCached(long position, long length) {
+        if (fullyCached) return true;
+        if (length <= 0) return true;
+        int startChunk = merkleShape.getChunkIndexForPosition(position);
+        int endChunk = merkleShape.getChunkIndexForPosition(
+            Math.min(position + length - 1, merkleShape.getTotalContentSize() - 1));
+        BitSet valid = merkleState.getValidChunks();
+        int firstMissing = valid.nextClearBit(startChunk);
+        if (firstMissing > endChunk) {
+            // Check if ALL chunks are now valid and latch for future calls
+            if (valid.cardinality() == merkleShape.getTotalChunks()) {
+                fullyCached = true;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /// Returns true if every chunk in the file is cached locally.
+    ///
+    /// Uses the latching {@link #fullyCached} flag for a fast volatile-only check
+    /// when all chunks have already been verified as cached.
+    ///
+    /// @return true if the entire file is cached
+    public boolean isFullyCached() {
+        if (fullyCached) return true;
+        BitSet valid = merkleState.getValidChunks();
+        int totalChunks = merkleShape.getTotalChunks();
+        if (valid.cardinality() == totalChunks) {
+            fullyCached = true;
+            return true;
+        }
+        return false;
+    }
+
+    /// Returns the memory-mapped view of the cache file, creating it lazily on
+    /// first call after {@link #fullyCached} latches.  The double-checked locking
+    /// pattern is safe here because {@code mmapCache} is volatile.
+    ///
+    /// @return the mmap view, or {@code null} if not yet fully cached
+    private SegmentedMappedBuffer getMmapCache() {
+        SegmentedMappedBuffer m = mmapCache;
+        if (m != null) return m;
+        if (!fullyCached) return null;
+        synchronized (this) {
+            m = mmapCache;
+            if (m != null) return m;
+            try {
+                m = new SegmentedMappedBuffer(localCachePath, merkleShape.getTotalContentSize());
+                mmapCache = m;
+                return m;
+            } catch (IOException e) {
+                // Fall back to FileChannel reads if mmap fails
+                return null;
+            }
+        }
+    }
+
+    /// Performs a zero-copy mmap read into the destination buffer.
+    ///
+    /// Slices the mapped region at the given position and copies into {@code dst}.
+    /// Returns the number of bytes transferred, or {@code -1} if the position is
+    /// at or past the end of the file.
+    ///
+    /// @param mmap     the memory-mapped buffer to read from
+    /// @param dst      the destination buffer
+    /// @param position the file position to read from
+    /// @return bytes read, or -1 if at end of file
+    private int mmapRead(SegmentedMappedBuffer mmap, ByteBuffer dst, long position) {
+        long fileSize = merkleShape.getTotalContentSize();
+        if (position >= fileSize) return -1;
+        int readable = (int) Math.min(dst.remaining(), fileSize - position);
+        ByteBuffer slice = mmap.slice(position, readable);
+        dst.put(slice);
+        return readable;
+    }
+
     @Override
     public <A> void read(ByteBuffer dst, long position, A attachment, CompletionHandler<Integer, ? super A> handler) {
         if (!open.get()) {
@@ -345,6 +454,21 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
             return;
         }
 
+        // Fast path: synchronous read when all chunks are cached
+        if (isRangeCached(position, dst.remaining())) {
+            try {
+                SegmentedMappedBuffer mmap = getMmapCache();
+                int bytesRead = (mmap != null)
+                    ? mmapRead(mmap, dst, position)
+                    : syncLocalCache.read(dst, position);
+                handler.completed(bytesRead, attachment);
+            } catch (IOException e) {
+                handler.failed(e, attachment);
+            }
+            return;
+        }
+
+        // Slow path: async dispatch for uncached reads
         CompletableFuture.supplyAsync(() -> {
             try {
                 return readSync(dst, position);
@@ -366,6 +490,21 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
             return CompletableFuture.failedFuture(new IOException("Channel is closed"));
         }
 
+        // Fast path: synchronous read when all chunks are cached.
+        // Prefers mmap (zero-copy) when available, falls back to FileChannel.read().
+        if (isRangeCached(position, dst.remaining())) {
+            try {
+                SegmentedMappedBuffer mmap = getMmapCache();
+                int bytesRead = (mmap != null)
+                    ? mmapRead(mmap, dst, position)
+                    : syncLocalCache.read(dst, position);
+                return CompletableFuture.completedFuture(bytesRead);
+            } catch (IOException e) {
+                return CompletableFuture.failedFuture(e);
+            }
+        }
+
+        // Slow path: async dispatch for uncached reads
         return CompletableFuture.supplyAsync(() -> {
             try {
                 return readSync(dst, position);
@@ -378,14 +517,23 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
     private int readSync(ByteBuffer dst, long position) throws IOException {
         Timer.Sample sample = Timer.start(meterRegistry);
         meterRegistry.counter("ma_file_channel.read.operations").increment();
-        
+
         try {
             if (!open.get()) throw new IOException("Channel is closed");
-            
+
             int totalBytesRead = 0;
             long currentPosition = position;
             int requestedLength = dst.remaining();
-            
+
+            // Fast path: if all chunks for this read range are already cached,
+            // skip scheduling analysis and read directly (mmap preferred, FileChannel fallback)
+            if (isRangeCached(position, requestedLength)) {
+                SegmentedMappedBuffer mmap = getMmapCache();
+                return (mmap != null)
+                    ? mmapRead(mmap, dst, position)
+                    : syncLocalCache.read(dst, position);
+            }
+
             // Use new node-centric scheduling approach with traceability
             List<SchedulingDecision> decisions = chunkScheduler.analyzeSchedulingDecisions(position, (long) requestedLength, merkleShape, merkleState);
             
@@ -463,11 +611,19 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
             meterRegistry.counter("ma_file_channel.read.operations", "status", "failed").increment();
             throw new IOException("Read operation failed", e);
         } finally {
-            sample.stop(Timer.builder("ma_file_channel.read.duration")
-                .register(meterRegistry));
+            sample.stop(getReadDurationTimer());
         }
     }
 
+    /// Returns the cached read-duration timer, creating it on first use.
+    private Timer getReadDurationTimer() {
+        Timer t = readDurationTimer;
+        if (t == null) {
+            t = Timer.builder("ma_file_channel.read.duration").register(meterRegistry);
+            readDurationTimer = t;
+        }
+        return t;
+    }
 
     // Unsupported operations for read-only virtual file
     @Override
@@ -1059,6 +1215,12 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
             taskExecutor.close();
             
             force(false);
+            SegmentedMappedBuffer mmap = mmapCache;
+            if (mmap != null) {
+                mmap.close();
+                mmapCache = null;
+            }
+            syncLocalCache.close();
             localContentCache.close();
             transport.close();
             merkleState.close();
@@ -1103,6 +1265,12 @@ public class MAFileChannel extends AsynchronousFileChannel implements CacheFileA
         public CompletableFuture<Void> getFuture() { return future; }
     }
 
+    /// Downloads a merkle reference tree from the given URL and loads it from a temporary file.
+    ///
+    /// @param refUrl   the URL to download the merkle reference from
+    /// @param tempPath the temporary file path to store the downloaded data
+    /// @return the loaded MerkleRef
+    /// @throws IOException if an I/O error occurs during download or file operations
     public static MerkleRef downloadRef(String refUrl, Path tempPath) throws IOException {
         // Download reference merkle tree
         ChunkedTransportClient client = ChunkedTransportIO.create(refUrl);

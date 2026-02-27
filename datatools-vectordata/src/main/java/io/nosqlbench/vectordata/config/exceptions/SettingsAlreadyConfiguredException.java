@@ -41,7 +41,9 @@ public class SettingsAlreadyConfiguredException extends RuntimeException {
         "This protection prevents accidental reconfiguration. To disable it,\n" +
         "set 'protect_settings: false' in settings.yaml.\n";
 
+    /// The path to the existing settings file.
     private final Path settingsPath;
+    /// The currently configured cache directory.
     private final String currentCacheDir;
 
     /// Constructs a SettingsAlreadyConfiguredException with the current configuration details.

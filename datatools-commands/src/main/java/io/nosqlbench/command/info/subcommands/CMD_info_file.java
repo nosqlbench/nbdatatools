@@ -81,6 +81,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_info_file implements Callable<Integer> {
 
+    /// Creates a new CMD_info_file instance.
+    public CMD_info_file() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_info_file.class);
 
     // ANSI color codes
@@ -349,5 +353,12 @@ public class CMD_info_file implements Callable<Integer> {
         }
     }
 
+    /// Vector file structural information.
+    ///
+    /// @param dimensions number of dimensions per vector
+    /// @param vectorCount total number of vectors in the file
+    /// @param bytesPerVector total bytes per vector including header
+    /// @param bytesPerValue bytes per individual component value
+    /// @param dataType human-readable data type name
     private record VectorFileInfo(int dimensions, int vectorCount, int bytesPerVector, int bytesPerValue, String dataType) {}
 }

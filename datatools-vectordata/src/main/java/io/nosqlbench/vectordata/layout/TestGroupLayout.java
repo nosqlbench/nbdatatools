@@ -39,6 +39,12 @@ public class TestGroupLayout {
   private final RootGroupAttributes attributes;
   private final List<String> attachments;
 
+  /// Creates a new TestGroupLayout.
+  ///
+  /// @param profiles the profile group
+  /// @param profile_defaults the default profile settings
+  /// @param attributes the root group attributes
+  /// @param attachments the list of attachment paths
   public TestGroupLayout(FGroup profiles, FProfiles profile_defaults, RootGroupAttributes attributes, List<String> attachments) {
     this.profiles = profiles;
     this.profile_defaults = profile_defaults;
@@ -46,18 +52,30 @@ public class TestGroupLayout {
     this.attachments = attachments;
   }
 
+  /// Returns the profile group.
+  ///
+  /// @return the profile group
   public FGroup profiles() {
     return profiles;
   }
 
+  /// Returns the default profile settings.
+  ///
+  /// @return the default profile settings
   public FProfiles profile_defaults() {
     return profile_defaults;
   }
 
+  /// Returns the root group attributes.
+  ///
+  /// @return the root group attributes
   public RootGroupAttributes attributes() {
     return attributes;
   }
 
+  /// Returns the attachment paths.
+  ///
+  /// @return the list of attachment paths
   public List<String> attachments() {
     return attachments;
   }

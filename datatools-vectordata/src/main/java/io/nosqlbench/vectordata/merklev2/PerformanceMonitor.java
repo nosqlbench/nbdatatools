@@ -284,6 +284,14 @@ public class PerformanceMonitor {
         private final int currentPending;
         private final int currentInFlight;
         
+        /// Constructs ChunkQueueMetrics with the given values.
+        ///
+        /// @param avgSchedulingTime   average scheduling time in milliseconds
+        /// @param totalSchedulingOps  total number of scheduling operations
+        /// @param totalTasksAdded     total tasks added
+        /// @param totalTasksCompleted total tasks completed
+        /// @param currentPending      current number of pending tasks
+        /// @param currentInFlight     current number of in-flight tasks
         public ChunkQueueMetrics(double avgSchedulingTime, long totalSchedulingOps, long totalTasksAdded,
                                 long totalTasksCompleted, int currentPending, int currentInFlight) {
             this.avgSchedulingTime = avgSchedulingTime;
@@ -294,11 +302,23 @@ public class PerformanceMonitor {
             this.currentInFlight = currentInFlight;
         }
         
+        /// Returns the average scheduling time.
+        /// @return the average scheduling time in milliseconds
         public double avgSchedulingTime() { return avgSchedulingTime; }
+        /// Returns the total scheduling operations count.
+        /// @return the total number of scheduling operations
         public long totalSchedulingOps() { return totalSchedulingOps; }
+        /// Returns the total tasks added.
+        /// @return the total number of tasks added
         public long totalTasksAdded() { return totalTasksAdded; }
+        /// Returns the total tasks completed.
+        /// @return the total number of tasks completed
         public long totalTasksCompleted() { return totalTasksCompleted; }
+        /// Returns the current pending count.
+        /// @return the number of currently pending tasks
         public int currentPending() { return currentPending; }
+        /// Returns the current in-flight count.
+        /// @return the number of currently in-flight tasks
         public int currentInFlight() { return currentInFlight; }
     }
     
@@ -313,6 +333,16 @@ public class PerformanceMonitor {
         private final long fileSizeBytes;
         private final int currentDownloads;
         
+        /// Constructs MAFileChannelMetrics with the given values.
+        ///
+        /// @param avgReadTime       average read time in milliseconds
+        /// @param totalReadOps      total number of read operations
+        /// @param avgBytesPerRead   average bytes per read
+        /// @param totalBytesRead    total bytes read
+        /// @param avgPrebufferTime  average prebuffer time in milliseconds
+        /// @param totalPrebufferOps total number of prebuffer operations
+        /// @param fileSizeBytes     the file size in bytes
+        /// @param currentDownloads  current number of active downloads
         public MAFileChannelMetrics(double avgReadTime, long totalReadOps, double avgBytesPerRead,
                                    long totalBytesRead, double avgPrebufferTime, long totalPrebufferOps,
                                    long fileSizeBytes, int currentDownloads) {
@@ -326,13 +356,29 @@ public class PerformanceMonitor {
             this.currentDownloads = currentDownloads;
         }
         
+        /// Returns the average read time.
+        /// @return the average read time in milliseconds
         public double avgReadTime() { return avgReadTime; }
+        /// Returns the total read operations count.
+        /// @return the total number of read operations
         public long totalReadOps() { return totalReadOps; }
+        /// Returns the average bytes per read.
+        /// @return the average bytes per read operation
         public double avgBytesPerRead() { return avgBytesPerRead; }
+        /// Returns the total bytes read.
+        /// @return the total number of bytes read
         public long totalBytesRead() { return totalBytesRead; }
+        /// Returns the average prebuffer time.
+        /// @return the average prebuffer time in milliseconds
         public double avgPrebufferTime() { return avgPrebufferTime; }
+        /// Returns the total prebuffer operations count.
+        /// @return the total number of prebuffer operations
         public long totalPrebufferOps() { return totalPrebufferOps; }
+        /// Returns the file size.
+        /// @return the file size in bytes
         public long fileSizeBytes() { return fileSizeBytes; }
+        /// Returns the current download count.
+        /// @return the number of active downloads
         public int currentDownloads() { return currentDownloads; }
     }
     
@@ -341,12 +387,20 @@ public class PerformanceMonitor {
         private final double heapUsedMB;
         private final double heapMaxMB;
         
+        /// Constructs SystemMetrics with the given heap values.
+        ///
+        /// @param heapUsedMB the used heap in megabytes
+        /// @param heapMaxMB  the maximum heap in megabytes
         public SystemMetrics(double heapUsedMB, double heapMaxMB) {
             this.heapUsedMB = heapUsedMB;
             this.heapMaxMB = heapMaxMB;
         }
         
+        /// Returns the used heap size.
+        /// @return the used heap in megabytes
         public double heapUsedMB() { return heapUsedMB; }
+        /// Returns the maximum heap size.
+        /// @return the maximum heap in megabytes
         public double heapMaxMB() { return heapMaxMB; }
     }
 }

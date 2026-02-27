@@ -28,6 +28,10 @@ import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
  */
 public class QueryVectorsInputFileOption {
 
+    /// Creates a new QueryVectorsInputFileOption instance.
+    public QueryVectorsInputFileOption() {
+    }
+
     @CommandLine.Option(
         names = {"--query"},
         description = "Query vectors spec with optional range suffix (e.g., file.fvec[0,1000) or dataset.profile.query[0,1000))",
@@ -45,7 +49,8 @@ public class QueryVectorsInputFileOption {
     }
 
     /**
-     * Gets the local file path if this is a local file spec
+     * Gets the local file path if this is a local file spec.
+     * @return the local path, or empty if not specified
      */
     public Optional<Path> getLocalPath() {
         return queryVectors != null ? queryVectors.spec().getLocalPath() : Optional.empty();
@@ -53,6 +58,7 @@ public class QueryVectorsInputFileOption {
 
     /**
      * Gets the normalized query vectors path (local file only).
+     * @return the normalized path, or null if not specified
      */
     public Path getNormalizedQueryPath() {
         if (queryVectors == null) {
@@ -66,13 +72,15 @@ public class QueryVectorsInputFileOption {
 
     /**
      * Gets the inline range specification, if any.
+     * @return the range spec string, or null if not specified
      */
     public String getInlineRange() {
         return queryVectors != null ? queryVectors.rangeSpec() : null;
     }
 
     /**
-     * Gets the inline range if present
+     * Gets the inline range if present.
+     * @return the range, or empty if not specified
      */
     public Optional<RangeOption.Range> getRange() {
         return queryVectors != null ? Optional.ofNullable(queryVectors.range()) : Optional.empty();
@@ -114,8 +122,12 @@ public class QueryVectorsInputFileOption {
 
     /**
      * Record representing query vectors file configuration
+     * @param spec the vector data spec
+     * @param range the parsed range, or null
+     * @param rangeSpec the raw range spec string, or null
      */
     public record QueryVectors(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
+        /// Compact constructor that validates the spec is non-null.
         public QueryVectors {
             if (spec == null) {
                 throw new IllegalArgumentException("Query vectors spec cannot be null");
@@ -131,9 +143,13 @@ public class QueryVectorsInputFileOption {
     }
 
     /**
-     * Custom converter for parsing query vectors file specification
+     * Custom converter for parsing query vectors file specification.
      */
     public static class QueryVectorsConverter implements CommandLine.ITypeConverter<QueryVectors> {
+        /// Creates a new QueryVectorsConverter instance.
+        public QueryVectorsConverter() {
+        }
+
         @Override
         public QueryVectors convert(String value) throws Exception {
             if (value == null || value.isEmpty()) {

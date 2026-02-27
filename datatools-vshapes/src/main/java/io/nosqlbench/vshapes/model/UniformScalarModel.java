@@ -73,6 +73,7 @@ import java.util.Objects;
 @ModelType(UniformScalarModel.MODEL_TYPE)
 public class UniformScalarModel implements ScalarModel {
 
+    /// The model type identifier for uniform distributions.
     public static final String MODEL_TYPE = "uniform";
 
     @SerializedName("lower")

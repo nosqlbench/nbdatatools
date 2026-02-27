@@ -50,6 +50,10 @@ import java.util.concurrent.Callable;
     subcommands = {CommandLine.HelpCommand.class})
 public class CMD_old_catalog implements Callable<Integer> {
 
+  /// Creates a new CMD_old_catalog instance.
+  public CMD_old_catalog() {
+  }
+
   private static final Logger logger = LogManager.getLogger(CMD_old_catalog.class);
 
   @CommandLine.Parameters(description = "Directories to catalog; directories will be recursively traversed "

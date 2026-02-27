@@ -49,4 +49,8 @@ import picocli.CommandLine.HelpCommand;
         HelpCommand.class
     })
 public class CMD_merkle implements BundledCommand {
+
+    /// Creates a new CMD_merkle instance.
+    public CMD_merkle() {
+    }
 }

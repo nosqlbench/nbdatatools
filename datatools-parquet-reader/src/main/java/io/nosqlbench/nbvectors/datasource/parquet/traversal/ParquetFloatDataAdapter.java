@@ -46,6 +46,7 @@ public class ParquetFloatDataAdapter implements BoundedVectorFileStream<float[]>
   private Path mainPath;
   private ParquetScanResult scanResult;
 
+  /// Creates a new ParquetFloatDataAdapter.
   public ParquetFloatDataAdapter() {
   }
 

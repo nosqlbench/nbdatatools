@@ -22,15 +22,16 @@ import io.nosqlbench.vectordata.layoutv2.DSWindow;
 import io.nosqlbench.vectordata.spec.datasets.types.FloatVectors;
 
 import java.nio.channels.AsynchronousFileChannel;
+import java.nio.file.Path;
 
 /// Implementation of float vector access for xvec file formats.
 ///
 /// This class provides methods for accessing float vectors stored in xvec files,
 /// extending the core functionality provided by CoreXVecDatasetViewMethods.
 public class FloatVectorsXvecImpl extends CoreXVecVectorDatasetViewMethods<float[]> implements FloatVectors {
-  /// Creates a new FloatVectorsXvecImpl instance.
+  /// Creates a new FloatVectorsXvecImpl instance backed by a channel.
   ///
-  /// @param channel The MAFileChannel to read from
+  /// @param channel The AsynchronousFileChannel to read from
   /// @param sourceSize The size of the source file in bytes
   /// @param window The window to use for accessing the data
   /// @param extension The file extension indicating the vector format
@@ -42,5 +43,14 @@ public class FloatVectorsXvecImpl extends CoreXVecVectorDatasetViewMethods<float
   )
   {
     super(channel, sourceSize, window, extension);
+  }
+
+  /// Creates a new FloatVectorsXvecImpl instance backed by a memory-mapped file.
+  ///
+  /// @param filePath The path to the xvec file
+  /// @param window The window to use for accessing the data
+  /// @param extension The file extension indicating the vector format
+  public FloatVectorsXvecImpl(Path filePath, DSWindow window, String extension) {
+    super(filePath, window, extension);
   }
 }

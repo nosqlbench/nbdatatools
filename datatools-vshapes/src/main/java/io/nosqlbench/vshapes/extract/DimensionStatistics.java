@@ -69,6 +69,15 @@ public final class DimensionStatistics {
 
     /**
      * Constructs dimension statistics with all values.
+     *
+     * @param dimension the dimension index
+     * @param count the number of observations
+     * @param min the minimum observed value
+     * @param max the maximum observed value
+     * @param mean the arithmetic mean
+     * @param variance the population variance
+     * @param skewness the skewness
+     * @param kurtosis the raw kurtosis
      */
     public DimensionStatistics(int dimension, long count, double min, double max,
                                 double mean, double variance, double skewness, double kurtosis) {
@@ -196,6 +205,8 @@ public final class DimensionStatistics {
 
     /**
      * Returns the dimension index.
+     *
+     * @return the dimension index
      */
     public int dimension() {
         return dimension;
@@ -203,6 +214,8 @@ public final class DimensionStatistics {
 
     /**
      * Returns the number of observations.
+     *
+     * @return the observation count
      */
     public long count() {
         return count;
@@ -210,6 +223,8 @@ public final class DimensionStatistics {
 
     /**
      * Returns the minimum observed value.
+     *
+     * @return the minimum value
      */
     public double min() {
         return min;
@@ -217,6 +232,8 @@ public final class DimensionStatistics {
 
     /**
      * Returns the maximum observed value.
+     *
+     * @return the maximum value
      */
     public double max() {
         return max;
@@ -224,6 +241,8 @@ public final class DimensionStatistics {
 
     /**
      * Returns the range (max - min).
+     *
+     * @return the range
      */
     public double range() {
         return max - min;
@@ -231,6 +250,8 @@ public final class DimensionStatistics {
 
     /**
      * Returns the arithmetic mean.
+     *
+     * @return the mean
      */
     public double mean() {
         return mean;
@@ -238,6 +259,8 @@ public final class DimensionStatistics {
 
     /**
      * Returns the population variance.
+     *
+     * @return the variance
      */
     public double variance() {
         return variance;
@@ -246,6 +269,8 @@ public final class DimensionStatistics {
     /**
      * Returns the population standard deviation.
      * Computed lazily from variance if needed (e.g., after deserialization).
+     *
+     * @return the standard deviation
      */
     public double stdDev() {
         if (stdDev == null) {
@@ -261,6 +286,8 @@ public final class DimensionStatistics {
      *   <li>skewness &gt; 0: right-skewed (tail extends right)</li>
      *   <li>skewness &lt; 0: left-skewed (tail extends left)</li>
      * </ul>
+     *
+     * @return the skewness
      */
     public double skewness() {
         return skewness;
@@ -273,6 +300,8 @@ public final class DimensionStatistics {
      *   <li>kurtosis &gt; 3: leptokurtic (heavier tails than normal)</li>
      *   <li>kurtosis &lt; 3: platykurtic (lighter tails than normal)</li>
      * </ul>
+     *
+     * @return the kurtosis
      */
     public double kurtosis() {
         return kurtosis;
@@ -281,6 +310,8 @@ public final class DimensionStatistics {
     /**
      * Returns the excess kurtosis (kurtosis - 3).
      * For a normal distribution, excess kurtosis is 0.
+     *
+     * @return the excess kurtosis
      */
     public double excessKurtosis() {
         return kurtosis - 3;
@@ -289,6 +320,8 @@ public final class DimensionStatistics {
     /**
      * Checks if the data appears to be bounded (all values within a finite range).
      * This is a heuristic based on comparing the range to the standard deviation.
+     *
+     * @return true if the data appears bounded
      */
     public boolean appearsBounded() {
         // If range is less than 6 standard deviations, data is likely bounded
@@ -299,6 +332,8 @@ public final class DimensionStatistics {
     /**
      * Checks if the data appears approximately normally distributed.
      * Uses skewness and kurtosis as indicators.
+     *
+     * @return true if the data appears normally distributed
      */
     public boolean appearsNormal() {
         // Rough heuristic: |skewness| < 0.5 and |excess kurtosis| < 1
@@ -308,6 +343,8 @@ public final class DimensionStatistics {
     /**
      * Checks if the data appears approximately uniformly distributed.
      * Uses kurtosis as an indicator (uniform has kurtosis = 1.8).
+     *
+     * @return true if the data appears uniformly distributed
      */
     public boolean appearsUniform() {
         // Uniform distribution has kurtosis = 1.8 (excess kurtosis = -1.2)

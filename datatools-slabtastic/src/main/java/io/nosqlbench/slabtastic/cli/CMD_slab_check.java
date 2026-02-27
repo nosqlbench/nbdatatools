@@ -53,6 +53,9 @@ import java.util.concurrent.Callable;
 )
 public class CMD_slab_check implements Callable<Integer>, SlabConstants {
 
+    /// Creates a new instance of the check subcommand.
+    public CMD_slab_check() {}
+
     @CommandLine.Parameters(index = "0", description = "Path to the slabtastic file")
     private Path file;
 

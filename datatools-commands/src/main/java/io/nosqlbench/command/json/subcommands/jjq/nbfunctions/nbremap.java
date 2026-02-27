@@ -42,6 +42,9 @@ import java.util.Map;
 /// the index ordinal from the provided remap file.
 @BuiltinFunction({"nbremap/2"})
 public class nbremap extends NBBaseJQFunction {
+  /// Creates a new nbremap function instance.
+  public nbremap() {}
+
   private NBIdMapper mapper;
   private String file;
   private String dirpath;

@@ -44,12 +44,17 @@ import java.util.*;
 /// ```
 public final class ExploreRenderer {
 
-    // ANSI escape codes
+    /// ANSI escape code to reset terminal formatting.
     public static final String RESET = "\u001B[0m";
+    /// ANSI escape code to clear the screen.
     public static final String CLEAR_SCREEN = "\u001B[2J";
+    /// ANSI escape code to move cursor to home position.
     public static final String CURSOR_HOME = "\u001B[H";
+    /// ANSI escape code to hide the cursor.
     public static final String CURSOR_HIDE = "\u001B[?25l";
+    /// ANSI escape code to show the cursor.
     public static final String CURSOR_SHOW = "\u001B[?25h";
+    /// ANSI escape code to clear the current line.
     public static final String CLEAR_LINE = "\u001B[K";
 
     // Line ending for terminal output (CR+LF for proper VT100/ANSI behavior)
@@ -276,6 +281,8 @@ public final class ExploreRenderer {
     }
 
     /// Returns the number of histogram bins.
+    ///
+    /// @return the bin count
     public int getBins() {
         return bins;
     }
@@ -441,6 +448,9 @@ public final class ExploreRenderer {
     }
 
     /// Returns histogram bin count for a specific plot width.
+    ///
+    /// @param plotWidth the plot width in characters
+    /// @return the bin count
     public static int getBinsForWidth(int plotWidth) {
         return plotWidth * 2;
     }
@@ -472,6 +482,8 @@ public final class ExploreRenderer {
         String modelString
     ) {
         /// Creates a builder for ExploreState.
+        ///
+        /// @return a new builder
         public static Builder builder() {
             return new Builder();
         }
@@ -490,18 +502,56 @@ public final class ExploreRenderer {
             private int targetSamples = 0;
             private String modelString = null;
 
+            /// Creates a new Builder with default values.
+            public Builder() {}
+
+            /// Sets the file name.
+            /// @param fileName the file name
+            /// @return this builder
             public Builder fileName(String fileName) { this.fileName = fileName; return this; }
+            /// Sets the vector count.
+            /// @param vectorCount the vector count
+            /// @return this builder
             public Builder vectorCount(int vectorCount) { this.vectorCount = vectorCount; return this; }
+            /// Sets the file dimensions.
+            /// @param fileDimensions the dimension count
+            /// @return this builder
             public Builder fileDimensions(int fileDimensions) { this.fileDimensions = fileDimensions; return this; }
+            /// Sets the current dimension.
+            /// @param currentDimension the dimension index
+            /// @return this builder
             public Builder currentDimension(int currentDimension) { this.currentDimension = currentDimension; return this; }
+            /// Sets the enabled dimensions.
+            /// @param enabledDimensions the set of enabled dimension indices
+            /// @return this builder
             public Builder enabledDimensions(Set<Integer> enabledDimensions) { this.enabledDimensions = enabledDimensions; return this; }
+            /// Sets the histogram counts.
+            /// @param histogramCounts the histogram counts per dimension
+            /// @return this builder
             public Builder histogramCounts(Map<Integer, int[]> histogramCounts) { this.histogramCounts = histogramCounts; return this; }
+            /// Sets the global minimum value.
+            /// @param globalMin the minimum value
+            /// @return this builder
             public Builder globalMin(float globalMin) { this.globalMin = globalMin; return this; }
+            /// Sets the global maximum value.
+            /// @param globalMax the maximum value
+            /// @return this builder
             public Builder globalMax(float globalMax) { this.globalMax = globalMax; return this; }
+            /// Sets the number of samples loaded.
+            /// @param samplesLoaded the sample count
+            /// @return this builder
             public Builder samplesLoaded(int samplesLoaded) { this.samplesLoaded = samplesLoaded; return this; }
+            /// Sets the target number of samples.
+            /// @param targetSamples the target sample count
+            /// @return this builder
             public Builder targetSamples(int targetSamples) { this.targetSamples = targetSamples; return this; }
+            /// Sets the model string.
+            /// @param modelString the model string
+            /// @return this builder
             public Builder modelString(String modelString) { this.modelString = modelString; return this; }
 
+            /// Builds the ExploreState.
+            /// @return the constructed ExploreState
             public ExploreState build() {
                 return new ExploreState(fileName, vectorCount, fileDimensions, currentDimension,
                     enabledDimensions, histogramCounts, globalMin, globalMax, samplesLoaded, targetSamples,
@@ -541,6 +591,8 @@ public final class ExploreRenderer {
         int targetSamples
     ) {
         /// Creates a builder for GridState.
+        ///
+        /// @return a new builder
         public static Builder builder() {
             return new Builder();
         }
@@ -561,20 +613,64 @@ public final class ExploreRenderer {
             private int samplesLoaded = 0;
             private int targetSamples = 0;
 
+            /// Creates a new Builder with default values.
+            public Builder() {}
+
+            /// Sets the file name.
+            /// @param fileName the file name
+            /// @return this builder
             public Builder fileName(String fileName) { this.fileName = fileName; return this; }
+            /// Sets the vector count.
+            /// @param vectorCount the vector count
+            /// @return this builder
             public Builder vectorCount(int vectorCount) { this.vectorCount = vectorCount; return this; }
+            /// Sets the file dimensions.
+            /// @param fileDimensions the dimension count
+            /// @return this builder
             public Builder fileDimensions(int fileDimensions) { this.fileDimensions = fileDimensions; return this; }
+            /// Sets the start dimension.
+            /// @param startDimension the start dimension index
+            /// @return this builder
             public Builder startDimension(int startDimension) { this.startDimension = startDimension; return this; }
+            /// Sets the grid rows.
+            /// @param gridRows the number of grid rows
+            /// @return this builder
             public Builder gridRows(int gridRows) { this.gridRows = gridRows; return this; }
+            /// Sets the grid columns.
+            /// @param gridColumns the number of grid columns
+            /// @return this builder
             public Builder gridColumns(int gridColumns) { this.gridColumns = gridColumns; return this; }
+            /// Sets the plot width.
+            /// @param plotWidth the plot width in characters
+            /// @return this builder
             public Builder plotWidth(int plotWidth) { this.plotWidth = plotWidth; return this; }
+            /// Sets the plot height.
+            /// @param plotHeight the plot height in lines
+            /// @return this builder
             public Builder plotHeight(int plotHeight) { this.plotHeight = plotHeight; return this; }
+            /// Sets the histogram counts.
+            /// @param histogramCounts the histogram counts per dimension
+            /// @return this builder
             public Builder histogramCounts(Map<Integer, int[]> histogramCounts) { this.histogramCounts = histogramCounts; return this; }
+            /// Sets the global minimum value.
+            /// @param globalMin the minimum value
+            /// @return this builder
             public Builder globalMin(float globalMin) { this.globalMin = globalMin; return this; }
+            /// Sets the global maximum value.
+            /// @param globalMax the maximum value
+            /// @return this builder
             public Builder globalMax(float globalMax) { this.globalMax = globalMax; return this; }
+            /// Sets the number of samples loaded.
+            /// @param samplesLoaded the sample count
+            /// @return this builder
             public Builder samplesLoaded(int samplesLoaded) { this.samplesLoaded = samplesLoaded; return this; }
+            /// Sets the target number of samples.
+            /// @param targetSamples the target sample count
+            /// @return this builder
             public Builder targetSamples(int targetSamples) { this.targetSamples = targetSamples; return this; }
 
+            /// Builds the GridState.
+            /// @return the constructed GridState
             public GridState build() {
                 return new GridState(fileName, vectorCount, fileDimensions, startDimension,
                     gridRows, gridColumns, plotWidth, plotHeight, histogramCounts,

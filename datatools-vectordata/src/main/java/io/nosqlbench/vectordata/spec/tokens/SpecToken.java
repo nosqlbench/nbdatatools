@@ -74,6 +74,16 @@ public enum SpecToken implements Function<VectorTestDataView, Optional<String>> 
       d -> Optional.of(d.getVendor()),
       "The vendor of the dataset"
   ),
+  /// The number of filtered neighborhoods provided
+  filtered_neighbor_indices(
+      d -> d.getFilteredNeighborIndices().map(VectorDatasetView::getCount).map(String::valueOf),
+      "The number of filtered neighborhoods provided"
+  ),
+  /// The maximum number of filtered neighbors provided for each query vector
+  filtered_max_k(
+      d -> d.getFilteredNeighborIndices().map(NeighborIndices::getMaxK).map(String::valueOf),
+      "The maximum number of filtered neighbors provided for each query vector"
+  ),
   /// The distance function used to compute distance between vectors
   distance_function(d -> Optional.of(d.getDistanceFunction()).map(String::valueOf),
       "The distance function used to compute distance between vectors"

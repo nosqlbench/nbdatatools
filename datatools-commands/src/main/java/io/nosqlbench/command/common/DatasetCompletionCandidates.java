@@ -46,6 +46,10 @@ import java.util.regex.Pattern;
 /// ```
 public class DatasetCompletionCandidates implements Iterable<String> {
 
+    /// Creates a new DatasetCompletionCandidates instance.
+    public DatasetCompletionCandidates() {
+    }
+
     private static final Path DEFAULT_CONFIG_DIR = Path.of(
         System.getProperty("user.home"), ".config", "vectordata");
 
@@ -58,6 +62,11 @@ public class DatasetCompletionCandidates implements Iterable<String> {
 
     /// Completion candidates for dataset names only (no profiles or facets).
     public static class DatasetOnly implements Iterable<String> {
+
+        /// Creates a new DatasetOnly instance.
+        public DatasetOnly() {
+        }
+
         @Override
         public Iterator<String> iterator() {
             List<String> candidates = new ArrayList<>();
@@ -82,6 +91,11 @@ public class DatasetCompletionCandidates implements Iterable<String> {
 
     /// Completion candidates for dataset:profile format.
     public static class DatasetProfile implements Iterable<String> {
+
+        /// Creates a new DatasetProfile instance.
+        public DatasetProfile() {
+        }
+
         @Override
         public Iterator<String> iterator() {
             List<String> candidates = new ArrayList<>();
@@ -148,6 +162,11 @@ public class DatasetCompletionCandidates implements Iterable<String> {
 
     /// Completion candidates for dataset:profile:facet format.
     public static class DatasetProfileFacet implements Iterable<String> {
+
+        /// Creates a new DatasetProfileFacet instance.
+        public DatasetProfileFacet() {
+        }
+
         @Override
         public Iterator<String> iterator() {
             List<String> candidates = new ArrayList<>();
@@ -209,6 +228,11 @@ public class DatasetCompletionCandidates implements Iterable<String> {
 
     /// Completion candidates for facet names only.
     public static class FacetOnly implements Iterable<String> {
+
+        /// Creates a new FacetOnly instance.
+        public FacetOnly() {
+        }
+
         @Override
         public Iterator<String> iterator() {
             return CANONICAL_FACET_NAMES.iterator();

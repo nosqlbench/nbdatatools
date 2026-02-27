@@ -44,6 +44,9 @@ import java.util.concurrent.Callable;
 )
 public class CMD_slab implements Callable<Integer> {
 
+    /// Creates a new instance of the slab command.
+    public CMD_slab() {}
+
     /// Entry point for standalone execution.
     ///
     /// @param args command-line arguments

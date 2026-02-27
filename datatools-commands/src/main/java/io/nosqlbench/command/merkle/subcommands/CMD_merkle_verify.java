@@ -42,10 +42,16 @@ import java.util.concurrent.Callable;
     description = "Verify files against their Merkle trees"
 )
 public class CMD_merkle_verify implements Callable<Integer> {
+
+    /// Creates a new CMD_merkle_verify instance.
+    public CMD_merkle_verify() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_merkle_verify.class);
 
-    // File extensions for merkle tree files - using constants from MerkleUtils
+    /// File extension for Merkle tree files
     public static final String MRKL = MerkleUtils.MRKL;
+    /// File extension for Merkle reference files
     public static final String MREF = MerkleUtils.MREF;
 
     @Parameters(index = "0..*", description = "Files to process")

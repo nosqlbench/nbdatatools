@@ -30,7 +30,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
+/// Utility to create a Merkle reference file for testing purposes.
 public class CreateMerkleFileForTest {
+
+    /// Creates a new CreateMerkleFileForTest instance.
+    public CreateMerkleFileForTest() {
+    }
+
+    /// Creates a Merkle reference file for the specified file path.
+    ///
+    /// @param args command line arguments; first argument is the file path
+    /// @throws Exception if an error occurs during Merkle file creation
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
             System.out.println("Usage: CreateMerkleFileForTest <file_path>");

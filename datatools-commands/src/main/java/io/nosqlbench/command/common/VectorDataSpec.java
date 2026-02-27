@@ -76,6 +76,8 @@ public final class VectorDataSpec {
     public static class AmbiguousDatasetBaseException extends IllegalArgumentException {
         private final String baseUrl;
 
+        /// Creates a new AmbiguousDatasetBaseException.
+        /// @param baseUrl the ambiguous base URL
         public AmbiguousDatasetBaseException(String baseUrl) {
             super("Dataset base URL '" + baseUrl + "' is ambiguous. " +
                   "Please specify a facet (base, query, indices, or distances). " +
@@ -83,11 +85,13 @@ public final class VectorDataSpec {
             this.baseUrl = baseUrl;
         }
 
+        /// Gets the ambiguous base URL.
         /// @return The ambiguous base URL that was provided
         public String getBaseUrl() {
             return baseUrl;
         }
 
+        /// Gets the dataset.yaml URL derived from the base URL.
         /// @return The URL to fetch dataset.yaml from
         public String getDatasetYamlUrl() {
             return baseUrl + "dataset.yaml";
@@ -102,10 +106,17 @@ public final class VectorDataSpec {
         private final String profileName;
         private final String rawSpec;
 
+        /// Creates a new IncompleteDatasetSpecException.
+        /// @param datasetName the dataset name
+        /// @param profileName the profile name
         public IncompleteDatasetSpecException(String datasetName, String profileName) {
             this(datasetName, profileName, datasetName + ":" + profileName);
         }
 
+        /// Creates a new IncompleteDatasetSpecException with a raw spec.
+        /// @param datasetName the dataset name
+        /// @param profileName the profile name
+        /// @param rawSpec the raw specification string
         public IncompleteDatasetSpecException(String datasetName, String profileName, String rawSpec) {
             super(buildMessage(datasetName, profileName, rawSpec));
             this.datasetName = datasetName;
@@ -134,16 +145,19 @@ public final class VectorDataSpec {
                    "  distances, neighbor_distances - Ground truth neighbor distances";
         }
 
+        /// Gets the dataset name.
         /// @return The dataset name from the spec
         public String getDatasetName() {
             return datasetName;
         }
 
+        /// Gets the profile name.
         /// @return The profile name from the spec
         public String getProfileName() {
             return profileName;
         }
 
+        /// Gets the raw spec string.
         /// @return The raw spec that was provided
         public String getRawSpec() {
             return rawSpec;
@@ -406,72 +420,86 @@ public final class VectorDataSpec {
         return Path.of(expanded);
     }
 
+    /// Gets the source type of this specification.
     /// @return The source type of this specification
     public SourceType getSourceType() {
         return sourceType;
     }
 
+    /// Gets the raw specification string as provided.
     /// @return The raw specification string as provided
     public String getRawSpec() {
         return rawSpec;
     }
 
+    /// Gets the local file path, if applicable.
     /// @return The local file path, if this is a LOCAL_FILE or LOCAL_FACET spec
     public Optional<Path> getLocalPath() {
         return Optional.ofNullable(localPath);
     }
 
+    /// Gets the remote URI, if applicable.
     /// @return The remote URI, if this is a REMOTE_* spec
     public Optional<URI> getRemoteUri() {
         return Optional.ofNullable(remoteUri);
     }
 
+    /// Gets the dataset reference, if applicable.
     /// @return The dataset reference (directory path or catalog name), if this is a facet spec
     public Optional<String> getDatasetRef() {
         return Optional.ofNullable(datasetRef);
     }
 
+    /// Gets the profile name, if applicable.
     /// @return The profile name, if this is a facet spec
     public Optional<String> getProfileName() {
         return Optional.ofNullable(profileName);
     }
 
+    /// Gets the facet kind, if applicable.
     /// @return The facet kind, if this is a facet spec
     public Optional<TestDataKind> getFacetKind() {
         return Optional.ofNullable(facetKind);
     }
 
+    /// Checks whether this spec represents a local file.
     /// @return true if this spec represents a local file (not a facet or remote resource)
     public boolean isLocalFile() {
         return sourceType == SourceType.LOCAL_FILE;
     }
 
+    /// Checks whether this spec represents a local facet.
     /// @return true if this spec represents a local facet from a dataset.yaml directory
     public boolean isLocalFacet() {
         return sourceType == SourceType.LOCAL_FACET;
     }
 
+    /// Checks whether this spec represents a catalog-resolved facet.
     /// @return true if this spec represents a catalog-resolved facet
     public boolean isCatalogFacet() {
         return sourceType == SourceType.CATALOG_FACET;
     }
 
+    /// Checks if this spec is any kind of facet.
     /// @return true if this spec represents any kind of facet (local or catalog)
     public boolean isFacet() {
         return sourceType == SourceType.LOCAL_FACET || sourceType == SourceType.CATALOG_FACET;
     }
 
+    /// Checks if this spec is a remote resource.
     /// @return true if this spec represents a remote resource
     public boolean isRemote() {
         return sourceType == SourceType.REMOTE_FILE ||
                sourceType == SourceType.REMOTE_DATASET_YAML;
     }
 
+    /// Checks if this spec is a remote file.
     /// @return true if this spec represents a remote file (not a dataset base or yaml)
     public boolean isRemoteFile() {
         return sourceType == SourceType.REMOTE_FILE;
     }
 
+    /// Checks if this spec is a remote dataset.
     /// @return true if this spec represents a remote dataset.yaml
     public boolean isRemoteDataset() {
         return sourceType == SourceType.REMOTE_DATASET_YAML;
@@ -526,7 +554,8 @@ public final class VectorDataSpec {
         return rawSpec;
     }
 
-    /// Create a descriptive string for display purposes
+    /// Create a descriptive string for display purposes.
+    /// @return a human-readable description
     public String toDescription() {
         return switch (sourceType) {
             case LOCAL_FILE -> "Local file: " + localPath;

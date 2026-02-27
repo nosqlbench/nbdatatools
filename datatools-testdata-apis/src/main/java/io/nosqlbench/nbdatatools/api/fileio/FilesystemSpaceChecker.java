@@ -48,7 +48,10 @@ import java.util.Map;
  * </pre>
  */
 public class FilesystemSpaceChecker {
-    
+
+    /// Utility class; not intended for instantiation.
+    private FilesystemSpaceChecker() {}
+
     private static final double DEFAULT_MARGIN = 0.20; // 20% margin
 
     /**
@@ -131,6 +134,9 @@ public class FilesystemSpaceChecker {
      * combined for more accurate space checking.
      */
     public static class Builder {
+        /// Creates a new Builder with default settings.
+        public Builder() {}
+
         private final List<PathSizeRequirement> requirements = new ArrayList<>();
         private double marginPercent = DEFAULT_MARGIN;
 

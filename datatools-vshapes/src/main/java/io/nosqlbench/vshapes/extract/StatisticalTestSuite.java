@@ -57,6 +57,11 @@ public final class StatisticalTestSuite {
     ) {
         /**
          * Creates a test result with standard alpha=0.05.
+         *
+         * @param name the test name
+         * @param statistic the test statistic
+         * @param critical the critical value
+         * @return the test result
          */
         public static TestResult of(String name, double statistic, double critical) {
             return new TestResult(name, statistic, critical, 0.05, statistic < critical);
@@ -87,6 +92,8 @@ public final class StatisticalTestSuite {
     ) {
         /**
          * Returns true if all moment tests passed.
+         *
+         * @return true if all tests passed
          */
         public boolean allPassed() {
             return meanPassed && variancePassed && skewnessPassed && kurtosisPassed;
@@ -111,6 +118,8 @@ public final class StatisticalTestSuite {
     ) {
         /**
          * Returns true if all tests passed for this dimension.
+         *
+         * @return true if all tests passed
          */
         public boolean passed() {
             return ksTest.passed() && moments.allPassed() && qqCorrelation > 0.995;
@@ -398,6 +407,10 @@ public final class StatisticalTestSuite {
 
     /**
      * Computes Q-Q correlation with default 100 quantiles.
+     *
+     * @param original the original data
+     * @param synthetic the synthetic data
+     * @return the Q-Q correlation coefficient
      */
     public static double qqCorrelation(float[] original, float[] synthetic) {
         return qqCorrelation(original, synthetic, 100);

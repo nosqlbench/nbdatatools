@@ -52,6 +52,14 @@ public class OptimizedChunkQueue implements SchedulingTarget {
     private final ReadWriteLock schedulingLock;
     private final MeterRegistry meterRegistry;
 
+    /// Constructs an OptimizedChunkQueue with the given components.
+    ///
+    /// @param taskQueue              the task queue
+    /// @param inFlightFutures        map of in-flight futures keyed by chunk index
+    /// @param completedTasksHistory  history of completed tasks
+    /// @param maxHistorySize         maximum history size
+    /// @param schedulingLock         lock for scheduling operations
+    /// @param meterRegistry          metrics registry
     public OptimizedChunkQueue(BlockingQueue<ChunkScheduler.NodeDownloadTask> taskQueue,
                              ConcurrentMap<Integer, CompletableFuture<Void>> inFlightFutures,
                              Deque<CompletedTask> completedTasksHistory,
@@ -66,26 +74,38 @@ public class OptimizedChunkQueue implements SchedulingTarget {
         this.meterRegistry = meterRegistry;
     }
 
+    /// Returns the task queue.
+    /// @return the blocking queue of download tasks
     public BlockingQueue<ChunkScheduler.NodeDownloadTask> taskQueue() {
         return taskQueue;
     }
 
+    /// Returns the in-flight futures map.
+    /// @return the concurrent map of in-flight futures
     public ConcurrentMap<Integer, CompletableFuture<Void>> inFlightFutures() {
         return inFlightFutures;
     }
 
+    /// Returns the completed tasks history.
+    /// @return the deque of completed tasks
     public Deque<CompletedTask> completedTasksHistory() {
         return completedTasksHistory;
     }
 
+    /// Returns the maximum history size.
+    /// @return the max number of completed tasks retained
     public int maxHistorySize() {
         return maxHistorySize;
     }
 
+    /// Returns the scheduling lock.
+    /// @return the read-write lock for scheduling operations
     public ReadWriteLock schedulingLock() {
         return schedulingLock;
     }
 
+    /// Returns the meter registry.
+    /// @return the metrics registry
     public MeterRegistry meterRegistry() {
         return meterRegistry;
     }
@@ -365,15 +385,23 @@ public class OptimizedChunkQueue implements SchedulingTarget {
         private final List<ChunkScheduler.NodeDownloadTask> tasks;
         private final List<CompletableFuture<Void>> futures;
 
+        /// Constructs a SchedulingResult with the given tasks and futures.
+        ///
+        /// @param tasks   the scheduled download tasks
+        /// @param futures the futures associated with the tasks
         public SchedulingResult(List<ChunkScheduler.NodeDownloadTask> tasks, List<CompletableFuture<Void>> futures) {
             this.tasks = tasks;
             this.futures = futures;
         }
 
+        /// Returns the scheduled tasks.
+        /// @return the list of download tasks
         public List<ChunkScheduler.NodeDownloadTask> tasks() {
             return tasks;
         }
 
+        /// Returns the associated futures.
+        /// @return the list of futures
         public List<CompletableFuture<Void>> futures() {
             return futures;
         }
@@ -468,6 +496,15 @@ public class OptimizedChunkQueue implements SchedulingTarget {
         private final boolean success;
         private final long bytesTransferred;
 
+        /// Constructs a CompletedTask record.
+        ///
+        /// @param nodeIndex        the merkle tree node index
+        /// @param offset           the data offset
+        /// @param size             the data size
+        /// @param isLeafNode       whether this was a leaf node
+        /// @param completionTime   when the task completed
+        /// @param success          whether the task succeeded
+        /// @param bytesTransferred the number of bytes transferred
         public CompletedTask(int nodeIndex, long offset, long size, boolean isLeafNode,
                            Instant completionTime, boolean success, long bytesTransferred) {
             this.nodeIndex = nodeIndex;
@@ -479,30 +516,44 @@ public class OptimizedChunkQueue implements SchedulingTarget {
             this.bytesTransferred = bytesTransferred;
         }
 
+        /// Returns the node index.
+        /// @return the merkle tree node index
         public int nodeIndex() {
             return nodeIndex;
         }
 
+        /// Returns the data offset.
+        /// @return the offset in bytes
         public long offset() {
             return offset;
         }
 
+        /// Returns the data size.
+        /// @return the size in bytes
         public long size() {
             return size;
         }
 
+        /// Returns whether this was a leaf node.
+        /// @return true if this was a leaf node
         public boolean isLeafNode() {
             return isLeafNode;
         }
 
+        /// Returns the completion time.
+        /// @return the instant when the task completed
         public Instant completionTime() {
             return completionTime;
         }
 
+        /// Returns whether the task succeeded.
+        /// @return true if the task was successful
         public boolean success() {
             return success;
         }
 
+        /// Returns the bytes transferred.
+        /// @return the number of bytes transferred
         public long bytesTransferred() {
             return bytesTransferred;
         }

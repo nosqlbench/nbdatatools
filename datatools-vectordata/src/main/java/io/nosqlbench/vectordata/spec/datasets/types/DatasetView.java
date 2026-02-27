@@ -23,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 
+/// A dataset view provides indexed access to typed dataset elements.
+/// @param <T> the type of the dataset elements
 public interface DatasetView<T> extends Iterable<T> {
     /// Asynchronously buffer an interval of bytes from the remote file to the local cache file and
     ///  return a future which can be used to block synchronously until it is avaialble.

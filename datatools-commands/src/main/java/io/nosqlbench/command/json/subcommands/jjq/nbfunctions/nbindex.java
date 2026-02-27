@@ -44,6 +44,9 @@ import java.util.Map;
 /// and this needs to be made more flexible.
 @BuiltinFunction({"nbindex/2"})
 public class nbindex extends NBBaseJQFunction {
+  /// Creates a new nbindex function instance.
+  public nbindex() {}
+
   private NBIdMapper mapper;
   private String filepath;
   private String fieldName;

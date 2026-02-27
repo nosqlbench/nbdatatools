@@ -229,6 +229,10 @@ here in template form with such fields tokenized and then interpolated at error 
 When commands are creating a new slab file with import or similar, the file needs to be suffixed as `.slab.buffer` and
 only renamed (linked to) the end name once it is successfully fully written and then known to be complete (flushed).
 
+Slab commands should not assume any particular set of namespaces will be present in a slab file. Instead, if there is a
+namespaces page, then each or all namespaces should be supported, or the user should be prompted to choose one if
+necessary.
+
 ### `slab analyze <file>` (was slab info)
 
 Analyze a slabtastic file and give user stats and layout details:
@@ -423,9 +427,9 @@ ordinal-to-offset index, and returns a reader handle.
 ## Read modes
 
 - **Point get** — fetch a single record by ordinal using O(log₂ n) binary search over the
-  pages page index. The page buffer is cached (single-entry) so consecutive reads from the
-  same page avoid disk I/O, and the record is extracted via zero-copy offset lookup without
-  deserializing the full page.
+  pages page index. The record is extracted via zero-copy offset lookup (reading only the
+  footer and two offset entries) without deserializing the full page. The OS buffer cache
+  handles repeated reads of the same file region.
 - **Batched iteration** — the reader should allow the user to specify the number of records to
   read at a time (the batch size), and the reader should try to buffer that many. It should be
   possible for the reader to return less, but if the reader returns 0 then the requestor should
@@ -436,8 +440,9 @@ ordinal-to-offset index, and returns a reader handle.
 - **Async sink read** — the reader should be able to read all records to a sink on a background
   thread, with a callback to be notified when it is done. The handle returned should implement
   a pollable progress interface (see "Async Task Model" below).
-
-## Additional reader capabilities
+- **MultiBatch read** - the reader should allow the user to submit concurrently a number of different batch requests.
+  The responses should be returned to the user in the same order. Partial success should be possible and the user should
+  be able to tell if any of the results was "empty". Internal benches for this mode need to test for order sensitivity.
 
 - Check whether a record exists for a given ordinal (existence check, not full read).
 - Return the number of data pages in the file.
@@ -446,8 +451,8 @@ ordinal-to-offset index, and returns a reader handle.
 - Return the file size in bytes.
 - Read and deserialize a page at a specific byte offset (used by forward traversal in `slab
   check`).
-- Read and deserialize a data page referenced by a pages page index entry (served from the
-  single-entry page cache when the same page is requested consecutively).
+- Read and deserialize a data page referenced by a pages page index entry (uses a reusable
+  buffer to avoid per-page allocation during sequential bulk operations).
 
 ## Opening semantics
 
@@ -641,19 +646,19 @@ library (not the binary) so that subcommand logic is directly testable.
 
 ## Library modules
 
-| Module          | Purpose                                                                   |
-|-----------------|---------------------------------------------------------------------------|
-| config          | Writer configuration and page size validation                             |
-| constants       | Magic bytes, page size limits, page type enum, footer size constants      |
-| error           | Error type and result alias                                               |
-| footer          | 16-byte v1 page footer serialize/deserialize                              |
+| Module          | Purpose                                                                                                          |
+|-----------------|------------------------------------------------------------------------------------------------------------------|
+| config          | Writer configuration and page size validation                                                                    |
+| constants       | Magic bytes, page size limits, page type enum, footer size constants                                             |
+| error           | Error type and result alias                                                                                      |
+| footer          | 16-byte v1 page footer serialize/deserialize                                                                     |
 | page            | In-memory page representation with records, offset array, and zero-copy point extraction from serialized buffers |
-| pages_page      | Pages page index serialize/deserialize                                    |
-| namespaces_page | Namespaces page serialize/deserialize                                     |
-| reader          | All read modes (point get with single-entry page cache, batched iteration, sink read, async sink read) |
-| writer          | All write modes (single, bulk, asserted ordinal, async from iterator)     |
-| task            | Async task handle and progress polling                                    |
-| cli             | CLI subcommand implementations                                            |
+| pages_page      | Pages page index serialize/deserialize                                                                           |
+| namespaces_page | Namespaces page serialize/deserialize                                                                            |
+| reader          | All read modes (zero-copy point get, batched iteration, sink read, async sink read)                              |
+| writer          | All write modes (single, bulk, asserted ordinal, async from iterator)                                            |
+| task            | Async task handle and progress polling                                                                           |
+| cli             | CLI subcommand implementations                                                                                   |
 
 ## CLI submodules
 
@@ -685,3 +690,5 @@ necessary data to find the ordinal elements.
 
 Benchmarks should be added, and critical sections for measurement should not include file IO setup and teardown. Benches
 should focus on core read and write patterns once this setup has been done.
+
+The pages page and namespaces page types should always be cached in memory explicitly while a slab file is open.

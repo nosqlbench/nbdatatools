@@ -174,19 +174,28 @@ public interface ProgressIndicator<T>  {
         private final double currentWork;
         private final double totalWork;
         
+        /// Creates a new progress snapshot.
+        /// @param currentWork the amount of work completed
+        /// @param totalWork the total amount of work
         public ProgressSnapshot(double currentWork, double totalWork) {
             this.currentWork = currentWork;
             this.totalWork = totalWork;
         }
-        
+
+        /// Returns the amount of work completed.
+        /// @return current work value
         public double currentWork() {
             return currentWork;
         }
         
+        /// Returns the total amount of work.
+        /// @return total work value
         public double totalWork() {
             return totalWork;
         }
-        
+
+        /// Returns the progress as a percentage (0.0 to 100.0).
+        /// @return progress percentage
         public double getPercentage() {
             if (totalWork <= 0) {
                 return 0.0;
@@ -194,21 +203,27 @@ public interface ProgressIndicator<T>  {
             return (currentWork / totalWork) * 100.0;
         }
         
+        /// Returns the progress as a fraction (0.0 to 1.0).
+        /// @return progress fraction
         public double getFraction() {
             if (totalWork <= 0) {
                 return 0.0;
             }
             return currentWork / totalWork;
         }
-        
+
+        /// Returns whether all work is complete.
+        /// @return true if current work is at least total work
         public boolean isComplete() {
             return currentWork >= totalWork && totalWork > 0;
         }
         
+        /// Returns the remaining amount of work.
+        /// @return remaining work (total minus current, minimum 0)
         public double getRemainingWork() {
             return Math.max(0, totalWork - currentWork);
         }
-        
+
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
@@ -595,15 +610,22 @@ public interface ProgressIndicator<T>  {
         private final double work;
         private final long timestamp;
         
+        /// Creates a new progress sample.
+        /// @param work the amount of work completed at this sample
+        /// @param timestamp the time this sample was taken, in milliseconds
         public ProgressSample(double work, long timestamp) {
             this.work = work;
             this.timestamp = timestamp;
         }
-        
+
+        /// Returns the work value at this sample point.
+        /// @return work completed
         public double work() {
             return work;
         }
-        
+
+        /// Returns the timestamp of this sample.
+        /// @return timestamp in milliseconds
         public long timestamp() {
             return timestamp;
         }

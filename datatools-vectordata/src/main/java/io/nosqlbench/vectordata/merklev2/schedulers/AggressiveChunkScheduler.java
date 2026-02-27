@@ -50,7 +50,11 @@ import java.util.concurrent.CompletableFuture;
 /// - Sequential or clustered access patterns
 /// - Scenarios where bandwidth is more abundant than request overhead
 public class AggressiveChunkScheduler implements ChunkScheduler {
-    
+
+    /// Creates a new aggressive chunk scheduler.
+    public AggressiveChunkScheduler() {
+    }
+
     ///
     /// Maximum acceptable efficiency ratio for internal nodes.
     /// Internal nodes with efficiency below this threshold will be rejected

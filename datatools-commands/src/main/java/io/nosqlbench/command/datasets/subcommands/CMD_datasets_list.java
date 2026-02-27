@@ -47,11 +47,22 @@ import java.util.stream.Collectors;
     exitCodeList = {"0: success", "1: error"})
 public class CMD_datasets_list implements Callable<Integer> {
 
+    /// Creates a new CMD_datasets_list instance.
+    public CMD_datasets_list() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_datasets_list.class);
 
-    /// Output format options for listing datasets
+    /// Output format options for listing datasets.
     public enum OutputFormat {
-        text, csv, json, yaml
+        /// Plain text output
+        text,
+        /// Comma-separated values output
+        csv,
+        /// JSON output
+        json,
+        /// YAML output
+        yaml
     }
 
     @CommandLine.Option(names = {"--catalog"},

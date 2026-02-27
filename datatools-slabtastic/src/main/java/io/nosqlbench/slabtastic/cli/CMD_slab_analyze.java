@@ -48,6 +48,9 @@ import java.util.concurrent.ThreadLocalRandom;
 )
 public class CMD_slab_analyze implements Callable<Integer> {
 
+    /// Creates a new instance of the analyze subcommand.
+    public CMD_slab_analyze() {}
+
     @CommandLine.Parameters(index = "0", description = "Path to the slabtastic file")
     private Path file;
 
@@ -63,13 +66,20 @@ public class CMD_slab_analyze implements Callable<Integer> {
     private Double samplePercent;
 
     @CommandLine.Option(names = {"--namespace", "-n"}, defaultValue = "",
-        description = "Namespace to operate on (default: default namespace)")
+        description = "Namespace to operate on; required when the file has named namespaces")
     private String namespace;
 
     @Override
     public Integer call() {
         PrintStream out = System.out;
         try (SlabReader reader = new SlabReader(file)) {
+            String resolved = NamespaceResolver.resolveForRead(namespace, reader);
+            if (resolved == null) {
+                System.err.println("Error: " + NamespaceResolver.formatNamespaceHint(reader));
+                return 1;
+            }
+            namespace = resolved;
+
             List<SlabReader.PageSummary> pages = reader.pages(namespace);
             long totalRecords = reader.recordCount(namespace);
 

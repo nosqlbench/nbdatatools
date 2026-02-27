@@ -113,31 +113,43 @@ public final class ComputeMode {
         }
 
         /// Returns the display name of this mode.
+        ///
+        /// @return the display name
         public String displayName() {
             return name;
         }
 
         /// Returns a description of this mode.
+        ///
+        /// @return the description
         public String description() {
             return description;
         }
 
         /// Returns the number of float values processed per SIMD lane.
+        ///
+        /// @return the float lane count
         public int floatLanes() {
             return floatLanes;
         }
 
         /// Returns whether this mode uses Panama Vector API.
+        ///
+        /// @return true if this mode uses Panama
         public boolean usesPanama() {
             return this != SCALAR;
         }
 
         /// Returns whether this mode uses AVX-512F.
+        ///
+        /// @return true if this mode uses AVX-512F
         public boolean usesAVX512F() {
             return this == PANAMA_AVX512F;
         }
 
         /// @deprecated Use {@link #usesAVX512F()} instead.
+        ///
+        /// @return true if this mode uses AVX-512F
         @Deprecated
         public boolean usesAVX512() {
             return usesAVX512F();
@@ -340,6 +352,8 @@ public final class ComputeMode {
     }
 
     /// @deprecated Use {@link #supportsAVX512F()} instead for clarity.
+    ///
+    /// @return true if AVX-512F is supported
     @Deprecated
     public static boolean supportsAVX512() {
         return supportsAVX512F();

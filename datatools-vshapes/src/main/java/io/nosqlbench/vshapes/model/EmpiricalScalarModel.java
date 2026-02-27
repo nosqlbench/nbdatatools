@@ -69,6 +69,7 @@ import java.util.Objects;
 @ModelType(EmpiricalScalarModel.MODEL_TYPE)
 public class EmpiricalScalarModel implements ScalarModel {
 
+    /// The model type identifier for empirical distributions.
     public static final String MODEL_TYPE = "empirical";
 
     @SerializedName("bins")

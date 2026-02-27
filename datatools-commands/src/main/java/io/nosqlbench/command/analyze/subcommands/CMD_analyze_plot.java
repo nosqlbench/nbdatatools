@@ -73,6 +73,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_analyze_plot implements Callable<Integer> {
 
+    /// Creates a new CMD_analyze_plot instance.
+    public CMD_analyze_plot() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_plot.class);
 
     /// Plot type enumeration.

@@ -284,6 +284,8 @@ public final class BatchDimensionStatistics {
     /**
      * Returns the optimal batch size for the current hardware.
      * Currently fixed at 8 for AVX-512.
+     *
+     * @return the batch size
      */
     public static int getBatchSize() {
         return BATCH_SIZE;
@@ -291,6 +293,8 @@ public final class BatchDimensionStatistics {
 
     /**
      * Checks if AVX-512 is available on the current platform.
+     *
+     * @return true if AVX-512 is available
      */
     public static boolean isAvx512Available() {
         return SPECIES.length() == 8;

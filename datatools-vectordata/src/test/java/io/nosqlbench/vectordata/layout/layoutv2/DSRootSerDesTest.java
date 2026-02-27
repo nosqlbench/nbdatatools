@@ -305,8 +305,9 @@ public class DSRootSerDesTest {
         """;
     DSProfile profile = DSProfile.fromData(SHARED.mapFromJson(json));
     assertThat(profile.getMaxk()).isEqualTo(10);
-    assertThat(profile).containsKey("base");
-    assertThat(profile.get("base").getSource().path).isEqualTo("test.bin");
+    // "base" is normalized to the canonical name "base_vectors"
+    assertThat(profile).containsKey("base_vectors");
+    assertThat(profile.get("base_vectors").getSource().path).isEqualTo("test.bin");
   }
 
   @Test
@@ -322,7 +323,7 @@ public class DSRootSerDesTest {
         """;
     DSProfile profile = DSProfile.fromData(SHARED.mapFromJson(json));
     assertThat(profile.getMaxk()).isEqualTo(20);
-    assertThat(profile).containsKey("base");
+    assertThat(profile).containsKey("base_vectors");
   }
 
   @Test
@@ -337,7 +338,7 @@ public class DSRootSerDesTest {
         """;
     DSProfile profile = DSProfile.fromData(SHARED.mapFromJson(json));
     assertThat(profile.getMaxk()).isNull();
-    assertThat(profile).containsKey("base");
+    assertThat(profile).containsKey("base_vectors");
   }
 
   @Test
@@ -360,8 +361,9 @@ public class DSRootSerDesTest {
     assertThat(profileGroup).containsKey("default");
     DSProfile defaultProfile = profileGroup.get("default");
     assertThat(defaultProfile.getMaxk()).isEqualTo(10);
-    assertThat(defaultProfile).containsKey("base");
-    assertThat(defaultProfile).containsKey("indices");
+    // Shorthand names are normalized to canonical TestDataKind names
+    assertThat(defaultProfile).containsKey("base_vectors");
+    assertThat(defaultProfile).containsKey("neighbor_indices");
     assertThat(defaultProfile).doesNotContainKey("maxk"); // maxk should not be treated as a view
   }
 }

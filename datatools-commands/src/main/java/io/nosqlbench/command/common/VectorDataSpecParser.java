@@ -24,12 +24,21 @@ public final class VectorDataSpecParser {
     private VectorDataSpecParser() {
     }
 
+    /// Result of parsing a vector data spec with an optional range.
+    /// @param spec the parsed vector data specification
+    /// @param range the parsed range, or null
+    /// @param rangeSpec the raw range spec string, or null
     public record Parsed(VectorDataSpec spec, RangeOption.Range range, String rangeSpec) {
+        /// Checks if a range was specified.
+        /// @return true if a range was included
         public boolean hasRange() {
             return range != null;
         }
     }
 
+    /// Parses a raw spec string into a VectorDataSpec and optional range.
+    /// @param raw the raw spec string
+    /// @return the parsed result
     public static Parsed parse(String raw) {
         if (raw == null || raw.trim().isEmpty()) {
             throw new CommandLine.TypeConversionException("Vector data spec cannot be empty");

@@ -44,7 +44,9 @@ public class InvalidCacheDirectoryException extends RuntimeException {
         "  - /home/user/.cache/vectordata\n" +
         "  - /mnt/nvme0/vectordata-cache\n";
 
+    /// The invalid cache directory path.
     private final Path path;
+    /// The reason the path is invalid.
     private final String reason;
 
     /// Constructs an InvalidCacheDirectoryException with the invalid path and reason.

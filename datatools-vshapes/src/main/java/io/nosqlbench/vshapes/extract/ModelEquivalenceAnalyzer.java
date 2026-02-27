@@ -619,18 +619,26 @@ public class ModelEquivalenceAnalyzer {
         double lower,
         double upper
     ) {
+        /// Returns true if the distribution is symmetric.
+        /// @return true if skewness is near zero
         public boolean isSymmetric() {
             return Math.abs(skewness) < 0.1;
         }
 
+        /// Returns true if the distribution is mesokurtic.
+        /// @return true if kurtosis is near 3
         public boolean isMesokurtic() {
             return Math.abs(kurtosis - 3) < 0.5;
         }
 
+        /// Returns true if the distribution is bounded on both sides.
+        /// @return true if both lower and upper are finite
         public boolean isBounded() {
             return Double.isFinite(lower) && Double.isFinite(upper);
         }
 
+        /// Returns true if the distribution is bounded on exactly one side.
+        /// @return true if exactly one of lower/upper is finite
         public boolean isSemiBounded() {
             return Double.isFinite(lower) ^ Double.isFinite(upper);
         }
@@ -656,7 +664,11 @@ public class ModelEquivalenceAnalyzer {
         double kurtosisDeviation,
         boolean equivalent
     ) {
+        /// Returns the candidate model.
+        /// @return the candidate
         public ScalarModel getCandidate() { return candidate; }
+        /// Returns the maximum CDF difference.
+        /// @return the max CDF difference
         public double getMaxCdfDifference() { return maxCdfDifference; }
     }
 
@@ -680,12 +692,24 @@ public class ModelEquivalenceAnalyzer {
             this.threshold = threshold;
         }
 
+        /// Returns the source model.
+        /// @return the source model
         public ScalarModel getSource() { return source; }
+        /// Returns the source moment profile.
+        /// @return the source profile
         public MomentProfile getSourceProfile() { return sourceProfile; }
+        /// Returns the list of model comparisons.
+        /// @return the comparisons
         public List<ModelComparison> getComparisons() { return comparisons; }
+        /// Returns the recommended simplification, or null if none.
+        /// @return the recommended simplification
         public ScalarModel getRecommendedSimplification() { return recommendedSimplification; }
+        /// Returns the equivalence threshold.
+        /// @return the threshold
         public double getThreshold() { return threshold; }
 
+        /// Returns true if the model can be simplified.
+        /// @return true if a recommended simplification exists
         public boolean canSimplify() {
             return recommendedSimplification != null;
         }
@@ -738,6 +762,8 @@ public class ModelEquivalenceAnalyzer {
         double averageMaxCdfDifference,
         Map<String, Integer> recommendedTypeCounts
     ) {
+        /// Returns the fraction of dimensions that can be simplified.
+        /// @return the simplification rate
         public double simplificationRate() {
             return (double) canSimplifyCount / totalDimensions;
         }

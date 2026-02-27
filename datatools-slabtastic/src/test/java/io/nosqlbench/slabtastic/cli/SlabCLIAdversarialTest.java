@@ -217,9 +217,9 @@ class SlabCLIAdversarialTest implements SlabConstants {
         assertThat(exit).isEqualTo(0);
 
         try (SlabReader reader = new SlabReader(target)) {
-            assertThat(reader.namespaces()).containsExactly("myns");
+            assertThat(reader.namespaces()).containsExactlyInAnyOrder("", "myns");
             assertThat(reader.recordCount("myns")).isEqualTo(2);
-            // Default namespace is not present; no-arg recordCount() returns 0
+            // Default namespace is present but empty
             assertThat(reader.recordCount()).isZero();
         }
     }
@@ -731,14 +731,13 @@ class SlabCLIAdversarialTest implements SlabConstants {
     // ── export from multi-ns file without --namespace ───────────────
 
     @Test
-    void exportFromMultiNsFileDefaultNamespaceIsError() throws IOException {
+    void exportFromMultiNsFileWithoutNamespaceShowsHint() throws IOException {
         Path source = createMultiNsFile("export-multi-default.slab");
         Path dest = tempDir.resolve("export-multi-default-out.slab");
 
-        // No -n flag: default namespace "" is not present in this multi-ns file
+        // No -n flag on a multi-ns file: should prompt user to choose a namespace
         int exit = runSlab("export", source.toString(), "--to", dest.toString(),
             "--format", "slab");
-        // Unknown namespace should fail with error
         assertThat(exit).isEqualTo(1);
     }
 }

@@ -383,6 +383,8 @@ public final class ConvergentDatasetModelExtractor implements ModelExtractor {
     ) {
         /**
          * Returns the convergence rate (fraction of dimensions converged).
+         *
+         * @return the convergence rate between 0.0 and 1.0
          */
         public double convergenceRate() {
             return totalDimensions > 0 ? (double) convergedDimensions / totalDimensions : 0;
@@ -390,6 +392,8 @@ public final class ConvergentDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Returns true if all dimensions converged.
+         *
+         * @return true if all dimensions converged
          */
         public boolean allConverged() {
             return convergedDimensions == totalDimensions;

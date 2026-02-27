@@ -142,6 +142,8 @@ public class NoopStatusSink implements StatusSink {
     private NoopStatusSink() {
     }
 
+    /// Returns the singleton instance.
+    /// @return the noop status sink
     public static NoopStatusSink getInstance() {
         return INSTANCE;
     }

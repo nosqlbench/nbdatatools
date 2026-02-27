@@ -33,6 +33,10 @@ import picocli.CommandLine;
 /// ```
 public class VectorDataSpecConverter implements CommandLine.ITypeConverter<VectorDataSpec> {
 
+    /// Creates a new VectorDataSpecConverter instance.
+    public VectorDataSpecConverter() {
+    }
+
     @Override
     public VectorDataSpec convert(String value) throws Exception {
         try {

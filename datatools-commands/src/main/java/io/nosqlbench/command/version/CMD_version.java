@@ -74,6 +74,7 @@ public class CMD_version implements BundledCommand, Callable<Integer> {
 
     private Properties versionProperties;
 
+    /// Creates a new CMD_version instance and loads version properties.
     public CMD_version() {
         loadVersionProperties();
     }
@@ -206,6 +207,9 @@ public class CMD_version implements BundledCommand, Callable<Integer> {
                    .replace("\t", "\\t");
     }
 
+    /// Entry point for standalone execution.
+    ///
+    /// @param args command line arguments
     public static void main(String[] args) {
         logger.info("Creating version command");
         CMD_version cmd = new CMD_version();

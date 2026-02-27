@@ -24,6 +24,8 @@ import net.thisptr.jackson.jq.exception.JsonQueryException;
 
 /// An implementation of output which writes all nodes to the console with {@link JsonNode#toPrettyString()}
 public class PrettyConsoleOutput implements Output  {
+  /// Creates a new PrettyConsoleOutput instance.
+  public PrettyConsoleOutput() {}
 
   /// {@inheritDoc}
   @Override

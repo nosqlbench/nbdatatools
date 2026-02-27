@@ -38,7 +38,10 @@ import java.util.concurrent.ConcurrentMap;
 /// The implementation uses a segmented approach where the file is divided
 /// into logical regions, each with its own read/write lock.
 public class RegionBasedLocking {
-    
+
+    /// Creates a new RegionBasedLocking instance with default region size.
+    public RegionBasedLocking() {}
+
     /// Size of each locking region in bytes
     private static final long REGION_SIZE = 1024 * 1024; // 1MB regions
     

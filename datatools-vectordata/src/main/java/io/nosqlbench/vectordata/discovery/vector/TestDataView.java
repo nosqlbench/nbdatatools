@@ -18,9 +18,7 @@ package io.nosqlbench.vectordata.discovery.vector;
  */
 
 
+/// @deprecated Use {@link VectorTestDataView} instead.
 @Deprecated(forRemoval = true)
-/**
- * @deprecated Use VectorTestDataView instead
- */
 public interface TestDataView extends VectorTestDataView {
 }

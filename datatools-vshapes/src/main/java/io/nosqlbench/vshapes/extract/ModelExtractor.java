@@ -122,6 +122,11 @@ public interface ModelExtractor {
         AllFitsData allFitsData
     ) {
         /// Creates an ExtractionResult without all-fits data (backwards compatible).
+        ///
+        /// @param model the extracted vector space model
+        /// @param dimensionStats per-dimension statistics
+        /// @param fitResults per-dimension fit results
+        /// @param extractionTimeMs time taken for extraction in milliseconds
         public ExtractionResult(
             VectorSpaceModel model,
             DimensionStatistics[] dimensionStats,
@@ -132,21 +137,29 @@ public interface ModelExtractor {
         }
 
         /// Returns the number of dimensions in the extracted model.
+        ///
+        /// @return the dimension count
         public int numDimensions() {
             return dimensionStats.length;
         }
 
         /// Returns the total number of vectors analyzed.
+        ///
+        /// @return the vector count
         public long numVectors() {
             return dimensionStats.length > 0 ? dimensionStats[0].count() : 0;
         }
 
         /// Returns whether this result includes detailed fit data for all model types.
+        ///
+        /// @return true if all-fits data is present
         public boolean hasAllFitsData() {
             return allFitsData != null;
         }
 
         /// Returns a summary of the extraction for logging/debugging.
+        ///
+        /// @return the summary string
         public String summary() {
             StringBuilder sb = new StringBuilder();
             sb.append(String.format("Extracted %d-dimensional model from %d vectors in %dms%n",
@@ -182,6 +195,10 @@ public interface ModelExtractor {
         String[] sparklines
     ) {
         /// Creates AllFitsData without sparklines.
+        ///
+        /// @param modelTypes list of model type names
+        /// @param fitScores 2D array of scores per dimension and model type
+        /// @param bestFitIndices best model type index per dimension
         public AllFitsData(
             java.util.List<String> modelTypes,
             double[][] fitScores,
@@ -191,27 +208,41 @@ public interface ModelExtractor {
         }
 
         /// Returns the number of dimensions.
+        ///
+        /// @return the dimension count
         public int numDimensions() {
             return fitScores.length;
         }
 
         /// Returns the number of model types evaluated.
+        ///
+        /// @return the model type count
         public int numModelTypes() {
             return modelTypes.size();
         }
 
         /// Gets the fit score for a specific dimension and model type.
+        ///
+        /// @param dimension the dimension index
+        /// @param modelTypeIndex the model type index
+        /// @return the goodness-of-fit score
         public double getScore(int dimension, int modelTypeIndex) {
             return fitScores[dimension][modelTypeIndex];
         }
 
         /// Gets the best model type name for a dimension.
+        ///
+        /// @param dimension the dimension index
+        /// @return the best model type name
         public String getBestModelType(int dimension) {
             int idx = bestFitIndices[dimension];
             return (idx >= 0 && idx < modelTypes.size()) ? modelTypes.get(idx) : "unknown";
         }
 
         /// Gets the sparkline for a dimension, or empty string if not available.
+        ///
+        /// @param dimension the dimension index
+        /// @return the sparkline string
         public String getSparkline(int dimension) {
             return (sparklines != null && dimension < sparklines.length)
                 ? sparklines[dimension]
@@ -219,6 +250,8 @@ public interface ModelExtractor {
         }
 
         /// Returns whether sparklines are available.
+        ///
+        /// @return true if sparklines are present
         public boolean hasSparklines() {
             return sparklines != null && sparklines.length > 0;
         }

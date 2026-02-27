@@ -31,6 +31,8 @@ implementation-specific details.
 |---|---|
 | `get(long ordinal)` | Returns `Optional<ByteBuffer>` — default namespace lookup. |
 | `get(String ns, long ordinal)` | Returns `Optional<ByteBuffer>` — namespace-aware lookup; empty for missing ordinals, throws `IllegalArgumentException` for unknown namespaces. |
+| `getAll(List<BatchRequest>)` | Returns `BatchResult` — multi-batch read with page coalescing and async I/O dispatch. Results are in submission order. Unknown namespaces and out-of-range ordinals produce empty slots. |
+| `getAll(long...)` | Returns `BatchResult` — varargs convenience for multi-batch reads in the default namespace. |
 | `pages()` | Returns `List<PageSummary>` for the default namespace. |
 | `pages(String ns)` | Returns `List<PageSummary>` for the specified namespace. |
 | `pageCount()` | Number of data pages in the default namespace. |
@@ -56,6 +58,24 @@ Namespace-aware methods (`get(String, long)`, `pages(String)`, `pageCount(String
 `recordCount(String)`) throw `IllegalArgumentException` for unknown namespaces. The
 no-arg convenience methods (`get(long)`, `pages()`, etc.) always operate on the default
 namespace, which is present in every valid file.
+
+### Multi-batch read strategy
+
+`getAll(List<BatchRequest>)` implements the MultiBatch read mode from the spec:
+
+1. Pre-allocate a result array of `Optional.empty()` slots (one per request).
+2. For each request: resolve namespace → binary-search for page → compute local index.
+   Group requests by page file offset. Bad namespace/ordinal → slot stays empty.
+3. Dispatch one `CompletionHandler`-based async read per unique page (page coalescing).
+4. On completion: parse the page via `SlabPage.parseFrom()` and extract records into
+   their corresponding result slots.
+5. `CompletableFuture.allOf(...).join()` — wait for all page reads to complete.
+6. Return a `BatchResult` wrapping the result array.
+
+Thread safety: result slots are non-overlapping; `join()` provides happens-before.
+`SlabPage.parseFrom()` is stateless. `AsynchronousFileChannel` supports concurrent reads
+per JDK spec. The implementation is safe for concurrent `getAll()` calls from multiple
+threads.
 
 ---
 
@@ -440,7 +460,6 @@ and ordinal range. Single-namespace files show just the default namespace.
 The following features are described in the design spec as aspirational and are **not**
 implemented:
 
-- **Streaming get**: bulk read interface returning batched records
 - **Sink/callback reader**: provide a sink + callback, reader writes all data then completes
   a future
 - **Async iterable append**: writer accepts an iterable + callback for asynchronous buffering
@@ -471,6 +490,7 @@ implemented:
 | Single default ns → pages page (backward compat) | Compliant | Writer close sequence branches on namespace count |
 | Multi-namespace → namespaces page at EOF | Compliant | Writer writes per-ns pages pages then namespaces page |
 | `get()` signals missing ordinals | Compliant | Returns `Optional.empty()` |
+| MultiBatch read mode | Compliant | `getAll()` with page coalescing, async dispatch, submission-order results, partial success |
 | Ordinal range: 5-byte signed | Compliant | `MIN_ORDINAL`/`MAX_ORDINAL` enforced in writer |
 | Record count: 3-byte unsigned (0 to 2^24-1) | Compliant | `MAX_RECORD_COUNT` defined |
 | Last pages page is authoritative | Compliant | Reader reads only the tail pages page |

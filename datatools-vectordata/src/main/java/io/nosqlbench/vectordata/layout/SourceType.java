@@ -23,12 +23,15 @@ package io.nosqlbench.vectordata.layout;
 ///
 /// - {@link #XVEC} - File-backed sources using xvec format (.fvec, .ivec files)
 /// - {@link #VIRTDATA} - Generator-backed sources using a VectorSpaceModel JSON file
+/// - {@link #SLAB} - Slabtastic format for predicate data (.slab files)
+/// - {@link #SQLITE} - SQLite database for predicate data (.db, .sqlite files)
 ///
 /// ## Type Inference
 ///
 /// When parsing source specifications, the type can be:
 /// - Explicitly set via `type: virtdata` or `type: xvec`
-/// - Inferred from the file extension: `.json` implies {@link #VIRTDATA}
+/// - Inferred from the file extension: `.json` implies {@link #VIRTDATA},
+///   `.slab` implies {@link #SLAB}, `.db`/`.sqlite` implies {@link #SQLITE}
 /// - Defaulted to {@link #XVEC} for all other paths
 ///
 /// ## Usage
@@ -69,7 +72,21 @@ public enum SourceType {
     /// - Generator selection is implicit based on model contents
     /// - Dimensions are derived from the model
     /// - Cardinality requires a window specification (otherwise unbounded)
-    VIRTDATA;
+    VIRTDATA,
+
+    /// Slabtastic format source.
+    ///
+    /// Sources of this type read from `.slab` files using the slabtastic
+    /// page-aligned, footer-indexed data format. Supports namespaced
+    /// storage of predicates, result indices, metadata layout, and
+    /// metadata content.
+    SLAB,
+
+    /// SQLite database source.
+    ///
+    /// Sources of this type read from `.db` or `.sqlite` files using
+    /// SQLite JDBC. Predicate data is stored in tables keyed by ordinal.
+    SQLITE;
 
     /// Infers the source type from a file path.
     ///
@@ -79,8 +96,16 @@ public enum SourceType {
     /// @param path the source file path
     /// @return the inferred source type
     public static SourceType inferFromPath(String path) {
-        if (path != null && path.toLowerCase().endsWith(".json")) {
+        if (path == null) {
+            return XVEC;
+        }
+        String lower = path.toLowerCase();
+        if (lower.endsWith(".json")) {
             return VIRTDATA;
+        } else if (lower.endsWith(".slab")) {
+            return SLAB;
+        } else if (lower.endsWith(".db") || lower.endsWith(".sqlite")) {
+            return SQLITE;
         }
         return XVEC;
     }
@@ -102,6 +127,10 @@ public enum SourceType {
         } else if ("virtdata".equals(lower) || "virtual".equals(lower)
                    || "generator".equals(lower) || "model".equals(lower)) {
             return VIRTDATA;
+        } else if ("slab".equals(lower) || "slabtastic".equals(lower)) {
+            return SLAB;
+        } else if ("sqlite".equals(lower) || "db".equals(lower)) {
+            return SQLITE;
         }
         return null;
     }

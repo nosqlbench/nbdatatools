@@ -144,6 +144,8 @@ public final class DimensionFitReport {
 
     /**
      * Returns the number of dimensions.
+     *
+     * @return the dimension count
      */
     public int numDimensions() {
         return numDimensions;
@@ -151,6 +153,8 @@ public final class DimensionFitReport {
 
     /**
      * Returns the list of model types evaluated.
+     *
+     * @return the model type names
      */
     public List<String> modelTypes() {
         return modelTypes;
@@ -236,6 +240,8 @@ public final class DimensionFitReport {
 
     /**
      * Formats a summary of best fits by type.
+     *
+     * @return formatted summary string
      */
     public String formatSummary() {
         Map<String, Integer> countsByType = new LinkedHashMap<>();

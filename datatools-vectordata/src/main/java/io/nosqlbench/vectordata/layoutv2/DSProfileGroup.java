@@ -50,6 +50,11 @@ public class DSProfileGroup extends LinkedHashMap<String, DSProfile> {
   }
 
   /// Creates a DSProfileGroup from a map of data.
+  ///
+  /// When a "default" profile is present, it is parsed first and used as the base
+  /// for all other profiles (they inherit its views). This mirrors the two-pass
+  /// inheritance logic in FGroup.fromObject().
+  ///
   /// @param profiles The map of data to create the profile group from
   /// @return A new DSProfileGroup instance
   public static DSProfileGroup fromData(Object profiles) {
@@ -61,12 +66,35 @@ public class DSProfileGroup extends LinkedHashMap<String, DSProfile> {
     } else {
       throw new RuntimeException("invalid profiles format:" + profiles);
     }
+
     DSProfileGroup profileGroup = new DSProfileGroup();
+
+    // First pass: parse "default" profile to use as base for inheritance
+    DSProfile defaultProfile = null;
+    Object defaultObj = profilesMap.get("default");
+    if (defaultObj != null) {
+      defaultProfile = DSProfile.fromData(defaultObj);
+      defaultProfile.setName("default");
+      profileGroup.addProfile("default", defaultProfile);
+    }
+
+    // Second pass: parse all other profiles, inheriting from default
+    final DSProfile finalDefault = defaultProfile;
     profilesMap.forEach((k, v) -> {
-      DSProfile profile = DSProfile.fromData((Map<String, Object>) v);
+      if ("default".equals(k)) {
+        return; // already processed
+      }
+      DSProfile profile = DSProfile.fromData(v);
+      // Inherit views from default profile that are not overridden
+      if (finalDefault != null) {
+        finalDefault.forEach((viewName, viewDef) -> profile.putIfAbsent(viewName, viewDef));
+        // Inherit maxk if not specified
+        if (profile.getMaxk() == null && finalDefault.getMaxk() != null) {
+          profile.setMaxk(finalDefault.getMaxk());
+        }
+      }
       profile.setName(k);
       profileGroup.addProfile(k, profile);
-
     });
     return profileGroup;
   }

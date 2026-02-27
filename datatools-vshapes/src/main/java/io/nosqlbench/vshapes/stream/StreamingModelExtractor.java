@@ -244,11 +244,29 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
     private final AtomicInteger compositeCount = new AtomicInteger(0);
     private final AtomicInteger empiricalCount = new AtomicInteger(0);
 
-    /// Strategy used for a dimension during adaptive fitting
+    /// Strategy used for a dimension during adaptive fitting.
     public enum AdaptiveStrategy {
+        /// Simple parametric model.
         PARAMETRIC,
-        COMPOSITE_2, COMPOSITE_3, COMPOSITE_4, COMPOSITE_5,
-        COMPOSITE_6, COMPOSITE_7, COMPOSITE_8, COMPOSITE_9, COMPOSITE_10,
+        /// Composite model with 2 components.
+        COMPOSITE_2,
+        /// Composite model with 3 components.
+        COMPOSITE_3,
+        /// Composite model with 4 components.
+        COMPOSITE_4,
+        /// Composite model with 5 components.
+        COMPOSITE_5,
+        /// Composite model with 6 components.
+        COMPOSITE_6,
+        /// Composite model with 7 components.
+        COMPOSITE_7,
+        /// Composite model with 8 components.
+        COMPOSITE_8,
+        /// Composite model with 9 components.
+        COMPOSITE_9,
+        /// Composite model with 10 components.
+        COMPOSITE_10,
+        /// Empirical histogram fallback.
         EMPIRICAL
     }
 
@@ -378,6 +396,8 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
     }
 
     /// Returns whether all-fits collection is enabled.
+    ///
+    /// @return true if all-fits collection is enabled
     public boolean isCollectAllFitsEnabled() {
         return collectAllFits;
     }
@@ -438,6 +458,8 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
     }
 
     /// Returns whether NUMA-aware fitting is enabled.
+    ///
+    /// @return true if NUMA-aware fitting is enabled
     public boolean isNumaAwareEnabled() {
         return numaAwareEnabled;
     }
@@ -1688,6 +1710,8 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
     /// @param empirical count using empirical (histogram) models
     public record AdaptiveStrategyCounts(int parametric, int composite, int empirical) {
         /// Returns total dimensions fitted.
+        ///
+        /// @return the total dimension count
         public int total() {
             return parametric + composite + empirical;
         }
@@ -1722,11 +1746,15 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
         boolean histogramEnabled
     ) {
         /// Returns the convergence rate (fraction of dimensions converged).
+        ///
+        /// @return the convergence rate
         public double convergenceRate() {
             return totalDimensions > 0 ? (double) convergedDimensions / totalDimensions : 0;
         }
 
         /// Returns true if all dimensions have converged.
+        ///
+        /// @return true if all converged
         public boolean allConverged() {
             return convergedDimensions >= totalDimensions;
         }
@@ -1779,6 +1807,9 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
     /// ```
     public static final class Builder {
 
+        /// Creates a new Builder with default values.
+        public Builder() {}
+
         private BestFitSelector selector = BestFitSelector.boundedDataSelector();
         private long uniqueVectors = 0;
 
@@ -1809,108 +1840,162 @@ public final class StreamingModelExtractor implements StreamingAnalyzer<VectorSp
         private int reservoirSize = 10_000;
 
         /// Sets the best-fit selector.
+        ///
+        /// @param selector the selector
+        /// @return this builder
         public Builder selector(BestFitSelector selector) {
             this.selector = selector;
             return this;
         }
 
         /// Sets the unique vectors count.
+        ///
+        /// @param uniqueVectors the unique vector count
+        /// @return this builder
         public Builder uniqueVectors(long uniqueVectors) {
             this.uniqueVectors = uniqueVectors;
             return this;
         }
 
         /// Enables convergence tracking with the specified threshold.
+        ///
+        /// @param enabled true to enable
+        /// @return this builder
         public Builder convergenceEnabled(boolean enabled) {
             this.convergenceEnabled = enabled;
             return this;
         }
 
         /// Sets the convergence threshold (fraction of standard error).
+        ///
+        /// @param threshold the threshold
+        /// @return this builder
         public Builder convergenceThreshold(double threshold) {
             this.convergenceThreshold = threshold;
             return this;
         }
 
         /// Enables or disables early stopping.
+        ///
+        /// @param enabled true to enable
+        /// @return this builder
         public Builder earlyStoppingEnabled(boolean enabled) {
             this.earlyStoppingEnabled = enabled;
             return this;
         }
 
         /// Enables incremental model fitting.
+        ///
+        /// @param enabled true to enable
+        /// @return this builder
         public Builder incrementalFittingEnabled(boolean enabled) {
             this.incrementalFittingEnabled = enabled;
             return this;
         }
 
         /// Sets the fit interval for incremental fitting.
+        ///
+        /// @param interval the fit interval
+        /// @return this builder
         public Builder fitInterval(int interval) {
             this.fitInterval = interval;
             return this;
         }
 
         /// Enables histogram tracking for multimodal detection.
+        ///
+        /// @param enabled true to enable
+        /// @return this builder
         public Builder histogramEnabled(boolean enabled) {
             this.histogramEnabled = enabled;
             return this;
         }
 
         /// Sets the prominence threshold for peak detection.
+        ///
+        /// @param threshold the threshold
+        /// @return this builder
         public Builder prominenceThreshold(double threshold) {
             this.prominenceThreshold = threshold;
             return this;
         }
 
         /// Enables adaptive composite fallback.
+        ///
+        /// @param enabled true to enable
+        /// @return this builder
         public Builder adaptiveEnabled(boolean enabled) {
             this.adaptiveEnabled = enabled;
             return this;
         }
 
         /// Sets the KS threshold for parametric models.
+        ///
+        /// @param threshold the threshold
+        /// @return this builder
         public Builder ksThresholdParametric(double threshold) {
             this.ksThresholdParametric = threshold;
             return this;
         }
 
         /// Sets the KS threshold for composite models.
+        ///
+        /// @param threshold the threshold
+        /// @return this builder
         public Builder ksThresholdComposite(double threshold) {
             this.ksThresholdComposite = threshold;
             return this;
         }
 
         /// Sets the maximum number of composite components.
+        ///
+        /// @param max the maximum component count
+        /// @return this builder
         public Builder maxCompositeComponents(int max) {
             this.maxCompositeComponents = max;
             return this;
         }
 
         /// Sets the clustering strategy for composite models.
+        ///
+        /// @param strategy the clustering strategy
+        /// @return this builder
         public Builder clusteringStrategy(ClusteringStrategy strategy) {
             this.clusteringStrategy = strategy;
             return this;
         }
 
         /// Enables internal verification.
+        ///
+        /// @param enabled the enabled
+        /// @return this builder
         public Builder internalVerificationEnabled(boolean enabled) {
             this.internalVerificationEnabled = enabled;
             return this;
         }
 
         /// Sets the verification level.
+        ///
+        /// @param level the level
+        /// @return this builder
         public Builder verificationLevel(VerificationLevel level) {
             this.verificationLevel = level;
             return this;
         }
 
         /// Enables reservoir sampling.
+        ///
+        /// @param enabled the enabled
+        /// @return this builder
         public Builder reservoirSamplingEnabled(boolean enabled) {
             this.reservoirSamplingEnabled = enabled;
             return this;
         }
 
         /// Sets the reservoir size per dimension.
+        ///
+        /// @param size the size
+        /// @return this builder
         public Builder reservoirSize(int size) {
             this.reservoirSize = size;
             return this;

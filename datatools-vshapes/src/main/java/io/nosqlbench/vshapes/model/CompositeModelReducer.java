@@ -420,6 +420,8 @@ public final class CompositeModelReducer {
         List<String> reductionsApplied
     ) {
         /// Returns true if any reductions were made.
+        ///
+        /// @return true if the component count was reduced
         public boolean wasReduced() {
             return reducedComponents < originalComponents;
         }

@@ -20,8 +20,16 @@ package io.nosqlbench.vectordata.spec.datasets.impl.xvec;
 
 import java.util.concurrent.CompletableFuture;
 
+/// Interface for types that support prebuffering data into local cache.
+/// @param <T> the type of the prebufferable data
 public interface Prebufferable<T> {
+  /// Prebuffer a range of data into local cache.
+  /// @param startIncl the starting position (inclusive)
+  /// @param endExcl the ending position (exclusive)
+  /// @return a future that completes when prebuffering is done
   CompletableFuture<Void> prebuffer(long startIncl, long endExcl);
 
+  /// Prebuffer all data into local cache.
+  /// @return a future that completes when prebuffering is done
   CompletableFuture<Void> prebuffer();
 }

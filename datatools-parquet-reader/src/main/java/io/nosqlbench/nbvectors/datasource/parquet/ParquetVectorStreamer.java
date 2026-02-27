@@ -48,6 +48,7 @@ public class ParquetVectorStreamer implements BoundedVectorFileStream<float[]> {
   private long size;
   private String converterType = "EMBEDDINGS_LIST_FLOAT"; // Default converter type
 
+  /// Creates a ParquetVectorStreamer with the default converter.
   public ParquetVectorStreamer() {
   }
 
@@ -77,11 +78,16 @@ public class ParquetVectorStreamer implements BoundedVectorFileStream<float[]> {
     open(List.of(path));
   }
 
+  /// Opens a single parquet file with the specified converter type.
+  /// @param path the path to the parquet file
+  /// @param converterType the converter type to use
   public void open(Path path, String converterType) {
     this.converterType = converterType;
     open(List.of(path));
   }
 
+  /// Opens multiple parquet files for streaming.
+  /// @param paths the paths to the parquet files
   public void open(List<Path> paths) {
     this.paths = paths;
 
@@ -106,6 +112,9 @@ public class ParquetVectorStreamer implements BoundedVectorFileStream<float[]> {
         new ConvertingIterable<Group, float[]>(groupIterable, embeddingDecoder);
   }
 
+  /// Opens multiple parquet files with the specified converter type.
+  /// @param paths the paths to the parquet files
+  /// @param converterType the converter type to use
   public void open(List<Path> paths, String converterType) {
     this.converterType = converterType;
     open(paths);

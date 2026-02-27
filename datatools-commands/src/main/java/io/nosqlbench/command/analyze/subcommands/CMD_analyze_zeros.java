@@ -50,6 +50,11 @@ import java.util.concurrent.Callable;
     description = "Counts the number of zero vectors in any supported file type",
     exitCodeList = {"0: success", "1: error processing files"})
 public class CMD_analyze_zeros implements Callable<Integer> {
+
+    /// Creates a new CMD_analyze_zeros instance.
+    public CMD_analyze_zeros() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_analyze_zeros.class);
 
     @CommandLine.Parameters(description = "Vector data sources to count zero vectors in", arity = "1..*",

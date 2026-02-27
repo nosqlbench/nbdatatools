@@ -29,6 +29,10 @@ import java.nio.file.Path;
 /// Adapt a path to a data source, depending on the file name or contents
 public class DataSourceAdapter {
 
+  /// Creates a new DataSourceAdapter instance.
+  public DataSourceAdapter() {
+  }
+
   /// Adapt a path to a data source, depending on the file name or contents
   /// @param path
   ///     the path to adapt
@@ -85,6 +89,9 @@ public class DataSourceAdapter {
     throw new RuntimeException("Unsupported path type: " + path);
   }
 
+  /// Adapt a path to an iterable of byte arrays.
+  /// @param path the path to adapt
+  /// @return an iterable of byte arrays
   public static Iterable<byte[]> adaptByteArray(Path path) {
     if (path.toString().endsWith(".bvec") || path.toString().endsWith(".bvecs")) {
       return new BvecToByteArray(path);
@@ -111,6 +118,9 @@ public class DataSourceAdapter {
     return sizedReader;
   }
 
+  /// Adapt a path to an iterable of any vector type.
+  /// @param path the path to adapt
+  /// @return an iterable of vectors
   public static Iterable<?> adaptAnyType(Path path) {
     ReaderAndPath rp = new ReaderAndPath(path.toString());
     BoundedVectorFileStream<?> sizedReader = rp.getSizedReader(Object.class);

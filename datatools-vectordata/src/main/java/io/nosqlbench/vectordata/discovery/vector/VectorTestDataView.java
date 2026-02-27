@@ -52,6 +52,28 @@ public interface VectorTestDataView {
   /// @return the neighbor distances dataset
   Optional<NeighborDistances> getNeighborDistances();
 
+  /// Get the filtered neighbor indices dataset, pre-conditioned on matching metadata predicates.
+  ///
+  /// Unlike standard neighbor indices which are computed from pure KNN, filtered neighbor
+  /// indices incorporate predicate filtering so that recall does not degrade arbitrarily
+  /// when predicates and KNN results are combined separately.
+  ///
+  /// @return the filtered neighbor indices dataset, or empty if not available
+  default Optional<NeighborIndices> getFilteredNeighborIndices() {
+    return Optional.empty();
+  }
+
+  /// Get the filtered neighbor distances dataset, pre-conditioned on matching metadata predicates.
+  ///
+  /// Unlike standard neighbor distances which are computed from pure KNN, filtered neighbor
+  /// distances incorporate predicate filtering so that recall does not degrade arbitrarily
+  /// when predicates and KNN results are combined separately.
+  ///
+  /// @return the filtered neighbor distances dataset, or empty if not available
+  default Optional<NeighborDistances> getFilteredNeighborDistances() {
+    return Optional.empty();
+  }
+
   /// Get the distance function
   /// @return the distance function
   DistanceFunction getDistanceFunction();

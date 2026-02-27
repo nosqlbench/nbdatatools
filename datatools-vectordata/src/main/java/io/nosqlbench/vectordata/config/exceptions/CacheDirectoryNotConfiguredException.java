@@ -44,6 +44,7 @@ public class CacheDirectoryNotConfiguredException extends RuntimeException {
         "\n" +
         "Or run: nbvectors config init\n";
 
+    /// The path to the expected settings file.
     private final Path settingsPath;
 
     /// Constructs a CacheDirectoryNotConfiguredException with the path to the missing settings file.

@@ -38,12 +38,17 @@ import java.util.Set;
 
 /// Utilities shared across vectordata CLI commands (one-shot and REPL).
 public class VectordataCliSupport {
+    /// Creates a new VectordataCliSupport instance.
+    public VectordataCliSupport() {}
 
+    /// Shared Jackson ObjectMapper configured for pretty-printed output.
     public static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
         new com.fasterxml.jackson.databind.ObjectMapper()
             .enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
 
     /// Log the invocation at debug level without polluting stdout.
+    /// @param spec the command spec from picocli
+    /// @param logger the logger to use for debug output
     public static void logInvocation(CommandLine.Model.CommandSpec spec, org.apache.logging.log4j.Logger logger) {
         try {
             var pr = spec.commandLine().getParseResult();
@@ -55,6 +60,11 @@ public class VectordataCliSupport {
         }
     }
 
+    /// Holds the state of a loaded dataset session including the profile selector and available profiles.
+    /// @param name the dataset name
+    /// @param source the dataset source path or URL
+    /// @param selector the profile selector for this dataset
+    /// @param profileNames the list of available profile names
     public record DatasetSession(String name, String source, ProfileSelector selector, List<String> profileNames) implements Closeable {
         @Override
         public void close() {
@@ -65,10 +75,19 @@ public class VectordataCliSupport {
         }
     }
 
+    /// Loads a dataset from the given spec using the default cache directory.
+    /// @param datasetSpec the dataset specification (path, URL, or catalog name)
+    /// @return the loaded dataset session
+    /// @throws Exception if loading fails
     public static DatasetSession loadDataset(String datasetSpec) throws Exception {
         return loadDataset(datasetSpec, null);
     }
 
+    /// Loads a dataset from the given spec with an explicit cache directory.
+    /// @param datasetSpec the dataset specification (path, URL, or catalog name)
+    /// @param cacheDir the cache directory to use, or null for the default
+    /// @return the loaded dataset session
+    /// @throws Exception if loading fails
     public static DatasetSession loadDataset(String datasetSpec, String cacheDir) throws Exception {
         String expanded = expandHome(datasetSpec);
         ProfileSelector selector;
@@ -165,18 +184,27 @@ public class VectordataCliSupport {
         return names;
     }
 
+    /// Ensures a dataset session is loaded, throwing if it is null.
+    /// @param spec the command spec for error reporting
+    /// @param handle the dataset session to check
     public static void ensureDataset(CommandLine.Model.CommandSpec spec, DatasetSession handle) {
         if (handle == null) {
             throw new CommandLine.ParameterException(spec.commandLine(), "No dataset is loaded. Provide --dataset or use the repl 'use' command.");
         }
     }
 
+    /// Writes a value as pretty-printed JSON to the given writer.
+    /// @param out the writer to write to
+    /// @param value the value to serialize as JSON
+    /// @throws java.io.IOException if writing fails
     public static void writeJson(java.io.PrintWriter out, Object value) throws java.io.IOException {
         out.println(MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(value));
         out.flush();
     }
 
     /// Very small arg tokenizer for the REPL; supports single and double quotes.
+    /// @param line the line to tokenize
+    /// @return the tokenized arguments
     public static String[] tokenize(String line) {
         List<String> parts = new java.util.ArrayList<>();
         StringBuilder current = new StringBuilder();

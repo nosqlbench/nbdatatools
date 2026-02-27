@@ -160,6 +160,8 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns a builder for custom configuration.
+     *
+     * @return a new builder
      */
     public static Builder builder() {
         return new Builder();
@@ -474,6 +476,8 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns current progress (0.0 to 1.0).
+     *
+     * @return the progress fraction
      */
     public double getProgress() {
         return totalDimensions > 0
@@ -483,6 +487,8 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns the number of worker threads.
+     *
+     * @return the parallelism level
      */
     public int getParallelism() {
         return pool.getParallelism();
@@ -490,6 +496,8 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
     /**
      * Returns the batch size (dimensions per task).
+     *
+     * @return the batch size
      */
     public int getBatchSize() {
         return batchSize;
@@ -519,6 +527,9 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets the number of worker threads.
+         *
+         * @param parallelism the thread count
+         * @return this builder
          */
         public Builder parallelism(int parallelism) {
             if (parallelism <= 0) {
@@ -530,6 +541,9 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets the batch size (dimensions per parallel task).
+         *
+         * @param batchSize the batch size
+         * @return this builder
          */
         public Builder batchSize(int batchSize) {
             if (batchSize <= 0) {
@@ -541,6 +555,9 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets the best-fit selector for model selection.
+         *
+         * @param selector the selector
+         * @return this builder
          */
         public Builder selector(BestFitSelector selector) {
             this.selector = selector;
@@ -550,6 +567,9 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Forces a specific fitter for all dimensions.
+         *
+         * @param fitter the fitter to force
+         * @return this builder
          */
         public Builder forcedFitter(ComponentModelFitter fitter) {
             this.forcedFitter = fitter;
@@ -559,6 +579,9 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Sets the target unique vectors for the model.
+         *
+         * @param uniqueVectors the unique vector count
+         * @return this builder
          */
         public Builder uniqueVectors(long uniqueVectors) {
             if (uniqueVectors <= 0) {
@@ -570,6 +593,9 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Uses an existing ForkJoinPool.
+         *
+         * @param pool the thread pool to use
+         * @return this builder
          */
         public Builder pool(ForkJoinPool pool) {
             this.pool = pool;
@@ -578,6 +604,8 @@ public final class ParallelDatasetModelExtractor implements ModelExtractor {
 
         /**
          * Builds the extractor.
+         *
+         * @return the constructed extractor
          */
         public ParallelDatasetModelExtractor build() {
             ForkJoinPool effectivePool = pool != null

@@ -25,6 +25,10 @@ import java.util.BitSet;
 
 /// Static computation methods used by various nbvectors classes
 public class Computations {
+
+  /// Creates a new Computations instance.
+  public Computations() {
+  }
   /// the first of three sets returned by {@link #partitions(long[], long[])}
   public static int SET_A = 0;
   /// the second of three sets returned by {@link #partitions(long[], long[])}
@@ -287,12 +291,19 @@ public class Computations {
     /// the expected indices, in the form of a bit mask
     private final BitSet expected;
     
+    /// Creates a new BitSetDelta with the given provided and expected bitsets.
+    /// @param provided the actual indices bitset
+    /// @param expected the expected indices bitset
     public BitSetDelta(BitSet provided, BitSet expected) {
       this.provided = provided;
       this.expected = expected;
     }
     
+    /// Returns the provided bitset.
+    /// @return the provided bitset
     public BitSet provided() { return provided; }
+    /// Returns the expected bitset.
+    /// @return the expected bitset
     public BitSet expected() { return expected; }
   }
 

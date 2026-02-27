@@ -43,7 +43,15 @@ public class ProgressTrackingStreamingResult implements StreamingFetchResult {
     private final ProgressTrackingChannel trackingChannel;
     private final AtomicLong localBytesRead = new AtomicLong(0);
     
-    public ProgressTrackingStreamingResult(StreamingFetchResult delegate, 
+    /// Creates a new progress-tracking wrapper around a streaming fetch result.
+    ///
+    /// @param delegate the underlying streaming fetch result to wrap
+    /// @param startTime the instant when the overall transfer started
+    /// @param chunkIndex the zero-based index of the current chunk
+    /// @param totalChunks the total number of chunks in the transfer
+    /// @param cumulativeBytesTransferred shared counter tracking total bytes across all chunks
+    /// @param eventSink the sink for reporting progress events
+    public ProgressTrackingStreamingResult(StreamingFetchResult delegate,
                                          Instant startTime,
                                          int chunkIndex,
                                          int totalChunks,

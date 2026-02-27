@@ -25,15 +25,22 @@ public class BaseContentAttributes {
     /// the number of content items
     private final long count;
 
+    /// Creates a new base content attributes instance.
+    /// @param media_type the media type of the content
+    /// @param count the number of content items
     public BaseContentAttributes(String media_type, long count) {
         this.media_type = media_type;
         this.count = count;
     }
 
+    /// Get the media type of the content.
+    /// @return the media type
     public String media_type() {
         return media_type;
     }
 
+    /// Get the number of content items.
+    /// @return the count
     public long count() {
         return count;
     }

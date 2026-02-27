@@ -56,6 +56,7 @@ public class OrdinalRange {
         }
 
         /// Returns the number of ordinals in this range.
+        /// @return the number of ordinals
         public long size() {
             return end - start;
         }
@@ -79,6 +80,9 @@ public class OrdinalRange {
     /// Supports formats: `n`, `m..n`, `[m,n)`, `[m,n]`, `(m,n)`, `(m,n]`,
     /// `[n]`, and bracket forms with `..` separator.
     public static class Converter implements CommandLine.ITypeConverter<Range> {
+
+        /// Creates a new range converter.
+        public Converter() {}
 
         @Override
         public Range convert(String value) {

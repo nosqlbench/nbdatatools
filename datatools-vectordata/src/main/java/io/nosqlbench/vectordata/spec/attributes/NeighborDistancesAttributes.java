@@ -25,16 +25,22 @@ public class NeighborDistancesAttributes {
     /// the number of neighbors provided for each query vector
     private final long max_k;
     
+    /// Constructs a NeighborDistancesAttributes with the given parameters.
+    ///
+    /// @param count the number of query vectors
+    /// @param max_k the number of neighbors per query vector
     public NeighborDistancesAttributes(long count, long max_k) {
         this.count = count;
         this.max_k = max_k;
     }
     
+    /// Returns the query vector count.
     /// @return the number of query vectors
     public long count() {
         return count;
     }
-    
+
+    /// Returns the max k value.
     /// @return the number of neighbors provided for each query vector
     public long max_k() {
         return max_k;

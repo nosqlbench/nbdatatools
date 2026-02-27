@@ -24,6 +24,10 @@ import picocli.CommandLine;
  */
 public class DistanceMetricOption {
 
+    /// Creates a new DistanceMetricOption instance.
+    public DistanceMetricOption() {
+    }
+
     /**
      * Enum for supported distance/similarity metrics in vector operations.
      */

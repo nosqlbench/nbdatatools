@@ -31,20 +31,30 @@ public class NeighborhoodComparison {
   private final int[] providedNeighborhood;
   private final int[] expectedNeighborhood;
 
+  /// Creates a new NeighborhoodComparison.
+  /// @param testVector the test vector with its index
+  /// @param providedNeighborhood the actual neighbor indices returned
+  /// @param expectedNeighborhood the expected neighbor indices
   public NeighborhoodComparison(Indexed<float[]> testVector, int[] providedNeighborhood, int[] expectedNeighborhood) {
     this.testVector = testVector;
     this.providedNeighborhood = providedNeighborhood;
     this.expectedNeighborhood = expectedNeighborhood;
   }
 
+  /// Returns the test vector.
+  /// @return the test vector with its index
   public Indexed<float[]> testVector() {
     return testVector;
   }
 
+  /// Returns the provided neighbor indices.
+  /// @return the actual neighbor indices
   public int[] providedNeighborhood() {
     return providedNeighborhood;
   }
 
+  /// Returns the expected neighbor indices.
+  /// @return the expected neighbor indices
   public int[] expectedNeighborhood() {
     return expectedNeighborhood;
   }

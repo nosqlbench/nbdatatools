@@ -24,7 +24,12 @@ import java.nio.ByteBuffer;
 /// @param <T> the type of self
 public interface PNode<T> extends BBWriter<T> {
 
-    /// Create a predicate node from a byte buffer
+    /// Creates a predicate node from a byte buffer using the indexed wire format.
+    ///
+    /// This method assumes all predicates use positional field indices. For
+    /// context-aware decoding that supports both indexed and named fields, use
+    /// {@link PredicateContext#decode(ByteBuffer)} instead.
+    ///
     /// @param b the byte buffer to decode the predicate node from
     /// @return a predicate node
     public static PNode<?> fromBuffer(ByteBuffer b) {

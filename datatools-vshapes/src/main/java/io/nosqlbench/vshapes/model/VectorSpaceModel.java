@@ -106,6 +106,7 @@ import java.util.Objects;
  */
 public final class VectorSpaceModel implements VectorModel, IsomorphicVectorModel {
 
+    /// The model type identifier for vector space models.
     public static final String MODEL_TYPE = "vector_space";
 
     private final long uniqueVectors;

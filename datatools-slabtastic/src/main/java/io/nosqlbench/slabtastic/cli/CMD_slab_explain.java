@@ -54,6 +54,9 @@ import java.util.concurrent.Callable;
 )
 public class CMD_slab_explain implements Callable<Integer>, SlabConstants {
 
+    /// Creates a new instance of the explain subcommand.
+    public CMD_slab_explain() {}
+
     private static final int DIAGRAM_WIDTH = 80;
     private static final int MAX_HEX_BYTES = 16;
 
@@ -70,13 +73,26 @@ public class CMD_slab_explain implements Callable<Integer>, SlabConstants {
     private OrdinalRange.Range ordinals;
 
     @CommandLine.Option(names = {"-n", "--namespace"}, defaultValue = "",
-        description = "Namespace to operate on (default: default namespace)")
+        description = "Namespace to operate on; required when the file has named namespaces")
     private String namespace;
 
     @Override
     public Integer call() {
         PrintStream out = System.out;
         PrintStream err = System.err;
+
+        // Resolve namespace before proceeding
+        try (SlabReader probe = new SlabReader(file)) {
+            String resolved = NamespaceResolver.resolveForRead(namespace, probe);
+            if (resolved == null) {
+                err.println("Error: " + NamespaceResolver.formatNamespaceHint(probe));
+                return 1;
+            }
+            namespace = resolved;
+        } catch (Exception e) {
+            err.println("Error: " + e.getMessage());
+            return 1;
+        }
 
         try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
             long fileSize = ch.size();

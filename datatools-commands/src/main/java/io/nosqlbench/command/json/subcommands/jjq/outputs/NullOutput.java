@@ -27,6 +27,9 @@ import java.util.concurrent.BlockingQueue;
 
 /// An implementation of output which discards all results
 public class NullOutput implements Output  {
+  /// Creates a new NullOutput instance.
+  public NullOutput() {}
+
   @Override
   public void emit(JsonNode out) throws JsonQueryException {
   }

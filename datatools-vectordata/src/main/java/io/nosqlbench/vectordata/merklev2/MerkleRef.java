@@ -86,6 +86,10 @@ public interface MerkleRef {
   /// This creates a MerkleState from the given MerkleRef which includes all the details of the
   /// MerkleRef except the valid bits are cleared. The file is initially persisted into the
   /// specified file before this method returns.
+  ///
+  /// @param path the file path to persist the state into
+  /// @return a new MerkleState with all valid bits cleared
+  /// @throws IOException if an I/O error occurs during persistence
   MerkleState createEmptyState(Path path) throws IOException;
 
   // Static factory methods for creating MerkleRef instances

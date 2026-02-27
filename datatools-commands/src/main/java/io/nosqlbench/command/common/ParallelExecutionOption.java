@@ -25,6 +25,10 @@ import picocli.CommandLine;
  */
 public class ParallelExecutionOption {
 
+    /// Creates a new ParallelExecutionOption instance.
+    public ParallelExecutionOption() {
+    }
+
     @CommandLine.Option(
         names = {"-p", "--parallel"},
         description = "Enable parallel processing (auto-sizes based on available CPU cores and memory)"

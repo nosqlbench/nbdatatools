@@ -84,6 +84,10 @@ import java.util.concurrent.Callable;
 )
 public class CMD_info_compute implements Callable<Integer> {
 
+    /// Creates a new CMD_info_compute instance.
+    public CMD_info_compute() {
+    }
+
     private static final Logger logger = LogManager.getLogger(CMD_info_compute.class);
 
     @CommandLine.Option(

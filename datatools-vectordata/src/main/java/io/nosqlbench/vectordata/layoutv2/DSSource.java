@@ -45,16 +45,24 @@ import java.util.regex.Pattern;
 /// @see SourceType
 public class DSSource {
 
-  /// Pattern for parsing a source spec with optional window notation.
-  /// Supports window notation with:
-  ///   - Parentheses: file.ext(window)
-  ///   - Brackets: file.ext[window]
+  /// Pattern for parsing a source spec with optional namespace and window notation.
+  ///
+  /// Supported formats:
+  ///   - `file.ext` — path only
+  ///   - `file.ext[window]` or `file.ext(window)` — path with window
+  ///   - `file.slab:namespace` — path with namespace
+  ///   - `file.slab:namespace:[window]` or `file.slab:namespace:(window)` — all three
+  ///
+  /// The namespace is a non-empty string between the path and window, separated
+  /// by colons. It cannot contain colons, brackets, or parentheses.
   private static final Pattern SOURCE_SPEC_PATTERN = Pattern.compile(
-      "^(?<path>.+?)(?<window>[\\[(][^\\])]+[\\])])?$"
+      "^(?<path>[^:\\[\\(]+)(?::(?<namespace>[^:\\[\\(]+))?(?::?(?<window>[\\[(][^\\])]+[\\])]))?$"
   );
 
   /// The path to the data source
   public String path;
+  /// The slab namespace to read from, or null for default behavior
+  public String namespace;
   /// The window defining which portions of the data to include
   public DSWindow window;
   /// The type of source (xvec or virtdata)
@@ -93,15 +101,30 @@ public class DSSource {
     this.type = type != null ? type : SourceType.inferFromPath(path);
   }
 
+  /// Creates a data source with all fields specified.
+  /// @param path The path to the data source
+  /// @param namespace The slab namespace, or null for default behavior
+  /// @param window The window defining which portions of the data to include
+  /// @param type The source type (xvec or virtdata)
+  public DSSource(String path, String namespace, DSWindow window, SourceType type) {
+    this.path = path;
+    this.namespace = namespace;
+    this.window = window;
+    this.type = type != null ? type : SourceType.inferFromPath(path);
+  }
+
   /// Returns a string representation of this data source.
   /// @return A string representation of this data source
   @Override
   public String toString() {
-    return new StringJoiner(", ", DSSource.class.getSimpleName() + "[", "]")
+    StringJoiner sj = new StringJoiner(", ", DSSource.class.getSimpleName() + "[", "]")
         .add("type=" + type)
-        .add("path='" + path + "'")
-        .add("window='" + window + "'")
-        .toString();
+        .add("path='" + path + "'");
+    if (namespace != null) {
+      sj.add("namespace='" + namespace + "'");
+    }
+    sj.add("window='" + window + "'");
+    return sj.toString();
   }
 
   /// Sets the window for this data source.
@@ -129,6 +152,7 @@ public class DSSource {
 
     DSSource dsSource = (DSSource) o;
     return Objects.equals(path, dsSource.path)
+        && Objects.equals(namespace, dsSource.namespace)
         && Objects.equals(window, dsSource.window)
         && type == dsSource.type;
   }
@@ -138,6 +162,7 @@ public class DSSource {
   @Override
   public int hashCode() {
     int result = Objects.hashCode(path);
+    result = 31 * result + Objects.hashCode(namespace);
     result = 31 * result + Objects.hashCode(window);
     result = 31 * result + Objects.hashCode(type);
     return result;
@@ -147,6 +172,12 @@ public class DSSource {
   /// @return The path to the data source
   public String getPath() {
     return this.path;
+  }
+
+  /// Gets the slab namespace for this source, or null if not specified.
+  /// @return The namespace, or null
+  public String getNamespace() {
+    return this.namespace;
   }
 
   /// Gets the window defining which portions of the data to include.
@@ -199,6 +230,7 @@ public class DSSource {
       if (path == null) {
         path = (String) m.get("source"); // alternate key
       }
+      String namespace = m.get("namespace") instanceof String ? (String) m.get("namespace") : null;
       DSWindow window = DSWindow.fromData(m.get("window"));
 
       // Parse type if specified, otherwise infer from path
@@ -211,16 +243,23 @@ public class DSSource {
         type = SourceType.inferFromPath(path);
       }
 
-      return new DSSource(path, window, type);
+      return new DSSource(path, namespace, window, type);
     } else {
       throw new RuntimeException("invalid source format:" + data);
     }
   }
 
-  /// Parses a source spec string to extract path and optional window.
+  /// Parses a source spec string to extract path, optional namespace, and
+  /// optional window.
+  ///
+  /// Supported formats:
+  ///   - `file.ext` — path only
+  ///   - `file.ext[window]` — path with window
+  ///   - `file.slab:namespace` — path with namespace
+  ///   - `file.slab:namespace:[window]` — path, namespace, and window
   ///
   /// @param spec The source spec string
-  /// @return A new DSSource with parsed path and window
+  /// @return A new DSSource with parsed path, namespace, and window
   private static DSSource parseSourceSpec(String spec) {
     if (spec == null || spec.isBlank()) {
       return new DSSource(spec);
@@ -229,14 +268,17 @@ public class DSSource {
     Matcher matcher = SOURCE_SPEC_PATTERN.matcher(spec);
     if (matcher.matches()) {
       String path = matcher.group("path");
+      String namespace = matcher.group("namespace");
       String windowSpec = matcher.group("window");
 
-      if (windowSpec != null && !windowSpec.isEmpty()) {
-        DSWindow window = DSWindow.fromData(windowSpec);
-        return new DSSource(path, window);
+      DSWindow window = (windowSpec != null && !windowSpec.isEmpty())
+          ? DSWindow.fromData(windowSpec) : DSWindow.ALL;
+
+      if (namespace != null && !namespace.isEmpty()) {
+        return new DSSource(path, namespace, window, SourceType.inferFromPath(path));
       }
 
-      return new DSSource(path, DSWindow.ALL);
+      return new DSSource(path, window);
     }
 
     // If pattern doesn't match, treat entire string as path

@@ -349,11 +349,15 @@ public final class EMClusterer {
         boolean converged
     ) {
         /// Returns the number of components.
+        ///
+        /// @return the component count
         public int numComponents() {
             return means.length;
         }
 
         /// Returns hard assignments by maximum responsibility.
+        ///
+        /// @return the hard assignment indices
         public int[] hardAssignments() {
             int[] assignments = new int[responsibilities.length];
             for (int i = 0; i < responsibilities.length; i++) {
@@ -363,6 +367,9 @@ public final class EMClusterer {
         }
 
         /// Returns the effective sample size for a component.
+        ///
+        /// @param component the component index
+        /// @return the effective sample size
         public double effectiveSampleSize(int component) {
             double sum = 0;
             for (double[] r : responsibilities) {

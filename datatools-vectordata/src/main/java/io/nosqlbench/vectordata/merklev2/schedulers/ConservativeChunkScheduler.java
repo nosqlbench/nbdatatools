@@ -47,7 +47,11 @@ import java.util.concurrent.CompletableFuture;
 /// - Sparse or unpredictable access patterns
 /// - Scenarios where bandwidth is limited or expensive
 public class ConservativeChunkScheduler implements ChunkScheduler {
-    
+
+    /// Creates a new conservative chunk scheduler.
+    public ConservativeChunkScheduler() {
+    }
+
     @Override
     public List<SchedulingDecision> selectOptimalNodes(
             List<Integer> requiredChunks,

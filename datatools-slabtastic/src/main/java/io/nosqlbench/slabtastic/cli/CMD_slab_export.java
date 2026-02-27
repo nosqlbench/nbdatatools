@@ -55,9 +55,35 @@ import java.util.concurrent.Callable;
 )
 public class CMD_slab_export implements Callable<Integer>, SlabConstants {
 
+    /// Creates a new export command instance.
+    public CMD_slab_export() {}
+
     /// Output format for exported records.
     public enum ExportFormat {
-        raw, text, cstrings, slab, json, jsonl, csv, tsv, yaml, hex, utf8, ascii
+        /// Raw bytes, no transformation
+        raw,
+        /// Text with trailing newlines
+        text,
+        /// Null-terminated C strings
+        cstrings,
+        /// Slab-to-slab copy
+        slab,
+        /// JSON values
+        json,
+        /// JSON lines (one value per line)
+        jsonl,
+        /// Comma-separated values
+        csv,
+        /// Tab-separated values
+        tsv,
+        /// YAML documents
+        yaml,
+        /// Hex dump with offset headers
+        hex,
+        /// UTF-8 text with ordinal prefix
+        utf8,
+        /// ASCII text with ordinal prefix
+        ascii
     }
 
     @CommandLine.Parameters(index = "0", description = "Slab file to read")
@@ -109,7 +135,7 @@ public class CMD_slab_export implements Callable<Integer>, SlabConstants {
     private boolean asBase64;
 
     @CommandLine.Option(names = {"--namespace", "-n"}, defaultValue = "",
-        description = "Namespace to export from (default: default namespace)")
+        description = "Namespace to export from; required when the file has named namespaces")
     private String namespace;
 
     @CommandLine.Option(names = {"--progress"},
@@ -132,6 +158,16 @@ public class CMD_slab_export implements Callable<Integer>, SlabConstants {
             if (outputPath != null && Files.exists(outputPath) && !force) {
                 System.err.println("Error: Output file already exists: " + outputPath + " (use --force to overwrite)");
                 return 1;
+            }
+
+            // Resolve namespace before any read operations
+            try (SlabReader probe = new SlabReader(source)) {
+                String resolved = NamespaceResolver.resolveForRead(namespace, probe);
+                if (resolved == null) {
+                    System.err.println("Error: " + NamespaceResolver.formatNamespaceHint(probe));
+                    return 1;
+                }
+                namespace = resolved;
             }
 
             if (format == ExportFormat.slab && !asHex && !asBase64) {

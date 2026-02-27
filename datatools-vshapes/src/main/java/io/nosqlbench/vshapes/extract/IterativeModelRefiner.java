@@ -85,9 +85,11 @@ public final class IterativeModelRefiner {
         SIMPLE_PARAMETRIC,
         /// Extended moment-based model (Beta, Gamma, Student-t)
         EXTENDED_PARAMETRIC,
-        /// Composite mixture model
+        /// Composite mixture model with 2 components.
         COMPOSITE_2,
+        /// Composite mixture model with 3 components.
         COMPOSITE_3,
+        /// Composite mixture model with 4 components.
         COMPOSITE_4,
         /// Empirical histogram fallback
         EMPIRICAL
@@ -149,6 +151,8 @@ public final class IterativeModelRefiner {
     }
 
     /// Creates a new builder for configuring the refiner.
+    ///
+    /// @return a new builder
     public static Builder builder() {
         return new Builder();
     }
@@ -370,11 +374,15 @@ public final class IterativeModelRefiner {
         List<RefinementAttempt> attempts
     ) {
         /// Returns true if a simple parametric model was used.
+        ///
+        /// @return true if the strategy is SIMPLE_PARAMETRIC
         public boolean isSimpleParametric() {
             return strategy == RefinementStrategy.SIMPLE_PARAMETRIC;
         }
 
         /// Returns true if a composite model was used.
+        ///
+        /// @return true if the strategy is a COMPOSITE variant
         public boolean isComposite() {
             return strategy == RefinementStrategy.COMPOSITE_2 ||
                    strategy == RefinementStrategy.COMPOSITE_3 ||
@@ -382,11 +390,15 @@ public final class IterativeModelRefiner {
         }
 
         /// Returns true if empirical fallback was used.
+        ///
+        /// @return true if the strategy is EMPIRICAL
         public boolean isEmpirical() {
             return strategy == RefinementStrategy.EMPIRICAL;
         }
 
         /// Returns a summary string.
+        ///
+        /// @return the summary
         public String summary() {
             return String.format("%s (KS=%.4f, %d attempts)",
                 strategy, ksStatistic, attemptsCount);
@@ -405,49 +417,77 @@ public final class IterativeModelRefiner {
         private Double explicitLowerBound = null;
         private Double explicitUpperBound = null;
 
+        /// Creates a new Builder with default values.
+        public Builder() {}
+
         /// Sets the verification thoroughness level.
+        ///
+        /// @param level the verification level
+        /// @return this builder
         public Builder verificationLevel(VerificationLevel level) {
             this.verificationLevel = level;
             return this;
         }
 
         /// Sets the maximum allowed parameter drift (0.0 to 1.0).
+        ///
+        /// @param threshold the drift threshold
+        /// @return this builder
         public Builder driftThreshold(double threshold) {
             this.driftThreshold = threshold;
             return this;
         }
 
         /// Sets the KS threshold for parametric models.
+        ///
+        /// @param threshold the KS threshold
+        /// @return this builder
         public Builder ksThresholdParametric(double threshold) {
             this.ksThresholdParametric = threshold;
             return this;
         }
 
         /// Sets the KS threshold for composite models.
+        ///
+        /// @param threshold the KS threshold
+        /// @return this builder
         public Builder ksThresholdComposite(double threshold) {
             this.ksThresholdComposite = threshold;
             return this;
         }
 
         /// Sets the maximum number of composite components to try (2-10).
+        ///
+        /// @param max the maximum component count
+        /// @return this builder
         public Builder maxCompositeComponents(int max) {
             this.maxCompositeComponents = Math.max(2, Math.min(10, max));
             return this;
         }
 
         /// Enables verbose logging during refinement.
+        ///
+        /// @param verbose whether to enable verbose logging
+        /// @return this builder
         public Builder verboseLogging(boolean verbose) {
             this.verboseLogging = verbose;
             return this;
         }
 
         /// Sets the random seed for reproducibility.
+        ///
+        /// @param seed the random seed
+        /// @return this builder
         public Builder seed(long seed) {
             this.seed = seed;
             return this;
         }
 
         /// Sets explicit bounds for normalized vectors.
+        ///
+        /// @param lower the lower bound
+        /// @param upper the upper bound
+        /// @return this builder
         public Builder normalizedVectorBounds(double lower, double upper) {
             this.explicitLowerBound = lower;
             this.explicitUpperBound = upper;
@@ -455,11 +495,15 @@ public final class IterativeModelRefiner {
         }
 
         /// Configures for L2-normalized vectors with [-1, 1] bounds.
+        ///
+        /// @return this builder
         public Builder forNormalizedVectors() {
             return normalizedVectorBounds(-1.0, 1.0);
         }
 
         /// Builds the configured refiner.
+        ///
+        /// @return the constructed refiner
         public IterativeModelRefiner build() {
             return new IterativeModelRefiner(this);
         }

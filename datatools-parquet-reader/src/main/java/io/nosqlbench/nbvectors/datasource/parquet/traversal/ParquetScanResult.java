@@ -33,6 +33,8 @@ public class ParquetScanResult {
         this.totalRecords = totalRecords;
     }
 
+    /// Returns the total number of records.
+    /// @return the total record count
     public long totalRecords() {
         return totalRecords;
     }
