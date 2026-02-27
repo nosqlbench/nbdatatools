@@ -30,7 +30,6 @@
     <module>datatools-status-api</module>
     <module>datatools-virtdata</module>
     <module>datatools-optimizers</module>
-    <module>datatools-predicated</module>
     <module>datatools-slabtastic</module>
   </modules>
 
