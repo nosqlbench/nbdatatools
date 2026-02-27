@@ -51,7 +51,12 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+
+import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicatingFuture;
+import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicator;
 
 /// TestDataView implementation for filesystem-based datasets.
 ///
@@ -377,13 +382,36 @@ public class FilesystemVectorTestDataView implements VectorTestDataView, AutoClo
             .map(fd -> fd.prebuffer())
             .orElse(CompletableFuture.completedFuture(null));
 
-        return CompletableFuture.allOf(
+        List<CompletableFuture<Void>> futures = List.of(
             baseVectorsFuture,
             queryVectorsFuture,
             neighborIndicesFuture,
             neighborDistancesFuture,
             filteredIndicesFuture,
             filteredDistancesFuture
+        );
+
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(
+            futures.toArray(new CompletableFuture[0])
+        );
+
+        // Aggregate progress tracking from individual futures
+        List<ProgressIndicator<?>> progressSources = new ArrayList<>();
+        for (CompletableFuture<Void> f : futures) {
+            if (f instanceof ProgressIndicator) {
+                progressSources.add((ProgressIndicator<?>) f);
+            }
+        }
+        if (progressSources.isEmpty()) {
+            return allOf;
+        }
+
+        double bytesPerUnit = progressSources.get(0).getBytesPerUnit();
+        return new ProgressIndicatingFuture<>(
+            allOf,
+            () -> progressSources.stream().mapToDouble(ProgressIndicator::getTotalWork).sum(),
+            () -> progressSources.stream().mapToDouble(ProgressIndicator::getCurrentWork).sum(),
+            bytesPerUnit
         );
     }
 

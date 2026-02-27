@@ -53,6 +53,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.List;
 import java.util.ArrayList;
 
+import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicatingFuture;
+import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicator;
+
 /// Implementation of TestDataView that provides access to vector datasets and their metadata.
 ///
 /// VirtualTestDataView serves as a bridge between dataset descriptions (metadata) and the actual
@@ -656,6 +659,10 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
   /// views from channel-based reads to Path-based memory-mapped reads for
   /// maximum read throughput.
   ///
+  /// The returned future is a [ProgressIndicatingFuture] when any of the
+  /// underlying dataset views provide progress tracking, aggregating total
+  /// and current work across all datasets being prebuffered.
+  ///
   /// @return A future that completes when all prebuffering and promotion is done
   @Override
   public CompletableFuture<Void> prebuffer() {
@@ -691,7 +698,26 @@ public class VirtualVectorTestDataView implements VectorTestDataView {
       futures.add(filteredDistances.prebuffer());
     });
 
-    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+    CompletableFuture<Void> allOf = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
         .thenRun(this::promoteToLocalViews);
+
+    // Aggregate progress tracking from individual futures
+    List<ProgressIndicator<?>> progressSources = new ArrayList<>();
+    for (CompletableFuture<Void> f : futures) {
+      if (f instanceof ProgressIndicator) {
+        progressSources.add((ProgressIndicator<?>) f);
+      }
+    }
+    if (progressSources.isEmpty()) {
+      return allOf;
+    }
+
+    double bytesPerUnit = progressSources.get(0).getBytesPerUnit();
+    return new ProgressIndicatingFuture<>(
+        allOf,
+        () -> progressSources.stream().mapToDouble(ProgressIndicator::getTotalWork).sum(),
+        () -> progressSources.stream().mapToDouble(ProgressIndicator::getCurrentWork).sum(),
+        bytesPerUnit
+    );
   }
 }
