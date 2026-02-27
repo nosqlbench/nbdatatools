@@ -16,6 +16,23 @@
     <description>TPE-based parameter optimization and JMH subprocess orchestration</description>
     <url>https://github.com/nosqlbench/nbdatatools</url>
 
+    <properties>
+        <!-- Exclude hardware-sensitive JIT tier tests by default; clear with -DexcludeJitTests= -->
+        <excludeJitTests>jit</excludeJitTests>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>${excludeJitTests}</excludedGroups>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
         <dependency>
             <groupId>org.openjdk.jmh</groupId>

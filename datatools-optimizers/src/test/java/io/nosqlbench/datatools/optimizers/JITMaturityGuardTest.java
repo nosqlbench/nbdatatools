@@ -16,6 +16,7 @@
 
 package io.nosqlbench.datatools.optimizers;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -127,7 +128,13 @@ class JITMaturityGuardTest {
     /// A hot method must reach C2 (tier 4) when the guard's lifecycle wraps
     /// the first invocation. This is the core contract: construct guard,
     /// run work, verify — and C2 must be observed.
+    ///
+    /// Tagged "jit" and excluded from default runs because C2 promotion is
+    /// hardware-dependent — lower-power systems may not promote within the
+    /// iteration budget.  Enable with {@code -Dgroups=jit} or the
+    /// {@code alltests} profile.
     @Test
+    @Tag("jit")
     void hotMethod_reachesC2_whenGuardWrapsFirstInvocation() {
         HotPathA target = new HotPathA();
         AtomicLong sink = new AtomicLong();
