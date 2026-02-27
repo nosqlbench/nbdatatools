@@ -6,14 +6,15 @@
 
     <parent>
         <groupId>io.nosqlbench</groupId>
-        <artifactId>nbdatatools</artifactId>
+        <artifactId>datatools-mvn-defaults</artifactId>
         <version>${revision}</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath>../datatools-mvn-defaults</relativePath>
     </parent>
 
     <artifactId>datatools-predicated</artifactId>
     <name>${project.artifactId}</name>
     <description>Benchmarking non-uniform indexing formats</description>
+    <url>https://github.com/nosqlbench/nbdatatools</url>
 
     <dependencies>
         <dependency>
