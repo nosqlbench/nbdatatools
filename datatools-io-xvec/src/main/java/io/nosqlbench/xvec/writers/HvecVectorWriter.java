@@ -18,6 +18,7 @@ package io.nosqlbench.xvec.writers;
  */
 
 
+import io.nosqlbench.nbdatatools.api.types.Half;
 import io.nosqlbench.nbdatatools.api.fileio.VectorFileStreamStore;
 import io.nosqlbench.nbdatatools.api.services.DataType;
 import io.nosqlbench.nbdatatools.api.services.Encoding;
@@ -99,8 +100,7 @@ public class HvecVectorWriter implements VectorFileStreamStore<float[]> {
 
             // Write vector data as little-endian half-precision floats
             for (float value : data) {
-                short halfFloat = floatToHalf(value);
-                buffer.putShort(halfFloat);
+                buffer.putShort(Half.of(value).toBits());
             }
 
             // Write to file
@@ -126,55 +126,4 @@ public class HvecVectorWriter implements VectorFileStreamStore<float[]> {
         }
     }
 
-    /// Converts a 32-bit float to a 16-bit half-precision float.
-    /// Implementation follows the IEEE 754-2008 binary16 format.
-    ///
-    /// @param f The 32-bit float value to convert
-    /// @return The 16-bit half-precision float value as a short
-    private short floatToHalf(float f) {
-        // Get the bits from the float
-        int bits = Float.floatToIntBits(f);
-
-        // Extract components
-        int sign = (bits >>> 31) & 0x1;
-        int exponent = (bits >>> 23) & 0xFF;
-        int mantissa = bits & 0x7FFFFF;
-
-        // Special cases: NaN and Infinity
-        if (exponent == 0xFF) {
-            if (mantissa != 0) {
-                // NaN
-                return (short) 0x7E00; // Half-precision NaN
-            } else {
-                // Infinity
-                return (short) ((sign << 15) | 0x7C00); // Half-precision Infinity with sign
-            }
-        }
-
-        // Adjust exponent: IEEE float exponent bias is 127, half-precision is 15
-        int newExponent = exponent - 127 + 15;
-
-        // Handle overflow
-        if (newExponent >= 31) {
-            return (short) ((sign << 15) | 0x7C00); // Infinity with sign
-        }
-
-        // Handle underflow
-        if (newExponent <= 0) {
-            // Denormalized or zero
-            if (newExponent < -10) {
-                return (short) (sign << 15); // Zero with sign
-            }
-
-            // Denormalized number
-            mantissa = (mantissa | 0x800000) >> (14 - newExponent);
-            return (short) ((sign << 15) | mantissa);
-        }
-
-        // Normalized number
-        int newMantissa = mantissa >> 13; // Truncate to 10 bits
-
-        // Compose the half-precision float
-        return (short) ((sign << 15) | (newExponent << 10) | newMantissa);
-    }
 }

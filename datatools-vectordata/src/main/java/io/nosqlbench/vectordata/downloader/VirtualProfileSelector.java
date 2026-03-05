@@ -18,8 +18,10 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 
+import io.nosqlbench.vectordata.discovery.CompositeTestDataView;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.metadata.PredicateTestDataView;
+import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
 import io.nosqlbench.vectordata.layoutv2.DSView;
@@ -70,15 +72,16 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
     return new LinkedHashSet<>(profiles());
   }
 
-  /// Selects a specific profile by name.
+  /// Selects a specific profile by name, returning a combined {@link TestDataView}
+  /// that includes both vector and predicate data when available.
   ///
   /// @param profileName The name of the profile to select
   /// @return A TestDataView for the selected profile
   @Override
-  public VectorTestDataView profile(String profileName) {
+  public TestDataView profile(String profileName) {
     // Extract effective profile name based on the documented rules
     String effectiveProfileName = profileName;
-    
+
     if (profileName.contains(":")) {
       // If it has colons, take the last word after the last colon
       int lastColonIndex = profileName.lastIndexOf(':');
@@ -88,7 +91,7 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
       effectiveProfileName = "default";
     }
     // Otherwise, use the profileName as-is (already set above)
-    
+
     DSProfile profile = datasetEntry.profiles().get(effectiveProfileName);
     if (profile==null) {
       profile = datasetEntry.profiles().get(effectiveProfileName.toLowerCase());
@@ -99,8 +102,20 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
     if (profile==null) {
       throw new RuntimeException("profile " + effectiveProfileName + "' not found. Available profiles: " + profiles() + ", but not " + effectiveProfileName);
     }
-    VirtualVectorTestDataView view = new VirtualVectorTestDataView( cacheDir,datasetEntry, profile);
-    return view;
+    VirtualVectorTestDataView vectorView = new VirtualVectorTestDataView(cacheDir, datasetEntry, profile);
+
+    // Check if profile has predicate facets and compose if so
+    boolean hasPredicate = profile.keySet().stream().anyMatch(PREDICATE_KEYS::contains);
+    if (hasPredicate) {
+      Optional<PredicateTestDataView<?>> predicateOpt = predicateProfile(profileName);
+      if (predicateOpt.isPresent()) {
+        @SuppressWarnings("unchecked")
+        PredicateTestDataView<PNode<?>> predicateView =
+            (PredicateTestDataView<PNode<?>>) (PredicateTestDataView<?>) predicateOpt.get();
+        return new CompositeTestDataView(vectorView, predicateView);
+      }
+    }
+    return vectorView;
   }
 
   /// Sets the cache directory for downloaded datasets.

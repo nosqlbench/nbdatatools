@@ -18,6 +18,7 @@ package io.nosqlbench.vectordata.discovery;
  */
 
 import io.nosqlbench.vectordata.discovery.metadata.PredicateTestDataView;
+import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 
 import java.util.Optional;
@@ -26,7 +27,9 @@ import java.util.Set;
 /// Interface for selecting and configuring dataset profiles.
 ///
 /// This interface provides methods for selecting specific profiles from a dataset
-/// and configuring how they are accessed.
+/// and configuring how they are accessed. The returned {@link TestDataView} provides
+/// access to both vector and predicate facets of the profile, with predicate methods
+/// returning empty when the profile has no predicate data.
 public interface ProfileSelector extends AutoCloseable {
   /// Selects a specific profile by name. If a string is provided that has colons in it, then
   /// implementors should take only the last word after the last colon as the effective profile
@@ -35,9 +38,12 @@ public interface ProfileSelector extends AutoCloseable {
   /// the word is not recognized as the name of the current dataset entry, then the value is the
   /// effective profile name.
   ///
+  /// The returned {@link TestDataView} provides access to both vector data and, when
+  /// available, predicate data for the profile.
+  ///
   /// @param profileName The name of the profile to select
   /// @return A TestDataView for the selected profile
-  VectorTestDataView profile(String profileName);
+  TestDataView profile(String profileName);
   /// Sets the cache directory for downloaded datasets.
   ///
   /// @param cacheDir The directory to use for caching
@@ -56,8 +62,8 @@ public interface ProfileSelector extends AutoCloseable {
   /// used a dataset:profile spec and would otherwise have to repeat the profile name. Implementations
   /// can override this for caching or specialized behavior.
   ///
-  /// @return the VectorTestDataView for the preset profile
-  default VectorTestDataView profile() {
+  /// @return the TestDataView for the preset profile
+  default TestDataView profile() {
     return presetProfile()
         .map(this::profile)
         .orElseThrow(() -> new IllegalStateException("No preset profile specified"));
@@ -68,6 +74,8 @@ public interface ProfileSelector extends AutoCloseable {
   ///
   /// @param profileName The name of the profile to select
   /// @return An Optional containing the predicate view, or empty if unavailable
+  /// @deprecated Use {@link #profile(String)} instead, which returns a {@link TestDataView}
+  ///             that includes predicate access when available.
   default Optional<PredicateTestDataView<?>> predicateProfile(String profileName) {
     return Optional.empty();
   }

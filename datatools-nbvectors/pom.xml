@@ -158,6 +158,7 @@
               <goal>exec</goal>
             </goals>
             <configuration>
+              <skip>false</skip>
               <environmentVariables>
                 <NBJAR_VERSION>${project.version}</NBJAR_VERSION>
               </environmentVariables>

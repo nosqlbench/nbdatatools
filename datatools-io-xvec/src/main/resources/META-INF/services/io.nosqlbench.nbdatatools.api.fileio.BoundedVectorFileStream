@@ -2,3 +2,4 @@ io.nosqlbench.readers.UniformIvecStreamer
 io.nosqlbench.readers.UniformBvecStreamer
 io.nosqlbench.readers.UniformFvecStreamer
 io.nosqlbench.readers.UniformDvecStreamer
+io.nosqlbench.readers.UniformHvecStreamer

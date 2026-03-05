@@ -30,6 +30,7 @@ import io.nosqlbench.vectordata.layout.TestGroupLayout;
 import io.nosqlbench.vectordata.spec.attributes.RootGroupAttributes;
 import io.nosqlbench.vectordata.spec.datasets.types.VectorDatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.ViewKind;
+import io.nosqlbench.vectordata.utils.SHARED;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import picocli.CommandLine;
@@ -71,6 +72,10 @@ public class CMD_datasets_plan implements Callable<Integer> {
         arity = "0..1",
         defaultValue = ".")
     private Path target;
+
+    @CommandLine.Option(names = {"--emit-upstream"},
+        description = "Emit a structured YAML upstream block instead of shell commands")
+    private boolean emitUpstream = false;
 
     @CommandLine.Spec
     private CommandLine.Model.CommandSpec spec;
@@ -274,6 +279,10 @@ public class CMD_datasets_plan implements Callable<Integer> {
             displayPath(datasetRoot, facet)
         ));
         spec.commandLine().getOut().println();
+
+        if (emitUpstream) {
+            return emitUpstreamYaml(summaries, datasetRoot, layout.attributes(), missing);
+        }
 
         LinkedHashMap<String, Suggestion> suggestionByCommand = new LinkedHashMap<>();
 
@@ -696,5 +705,175 @@ public class CMD_datasets_plan implements Callable<Integer> {
             return OptionalLong.of(dataset.get().getVectorDimensions());
         }
         return OptionalLong.empty();
+    }
+
+    /// Emit a structured YAML upstream block for pasting into dataset.yaml.
+    ///
+    /// Builds defaults, shared steps, and per-facet upstream step lists from the
+    /// missing facet records and writes them as YAML to stdout.
+    ///
+    /// @param summaries profile summaries keyed by profile name
+    /// @param datasetRoot root directory of the dataset
+    /// @param attributes root group attributes from the dataset.yaml
+    /// @param missing list of missing facet records
+    /// @return exit code (0 for success)
+    private int emitUpstreamYaml(
+        Map<String, ProfileSummary> summaries,
+        Path datasetRoot,
+        RootGroupAttributes attributes,
+        List<FacetRecord> missing
+    ) {
+        var out = spec.commandLine().getOut();
+
+        // Build defaults
+        LinkedHashMap<String, Object> defaults = new LinkedHashMap<>();
+        defaults.put("seed", 42);
+        defaults.put("threads", 8);
+        if (attributes != null && attributes.distance_function() != null) {
+            defaults.put("metric", attributes.distance_function().name());
+        }
+
+        // Collect per-profile, per-facet steps
+        LinkedHashMap<String, LinkedHashMap<String, List<Map<String, Object>>>> profileFacetSteps = new LinkedHashMap<>();
+
+        for (FacetRecord facet : missing) {
+            ProfileSummary summary = summaries.get(facet.profile());
+            if (summary == null) continue;
+
+            LinkedHashMap<String, List<Map<String, Object>>> facetSteps =
+                profileFacetSteps.computeIfAbsent(facet.profile(), k -> new LinkedHashMap<>());
+
+            if (facet.kind() == ViewKind.base || facet.kind() == ViewKind.query) {
+                Map<String, Object> step = buildVectorStep(facet, summary, datasetRoot);
+                facetSteps.computeIfAbsent(facet.kind().name(), k -> new ArrayList<>()).add(step);
+            }
+        }
+
+        // KNN steps: emit when both indices and distances are missing for a profile
+        for (Map.Entry<String, ProfileSummary> entry : summaries.entrySet()) {
+            ProfileSummary summary = entry.getValue();
+            Optional<FacetRecord> indices = summary.first(ViewKind.indices);
+            Optional<FacetRecord> distances = summary.first(ViewKind.neighbors);
+            boolean indicesMissing = indices.isPresent() && !indices.get().exists();
+            boolean distancesMissing = distances.isPresent() && !distances.get().exists();
+
+            if (indicesMissing && distancesMissing) {
+                Map<String, Object> step = buildKnnStep(summary, datasetRoot, attributes);
+                LinkedHashMap<String, List<Map<String, Object>>> facetSteps =
+                    profileFacetSteps.computeIfAbsent(entry.getKey(), k -> new LinkedHashMap<>());
+                facetSteps.computeIfAbsent("indices", k -> new ArrayList<>()).add(step);
+            }
+        }
+
+        // Build the top-level upstream map
+        LinkedHashMap<String, Object> upstream = new LinkedHashMap<>();
+        upstream.put("defaults", defaults);
+
+        // Serialize the upstream block
+        LinkedHashMap<String, Object> root = new LinkedHashMap<>();
+        root.put("upstream", upstream);
+        String yamlBlock = SHARED.yamlDumper.dumpToString(root);
+
+        out.println("# Suggested upstream block for dataset.yaml");
+        out.println("# Paste this into your dataset.yaml and adjust as needed.");
+        out.println();
+        out.print(yamlBlock);
+
+        // Emit per-facet steps as commented YAML
+        if (!profileFacetSteps.isEmpty()) {
+            out.println();
+            out.println("# Per-facet upstream steps:");
+            out.println("# Add these under the corresponding facet in your profiles section.");
+
+            for (Map.Entry<String, LinkedHashMap<String, List<Map<String, Object>>>> profileEntry : profileFacetSteps.entrySet()) {
+                String profileName = profileEntry.getKey();
+                for (Map.Entry<String, List<Map<String, Object>>> facetEntry : profileEntry.getValue().entrySet()) {
+                    String facetName = facetEntry.getKey();
+                    List<Map<String, Object>> steps = facetEntry.getValue();
+
+                    out.println();
+                    out.printf("# profiles.%s.%s:%n", profileName, facetName);
+
+                    LinkedHashMap<String, Object> facetBlock = new LinkedHashMap<>();
+                    facetBlock.put("upstream", steps);
+                    String facetYaml = SHARED.yamlDumper.dumpToString(facetBlock);
+
+                    // Comment out each line
+                    for (String line : facetYaml.split("\n")) {
+                        out.printf("#   %s%n", line);
+                    }
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /// Build a vector generation step map for a missing base or query facet.
+    ///
+    /// Infers dimension, count, type, and format from the facet record and
+    /// existing files in the profile.
+    ///
+    /// @param facet the missing facet record
+    /// @param summary the profile summary containing this facet
+    /// @param datasetRoot the dataset root directory
+    /// @return an ordered map representing a single upstream step
+    private static Map<String, Object> buildVectorStep(FacetRecord facet, ProfileSummary summary, Path datasetRoot) {
+        LinkedHashMap<String, Object> step = new LinkedHashMap<>();
+        step.put("run", "generate vectors");
+
+        VectorFileExtension extension = detectExtension(facet);
+        step.put("type", extension != null ? extension.getDataType().getSimpleName() : "<vector-type>");
+        step.put("format", extension != null ? extension.getFileType().name().toLowerCase(Locale.ROOT) : "<format>");
+
+        OptionalLong dimension = findDimensionInProfile(summary);
+        step.put("dimension", dimension.isPresent() ? dimension.getAsLong() : 128);
+
+        OptionalLong count = estimateCount(facet.view() != null ? facet.view().window() : null);
+        step.put("count", count.isPresent() ? count.getAsLong() : "<count>");
+
+        step.put("seed", "${seed}");
+        step.put("output", displayPath(datasetRoot, facet));
+        return step;
+    }
+
+    /// Build a KNN computation step map for a profile with missing indices and distances.
+    ///
+    /// Infers base, query, k, and metric from the profile summary and
+    /// root group attributes.
+    ///
+    /// @param summary the profile summary
+    /// @param datasetRoot the dataset root directory
+    /// @param attributes root group attributes for metric extraction
+    /// @return an ordered map representing a single upstream KNN step
+    private static Map<String, Object> buildKnnStep(ProfileSummary summary, Path datasetRoot, RootGroupAttributes attributes) {
+        LinkedHashMap<String, Object> step = new LinkedHashMap<>();
+        step.put("run", "compute knn");
+
+        Optional<FacetRecord> base = summary.first(ViewKind.base);
+        Optional<FacetRecord> query = summary.first(ViewKind.query);
+        Optional<FacetRecord> indices = summary.first(ViewKind.indices);
+        Optional<FacetRecord> distances = summary.first(ViewKind.neighbors);
+
+        step.put("base", base.map(f -> displayPath(datasetRoot, f)).orElse("<base-file>"));
+        step.put("query", query.map(f -> displayPath(datasetRoot, f)).orElse("<query-file>"));
+
+        // Extract k from profile maxk or existing indices
+        OptionalLong kValue = OptionalLong.empty();
+        if (indices.isPresent() && indices.get().profileConfig() != null && indices.get().profileConfig().maxk() != null) {
+            kValue = OptionalLong.of(indices.get().profileConfig().maxk());
+        }
+        if (kValue.isEmpty()) {
+            kValue = findKInProfile(summary);
+        }
+        step.put("neighbors", kValue.isPresent() ? kValue.getAsLong() : 100);
+
+        step.put("metric", "${metric}");
+        step.put("threads", "${threads}");
+
+        step.put("indices", indices.map(f -> displayPath(datasetRoot, f)).orElse("<indices-file>"));
+        step.put("distances", distances.map(f -> displayPath(datasetRoot, f)).orElse("<distances-file>"));
+
+        return step;
     }
 }

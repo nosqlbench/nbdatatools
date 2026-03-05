@@ -21,6 +21,7 @@ package io.nosqlbench.vectordata.discovery;
 import io.nosqlbench.vectordata.discovery.metadata.FilesystemPredicateTestDataView;
 import io.nosqlbench.vectordata.discovery.metadata.PredicateTestDataView;
 import io.nosqlbench.vectordata.discovery.vector.FilesystemVectorTestDataView;
+import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
 import io.nosqlbench.vectordata.layoutv2.DSProfileGroup;
@@ -85,7 +86,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     private final Map<String, Object> attributes;
 
     /// Cache of profile views
-    private final Map<String, VectorTestDataView> profileCache = new LinkedHashMap<>();
+    private final Map<String, TestDataView> profileCache = new LinkedHashMap<>();
 
     /// Cache of predicate profile views
     private final Map<String, PredicateTestDataView<?>> predicateProfileCache = new LinkedHashMap<>();
@@ -164,13 +165,14 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
         return groupProfiles.keySet();
     }
 
-    /// Gets a profile by name.
+    /// Gets a profile by name, returning a combined {@link TestDataView} that includes
+    /// both vector and predicate data when available.
     ///
     /// @param profileName The name of the profile to get
     /// @return The TestDataView for the profile
     /// @throws IllegalArgumentException If the profile is not found
     @Override
-    public VectorTestDataView profile(String profileName) {
+    public TestDataView profile(String profileName) {
         // Extract effective profile name based on the documented rules
         String effectiveProfileName;
 
@@ -191,18 +193,33 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     }
 
     /// Gets a profile by name, returning an empty Optional if not found.
+    /// The returned view includes predicate data when the profile has predicate facets.
     ///
     /// @param profileName The name of the profile to get
     /// @return An Optional containing the profile, or empty if not found
-    public Optional<VectorTestDataView> getProfileOptionally(String profileName) {
+    public Optional<TestDataView> getProfileOptionally(String profileName) {
         DSProfile dsProfile = this.groupProfiles.get(profileName);
         if (dsProfile == null) {
             return Optional.empty();
         }
 
-        VectorTestDataView profile = profileCache.computeIfAbsent(
+        TestDataView profile = profileCache.computeIfAbsent(
             profileName,
-            p -> new FilesystemVectorTestDataView(this, dsProfile, profileName)
+            p -> {
+                FilesystemVectorTestDataView vectorView =
+                    new FilesystemVectorTestDataView(this, dsProfile, profileName);
+
+                // Check if profile has predicate facets and compose if so
+                boolean hasPredicate = dsProfile.keySet().stream().anyMatch(PREDICATE_KEYS::contains);
+                if (hasPredicate) {
+                    @SuppressWarnings("unchecked")
+                    PredicateTestDataView<PNode<?>> predicateView =
+                        (PredicateTestDataView<PNode<?>>) (PredicateTestDataView<?>)
+                            new FilesystemPredicateTestDataView(this, dsProfile, profileName);
+                    return new CompositeTestDataView(vectorView, predicateView);
+                }
+                return vectorView;
+            }
         );
         return Optional.of(profile);
     }
@@ -210,7 +227,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// Gets the default profile.
     ///
     /// @return The default profile
-    public VectorTestDataView getDefaultProfile() {
+    public TestDataView getDefaultProfile() {
         return this.profile(DEFAULT_PROFILE);
     }
 
@@ -299,7 +316,7 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// Gets the cache of all profiles, initializing it if empty.
     ///
     /// @return A map of profile names to profile views
-    public synchronized Map<String, VectorTestDataView> getProfileCache() {
+    public synchronized Map<String, TestDataView> getProfileCache() {
         if (profileCache.isEmpty()) {
             profileCache.putAll(getProfileNames().stream()
                 .collect(Collectors.toMap(p -> p, p -> profile(p))));
@@ -328,15 +345,15 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
 
     @Override
     public void close() throws Exception {
-        // Close all cached profile views if they need cleanup
-        for (VectorTestDataView view : profileCache.values()) {
+        // Close all cached profile views (composites handle both vector and predicate cleanup)
+        for (TestDataView view : profileCache.values()) {
             if (view instanceof AutoCloseable) {
                 ((AutoCloseable) view).close();
             }
         }
         profileCache.clear();
 
-        // Close all cached predicate profile views
+        // Close any standalone predicate profile views
         for (PredicateTestDataView<?> view : predicateProfileCache.values()) {
             if (view instanceof AutoCloseable) {
                 ((AutoCloseable) view).close();

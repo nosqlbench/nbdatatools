@@ -18,6 +18,7 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 
+import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.merklev2.MAFileChannel;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
@@ -80,7 +81,7 @@ import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicator;
 ///                                     ↓
 ///                            Specialized Vector Views
 /// ```
-public class VirtualVectorTestDataView implements VectorTestDataView {
+public class VirtualVectorTestDataView implements TestDataView {
 
   private static final Logger logger = LogManager.getLogger(VirtualVectorTestDataView.class);
 

@@ -63,7 +63,7 @@ import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicator;
 /// This class provides access to vector datasets stored in local files (fvec, ivec, etc.)
 /// using AsyncFileChannel for efficient I/O. It wires up the xvec implementations based
 /// on the profile configuration from dataset.yaml.
-public class FilesystemVectorTestDataView implements VectorTestDataView, AutoCloseable {
+public class FilesystemVectorTestDataView implements TestDataView, AutoCloseable {
     private static final Logger logger = LogManager.getLogger(FilesystemVectorTestDataView.class);
 
     private final TestDataGroup dataGroup;

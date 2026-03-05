@@ -18,6 +18,7 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
+import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSProfileGroup;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
@@ -118,7 +119,7 @@ public class CatalogDatasetProfileSelectionTest {
 
   private static final class RecordingProfileSelector implements ProfileSelector {
     private final String expectedProfile;
-    private final VectorTestDataView view;
+    private final TestDataView view;
     private int profileCallCount;
     private String cacheDir;
 
@@ -128,7 +129,7 @@ public class CatalogDatasetProfileSelectionTest {
     }
 
     @Override
-    public VectorTestDataView profile(String profileName) {
+    public TestDataView profile(String profileName) {
       if (!expectedProfile.equals(profileName)) {
         throw new IllegalArgumentException("Unexpected profile: " + profileName);
       }
@@ -151,7 +152,7 @@ public class CatalogDatasetProfileSelectionTest {
     }
   }
 
-  private static final class StubVectorTestDataView implements VectorTestDataView {
+  private static final class StubVectorTestDataView implements TestDataView {
     private final String name;
 
     private StubVectorTestDataView(String name) {

@@ -17,6 +17,8 @@ package io.nosqlbench.vectordata.spec.metadata;
  * under the License.
  */
 
+import io.nosqlbench.nbdatatools.api.types.Half;
+
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

@@ -18,7 +18,7 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
-import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
+import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -30,7 +30,7 @@ public final class PresetProfileSelector implements ProfileSelector {
 
   private final ProfileSelector delegate;
   private final String presetProfile;
-  private volatile VectorTestDataView cachedView;
+  private volatile TestDataView cachedView;
 
   /// Constructs a PresetProfileSelector wrapping the given delegate with a preset profile name.
   ///
@@ -42,7 +42,7 @@ public final class PresetProfileSelector implements ProfileSelector {
   }
 
   @Override
-  public VectorTestDataView profile(String profileName) {
+  public TestDataView profile(String profileName) {
     if (profileName == null) {
       throw new IllegalArgumentException("profileName must not be null");
     }
@@ -61,12 +61,12 @@ public final class PresetProfileSelector implements ProfileSelector {
     return this;
   }
 
-  private VectorTestDataView resolve() {
+  private TestDataView resolve() {
     return resolve(this.presetProfile);
   }
 
-  private VectorTestDataView resolve(String profileName) {
-    VectorTestDataView view = cachedView;
+  private TestDataView resolve(String profileName) {
+    TestDataView view = cachedView;
     if (view == null) {
       synchronized (this) {
         view = cachedView;
@@ -85,7 +85,7 @@ public final class PresetProfileSelector implements ProfileSelector {
   }
 
   @Override
-  public VectorTestDataView profile() {
+  public TestDataView profile() {
     return resolve();
   }
 }

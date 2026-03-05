@@ -17,6 +17,8 @@ package io.nosqlbench.vectordata.spec.metadata;
  * under the License.
  */
 
+import io.nosqlbench.nbdatatools.api.types.Half;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;

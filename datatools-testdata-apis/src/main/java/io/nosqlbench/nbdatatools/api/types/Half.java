@@ -1,4 +1,4 @@
-package io.nosqlbench.vectordata.spec.metadata;
+package io.nosqlbench.nbdatatools.api.types;
 
 /*
  * Copyright (c) nosqlbench
@@ -22,10 +22,6 @@ package io.nosqlbench.vectordata.spec.metadata;
 /// Java has no native half-precision type. This class wraps a {@code short}
 /// containing the raw binary16 bit pattern and provides conversion to/from
 /// {@code float} and {@code double} using pure-Java IEEE 754 bit manipulation.
-///
-/// On Java 20+ runtimes, the multi-release JAR overlay replaces this class
-/// with one that uses {@code Float.float16ToFloat(short)} and
-/// {@code Float.floatToFloat16(float)} for optimal performance.
 ///
 /// ## Usage
 ///
