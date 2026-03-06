@@ -22,6 +22,7 @@ import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.layoutv2.DSProfileGroup;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
@@ -222,6 +223,11 @@ public class CatalogDatasetProfileSelectionTest {
     @Override
     public Map<String, String> getTokens() {
       return Map.of();
+    }
+
+    @Override
+    public Optional<DatasetView<?>> getFacet(String name) {
+      return Optional.empty();
     }
 
     @Override

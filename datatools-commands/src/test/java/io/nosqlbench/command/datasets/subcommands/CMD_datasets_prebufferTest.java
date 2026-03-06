@@ -21,7 +21,7 @@ package io.nosqlbench.command.datasets.subcommands;
 import io.nosqlbench.jetty.testserver.JettyFileServerExtension;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.TestDataSources;
-import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
+import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.merklev2.MerkleRefFactory;
 import io.nosqlbench.vectordata.merklev2.MerkleShape;
 import io.nosqlbench.vectordata.merklev2.MerkleState;
@@ -209,7 +209,7 @@ public class CMD_datasets_prebufferTest {
     DatasetEntry dataset = catalog.findExact("testxvec_window")
         .orElseThrow(() -> new IllegalStateException("Expected testxvec_window dataset in catalog"));
     ProfileSelector selector = dataset.select().setCacheDir(testCacheDir.toString());
-    VectorTestDataView view = selector.profile("default");
+    TestDataView view = selector.profile("default");
     BaseVectors baseVectors = view.getBaseVectors()
         .orElseThrow(() -> new IllegalStateException("Base vectors view should exist"));
 

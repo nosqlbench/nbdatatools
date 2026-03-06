@@ -19,7 +19,7 @@ package io.nosqlbench.command.datasets.subcommands;
 
 import io.nosqlbench.command.common.DatasetCompletionCandidates;
 import io.nosqlbench.vectordata.config.VectorDataSettings;
-import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
+import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.downloader.Catalog;
 import io.nosqlbench.vectordata.downloader.DatasetProfileSpec;
 import io.nosqlbench.vectordata.downloader.DatasetEntry;
@@ -139,7 +139,7 @@ public class CMD_datasets_prebuffer implements Callable<Integer> {
                 .setCacheDir(cacheDir.toString());
 
             // Get the TestDataView using the standard profile() method
-            VectorTestDataView vectorTestDataView = profileSelector.profile(profileName);
+            TestDataView vectorTestDataView = profileSelector.profile(profileName);
 
             System.out.println("Prebuffering dataset: " + spec.dataset() + ":" + profileName);
             if (verbose) {

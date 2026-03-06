@@ -22,7 +22,7 @@ import java.util.Optional;
 /// Lightweight descriptor for a dataset facet, providing metadata about the
 /// facet without requiring materialization of the underlying data.
 ///
-/// This is returned by {@link io.nosqlbench.vectordata.discovery.vector.TestDataView#getFacetNames()}
+/// This is returned by {@link io.nosqlbench.vectordata.discovery.vector.TestDataView#getFacetManifest()}
 /// to allow callers to inspect available facets before deciding which ones
 /// to load via {@link io.nosqlbench.vectordata.discovery.vector.TestDataView#getFacet(String)}.
 ///

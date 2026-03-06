@@ -39,6 +39,17 @@ interface DoubleDistanceFunc {
   double distance(double[] v1, double[] v2);
 }
 
+/// Primitive distance function for half-precision (f16) arrays stored as short[].
+/// Each short contains a raw IEEE 754 binary16 bit pattern.
+@FunctionalInterface
+interface HalfDistanceFunc {
+  /// Compute distance between two half-precision vectors (binary16 bit patterns)
+  /// @param v1 first vector (binary16 shorts)
+  /// @param v2 second vector (binary16 shorts)
+  /// @return distance (primitive double)
+  double distance(short[] v1, short[] v2);
+}
+
 /// The distance function to use for computing distances between vectors
 public enum DistanceFunction {
 
@@ -85,7 +96,27 @@ public enum DistanceFunction {
     };
   }
 
-  /// compute the distance between two vectors
+  /**
+   * Get a primitive distance function for half-precision (f16) arrays.
+   * Returns a cached function reference - NO enum switching overhead per call.
+   * Use this for hot loops where distance is computed millions of times.
+   *
+   * <p>Input arrays contain raw IEEE 754 binary16 bit patterns as shorts.
+   * Elements are converted to float32 in SIMD-width batches and accumulated
+   * using the Panama Vector API.
+   *
+   * @return primitive distance function (short[], short[]) -> double
+   */
+  public HalfDistanceFunc asHalfFunction() {
+    return switch (this) {
+      case COSINE -> this::halfCosineDistance;
+      case EUCLIDEAN, L2 -> this::halfEuclideanDistance;
+      case L1 -> this::halfManhattanDistance;
+      case DOT_PRODUCT -> this::halfDotProduct;
+    };
+  }
+
+  /// Compute the distance between two double vectors.
   /// @param v1 the first vector
   /// @param v2 the second vector
   /// @return the distance between the two vectors
@@ -105,7 +136,7 @@ public enum DistanceFunction {
     }
   }
 
-  /// compute the distance between two vectors
+  /// Compute the distance between two float vectors.
   /// @param v1 the first vector
   /// @param v2 the second vector
   /// @return the distance between the two vectors
@@ -124,6 +155,187 @@ public enum DistanceFunction {
         throw new IllegalArgumentException("Unknown distance function: " + this);
     }
   }
+
+  /// Compute the distance between two half-precision (f16) vectors.
+  ///
+  /// The input arrays contain raw IEEE 754 binary16 bit patterns as shorts.
+  /// Elements are converted to float32 in SIMD-width batches and accumulated
+  /// using the Panama Vector API for the distance computation.
+  ///
+  /// @param v1 the first vector (binary16 bit patterns)
+  /// @param v2 the second vector (binary16 bit patterns)
+  /// @return the distance between the two vectors
+  public double distance(short[] v1, short[] v2) {
+    switch (this) {
+      case COSINE:
+        return halfCosineDistance(v1, v2);
+      case EUCLIDEAN:
+      case L2:
+        return halfEuclideanDistance(v1, v2);
+      case L1:
+        return halfManhattanDistance(v1, v2);
+      case DOT_PRODUCT:
+        return halfDotProduct(v1, v2);
+      default:
+        throw new IllegalArgumentException("Unknown distance function: " + this);
+    }
+  }
+
+  // ==================== Half-precision (f16) SIMD distance methods ====================
+
+  /// Convert a batch of f16 shorts to floats into a pre-allocated buffer.
+  /// Uses {@link Float#float16ToFloat(short)} (available since Java 20).
+  private static void f16ToF32Batch(short[] src, int srcOff, float[] dst, int count) {
+    for (int j = 0; j < count; j++) {
+      dst[j] = Float.float16ToFloat(src[srcOff + j]);
+    }
+  }
+
+  private double halfDotProduct(short[] vectorA, short[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    var SPECIES = LocalSpecies.floatSpecies();
+    int lanes = SPECIES.length();
+    var acc = FloatVector.zero(SPECIES);
+    float[] bufA = new float[lanes];
+    float[] bufB = new float[lanes];
+
+    int i = 0;
+    int upperBound = SPECIES.loopBound(vectorA.length);
+
+    for (; i < upperBound; i += lanes) {
+      f16ToF32Batch(vectorA, i, bufA, lanes);
+      f16ToF32Batch(vectorB, i, bufB, lanes);
+      var va = FloatVector.fromArray(SPECIES, bufA, 0);
+      var vb = FloatVector.fromArray(SPECIES, bufB, 0);
+      acc = va.fma(vb, acc);
+    }
+
+    double dot = acc.reduceLanes(VectorOperators.ADD);
+
+    for (; i < vectorA.length; i++) {
+      dot += (double) Float.float16ToFloat(vectorA[i]) * Float.float16ToFloat(vectorB[i]);
+    }
+
+    return -dot;
+  }
+
+  private double halfCosineDistance(short[] vectorA, short[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    var SPECIES = LocalSpecies.floatSpecies();
+    int lanes = SPECIES.length();
+    var accDot = FloatVector.zero(SPECIES);
+    var accNormA = FloatVector.zero(SPECIES);
+    var accNormB = FloatVector.zero(SPECIES);
+    float[] bufA = new float[lanes];
+    float[] bufB = new float[lanes];
+
+    int i = 0;
+    int upperBound = SPECIES.loopBound(vectorA.length);
+
+    for (; i < upperBound; i += lanes) {
+      f16ToF32Batch(vectorA, i, bufA, lanes);
+      f16ToF32Batch(vectorB, i, bufB, lanes);
+      var va = FloatVector.fromArray(SPECIES, bufA, 0);
+      var vb = FloatVector.fromArray(SPECIES, bufB, 0);
+      accDot = va.fma(vb, accDot);
+      accNormA = va.fma(va, accNormA);
+      accNormB = vb.fma(vb, accNormB);
+    }
+
+    double dotProduct = accDot.reduceLanes(VectorOperators.ADD);
+    double normA = accNormA.reduceLanes(VectorOperators.ADD);
+    double normB = accNormB.reduceLanes(VectorOperators.ADD);
+
+    for (; i < vectorA.length; i++) {
+      float a = Float.float16ToFloat(vectorA[i]);
+      float b = Float.float16ToFloat(vectorB[i]);
+      dotProduct += a * b;
+      normA += a * a;
+      normB += b * b;
+    }
+
+    double magnitudeA = Math.sqrt(normA);
+    double magnitudeB = Math.sqrt(normB);
+
+    if (magnitudeA == 0 || magnitudeB == 0) {
+      throw new IllegalArgumentException("One of the vectors has zero magnitude.");
+    }
+
+    return 1.0 - dotProduct / (magnitudeA * magnitudeB);
+  }
+
+  private double halfEuclideanDistance(short[] vectorA, short[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    var SPECIES = LocalSpecies.floatSpecies();
+    int lanes = SPECIES.length();
+    var acc = FloatVector.zero(SPECIES);
+    float[] bufA = new float[lanes];
+    float[] bufB = new float[lanes];
+
+    int i = 0;
+    int upperBound = SPECIES.loopBound(vectorA.length);
+
+    for (; i < upperBound; i += lanes) {
+      f16ToF32Batch(vectorA, i, bufA, lanes);
+      f16ToF32Batch(vectorB, i, bufB, lanes);
+      var va = FloatVector.fromArray(SPECIES, bufA, 0);
+      var vb = FloatVector.fromArray(SPECIES, bufB, 0);
+      var diff = va.sub(vb);
+      acc = diff.fma(diff, acc);
+    }
+
+    double sum = acc.reduceLanes(VectorOperators.ADD);
+
+    for (; i < vectorA.length; i++) {
+      double diff = Float.float16ToFloat(vectorA[i]) - Float.float16ToFloat(vectorB[i]);
+      sum += diff * diff;
+    }
+
+    return Math.sqrt(sum);
+  }
+
+  private double halfManhattanDistance(short[] vectorA, short[] vectorB) {
+    if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
+      throw new IllegalArgumentException("Vectors must be non-null and of the same dimension.");
+    }
+
+    var SPECIES = LocalSpecies.floatSpecies();
+    int lanes = SPECIES.length();
+    var acc = FloatVector.zero(SPECIES);
+    float[] bufA = new float[lanes];
+    float[] bufB = new float[lanes];
+
+    int i = 0;
+    int upperBound = SPECIES.loopBound(vectorA.length);
+
+    for (; i < upperBound; i += lanes) {
+      f16ToF32Batch(vectorA, i, bufA, lanes);
+      f16ToF32Batch(vectorB, i, bufB, lanes);
+      var va = FloatVector.fromArray(SPECIES, bufA, 0);
+      var vb = FloatVector.fromArray(SPECIES, bufB, 0);
+      var diff = va.sub(vb);
+      acc = acc.add(diff.abs());
+    }
+
+    double sum = acc.reduceLanes(VectorOperators.ADD);
+
+    for (; i < vectorA.length; i++) {
+      sum += Math.abs(Float.float16ToFloat(vectorA[i]) - Float.float16ToFloat(vectorB[i]));
+    }
+
+    return sum;
+  }
+
+  // ==================== Float distance methods ====================
 
   private double floatDotProduct(float[] vectorA, float[] vectorB) {
     if (vectorA == null || vectorB == null || vectorA.length != vectorB.length) {
