@@ -126,6 +126,26 @@ public abstract class PredicateContext {
         return new Named(layout);
     }
 
+    /// Creates a context for named predicates with typed comparand decoding.
+    ///
+    /// @return a named predicate context configured for typed comparands
+    public static PredicateContext namedTyped() {
+        Named ctx = new Named(null);
+        ctx.setTyped(true);
+        return ctx;
+    }
+
+    /// Creates a context for named predicates with typed comparand decoding
+    /// and a layout for index resolution.
+    ///
+    /// @param layout the metadata layout for resolving names to indices
+    /// @return a named predicate context configured for typed comparands
+    public static PredicateContext namedTyped(MetadataLayout layout) {
+        Named ctx = new Named(layout);
+        ctx.setTyped(true);
+        return ctx;
+    }
+
     /// Decodes a conjugate node, delegating child decoding back through
     /// {@link #decode(ByteBuffer)} for recursive dispatch.
     private ConjugateNode decodeConjugate(ByteBuffer buf) {
@@ -185,12 +205,24 @@ public abstract class PredicateContext {
 
     /// Named context: fields are identified by a UTF-8 name string.
     ///
-    /// Wire format: `[PRED:1][nameLen:2][nameBytes:N][op:1][vLen:2][v:8*n]`
+    /// Supports two wire formats:
+    /// - Legacy: {@code [PRED:1][nameLen:2][nameBytes:N][op:1][vLen:2][v:8*n]}
+    /// - Typed: {@code [PRED:1][nameLen:2][nameBytes:N][op:1][comparandCount:2][tag:1 value:...]*}
+    ///
+    /// The typed format is activated when the caller has consumed the {@code 0xFF}
+    /// version marker before invoking this context. Set via {@link #setTyped(boolean)}.
     static final class Named extends PredicateContext {
         private final MetadataLayout layout;
+        private boolean typed;
 
         Named(MetadataLayout layout) {
             this.layout = layout;
+        }
+
+        /// Sets whether this context should decode typed comparands.
+        /// @param typed true to decode typed comparands
+        void setTyped(boolean typed) {
+            this.typed = typed;
         }
 
         @Override
@@ -201,6 +233,14 @@ public abstract class PredicateContext {
             buf.get(nameBytes);
             String name = new String(nameBytes, StandardCharsets.UTF_8);
             OpType op = OpType.values()[buf.get()];
+            if (typed) {
+                int count = buf.getShort();
+                Comparand[] comparands = new Comparand[count];
+                for (int i = 0; i < count; i++) {
+                    comparands[i] = Comparand.decode(buf);
+                }
+                return new PredicateNode(-1, name, op, comparands);
+            }
             long[] values = readValues(buf);
             return new PredicateNode(-1, name, op, values);
         }

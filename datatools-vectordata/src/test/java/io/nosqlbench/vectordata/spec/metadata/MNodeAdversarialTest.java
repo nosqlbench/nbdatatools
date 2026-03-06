@@ -318,8 +318,9 @@ class MNodeAdversarialTest {
 
     @Test
     void truncatedFieldCountOnly() {
-        // Field count says 1, but no field data follows
-        ByteBuffer buf = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN);
+        // Dialect leader + field count says 1, but no field data follows
+        ByteBuffer buf = ByteBuffer.allocate(1 + 2).order(ByteOrder.LITTLE_ENDIAN);
+        buf.put(MNode.DIALECT);
         buf.putShort((short) 1);
         assertThrows(Exception.class, () -> MNode.fromBytes(buf.array()));
     }
@@ -327,7 +328,8 @@ class MNodeAdversarialTest {
     @Test
     void truncatedFieldName() {
         // nameLen says 10 but buffer has only 5 bytes of name data
-        ByteBuffer buf = ByteBuffer.allocate(2 + 2 + 5).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(1 + 2 + 2 + 5).order(ByteOrder.LITTLE_ENDIAN);
+        buf.put(MNode.DIALECT);
         buf.putShort((short) 1); // 1 field
         buf.putShort((short) 10); // nameLen = 10
         buf.put(new byte[5]); // only 5 bytes available
@@ -337,7 +339,8 @@ class MNodeAdversarialTest {
     @Test
     void truncatedValuePayload() {
         // A bytes field claiming length=1000 but buffer is too short
-        ByteBuffer buf = ByteBuffer.allocate(2 + 2 + 1 + 1 + 4 + 3).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(1 + 2 + 2 + 1 + 1 + 4 + 3).order(ByteOrder.LITTLE_ENDIAN);
+        buf.put(MNode.DIALECT);
         buf.putShort((short) 1); // 1 field
         buf.putShort((short) 1); // nameLen = 1
         buf.put((byte) 'x');    // field name
@@ -349,7 +352,8 @@ class MNodeAdversarialTest {
 
     @Test
     void invalidTypeTagThrows() {
-        ByteBuffer buf = ByteBuffer.allocate(2 + 2 + 1 + 1).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(1 + 2 + 2 + 1 + 1).order(ByteOrder.LITTLE_ENDIAN);
+        buf.put(MNode.DIALECT);
         buf.putShort((short) 1); // 1 field
         buf.putShort((short) 1); // nameLen = 1
         buf.put((byte) 'x');    // field name
@@ -359,13 +363,15 @@ class MNodeAdversarialTest {
 
     @Test
     void singleByteBufferThrows() {
+        // Dialect leader alone is not enough — needs field count
         assertThrows(Exception.class, () -> MNode.fromBytes(new byte[]{0x01}));
     }
 
     @Test
     void invalidTypedArrayElementTag() {
         // Build a valid MNode with 1 field, type=ARRAY(26), then an invalid element tag
-        ByteBuffer buf = ByteBuffer.allocate(2 + 2 + 1 + 1 + 1 + 4).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(1 + 2 + 2 + 1 + 1 + 1 + 4).order(ByteOrder.LITTLE_ENDIAN);
+        buf.put(MNode.DIALECT);
         buf.putShort((short) 1); // 1 field
         buf.putShort((short) 1); // nameLen
         buf.put((byte) 'a');    // name
@@ -380,7 +386,8 @@ class MNodeAdversarialTest {
         // Manually craft binary for a SET with duplicate string elements
         byte[] elemBytes = "dup".getBytes();
         int elemSize = 1 + 4 + elemBytes.length; // tag + len + data
-        ByteBuffer buf = ByteBuffer.allocate(2 + 2 + 1 + 1 + 4 + elemSize * 2).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(1 + 2 + 2 + 1 + 1 + 4 + elemSize * 2).order(ByteOrder.LITTLE_ENDIAN);
+        buf.put(MNode.DIALECT);
         buf.putShort((short) 1); // 1 field
         buf.putShort((short) 1); // nameLen
         buf.put((byte) 's');    // name
@@ -399,9 +406,10 @@ class MNodeAdversarialTest {
 
     @Test
     void fromBufferPayloadLengthExceedsRemaining() {
-        // encode says payload is 10000 bytes but buffer only has 10
-        ByteBuffer buf = ByteBuffer.allocate(4 + 10).order(ByteOrder.LITTLE_ENDIAN);
+        // encode says payload is 10000 bytes but buffer only has 11 (dialect + 10)
+        ByteBuffer buf = ByteBuffer.allocate(4 + 1 + 10).order(ByteOrder.LITTLE_ENDIAN);
         buf.putInt(10000); // payload length
+        buf.put(MNode.DIALECT);
         buf.put(new byte[10]);
         buf.flip();
         assertThrows(Exception.class, () -> MNode.fromBuffer(buf));

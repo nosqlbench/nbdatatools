@@ -90,18 +90,25 @@ import java.util.UUID;
 /// ## Wire format
 ///
 /// ```
-/// [field_count:2]
+/// [dialect:1 = 0x01][field_count:2]
 /// per field: [nameLen:2][nameUtf8:N][typeTag:1][valueBytes...]
 /// ```
 ///
 /// All multi-byte integers use little-endian byte order.
 ///
+/// The dialect leader byte ({@code 0x01}) identifies this as an MNode record,
+/// enabling auto-detection when mixed with PNode ({@code 0x02}) records
+/// in an ANode stream.
+///
 /// ## ByteBuffer framing
 ///
 /// When embedded in a stream via {@link #encode(ByteBuffer)} /
 /// {@link #fromBuffer(ByteBuffer)}, a 4-byte little-endian length
-/// prefix is prepended: {@code [totalLen:4][payload...]}.
+/// prefix is prepended: {@code [totalLen:4][dialect:1][payload...]}.
 public final class MNode {
+
+    /// Dialect leader byte identifying MNode records in mixed streams.
+    public static final byte DIALECT = 0x01;
 
     // --- Type tags (0-9: original, 10-28: extended) ---
     static final byte TAG_TEXT          = 0;  // string (unvalidated)
@@ -1483,13 +1490,13 @@ public final class MNode {
 
     // ==================== Binary codec ====================
 
-    /// Encode this MNode to a byte array (no length prefix).
+    /// Encode this MNode to a byte array with dialect leader (no length prefix).
     ///
     /// Wire format:
-    /// {@code [field_count:2][per-field: nameLen:2, nameUtf8:N, typeTag:1, valueBytes...]}
+    /// {@code [dialect:1][field_count:2][per-field: nameLen:2, nameUtf8:N, typeTag:1, valueBytes...]}
     /// @return the encoded bytes
     public byte[] toBytes() {
-        int size = 2; // field count
+        int size = 1 + 2; // dialect + field count
         byte[][] nameBytes = new byte[keys.length][];
         for (int i = 0; i < keys.length; i++) {
             nameBytes[i] = keys[i].getBytes(StandardCharsets.UTF_8);
@@ -1498,6 +1505,7 @@ public final class MNode {
         }
 
         ByteBuffer buf = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN);
+        buf.put(DIALECT);
         buf.putShort((short) keys.length);
         for (int i = 0; i < keys.length; i++) {
             buf.putShort((short) nameBytes[i].length);
@@ -1508,16 +1516,26 @@ public final class MNode {
         return buf.array();
     }
 
-    /// Decode an MNode from raw bytes (no length prefix)
-    /// @param bytes the encoded bytes
+    /// Decode an MNode from raw bytes with dialect leader.
+    ///
+    /// The first byte must be {@code 0x01} (the MNode dialect leader); it is
+    /// consumed before decoding the payload.
+    ///
+    /// @param bytes the encoded bytes (with dialect leader)
     /// @return the decoded MNode
+    /// @throws IllegalArgumentException if the first byte is not the dialect leader
     public static MNode fromBytes(byte[] bytes) {
-        ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        if (bytes.length == 0 || bytes[0] != DIALECT) {
+            throw new IllegalArgumentException(
+                "Expected MNode dialect leader 0x01, got 0x"
+                + (bytes.length > 0 ? Integer.toHexString(bytes[0] & 0xFF) : "empty"));
+        }
+        ByteBuffer buf = ByteBuffer.wrap(bytes, 1, bytes.length - 1).order(ByteOrder.LITTLE_ENDIAN);
         return decodePayload(buf);
     }
 
-    /// Encode this MNode into a length-prefixed ByteBuffer.
-    /// Wire format: {@code [totalLen:4][payload...]}.
+    /// Encode this MNode into a length-prefixed ByteBuffer with dialect leader.
+    /// Wire format: {@code [totalLen:4][dialect:1][payload...]}.
     /// @param out the buffer to write into
     /// @return the same buffer, for chaining
     public ByteBuffer encode(ByteBuffer out) {
@@ -1529,13 +1547,20 @@ public final class MNode {
     }
 
     /// Decode an MNode from a length-prefixed ByteBuffer.
-    /// Wire format: {@code [totalLen:4][payload...]}.
+    ///
+    /// Wire format: {@code [totalLen:4][dialect:1][payload...]}.
     /// @param buf the buffer to read from
     /// @return the decoded MNode
+    /// @throws IllegalArgumentException if the dialect leader is missing
     public static MNode fromBuffer(ByteBuffer buf) {
         buf.order(ByteOrder.LITTLE_ENDIAN);
         int length = buf.getInt();
         int startPos = buf.position();
+        byte leader = buf.get();
+        if (leader != DIALECT) {
+            throw new IllegalArgumentException(
+                "Expected MNode dialect leader 0x01, got 0x" + Integer.toHexString(leader & 0xFF));
+        }
         MNode node = decodePayload(buf);
         buf.position(startPos + length);
         return node;
@@ -1890,6 +1915,10 @@ public final class MNode {
             case TAG_MAP: {
                 int payloadLen = buf.getInt();
                 int startPos = buf.position();
+                // consume dialect leader if present
+                if (buf.remaining() > 0 && buf.get(buf.position()) == DIALECT) {
+                    buf.get();
+                }
                 MNode nested = decodePayload(buf);
                 buf.position(startPos + payloadLen);
                 return nested;
@@ -2442,5 +2471,88 @@ public final class MNode {
         }
         sb.append('}');
         return sb.toString();
+    }
+
+    // ==================== Fingerprinting ====================
+
+    /// Creates a structural fingerprint of this MNode by replacing all values
+    /// with type-appropriate defaults. Two MNodes with the same fingerprint
+    /// have identical schema (same field names and types in the same order).
+    ///
+    /// @return an MNode with the same keys and types but default zero values
+    public MNode fingerprint() {
+        Object[] defaults = new Object[values.length];
+        for (int i = 0; i < types.length; i++) {
+            defaults[i] = defaultValue(types[i]);
+        }
+        return new MNode(keys.clone(), types.clone(), defaults, null);
+    }
+
+    /// Returns whether this MNode has the same structural schema as another:
+    /// same field names and types in the same order.
+    ///
+    /// @param other the other MNode
+    /// @return true if the schemas match
+    public boolean isCongruent(MNode other) {
+        return Arrays.equals(keys, other.keys) && Arrays.equals(types, other.types);
+    }
+
+    private static Object defaultValue(byte tag) {
+        switch (tag) {
+            case TAG_TEXT:
+            case TAG_ENUM_STR:
+            case TAG_TEXT_VALIDATED:
+            case TAG_ASCII:
+                return "";
+            case TAG_INT:
+                return 0L;
+            case TAG_FLOAT:
+                return 0.0;
+            case TAG_BOOL:
+                return Boolean.FALSE;
+            case TAG_BYTES:
+                return new byte[0];
+            case TAG_NULL:
+                return null;
+            case TAG_ENUM_ORD:
+                return 0;
+            case TAG_INT32:
+                return 0;
+            case TAG_SHORT:
+                return (short) 0;
+            case TAG_DECIMAL:
+                return BigDecimal.ZERO;
+            case TAG_VARINT:
+                return BigInteger.ZERO;
+            case TAG_FLOAT32:
+                return 0.0f;
+            case TAG_HALF:
+                return 0.0f;
+            case TAG_MILLIS:
+            case TAG_NANOS:
+            case TAG_DATETIME:
+                return Instant.EPOCH;
+            case TAG_DATE:
+                return LocalDate.EPOCH;
+            case TAG_TIME:
+                return LocalTime.MIDNIGHT;
+            case TAG_UUIDV1:
+            case TAG_UUIDV7:
+                return new UUID(0L, 0L);
+            case TAG_ULID:
+                return Ulid.of(new byte[16]);
+            case TAG_LIST:
+                return Collections.emptyList();
+            case TAG_MAP:
+                return MNode.of();
+            case TAG_ARRAY:
+                return new TypedArrayVal(new long[0], TAG_INT);
+            case TAG_SET:
+                return Collections.emptySet();
+            case TAG_TYPED_MAP:
+                return Collections.emptyMap();
+            default:
+                throw new IllegalStateException("Unknown type tag: " + tag);
+        }
     }
 }
