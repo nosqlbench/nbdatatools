@@ -21,6 +21,7 @@ package io.nosqlbench.vectordata.downloader;
 import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.merklev2.MAFileChannel;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
@@ -720,5 +721,10 @@ public class VirtualVectorTestDataView implements TestDataView {
         () -> progressSources.stream().mapToDouble(ProgressIndicator::getCurrentWork).sum(),
         bytesPerUnit
     );
+  }
+
+  @Override
+  public Optional<DatasetView<?>> getFacet(String name) {
+      return Optional.empty();
   }
 }

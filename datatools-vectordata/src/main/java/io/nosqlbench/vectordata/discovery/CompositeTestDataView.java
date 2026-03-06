@@ -25,7 +25,9 @@ import io.nosqlbench.vectordata.discovery.metadata.ResultIndices;
 import io.nosqlbench.vectordata.discovery.vector.TestDataView;
 import io.nosqlbench.vectordata.discovery.vector.VectorTestDataView;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
+import io.nosqlbench.vectordata.spec.datasets.types.FacetDescriptor;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
 import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
@@ -160,6 +162,24 @@ public class CompositeTestDataView implements TestDataView, AutoCloseable {
     @Override
     public Optional<MetadataContent> getMetadataContentView() {
         return predicateView.getMetadataContentView();
+    }
+
+    // --- Facet manifest / lookup ---
+
+    @Override
+    public Map<String, FacetDescriptor> getFacetManifest() {
+        if (vectorView instanceof TestDataView) {
+            return ((TestDataView) vectorView).getFacetManifest();
+        }
+        return TestDataView.super.getFacetManifest();
+    }
+
+    @Override
+    public Optional<DatasetView<?>> getFacet(String name) {
+        if (vectorView instanceof TestDataView) {
+            return ((TestDataView) vectorView).getFacet(name);
+        }
+        return Optional.empty();
     }
 
     // --- Combined prebuffer ---

@@ -103,9 +103,12 @@ public class FProfiles {
           return;
         }
         try {
-          TestDataKind kind = TestDataKind.fromString(kindSpec); // convert to canonical
+          // Normalize to canonical name if known, otherwise preserve the original name
+          String key = TestDataKind.fromOptionalString(kindSpec)
+              .map(TestDataKind::name)
+              .orElse(kindSpec);
           FView fview = FView.fromObject(pv);
-          views.put(kind.name(), fview); // use canonical name for consistent lookup
+          views.put(key, fview);
         } catch (Exception e) {
           throw new RuntimeException("invalid profile format for FView key[" + pk + "]:" + v, e);
         }

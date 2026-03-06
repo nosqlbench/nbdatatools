@@ -29,7 +29,9 @@ import io.nosqlbench.vectordata.spec.datasets.impl.xvec.QueryVectorsXvecImpl;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.NeighborIndicesXvecImpl;
 import io.nosqlbench.vectordata.spec.datasets.impl.xvec.NeighborDistancesXvecImpl;
 import io.nosqlbench.vectordata.spec.datasets.types.BaseVectors;
+import io.nosqlbench.vectordata.spec.datasets.types.DatasetView;
 import io.nosqlbench.vectordata.spec.datasets.types.DistanceFunction;
+import io.nosqlbench.vectordata.spec.datasets.types.FacetDescriptor;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborDistances;
 import io.nosqlbench.vectordata.spec.datasets.types.NeighborIndices;
 import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
@@ -48,11 +50,12 @@ import java.net.URL;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import io.nosqlbench.nbdatatools.api.concurrent.ProgressIndicatingFuture;
@@ -413,6 +416,40 @@ public class FilesystemVectorTestDataView implements TestDataView, AutoCloseable
             () -> progressSources.stream().mapToDouble(ProgressIndicator::getCurrentWork).sum(),
             bytesPerUnit
         );
+    }
+
+    @Override
+    public Map<String, FacetDescriptor> getFacetManifest() {
+        Map<String, FacetDescriptor> manifest = new LinkedHashMap<>();
+        for (Map.Entry<String, DSView> entry : profile.entrySet()) {
+            String name = entry.getKey();
+            DSView view = entry.getValue();
+            String sourcePath = view.getSource() != null ? view.getSource().getPath() : null;
+            String sourceType = (view.getSource() != null && view.getSource().getType() != null)
+                ? view.getSource().getType().toValue() : null;
+            TestDataKind kind = TestDataKind.fromOptionalString(name).orElse(null);
+            manifest.put(name, new FacetDescriptor(name, sourcePath, sourceType, kind));
+        }
+        return Collections.unmodifiableMap(manifest);
+    }
+
+    @Override
+    public Optional<DatasetView<?>> getFacet(String name) {
+        // Delegate to typed accessors for standard facets
+        Optional<TestDataKind> kind = TestDataKind.fromOptionalString(name);
+        if (kind.isPresent()) {
+            switch (kind.get()) {
+                case base_vectors: return getBaseVectors().map(v -> (DatasetView<?>) v);
+                case query_vectors: return getQueryVectors().map(v -> (DatasetView<?>) v);
+                case neighbor_indices: return getNeighborIndices().map(v -> (DatasetView<?>) v);
+                case neighbor_distances: return getNeighborDistances().map(v -> (DatasetView<?>) v);
+                case filtered_neighbor_indices: return getFilteredNeighborIndices().map(v -> (DatasetView<?>) v);
+                case filtered_neighbor_distances: return getFilteredNeighborDistances().map(v -> (DatasetView<?>) v);
+                default: break;
+            }
+        }
+        // Custom facets not yet materialized — implementations can override for specific types
+        return Optional.empty();
     }
 
     @Override
