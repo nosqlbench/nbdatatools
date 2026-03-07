@@ -27,19 +27,14 @@ echo "NBJAR_NAME: ${JAR_NAME}"
 
 
 cd target
-if [ -e "${JAR_NAME}" ]
-then
- echo "${JAR_NAME} link exists, skipping"
- exit 0
-fi
 
 for qualifier in jar-with-dependencies
 do
   FULL_JAR_NAME="${BIN_NAME}-${NBJAR_VERSION}-${qualifier}.jar"
   if [ -e "$FULL_JAR_NAME" ]
   then
-     echo "linking $FULL_JAR_NAME to ${BIN_NAME}.jar"
-     ln -s $FULL_JAR_NAME $JAR_NAME
+     echo "linking $FULL_JAR_NAME to ${JAR_NAME}"
+     ln -sf "$FULL_JAR_NAME" "$JAR_NAME"
      echo "linked $FULL_JAR_NAME to $JAR_NAME, exiting"
      exit 0
    else
