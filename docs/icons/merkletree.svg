@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Concept 8: Merkle Tree — hash-verified data structure, nod to integrity -->
+  <defs>
+    <linearGradient id="g8" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14532D"/>
+      <stop offset="100%" stop-color="#166534"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="24" fill="url(#g8)"/>
+  <!-- Tree edges -->
+  <g stroke="#86EFAC" stroke-width="1.5" opacity="0.5">
+    <!-- Root to level 1 -->
+    <line x1="64" y1="28" x2="40" y2="50"/>
+    <line x1="64" y1="28" x2="88" y2="50"/>
+    <!-- Level 1 to level 2 -->
+    <line x1="40" y1="50" x2="28" y2="72"/>
+    <line x1="40" y1="50" x2="52" y2="72"/>
+    <line x1="88" y1="50" x2="76" y2="72"/>
+    <line x1="88" y1="50" x2="100" y2="72"/>
+    <!-- Level 2 to leaves -->
+    <line x1="28" y1="72" x2="22" y2="92"/>
+    <line x1="28" y1="72" x2="34" y2="92"/>
+    <line x1="52" y1="72" x2="46" y2="92"/>
+    <line x1="52" y1="72" x2="58" y2="92"/>
+    <line x1="76" y1="72" x2="70" y2="92"/>
+    <line x1="76" y1="72" x2="82" y2="92"/>
+    <line x1="100" y1="72" x2="94" y2="92"/>
+    <line x1="100" y1="72" x2="106" y2="92"/>
+  </g>
+  <!-- Root node (hash) -->
+  <rect x="52" y="20" width="24" height="16" rx="4" fill="#22C55E" opacity="0.9"/>
+  <text x="64" y="31" text-anchor="middle" font-family="monospace" font-size="7" fill="#052E16" font-weight="bold">#</text>
+  <!-- Level 1 nodes -->
+  <rect x="28" y="42" width="24" height="16" rx="4" fill="#4ADE80" opacity="0.8"/>
+  <text x="40" y="53" text-anchor="middle" font-family="monospace" font-size="7" fill="#052E16" font-weight="bold">#</text>
+  <rect x="76" y="42" width="24" height="16" rx="4" fill="#4ADE80" opacity="0.8"/>
+  <text x="88" y="53" text-anchor="middle" font-family="monospace" font-size="7" fill="#052E16" font-weight="bold">#</text>
+  <!-- Level 2 nodes -->
+  <g opacity="0.7">
+    <rect x="16" y="64" width="24" height="16" rx="4" fill="#86EFAC"/>
+    <text x="28" y="75" text-anchor="middle" font-family="monospace" font-size="6" fill="#052E16">#</text>
+    <rect x="40" y="64" width="24" height="16" rx="4" fill="#86EFAC"/>
+    <text x="52" y="75" text-anchor="middle" font-family="monospace" font-size="6" fill="#052E16">#</text>
+    <rect x="64" y="64" width="24" height="16" rx="4" fill="#86EFAC"/>
+    <text x="76" y="75" text-anchor="middle" font-family="monospace" font-size="6" fill="#052E16">#</text>
+    <rect x="88" y="64" width="24" height="16" rx="4" fill="#86EFAC"/>
+    <text x="100" y="75" text-anchor="middle" font-family="monospace" font-size="6" fill="#052E16">#</text>
+  </g>
+  <!-- Leaf data blocks -->
+  <g fill="#BBF7D0" opacity="0.5">
+    <rect x="18" y="88" width="8" height="10" rx="2"/>
+    <rect x="30" y="88" width="8" height="10" rx="2"/>
+    <rect x="42" y="88" width="8" height="10" rx="2"/>
+    <rect x="54" y="88" width="8" height="10" rx="2"/>
+    <rect x="66" y="88" width="8" height="10" rx="2"/>
+    <rect x="78" y="88" width="8" height="10" rx="2"/>
+    <rect x="90" y="88" width="8" height="10" rx="2"/>
+    <rect x="102" y="88" width="8" height="10" rx="2"/>
+  </g>
+  <!-- Verification checkmark accent -->
+  <g transform="translate(96, 18)" fill="none" stroke="#F0FDF4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="0,6 4,10 12,2"/>
+  </g>
+</svg>

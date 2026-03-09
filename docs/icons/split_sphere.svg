@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Concept 12: Split Sphere — high-dimensional space partitioning -->
+  <defs>
+    <linearGradient id="g12" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0C0A09"/>
+      <stop offset="100%" stop-color="#1C1917"/>
+    </linearGradient>
+    <radialGradient id="g12sphere" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="60%" stop-color="#EA580C"/>
+      <stop offset="100%" stop-color="#9A3412"/>
+    </radialGradient>
+    <radialGradient id="g12sphere2" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="60%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </radialGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="24" fill="url(#g12)"/>
+  <!-- Left hemisphere (warm — base vectors) -->
+  <clipPath id="leftHalf">
+    <rect x="0" y="0" width="63" height="128"/>
+  </clipPath>
+  <circle cx="64" cy="62" r="38" fill="url(#g12sphere)" clip-path="url(#leftHalf)"/>
+  <!-- Right hemisphere (cool — query vectors) -->
+  <clipPath id="rightHalf">
+    <rect x="65" y="0" width="63" height="128"/>
+  </clipPath>
+  <circle cx="64" cy="62" r="38" fill="url(#g12sphere2)" clip-path="url(#rightHalf)"/>
+  <!-- Split line -->
+  <line x1="64" y1="24" x2="64" y2="100" stroke="#FDE68A" stroke-width="1.5" opacity="0.6"/>
+  <!-- Latitude lines -->
+  <g fill="none" stroke="#fff" stroke-width="0.5" opacity="0.15">
+    <ellipse cx="64" cy="42" rx="34" ry="8"/>
+    <ellipse cx="64" cy="62" rx="38" ry="10"/>
+    <ellipse cx="64" cy="82" rx="34" ry="8"/>
+  </g>
+  <!-- Longitude arc -->
+  <ellipse cx="64" cy="62" rx="12" ry="38" fill="none" stroke="#fff" stroke-width="0.5" opacity="0.15"/>
+  <!-- Data points on sphere surface -->
+  <g fill="#fff" opacity="0.8">
+    <!-- Left (base) points -->
+    <circle cx="38" cy="50" r="2.5"/>
+    <circle cx="44" cy="68" r="2"/>
+    <circle cx="34" cy="62" r="2"/>
+    <circle cx="50" cy="42" r="1.8"/>
+    <circle cx="42" cy="78" r="1.8"/>
+    <!-- Right (query) points -->
+    <circle cx="88" cy="54" r="2.5"/>
+    <circle cx="82" cy="72" r="2"/>
+    <circle cx="92" cy="62" r="2"/>
+    <circle cx="78" cy="46" r="1.8"/>
+    <circle cx="84" cy="80" r="1.8"/>
+  </g>
+  <!-- Similarity bridge lines (connecting near-matches) -->
+  <g stroke="#FDE68A" stroke-width="1" opacity="0.35" stroke-dasharray="2 2">
+    <line x1="38" y1="50" x2="78" y2="46"/>
+    <line x1="44" y1="68" x2="82" y2="72"/>
+    <line x1="34" y1="62" x2="92" y2="62"/>
+  </g>
+  <!-- Label -->
+  <text x="64" y="116" text-anchor="middle" font-family="monospace" font-size="9" fill="#78716C" letter-spacing="2">B &#x2194; Q</text>
+</svg>

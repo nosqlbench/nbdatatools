@@ -78,10 +78,16 @@ public class DSProfileGroup extends LinkedHashMap<String, DSProfile> {
       profileGroup.addProfile("default", defaultProfile);
     }
 
-    // Second pass: parse all other profiles, inheriting from default
+    // Handle sized profile expansion before second pass
     final DSProfile finalDefault = defaultProfile;
+    Object sizedObj = profilesMap.get("sized");
+    if (sizedObj != null) {
+      DSSizedExpander.expand(sizedObj, finalDefault, profileGroup);
+    }
+
+    // Second pass: parse all other profiles, inheriting from default
     profilesMap.forEach((k, v) -> {
-      if ("default".equals(k)) {
+      if ("default".equals(k) || "sized".equals(k)) {
         return; // already processed
       }
       DSProfile profile = DSProfile.fromData(v);

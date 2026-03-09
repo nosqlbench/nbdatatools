@@ -19,6 +19,7 @@ package io.nosqlbench.vectordata.layoutv2;
 
 
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
+import io.nosqlbench.vectordata.utils.UnitConversions;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,6 +32,8 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
   private String name;
   /// The maximum k value for this profile
   private Integer maxk;
+  /// The base vector count for sized profiles (not inherited)
+  private Long baseCount;
 
   /// Creates an empty profile with no views.
   public DSProfile() {
@@ -102,10 +105,20 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
       }
     }
 
+    // Extract base_count if present
+    Long baseCount = null;
+    Object baseCountObj = vmap.get("base_count");
+    if (baseCountObj instanceof Number) {
+      baseCount = ((Number) baseCountObj).longValue();
+    } else if (baseCountObj instanceof String) {
+      baseCount = UnitConversions.longCountFor((String) baseCountObj)
+          .orElseThrow(() -> new RuntimeException("invalid base_count value: " + baseCountObj));
+    }
+
     vmap.forEach((k, v) -> {
       String key = k.toString();
       // Skip metadata fields
-      if ("maxk".equals(key)) {
+      if ("maxk".equals(key) || "base_count".equals(key)) {
         return;
       }
       // Normalize key to canonical TestDataKind name when possible
@@ -124,6 +137,7 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
     });
     DSProfile profile = new DSProfile(viewMap);
     profile.maxk = maxk;
+    profile.baseCount = baseCount;
     return profile;
   }
 
@@ -152,6 +166,21 @@ public class DSProfile extends LinkedHashMap<String, DSView> {
   /// @return This DSProfile for method chaining
   public DSProfile setMaxk(Integer maxk) {
     this.maxk = maxk;
+    return this;
+  }
+
+  /// Get the base vector count for this sized profile
+  /// @return The base count, or null if not specified
+  public Long getBaseCount() {
+    return this.baseCount;
+  }
+
+  /// Set the base vector count for this sized profile.
+  /// Unlike maxk, base_count is never inherited from the default profile.
+  /// @param baseCount The base vector count
+  /// @return This DSProfile for method chaining
+  public DSProfile setBaseCount(Long baseCount) {
+    this.baseCount = baseCount;
     return this;
   }
 }
