@@ -58,7 +58,7 @@ import java.util.regex.Pattern;
 /// | Linear range (step) | `100m..400m/100m` | Profiles at each step: 100m, 200m, 300m, 400m |
 /// | Linear range (count) | `0m..400m/10` | 10 equal divisions (bare number = count) |
 /// | Fibonacci | `fib:1m..400m` | Fibonacci multiples of start within range |
-/// | Geometric | `mul:1m..400m/2` | Compound by factor (doubling) |
+/// | Geometric | `mul:1m..400m/2` | Compound by factor (doubling); factor can be fractional (e.g., `1.5`) |
 ///
 /// Generated profiles are sorted smallest to largest.
 ///
@@ -67,8 +67,9 @@ import java.util.regex.Pattern;
 public class DSSizedExpander {
 
     /// Pattern for range specs: `start..end/step`
+    /// The divisor group allows decimal points for fractional geometric factors (e.g., `1.5`).
     private static final Pattern RANGE_SPEC = Pattern.compile(
-        "^(?<prefix>fib:|mul:)?(?<start>[\\d_]+[a-zA-Z]*)\\.\\.(?<end>[\\d_]+[a-zA-Z]*)(?:/(?<divisor>[\\d_]+[a-zA-Z]*))?$"
+        "^(?<prefix>fib:|mul:)?(?<start>[\\d_]+[a-zA-Z]*)\\.\\.(?<end>[\\d_]+[a-zA-Z]*)(?:/(?<divisor>[\\d_.]+[a-zA-Z]*))?$"
     );
 
     /// Private constructor — utility class
@@ -192,7 +193,7 @@ public class DSSizedExpander {
             return expandFibonacci(start, end);
         }
         if (prefix != null && prefix.equals("mul:")) {
-            long factor = divisorStr != null ? parseCount(divisorStr) : 2;
+            double factor = divisorStr != null ? Double.parseDouble(divisorStr) : 2.0;
             return expandGeometric(start, end, factor);
         }
 
@@ -289,21 +290,22 @@ public class DSSizedExpander {
 
     /// Expands geometric (multiplicative) progression within the given range.
     ///
-    /// Generates entries by repeatedly multiplying by the factor,
-    /// starting at `start` and going up to `end`.
+    /// Each successive value is `floor(prev × factor)`. The factor must be > 1.0
+    /// and can be fractional (e.g., 1.5). Generates entries starting at `start`
+    /// and going up to `end` inclusive.
     ///
     /// @param start The starting value
     /// @param end The upper bound (inclusive)
-    /// @param factor The multiplication factor
+    /// @param factor The multiplication factor (must be > 1.0)
     /// @return Expanded entries sorted ascending
-    private static List<SizedEntry> expandGeometric(long start, long end, long factor) {
+    private static List<SizedEntry> expandGeometric(long start, long end, double factor) {
         List<SizedEntry> entries = new ArrayList<>();
         long current = start;
         while (current <= end) {
             entries.add(new SizedEntry(formatCount(current), current));
-            long next = current * factor;
+            long next = (long) Math.floor(current * factor);
             if (next <= current) {
-                break; // overflow or no progress
+                break; // no progress (factor too close to 1.0 or overflow)
             }
             current = next;
         }
