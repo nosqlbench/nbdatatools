@@ -241,7 +241,22 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.13.0</version>
+        <version>3.14.0</version>
+        <executions>
+          <!-- Base Java 11 compilation for downstream compatibility -->
+          <execution>
+            <id>default-compile</id>
+            <configuration>
+              <release>11</release>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <configuration>
+              <release>25</release>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
