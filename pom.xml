@@ -17,10 +17,8 @@
   </parent>
 
   <modules>
-    <module>datatools-commands</module>
     <module>datatools-mvn-defaults</module>
     <module>datatools-testdata-apis</module>
-    <module>datatools-nbvectors</module>
     <module>datatools-io-xvec</module>
     <module>datatools-io-transport</module>
     <module>datatools-jetty-test-server</module>

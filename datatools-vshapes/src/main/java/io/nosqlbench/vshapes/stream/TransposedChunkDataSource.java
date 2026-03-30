@@ -21,12 +21,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.NoSuchElementException;
 
 /// DataSource that loads vector chunks in transposed (column-major) format.
@@ -86,10 +86,6 @@ public final class TransposedChunkDataSource implements DataSource {
     private final int dimensions;
     private final int optimalChunkSize;
     private final String id;
-
-    // MethodHandle for loadVectorsTransposed (resolved lazily)
-    private static volatile MethodHandle loadTransposedMethod;
-    private static volatile boolean methodResolved = false;
 
     private TransposedChunkDataSource(Builder builder) {
         this.filePath = builder.filePath;
@@ -268,32 +264,12 @@ public final class TransposedChunkDataSource implements DataSource {
             return new TransposedChunkDataSource(this);
         }
 
-        /// Reads [vectorCount, dimension] from a vector file.
+        /// Reads [vectorCount, dimension] from a vector file header.
+        ///
+        /// The xvec format stores each vector as a 4-byte little-endian dimension
+        /// count followed by dimension * 4 bytes of float data.
         private int[] readFileMetadata(Path path) throws IOException {
-            // Try to use the optimized loader's metadata method
-            try {
-                resolveLoadMethod();
-                if (loadTransposedMethod != null) {
-                    Class<?> loaderClass = loadTransposedMethod.type().returnType().getDeclaringClass();
-                    // Try to get metadata method from same class
-                    MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-                    Class<?> optimizedLoader = Class.forName(
-                        "io.nosqlbench.command.compute.panama.OptimizedVectorLoader");
-                    MethodHandle metadataMethod = lookup.findStatic(optimizedLoader, "getFileMetadata",
-                        MethodType.methodType(int[].class, Path.class));
-                    return (int[]) metadataMethod.invoke(path);
-                }
-            } catch (Throwable e) {
-                logger.debug("Could not use optimized metadata reader: {}", e.getMessage());
-            }
-
-            // Fallback: read header directly
-            return readHeaderDirectly(path);
-        }
-
-        /// Reads the dimension from the file header (first 4 bytes) and calculates vector count.
-        private int[] readHeaderDirectly(Path path) throws IOException {
-            try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(path.toFile(), "r")) {
+            try (RandomAccessFile raf = new RandomAccessFile(path.toFile(), "r")) {
                 long fileSize = raf.length();
 
                 // Read dimension (little-endian int at offset 0)
@@ -310,36 +286,6 @@ public final class TransposedChunkDataSource implements DataSource {
 
                 return new int[] { vectorCount, dimension };
             }
-        }
-    }
-
-    /// Resolves the MethodHandle for loadVectorsTransposed.
-    private static void resolveLoadMethod() {
-        if (methodResolved) return;
-
-        synchronized (TransposedChunkDataSource.class) {
-            if (methodResolved) return;
-
-            try {
-                Class<?> providerClass = Class.forName(
-                    "io.nosqlbench.command.analyze.VectorLoadingProvider");
-                MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-
-                MethodType methodType = MethodType.methodType(
-                    float[][].class,  // Returns float[][] (transposed)
-                    Path.class,
-                    int.class,
-                    int.class
-                );
-
-                loadTransposedMethod = lookup.findStatic(providerClass, "loadVectorsTransposed", methodType);
-                logger.debug("Resolved loadVectorsTransposed via VectorLoadingProvider");
-            } catch (Throwable e) {
-                logger.warn("Could not resolve loadVectorsTransposed: {}", e.getMessage());
-                loadTransposedMethod = null;
-            }
-
-            methodResolved = true;
         }
     }
 
@@ -371,20 +317,40 @@ public final class TransposedChunkDataSource implements DataSource {
             return transposed;
         }
 
-        /// Loads a transposed chunk from the file.
+        /// Loads vectors from the xvec file in transposed (column-major) layout.
+        ///
+        /// Reads vectors [startIndex, endIndex) from the file and returns them
+        /// as `float[dimension][vectorCount]` — each row contains all values
+        /// for one dimension across the chunk.
         private float[][] loadTransposedChunk(int startIndex, int endIndex) {
-            resolveLoadMethod();
+            int count = endIndex - startIndex;
+            long vectorStride = (1 + dimensions) * 4L;
 
-            if (loadTransposedMethod != null) {
-                try {
-                    return (float[][]) loadTransposedMethod.invoke(filePath, startIndex, endIndex);
-                } catch (Throwable e) {
-                    throw new RuntimeException("Failed to load transposed chunk: " + e.getMessage(), e);
+            float[][] transposed = new float[dimensions][count];
+
+            try (RandomAccessFile raf = new RandomAccessFile(filePath.toFile(), "r");
+                 FileChannel channel = raf.getChannel()) {
+
+                long offset = (long) startIndex * vectorStride;
+                // Buffer holds one vector: 4-byte dim header + dimensions * 4 bytes
+                ByteBuffer buf = ByteBuffer.allocate((1 + dimensions) * 4);
+                buf.order(ByteOrder.LITTLE_ENDIAN);
+
+                for (int v = 0; v < count; v++) {
+                    buf.clear();
+                    channel.read(buf, offset);
+                    buf.flip();
+                    buf.getInt(); // skip dimension header
+                    for (int d = 0; d < dimensions; d++) {
+                        transposed[d][v] = buf.getFloat();
+                    }
+                    offset += vectorStride;
                 }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to load transposed chunk from " + filePath, e);
             }
 
-            throw new IllegalStateException(
-                "No vector loading method available. Ensure VectorLoadingProvider is on the classpath.");
+            return transposed;
         }
     }
 }
