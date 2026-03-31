@@ -37,10 +37,12 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -85,6 +87,9 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// The attributes from the dataset.yaml
     private final Map<String, Object> attributes;
 
+    /// Variables loaded from variables.yaml (or the variables section of dataset.yaml)
+    private final Map<String, String> variables;
+
     /// Cache of profile views
     private final Map<String, TestDataView> profileCache = new LinkedHashMap<>();
 
@@ -124,6 +129,26 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
         // Extract attributes
         this.attributes = (Map<String, Object>) config.getOrDefault("attributes", new LinkedHashMap<>());
 
+        // Load variables: first from dataset.yaml's variables section, then overlay from variables.yaml
+        Map<String, String> vars = new LinkedHashMap<>();
+        Object inlineVars = config.get("variables");
+        if (inlineVars instanceof Map) {
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) inlineVars).entrySet()) {
+                vars.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+            }
+        }
+        Path variablesYaml = datasetDirectory.resolve("variables.yaml");
+        if (Files.exists(variablesYaml)) {
+            String varContent = Files.readString(variablesYaml);
+            Object parsed = SHARED.yamlLoader.loadFromString(varContent);
+            if (parsed instanceof Map) {
+                for (Map.Entry<?, ?> entry : ((Map<?, ?>) parsed).entrySet()) {
+                    vars.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+                }
+            }
+        }
+        this.variables = Collections.unmodifiableMap(vars);
+
         // Parse profiles - FGroup.fromObject expects the profiles map directly, not wrapped
         Map<String, Object> profilesData = (Map<String, Object>) config.get("profiles");
         if (profilesData == null || profilesData.isEmpty()) {
@@ -156,6 +181,48 @@ public class TestDataGroup implements AutoCloseable, ProfileSelector {
     /// @return The attribute value, or null if not found
     public Object getAttribute(String name) {
         return attributes.get(name);
+    }
+
+    /// Gets a variable value by name.
+    ///
+    /// Variables are loaded from the `variables` section of dataset.yaml
+    /// and overlaid from `variables.yaml` if present.
+    ///
+    /// @param name The variable name
+    /// @return The variable value, or null if not found
+    public String getVariable(String name) {
+        return variables.get(name);
+    }
+
+    /// Gets a variable value parsed as a long.
+    ///
+    /// @param name The variable name
+    /// @return The variable as a long, or empty if not found or not parseable
+    public OptionalLong getVariableAsLong(String name) {
+        String value = variables.get(name);
+        if (value == null) return OptionalLong.empty();
+        try {
+            return OptionalLong.of(Long.parseLong(value));
+        } catch (NumberFormatException e) {
+            return OptionalLong.empty();
+        }
+    }
+
+    /// Gets a variable value parsed as a boolean.
+    ///
+    /// @param name The variable name
+    /// @return The variable as a boolean, or empty if not found
+    public Optional<Boolean> getVariableAsBool(String name) {
+        String value = variables.get(name);
+        if (value == null) return Optional.empty();
+        return Optional.of(Boolean.parseBoolean(value));
+    }
+
+    /// Returns all variables as an unmodifiable map.
+    ///
+    /// @return All variable name-value pairs
+    public Map<String, String> getVariables() {
+        return variables;
     }
 
     /// Gets the set of all profile names available in this dataset.

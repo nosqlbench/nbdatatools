@@ -266,6 +266,28 @@ public class FilesystemVectorTestDataView implements TestDataView, AutoCloseable
     }
 
     @Override
+    public Optional<Boolean> isNormalized() {
+        return getBooleanAttribute("is_normalized");
+    }
+
+    @Override
+    public Optional<Boolean> isZeroVectorFree() {
+        return getBooleanAttribute("is_zero_vector_free");
+    }
+
+    @Override
+    public Optional<Boolean> isDuplicateVectorFree() {
+        return getBooleanAttribute("is_duplicate_vector_free");
+    }
+
+    private Optional<Boolean> getBooleanAttribute(String name) {
+        Object value = dataGroup.getAttribute(name);
+        if (value == null) return Optional.empty();
+        if (value instanceof Boolean) return Optional.of((Boolean) value);
+        return Optional.of(Boolean.parseBoolean(value.toString()));
+    }
+
+    @Override
     public String getLicense() {
         Object license = dataGroup.getAttribute("license");
         return license != null ? license.toString() : "UNKNOWN";

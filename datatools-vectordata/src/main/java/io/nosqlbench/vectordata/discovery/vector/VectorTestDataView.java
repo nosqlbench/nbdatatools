@@ -78,6 +78,29 @@ public interface VectorTestDataView {
   /// @return the distance function
   DistanceFunction getDistanceFunction();
 
+  /// Returns whether vectors in this dataset are L2-normalized to unit length.
+  ///
+  /// Corresponds to the `is_normalized` attribute in dataset.yaml.
+  ///
+  /// @return true if normalized, false if not, or empty if not specified
+  default Optional<Boolean> isNormalized() { return Optional.empty(); }
+
+  /// Returns whether this dataset has been verified free of zero vectors.
+  ///
+  /// Required for publishable datasets. Corresponds to the
+  /// `is_zero_vector_free` attribute in dataset.yaml.
+  ///
+  /// @return true if zero-vector-free, false if not, or empty if not specified
+  default Optional<Boolean> isZeroVectorFree() { return Optional.empty(); }
+
+  /// Returns whether this dataset has been verified free of duplicate vectors.
+  ///
+  /// Required for publishable datasets. Corresponds to the
+  /// `is_duplicate_vector_free` attribute in dataset.yaml.
+  ///
+  /// @return true if duplicate-free, false if not, or empty if not specified
+  default Optional<Boolean> isDuplicateVectorFree() { return Optional.empty(); }
+
   /// Get the license
   /// @return the license
   String getLicense();
