@@ -78,6 +78,7 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   private final int componentBytes;
   private final long recordSize;
   private final int cachedCount;
+  private final boolean halfPrecision;
 
   /// Multi-segment memory-mapped view of the file, or {@code null} if the file
   /// is accessed through the {@link #channel} (remote/MAFileChannel case).
@@ -110,9 +111,10 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   {
     this.channel = channel;
     this.mappedFile = null;
+    this.halfPrecision = isHalfPrecisionExtension(extension);
     this.type = deriveTypeFromExtension(extension);
     this.aryType = type.getComponentType();
-    this.componentBytes = componentBytesFromType(this.aryType);
+    this.componentBytes = halfPrecision ? Short.BYTES : componentBytesFromType(this.aryType);
     this.dimensions = readDimensions();
     this.recordSize = 4 + ((long) dimensions * componentBytes);
     this.window = (window == null || window.isEmpty()) ? null : window;
@@ -137,9 +139,10 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
       String extension
   )
   {
+    this.halfPrecision = isHalfPrecisionExtension(extension);
     this.type = deriveTypeFromExtension(extension);
     this.aryType = type.getComponentType();
-    this.componentBytes = componentBytesFromType(this.aryType);
+    this.componentBytes = halfPrecision ? Short.BYTES : componentBytesFromType(this.aryType);
 
     try {
       long fileSize = java.nio.file.Files.size(filePath);
@@ -158,6 +161,41 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
     }
   }
 
+  /// Converts an IEEE 754 binary16 (half-precision) value to float.
+  ///
+  /// @param bits the f16 value as a short
+  /// @return the equivalent float value
+  private static float halfToFloat(short bits) {
+    int h = bits & 0xFFFF;
+    int sign = (h >>> 15) & 1;
+    int exp = (h >>> 10) & 0x1F;
+    int mantissa = h & 0x3FF;
+
+    if (exp == 0) {
+      if (mantissa == 0) {
+        return Float.intBitsToFloat(sign << 31); // ±0
+      }
+      // Denormalized: normalize it
+      while ((mantissa & 0x400) == 0) {
+        mantissa <<= 1;
+        exp--;
+      }
+      exp++;
+      mantissa &= 0x3FF;
+    } else if (exp == 0x1F) {
+      // Inf or NaN
+      return Float.intBitsToFloat((sign << 31) | 0x7F800000 | (mantissa << 13));
+    }
+
+    int f32Exp = exp - 15 + 127;
+    return Float.intBitsToFloat((sign << 31) | (f32Exp << 23) | (mantissa << 13));
+  }
+
+  private static boolean isHalfPrecisionExtension(String extension) {
+    String lowerExt = extension.toLowerCase();
+    return lowerExt.equals("mvec") || lowerExt.equals("mvecs");
+  }
+
   private Class<?> deriveTypeFromExtension(String extension) {
     String lowerExt = extension.toLowerCase();
     switch (lowerExt) {
@@ -170,6 +208,15 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
       case "fvecs":
       case "fvec":
         return float[].class;
+      case "mvecs":
+      case "mvec":
+        return float[].class; // f16 read as f32
+      case "dvecs":
+      case "dvec":
+        return double[].class;
+      case "svecs":
+      case "svec":
+        return short[].class;
       default:
         throw new RuntimeException("Unsupported extension: " + extension);
     }
@@ -333,6 +380,27 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
     return (int) totalVectorCount;
   }
 
+  /// Translates a logical index (within the windowed view) to a physical index
+  /// (within the underlying file). For un-windowed views, returns the index unchanged.
+  /// For multi-interval windows, walks the intervals to find the physical position.
+  ///
+  /// @param logicalIndex the 0-based index within this view
+  /// @return the physical record index within the file
+  private long resolvePhysicalIndex(long logicalIndex) {
+    if (window == null) {
+      return logicalIndex;
+    }
+    long remaining = logicalIndex;
+    for (DSInterval interval : window) {
+      long intervalSize = interval.getMaxExcl() - interval.getMinIncl();
+      if (remaining < intervalSize) {
+        return interval.getMinIncl() + remaining;
+      }
+      remaining -= intervalSize;
+    }
+    throw new IndexOutOfBoundsException("Logical index " + logicalIndex + " beyond window bounds");
+  }
+
   /// Returns the total number of vectors in this dataset view, respecting the configured window.
   ///
   /// @return The total number of vectors accessible through this view
@@ -387,16 +455,18 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
       throw new IndexOutOfBoundsException("Index " + index + " out of range [0, " + cachedCount + ")");
     }
 
+    long physicalIndex = resolvePhysicalIndex(index);
+
     SegmentedMappedBuffer mmap = this.mappedFile;
     if (mmap != null) {
-      long offset = index * recordSize + 4; // skip 4-byte dim header
+      long offset = physicalIndex * recordSize + 4; // skip 4-byte dim header
       int dataBytes = dimensions * componentBytes;
       ByteBuffer slice = mmap.slice(offset, dataBytes);
       return (T) readVectorDirect(slice, dimensions);
     }
 
     try {
-      long position = index * recordSize;
+      long position = physicalIndex * recordSize;
       int recordBytes = (int) recordSize;
 
       ByteBuffer buf = recordBuffer.get();
@@ -429,7 +499,13 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
   /// @return the vector as the appropriate array type
   private Object readVectorDirect(ByteBuffer buffer, int dim) {
     int dataBytes = dim * componentBytes;
-    if (aryType == float.class) {
+    if (halfPrecision) {
+      float[] result = new float[dim];
+      for (int i = 0; i < dim; i++) {
+        result[i] = halfToFloat(buffer.getShort());
+      }
+      return result;
+    } else if (aryType == float.class) {
       float[] result = new float[dim];
       buffer.asFloatBuffer().get(result);
       buffer.position(buffer.position() + dataBytes);
@@ -489,10 +565,21 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
 
     T[] array = (T[]) java.lang.reflect.Array.newInstance(type, count);
 
+    // For windowed views with non-contiguous intervals, fall back to per-element get()
+    if (window != null && window.size() > 1) {
+      for (int i = 0; i < count; i++) {
+        array[i] = get(startInclusive + i);
+      }
+      return array;
+    }
+
+    // For contiguous ranges (no window or single-interval window), use bulk reads
+    long physicalStart = resolvePhysicalIndex(startInclusive);
+
     SegmentedMappedBuffer mmap = this.mappedFile;
     if (mmap != null) {
       for (int i = 0; i < count; i++) {
-        long recordOffset = (startInclusive + i) * recordSize;
+        long recordOffset = (physicalStart + i) * recordSize;
         ByteBuffer slice = mmap.slice(recordOffset + 4, dimensions * componentBytes);
         array[i] = (T) readVectorDirect(slice, dimensions);
       }
@@ -507,8 +594,7 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
       int processed = 0;
       while (processed < count) {
         int chunkSize = Math.min(maxVectorsPerChunk, count - processed);
-        long chunkStart = startInclusive + processed;
-        long startPosition = chunkStart * recordSize;
+        long startPosition = (physicalStart + processed) * recordSize;
         int chunkBytes = (int)(chunkSize * recordSize);
 
         ByteBuffer buffer = ByteBuffer.allocate(chunkBytes);
@@ -526,7 +612,7 @@ public class CoreXVecVectorDatasetViewMethods<T> implements VectorDatasetView<T>
           int vectorDim = buffer.getInt();
           if (vectorDim != dimensions) {
             throw new RuntimeException("Invalid dimension in vector "
-                + (chunkStart + i) + ": " + vectorDim);
+                + (physicalStart + processed + i) + ": " + vectorDim);
           }
           array[processed + i] = (T) readVectorDirect(buffer, dimensions);
         }

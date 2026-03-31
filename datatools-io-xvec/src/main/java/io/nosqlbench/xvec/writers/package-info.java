@@ -14,8 +14,8 @@
 ///   * float[] as FvecVectorWriter
 ///   * double[] as DvecVectorWriter
 ///   * short[] as SvecVectorWriter
-///   * There should also be a special HvecVectorWriter which uses IEEE 754-2008 binary 16
-/// encoding for JDK20 compatible 16-bit floating point types.
+///   * There should also be a special MvecVectorWriter which uses IEEE 754-2008 binary 16
+/// encoding for JDK20 compatible 16-bit floating point types (minivec, f16 half-precision).
 package io.nosqlbench.xvec.writers;
 
 /*

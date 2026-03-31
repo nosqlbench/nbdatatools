@@ -32,15 +32,9 @@ import java.util.regex.Pattern;
 ///
 /// ## Source Types
 ///
-/// Sources can be either file-backed (xvec) or generator-backed (virtdata):
 /// - [SourceType#XVEC] - reads from .fvec/.ivec files
-/// - [SourceType#VIRTDATA] - generates vectors from a model JSON file
-///
-/// ## Type Inference
-///
-/// When the type is not explicitly specified:
-/// - Paths ending in `.json` are inferred as [SourceType#VIRTDATA]
-/// - All other paths default to [SourceType#XVEC]
+/// - [SourceType#SLAB] - reads from .slab files
+/// - [SourceType#SQLITE] - reads from .db/.sqlite files
 ///
 /// @see SourceType
 public class DSSource {
@@ -65,7 +59,7 @@ public class DSSource {
   public String namespace;
   /// The window defining which portions of the data to include
   public DSWindow window;
-  /// The type of source (xvec or virtdata)
+  /// The type of source (xvec, slab, or sqlite)
   public SourceType type;
 
   /// Creates an empty data source with no path or window.
@@ -94,7 +88,7 @@ public class DSSource {
   /// Creates a data source with the specified path, window, and type.
   /// @param path The path to the data source
   /// @param window The window defining which portions of the data to include
-  /// @param type The source type (xvec or virtdata)
+  /// @param type The source type
   public DSSource(String path, DSWindow window, SourceType type) {
     this.path = path;
     this.window = window;
@@ -105,7 +99,7 @@ public class DSSource {
   /// @param path The path to the data source
   /// @param namespace The slab namespace, or null for default behavior
   /// @param window The window defining which portions of the data to include
-  /// @param type The source type (xvec or virtdata)
+  /// @param type The source type
   public DSSource(String path, String namespace, DSWindow window, SourceType type) {
     this.path = path;
     this.namespace = namespace;
@@ -187,15 +181,9 @@ public class DSSource {
   }
 
   /// Gets the source type.
-  /// @return The source type (xvec or virtdata)
+  /// @return The source type
   public SourceType getType() {
     return this.type;
-  }
-
-  /// Returns true if this is a virtdata (generator-backed) source.
-  /// @return true if type is VIRTDATA
-  public boolean isVirtdata() {
-    return type == SourceType.VIRTDATA;
   }
 
   /// Returns true if this is an xvec (file-backed) source.

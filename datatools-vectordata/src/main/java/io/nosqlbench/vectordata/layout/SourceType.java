@@ -22,30 +22,20 @@ package io.nosqlbench.vectordata.layout;
 /// ## Source Types
 ///
 /// - {@link #XVEC} - File-backed sources using xvec format (.fvec, .ivec files)
-/// - {@link #VIRTDATA} - Generator-backed sources using a VectorSpaceModel JSON file
 /// - {@link #SLAB} - Slabtastic format for predicate data (.slab files)
 /// - {@link #SQLITE} - SQLite database for predicate data (.db, .sqlite files)
 ///
 /// ## Type Inference
 ///
 /// When parsing source specifications, the type can be:
-/// - Explicitly set via `type: virtdata` or `type: xvec`
-/// - Inferred from the file extension: `.json` implies {@link #VIRTDATA},
+/// - Explicitly set via `type: xvec`
+/// - Inferred from the file extension:
 ///   `.slab` implies {@link #SLAB}, `.db`/`.sqlite` implies {@link #SQLITE}
 /// - Defaulted to {@link #XVEC} for all other paths
 ///
 /// ## Usage
 ///
 /// ```yaml
-/// # Explicit virtdata source
-/// base_vectors:
-///   type: virtdata
-///   source: model.json
-///   window: 0..1000000
-///
-/// # Inferred virtdata (from .json extension)
-/// base_vectors: model.json[0..1000000]
-///
 /// # Traditional xvec source (default)
 /// base_vectors: vectors.fvec
 /// ```
@@ -59,20 +49,6 @@ public enum SourceType {
     /// Sources of this type read vectors from `.fvec` or `.ivec` files
     /// using memory-mapped I/O for efficient access.
     XVEC,
-
-    /// Generator-backed virtdata source.
-    ///
-    /// Sources of this type generate vectors on-the-fly using a
-    /// {@link io.nosqlbench.vshapes.model.VectorSpaceModel} loaded from
-    /// a JSON configuration file. Vectors are computed deterministically
-    /// based on their ordinal index.
-    ///
-    /// When using virtdata sources:
-    /// - The source path points to a model JSON file
-    /// - Generator selection is implicit based on model contents
-    /// - Dimensions are derived from the model
-    /// - Cardinality requires a window specification (otherwise unbounded)
-    VIRTDATA,
 
     /// Slabtastic format source.
     ///
@@ -90,9 +66,6 @@ public enum SourceType {
 
     /// Infers the source type from a file path.
     ///
-    /// If the path ends with `.json`, returns {@link #VIRTDATA}.
-    /// Otherwise returns {@link #XVEC}.
-    ///
     /// @param path the source file path
     /// @return the inferred source type
     public static SourceType inferFromPath(String path) {
@@ -100,9 +73,7 @@ public enum SourceType {
             return XVEC;
         }
         String lower = path.toLowerCase();
-        if (lower.endsWith(".json")) {
-            return VIRTDATA;
-        } else if (lower.endsWith(".slab")) {
+        if (lower.endsWith(".slab")) {
             return SLAB;
         } else if (lower.endsWith(".db") || lower.endsWith(".sqlite")) {
             return SQLITE;
@@ -112,7 +83,7 @@ public enum SourceType {
 
     /// Parses a source type from a string value.
     ///
-    /// Accepts case-insensitive values: "xvec", "virtdata", "virtual", "generator".
+    /// Accepts case-insensitive values: "xvec", "file", "slab", "sqlite", "db".
     /// Returns null for unrecognized values.
     ///
     /// @param value the string value to parse
@@ -124,9 +95,6 @@ public enum SourceType {
         String lower = value.toLowerCase();
         if ("xvec".equals(lower) || "file".equals(lower)) {
             return XVEC;
-        } else if ("virtdata".equals(lower) || "virtual".equals(lower)
-                   || "generator".equals(lower) || "model".equals(lower)) {
-            return VIRTDATA;
         } else if ("slab".equals(lower) || "slabtastic".equals(lower)) {
             return SLAB;
         } else if ("sqlite".equals(lower) || "db".equals(lower)) {
@@ -137,7 +105,7 @@ public enum SourceType {
 
     /// Returns the canonical string representation for serialization.
     ///
-    /// @return "xvec" or "virtdata"
+    /// @return the lowercase name of this source type
     public String toValue() {
         return name().toLowerCase();
     }

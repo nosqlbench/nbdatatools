@@ -43,7 +43,7 @@ public final class FacetDescriptor {
     ///
     /// @param name         the facet name as declared in dataset.yaml
     /// @param sourcePath   the source file path, or null if not available
-    /// @param sourceType   the source type name (e.g., "xvec", "slab", "virtdata"), or null
+    /// @param sourceType   the source type name (e.g., "xvec", "slab", "sqlite"), or null
     /// @param standardKind the matching TestDataKind if this is a standard facet, or null
     public FacetDescriptor(String name, String sourcePath, String sourceType, TestDataKind standardKind) {
         this.name = name;
@@ -64,7 +64,7 @@ public final class FacetDescriptor {
         return sourcePath;
     }
 
-    /// Returns the source type name (e.g., "xvec", "slab", "virtdata"), if available.
+    /// Returns the source type name (e.g., "xvec", "slab", "sqlite"), if available.
     /// @return the source type, or null
     public String sourceType() {
         return sourceType;

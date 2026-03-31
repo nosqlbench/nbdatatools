@@ -18,8 +18,6 @@ package io.nosqlbench.vectordata.discovery.vector;
  */
 
 
-import io.nosqlbench.datatools.virtdata.VectorGenerator;
-import io.nosqlbench.datatools.virtdata.VectorGeneratorIO;
 import io.nosqlbench.vectordata.discovery.TestDataGroup;
 import io.nosqlbench.vectordata.layoutv2.DSProfile;
 import io.nosqlbench.vectordata.layoutv2.DSView;
@@ -38,9 +36,6 @@ import io.nosqlbench.vectordata.spec.datasets.types.QueryVectors;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vectordata.spec.tokens.SpecToken;
 import io.nosqlbench.vectordata.spec.tokens.Templatizer;
-import io.nosqlbench.vectordata.views.VirtdataFloatVectorsViewVector;
-import io.nosqlbench.vshapes.model.VectorSpaceModel;
-import io.nosqlbench.vshapes.model.VectorSpaceModelConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -106,37 +101,23 @@ public class FilesystemVectorTestDataView implements TestDataView, AutoCloseable
             return Optional.empty();
         }
 
-        try {
-            String filename = view.getSource().getPath();
-            Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
+        String filename = view.getSource().getPath();
+        Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
 
-            // Check for virtdata source
-            if (view.getSource().isVirtdata()) {
-                baseVectors = loadVirtdataVectors(filePath, view.getWindow());
-                logger.debug("Base vectors (virtdata) for profile '{}': model={}, count={}",
-                    profileName, filename, baseVectors.getCount());
-                return Optional.of(baseVectors);
-            }
-
-            // Standard xvec file source
-            if (!Files.exists(filePath)) {
-                logger.warn("Base vectors file not found: {}", filePath);
-                return Optional.empty();
-            }
-
-            String extension = getFileExtension(filename);
-            DSWindow window = normalizeWindow(view.getWindow());
-
-            logger.debug("Base vectors for profile '{}': file={}, window={}",
-                profileName, filename, view.getWindow());
-
-            baseVectors = new BaseVectorsXvecImpl(filePath, window, extension);
-            logger.debug("Base vectors count after windowing: {}", baseVectors.getCount());
-            return Optional.of(baseVectors);
-
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load base vectors: " + e.getMessage(), e);
+        if (!Files.exists(filePath)) {
+            logger.warn("Base vectors file not found: {}", filePath);
+            return Optional.empty();
         }
+
+        String extension = getFileExtension(filename);
+        DSWindow window = normalizeWindow(view.getWindow());
+
+        logger.debug("Base vectors for profile '{}': file={}, window={}",
+            profileName, filename, view.getWindow());
+
+        baseVectors = new BaseVectorsXvecImpl(filePath, window, extension);
+        logger.debug("Base vectors count after windowing: {}", baseVectors.getCount());
+        return Optional.of(baseVectors);
     }
 
     @Override
@@ -150,34 +131,19 @@ public class FilesystemVectorTestDataView implements TestDataView, AutoCloseable
             return Optional.empty();
         }
 
-        try {
-            String filename = view.getSource().getPath();
-            Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
+        String filename = view.getSource().getPath();
+        Path filePath = dataGroup.getDatasetDirectory().resolve(filename);
 
-            // Check for virtdata source
-            if (view.getSource().isVirtdata()) {
-                queryVectors = loadVirtdataVectors(filePath, view.getWindow());
-                logger.debug("Query vectors (virtdata) for profile '{}': model={}, count={}",
-                    profileName, filename, queryVectors.getCount());
-                return Optional.of(queryVectors);
-            }
-
-            // Standard xvec file source
-            if (!Files.exists(filePath)) {
-                logger.warn("Query vectors file not found: {}", filePath);
-                return Optional.empty();
-            }
-
-            String extension = getFileExtension(filename);
-            DSWindow window = normalizeWindow(view.getWindow());
-
-            // Use QueryVectorsXvecImpl for proper typing
-            queryVectors = new QueryVectorsXvecImpl(filePath, window, extension);
-            return Optional.of(queryVectors);
-
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load query vectors: " + e.getMessage(), e);
+        if (!Files.exists(filePath)) {
+            logger.warn("Query vectors file not found: {}", filePath);
+            return Optional.empty();
         }
+
+        String extension = getFileExtension(filename);
+        DSWindow window = normalizeWindow(view.getWindow());
+
+        queryVectors = new QueryVectorsXvecImpl(filePath, window, extension);
+        return Optional.of(queryVectors);
     }
 
     @Override
@@ -479,46 +445,6 @@ public class FilesystemVectorTestDataView implements TestDataView, AutoCloseable
             return null;
         }
         return window;
-    }
-
-    /// Loads a virtdata (generator-backed) vectors view from a model JSON file.
-    ///
-    /// The model file is loaded as a VectorSpaceModel, then an appropriate
-    /// VectorGenerator is created and wrapped in a VirtdataFloatVectorsView.
-    ///
-    /// @param modelPath The path to the model JSON file
-    /// @param window The window defining cardinality (required for bounded generation)
-    /// @return A VirtdataFloatVectorsView implementing both BaseVectors and QueryVectors
-    /// @throws IOException if the model file cannot be read
-    /// @throws IllegalArgumentException if no generator supports the model type
-    private VirtdataFloatVectorsViewVector loadVirtdataVectors(Path modelPath, DSWindow window) throws IOException {
-        if (!Files.exists(modelPath)) {
-            throw new IOException("Virtdata model file not found: " + modelPath);
-        }
-
-        // Load the VectorSpaceModel from JSON
-        VectorSpaceModel model = VectorSpaceModelConfig.loadFromFile(modelPath);
-
-        // Create and initialize a generator for the model
-        VectorGenerator<VectorSpaceModel> generator = VectorGeneratorIO.createForModel(model);
-
-        // Determine count from window
-        int count;
-        DSWindow normalized = normalizeWindow(window);
-        if (normalized == null) {
-            // Use model's unique vectors as count, capped at Integer.MAX_VALUE
-            long unique = model.uniqueVectors();
-            count = unique > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) unique;
-        } else {
-            // Use window size as count
-            long windowSize = 0;
-            for (var interval : normalized) {
-                windowSize += interval.getMaxExcl() - interval.getMinIncl();
-            }
-            count = windowSize > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) windowSize;
-        }
-
-        return new VirtdataFloatVectorsViewVector(generator, count);
     }
 
     /// Extracts the file extension from a filename.

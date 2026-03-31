@@ -46,8 +46,8 @@ import java.util.regex.Pattern;
 /// sized:
 ///   ranges: ["0m..400m/10m"]
 ///   facets:
-///     base_vectors: "profiles/base/base_vectors.hvec:${range}"
-///     query_vectors: profiles/base/query_vectors.hvec
+///     base_vectors: "profiles/base/base_vectors.mvec:${range}"
+///     query_vectors: profiles/base/query_vectors.mvec
 /// ```
 ///
 /// ## Range specification forms

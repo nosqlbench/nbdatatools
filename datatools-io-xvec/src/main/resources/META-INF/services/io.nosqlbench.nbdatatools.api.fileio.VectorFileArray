@@ -2,5 +2,5 @@ io.nosqlbench.readers.UniformIvecReader
 io.nosqlbench.readers.UniformBvecReader
 io.nosqlbench.readers.UniformFvecReader
 io.nosqlbench.readers.UniformDvecReader
-io.nosqlbench.readers.UniformHvecReader
+io.nosqlbench.readers.UniformMvecReader
 io.nosqlbench.readers.UniformSvecReader

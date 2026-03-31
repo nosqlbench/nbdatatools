@@ -17,18 +17,13 @@ package io.nosqlbench.vectordata.spec.datasets.types;
  * under the License.
  */
 
-import io.nosqlbench.vshapes.ComputeMode;
 import jdk.incubator.vector.*;
 
 /**
  * Local VectorSpecies selection helper for this module.
  *
- * <p>Uses {@link ComputeMode} to determine the optimal species based on
+ * Uses {@link ComputeMode} to determine the optimal species based on
  * CPU capabilities and selects the appropriate Panama Vector API species.
- *
- * <p>Note: This class is local to this module to avoid multi-release JAR
- * cross-module dependency issues. Each module that needs SIMD operations
- * should have its own local species helper.
  */
 final class LocalSpecies {
 

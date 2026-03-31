@@ -113,9 +113,9 @@ class DSSizedExpanderTest {
         DSProfile defaultProfile = new DSProfile();
         defaultProfile.setMaxk(100);
         defaultProfile.setName("default");
-        DSSource defaultBase = new DSSource("profiles/base/base_vectors.hvec");
+        DSSource defaultBase = new DSSource("profiles/base/base_vectors.mvec");
         defaultProfile.put("base_vectors", new DSView("base_vectors", defaultBase, DSWindow.ALL));
-        DSSource defaultQuery = new DSSource("profiles/base/query_vectors.hvec");
+        DSSource defaultQuery = new DSSource("profiles/base/query_vectors.mvec");
         defaultProfile.put("query_vectors", new DSView("query_vectors", defaultQuery, DSWindow.ALL));
 
         DSProfileGroup group = new DSProfileGroup();
@@ -124,8 +124,8 @@ class DSSizedExpanderTest {
         Map<String, Object> sizedData = Map.of(
             "ranges", List.of("10m..30m/10m"),
             "facets", Map.of(
-                "base_vectors", "profiles/base/base_vectors.hvec:${range}",
-                "query_vectors", "profiles/base/query_vectors.hvec",
+                "base_vectors", "profiles/base/base_vectors.mvec:${range}",
+                "query_vectors", "profiles/base/query_vectors.mvec",
                 "neighbor_indices", "profiles/${profile}/neighbor_indices.ivec"
             )
         );
@@ -145,7 +145,7 @@ class DSSizedExpanderTest {
         // Check base_vectors has window [0..10000000)
         DSView baseView = profile10m.get("base_vectors");
         assertNotNull(baseView);
-        assertEquals("profiles/base/base_vectors.hvec", baseView.getSource().getPath());
+        assertEquals("profiles/base/base_vectors.mvec", baseView.getSource().getPath());
         assertNotNull(baseView.getSource().getWindow());
         assertTrue(baseView.getSource().getWindow().size() > 0);
         assertEquals(0, baseView.getSource().getWindow().get(0).getMinIncl());
@@ -195,13 +195,13 @@ class DSSizedExpanderTest {
             profiles:
               default:
                 maxk: 100
-                base_vectors: profiles/base/base_vectors.hvec
-                query_vectors: profiles/base/query_vectors.hvec
+                base_vectors: profiles/base/base_vectors.mvec
+                query_vectors: profiles/base/query_vectors.mvec
               sized:
                 ranges: ["10m..30m/10m"]
                 facets:
-                  base_vectors: "profiles/base/base_vectors.hvec:${range}"
-                  query_vectors: profiles/base/query_vectors.hvec
+                  base_vectors: "profiles/base/base_vectors.mvec:${range}"
+                  query_vectors: profiles/base/query_vectors.mvec
                   neighbor_indices: "profiles/${profile}/neighbor_indices.ivec"
             """;
 
@@ -225,7 +225,7 @@ class DSSizedExpanderTest {
         assertEquals(100, profile20m.getMaxk());
 
         DSView baseView = profile20m.get("base_vectors");
-        assertEquals("profiles/base/base_vectors.hvec", baseView.getSource().getPath());
+        assertEquals("profiles/base/base_vectors.mvec", baseView.getSource().getPath());
         assertEquals(1, baseView.getSource().getWindow().size());
         assertEquals(0, baseView.getSource().getWindow().get(0).getMinIncl());
         assertEquals(20_000_000, baseView.getSource().getWindow().get(0).getMaxExcl());
@@ -271,8 +271,8 @@ class DSSizedExpanderTest {
             profiles:
               default:
                 maxk: 100
-                base_vectors: profiles/base/base_vectors.hvec
-                query_vectors: profiles/base/query_vectors.hvec
+                base_vectors: profiles/base/base_vectors.mvec
+                query_vectors: profiles/base/query_vectors.mvec
                 metadata_content: profiles/base/metadata_content.slab
                 metadata_predicates: predicates.slab
                 neighbor_indices: profiles/default/neighbor_indices.ivec
@@ -283,8 +283,8 @@ class DSSizedExpanderTest {
               sized:
                 ranges: ["0m..400m/10m"]
                 facets:
-                  base_vectors: "profiles/base/base_vectors.hvec:${range}"
-                  query_vectors: profiles/base/query_vectors.hvec
+                  base_vectors: "profiles/base/base_vectors.mvec:${range}"
+                  query_vectors: profiles/base/query_vectors.mvec
                   metadata_predicates: "predicates.slab"
                   metadata_content: "profiles/base/metadata_content.slab:${range}"
                   neighbor_indices: "profiles/${profile}/neighbor_indices.ivec"
@@ -316,7 +316,7 @@ class DSSizedExpanderTest {
         // base_vectors: windowed via ${range} → [0..10000000)
         DSView baseView = profile10m.get("base_vectors");
         assertNotNull(baseView);
-        assertEquals("profiles/base/base_vectors.hvec", baseView.getSource().getPath());
+        assertEquals("profiles/base/base_vectors.mvec", baseView.getSource().getPath());
         assertNotNull(baseView.getSource().getWindow());
         assertEquals(1, baseView.getSource().getWindow().size());
         assertEquals(0, baseView.getSource().getWindow().get(0).getMinIncl());
@@ -332,7 +332,7 @@ class DSSizedExpanderTest {
         // query_vectors: no substitution, shared across all profiles
         DSView queryView = profile10m.get("query_vectors");
         assertNotNull(queryView);
-        assertEquals("profiles/base/query_vectors.hvec", queryView.getSource().getPath());
+        assertEquals("profiles/base/query_vectors.mvec", queryView.getSource().getPath());
 
         // metadata_predicates: plain shared file, no windowing
         DSView predView = profile10m.get("metadata_predicates");
@@ -393,13 +393,13 @@ class DSSizedExpanderTest {
             profiles:
               default:
                 maxk: 100
-                base_vectors: profiles/base/base_vectors.hvec
-                query_vectors: profiles/base/query_vectors.hvec
+                base_vectors: profiles/base/base_vectors.mvec
+                query_vectors: profiles/base/query_vectors.mvec
               sized:
                 ranges: ["0m..400m/10"]
                 facets:
-                  base_vectors: "profiles/base/base_vectors.hvec:${range}"
-                  query_vectors: profiles/base/query_vectors.hvec
+                  base_vectors: "profiles/base/base_vectors.mvec:${range}"
+                  query_vectors: profiles/base/query_vectors.mvec
                   neighbor_indices: "profiles/${profile}/neighbor_indices.ivec"
                   neighbor_distances: "profiles/${profile}/neighbor_distances.fvec"
             """;
@@ -424,7 +424,7 @@ class DSSizedExpanderTest {
         // base_vectors windowed to [0..40000000)
         DSView baseView = profile40m.get("base_vectors");
         assertNotNull(baseView);
-        assertEquals("profiles/base/base_vectors.hvec", baseView.getSource().getPath());
+        assertEquals("profiles/base/base_vectors.mvec", baseView.getSource().getPath());
         assertEquals(1, baseView.getSource().getWindow().size());
         assertEquals(0, baseView.getSource().getWindow().get(0).getMinIncl());
         assertEquals(40_000_000, baseView.getSource().getWindow().get(0).getMaxExcl());
@@ -553,12 +553,12 @@ class DSSizedExpanderTest {
             profiles:
               default:
                 maxk: 100
-                base_vectors: base_vectors.hvec
-                query_vectors: query_vectors.hvec
+                base_vectors: base_vectors.mvec
+                query_vectors: query_vectors.mvec
                 neighbor_indices: neighbor_indices.ivec
               sized: [10m, 20m, 100m..300m/100m]
               custom-queries:
-                query_vectors: alt_queries.hvec
+                query_vectors: alt_queries.mvec
                 neighbor_indices: alt_indices.ivec
             """;
 
@@ -591,9 +591,9 @@ class DSSizedExpanderTest {
         assertNull(custom.getBaseCount());
         assertEquals(100, custom.getMaxk());
         // Overridden views
-        assertEquals("alt_queries.hvec", custom.get("query_vectors").getSource().getPath());
+        assertEquals("alt_queries.mvec", custom.get("query_vectors").getSource().getPath());
         assertEquals("alt_indices.ivec", custom.get("neighbor_indices").getSource().getPath());
         // Inherited view
-        assertEquals("base_vectors.hvec", custom.get("base_vectors").getSource().getPath());
+        assertEquals("base_vectors.mvec", custom.get("base_vectors").getSource().getPath());
     }
 }

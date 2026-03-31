@@ -22,13 +22,10 @@
     <module>datatools-io-xvec</module>
     <module>datatools-io-transport</module>
     <module>datatools-jetty-test-server</module>
-    <module>datatools-parquet-reader</module>
-    <module>datatools-vshapes</module>
+    <module>datatools-io-parquet</module>
     <module>datatools-vectordata</module>
-    <module>datatools-status-api</module>
-    <module>datatools-virtdata</module>
-    <module>datatools-optimizers</module>
-    <module>datatools-slabtastic</module>
+    <module>datatools-benchutils</module>
+    <module>datatools-io-slabtastic</module>
   </modules>
 
   <profiles>

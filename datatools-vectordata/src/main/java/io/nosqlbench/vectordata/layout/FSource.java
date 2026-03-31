@@ -29,15 +29,9 @@ import java.util.regex.Pattern;
 ///
 /// ## Source Types
 ///
-/// Sources can be either file-backed (xvec) or generator-backed (virtdata):
 /// - {@link SourceType#XVEC} - reads from .fvec/.ivec files
-/// - {@link SourceType#VIRTDATA} - generates vectors from a model JSON file
-///
-/// ## Type Inference
-///
-/// When the type is not explicitly specified:
-/// - Paths ending in `.json` are inferred as {@link SourceType#VIRTDATA}
-/// - All other paths default to {@link SourceType#XVEC}
+/// - {@link SourceType#SLAB} - reads from .slab files
+/// - {@link SourceType#SQLITE} - reads from .db/.sqlite files
 ///
 /// @see SourceType
 public class FSource {
@@ -45,7 +39,7 @@ public class FSource {
   private final String inpath;
   /// the window of the source of the data
   private final FWindow window;
-  /// the type of the source (xvec or virtdata)
+  /// the type of the source (xvec, slab, or sqlite)
   private final SourceType type;
 
   /// Creates a new source with the given path and window, inferring the source type.
@@ -78,15 +72,9 @@ public class FSource {
   }
 
   /// Returns the source type.
-  /// @return the source type (xvec or virtdata)
+  /// @return the source type (xvec, slab, or sqlite)
   public SourceType type() {
     return type;
-  }
-
-  /// Returns true if this is a virtdata (generator-backed) source.
-  /// @return true if type is VIRTDATA
-  public boolean isVirtdata() {
-    return type == SourceType.VIRTDATA;
   }
 
   /// Returns true if this is an xvec (file-backed) source.

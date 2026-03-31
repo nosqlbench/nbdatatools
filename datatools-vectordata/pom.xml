@@ -13,7 +13,7 @@
 
   <artifactId>datatools-vectordata</artifactId>
   <name>${project.artifactId}</name>
-  <description>semi-formal spec for vector test data APIs</description>
+  <description>Java implementation of the vectordata access module (reference: vectordata-rs)</description>
   <url>https://github.com/nosqlbench/nbdatatools</url>
 
   <properties>
@@ -43,13 +43,7 @@
 
     <dependency>
       <groupId>io.nosqlbench</groupId>
-      <artifactId>datatools-vshapes</artifactId>
-      <version>${revision}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>io.nosqlbench</groupId>
-      <artifactId>datatools-slabtastic</artifactId>
+      <artifactId>datatools-io-slabtastic</artifactId>
       <version>${revision}</version>
     </dependency>
 
@@ -57,12 +51,6 @@
       <groupId>org.xerial</groupId>
       <artifactId>sqlite-jdbc</artifactId>
       <version>3.48.0.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>io.nosqlbench</groupId>
-      <artifactId>datatools-virtdata</artifactId>
-      <version>${revision}</version>
     </dependency>
 
     <dependency>
