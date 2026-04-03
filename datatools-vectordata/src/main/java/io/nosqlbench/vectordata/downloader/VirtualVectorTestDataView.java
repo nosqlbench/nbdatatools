@@ -93,7 +93,7 @@ public class VirtualVectorTestDataView implements TestDataView {
   private final DSProfile profile;
 
   /// The directory where downloaded data is cached
-  private Path cachedir = Path.of(System.getProperty("user.home"), ".cache", "vectordata");
+  private Path cachedir;
 
   /// Cached views, initially backed by MAFileChannel, promoted to Path-based mmap
   /// after prebuffering completes.

@@ -73,8 +73,8 @@ public class DSInterval {
       return (DSInterval) objdata;
     } else if (objdata instanceof Map<?, ?>) {
       Map<?, ?> m = (Map<?, ?>) objdata;
-      Double min = (Double) m.get("minIncl");
-      Double max = (Double) m.get("maxExcl");
+      Double min = m.containsKey("minIncl") ? (Double) m.get("minIncl") : (Double) m.get("min_incl");
+      Double max = m.containsKey("maxExcl") ? (Double) m.get("maxExcl") : (Double) m.get("max_excl");
       return new DSInterval(min.longValue(), max.longValue());
     } else if (objdata instanceof String) {
       return parse((String) objdata);
@@ -171,11 +171,25 @@ public class DSInterval {
     this.maxExcl = maxExcl;
   }
 
+  /// Sets the exclusive maximum boundary of the interval (snake_case alias).
+  /// @param max_excl
+  ///     The exclusive maximum boundary
+  public void setMax_excl(long max_excl) {
+    this.maxExcl = max_excl;
+  }
+
   /// Sets the inclusive minimum boundary of the interval.
   /// @param minIncl
   ///     The inclusive minimum boundary
   public void setMinIncl(long minIncl) {
     this.minIncl = minIncl;
+  }
+
+  /// Sets the inclusive minimum boundary of the interval (snake_case alias).
+  /// @param min_incl
+  ///     The inclusive minimum boundary
+  public void setMin_incl(long min_incl) {
+    this.minIncl = min_incl;
   }
 
   /// Gets the exclusive maximum boundary of the interval.

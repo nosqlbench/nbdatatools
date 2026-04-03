@@ -299,7 +299,18 @@ public class HttpByteRangeFetcher implements ChunkedTransportClient {
     }
 
     /// Result of a size probe attempt with diagnostic information
-    private record SizeProbeResult(Long size, String diagnostic) {}
+    private static class SizeProbeResult {
+        private final Long size;
+        private final String diagnostic;
+
+        SizeProbeResult(Long size, String diagnostic) {
+            this.size = size;
+            this.diagnostic = diagnostic;
+        }
+
+        Long size() { return size; }
+        String diagnostic() { return diagnostic; }
+    }
 
     @Override
     public boolean supportsRangeRequests() {

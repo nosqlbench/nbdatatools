@@ -125,8 +125,8 @@ public class FInterval {
       return fi;
     } else if (o instanceof Map<?, ?>) {
       Map<?, ?> map = (Map<?, ?>) o;
-      Object min = map.get("minIncl");
-      Object max = map.get("maxExcl");
+      Object min = map.containsKey("minIncl") ? map.get("minIncl") : map.get("min_incl");
+      Object max = map.containsKey("maxExcl") ? map.get("maxExcl") : map.get("max_excl");
       if (min instanceof Number && max instanceof Number) {
         Number minn = (Number) min;
         Number maxn = (Number) max;

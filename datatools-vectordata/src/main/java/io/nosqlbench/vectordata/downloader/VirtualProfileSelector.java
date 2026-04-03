@@ -18,6 +18,7 @@ package io.nosqlbench.vectordata.downloader;
  */
 
 
+import io.nosqlbench.vectordata.config.VectorDataSettings;
 import io.nosqlbench.vectordata.discovery.CompositeTestDataView;
 import io.nosqlbench.vectordata.discovery.ProfileSelector;
 import io.nosqlbench.vectordata.discovery.metadata.PredicateTestDataView;
@@ -27,6 +28,8 @@ import io.nosqlbench.vectordata.layoutv2.DSProfile;
 import io.nosqlbench.vectordata.layoutv2.DSView;
 import io.nosqlbench.vectordata.spec.datasets.types.TestDataKind;
 import io.nosqlbench.vectordata.spec.predicates.PNode;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -42,8 +45,9 @@ import java.util.Set;
 /// This class provides methods for selecting and configuring profiles from a dataset entry.
 /// It handles downloading and caching of datasets as needed.
 public class VirtualProfileSelector implements ProfileSelector {
+  private static final Logger logger = LogManager.getLogger(VirtualProfileSelector.class);
   private final DatasetEntry datasetEntry;
-private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vectordata");
+  private Path cacheDir = resolveDefaultCacheDir();
 
 
   /// Creates a new VirtualProfileSelector for the given dataset entry.
@@ -126,6 +130,21 @@ private Path cacheDir = Path.of(System.getProperty("user.home"), ".cache", "vect
   public ProfileSelector setCacheDir(String cacheDir) {
     this.cacheDir = Path.of(cacheDir.replace("~", System.getProperty("user.home")));
     return this;
+  }
+
+  /// Resolves the default cache directory from VectorDataSettings (~/.config/vectordata/settings.yaml).
+  /// Falls back to ~/.cache/vectordata if settings are not configured.
+  private static Path resolveDefaultCacheDir() {
+    try {
+      if (VectorDataSettings.isConfigured()) {
+        VectorDataSettings settings = VectorDataSettings.load();
+        logger.debug("Using cache directory from settings: {}", settings.getCacheDirectory());
+        return settings.getCacheDirectory();
+      }
+    } catch (Exception e) {
+      logger.warn("Failed to load vectordata settings, falling back to default cache directory: {}", e.getMessage());
+    }
+    return Path.of(System.getProperty("user.home"), ".cache", "vectordata");
   }
 
   private static final Set<String> PREDICATE_KEYS = Set.of(
